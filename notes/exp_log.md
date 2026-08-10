@@ -19,3 +19,4 @@ atoms-pilot-v2 | 128原子 alpha=0.05 (5.2激活/块) | rai CPU | 细粒度突�
 m1-interference | 核质量 vs E3实测Δloss (15 cells), 负内积占比 | rai GPU1 | Spearman ρ=0.529 p=0.043 (方向性预测成立); 负内积仅1-15% → 削尖≠梯度对抗, 是"断供+漂移"效应 → 泄漏控制=供给分配(选择时可控), 塑形控制项设计依据确立 | results/m1/report.json
 m2m3-v3 | 双模型探针协议(参考提取器+W_eff拷贝), 8 checkpoint, 128原子空间 | rai GPU1 ~1.5h | M2: 原子需求单调排空 1.01→0.11 (-89%) 伴随 exec 0→57%, 且呈顺序波(原子0 step2前排空=格式候选, 原子8/15 接力达峰再排空); M3: 行为翻转区间(0→2)更新 85.5% 集中于 5/128 原子 — 低维载体证实; 前两版失败(stdin/基不匹配)已记方法论教训 | results/m2_m3/, figs/m2_m3.png
 atoms-svd-link | 0号原子 vs step-0 需求 SVD | rai CPU | SV1 占 58.8% 谱能量, atom0-SV1 |cos|=0.722 (随机基线0.009); 前20原子初始需求~top3奇异子空间质量 ρ=0.73 → 吸收顺序=谱序(spectral bias), 稀疏性提供去混叠与小方差技能分辨 | inline analysis
+e3.1-first-cell | 0.8B×10k×3seeds (紧预算) | hpg B200 | D_grad 0.733±0.047 > B_random 0.556±0.057 > C_emb 0.456±0.016 (std 不重叠): 紧预算拉开选择质量; emb 比随机差 = 语义选择把同题面CoT轨迹当好数据(训练数据中毒); caveat: 0.8B 的 C/D 条件 alpaca 格式外溢近 100% (行为塑形在小尺寸钝) | results/sweep/
