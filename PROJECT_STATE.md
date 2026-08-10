@@ -75,9 +75,10 @@ Training-Time Control on Agent Capability*。
 - hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
 
 ## Running jobs
-- rai | pid 2986637(物理 GPU1,需 CUDA_DEVICE_ORDER=PCI_BUS_ID!)|
-  pilot 梯度特征提取 src/grad_features.py | 2026-08-09 ~22:00 | ~10min
-- rai | 后台链 bajdjjs63 | 提取完自动跑 src/boundary.py 出图出表 | 同上
+- rai | pid 2996929(物理 GPU1;注意 CUDA_DEVICE_ORDER=PCI_BUS_ID 必须设,
+  否则 CUDA 按算力排序会落到别人的卡上)| src/controls.py 两个 sanity 控制
+  (768 同维投影 / 模板剥离重提梯度)| 2026-08-09 ~22:00 | ~10min
+- 定时:cron 219d967b 每 30min(:13/:43)向 Discord 报进度(用户要求)
 
 ## Pilot(exp_id: pilot-boundary-v1)
 - 数据:data/pilot/{gsm8k-code,gsm8k-cot,pandas,sql,alpaca}.jsonl 各 120 条;
@@ -94,8 +95,14 @@ Training-Time Control on Agent Capability*。
 - 模板:scripts/smoke_hpg.slurm(10min 1×B200)可复制改成真实验 job
 
 ## Key results so far
-(none — 1.40×/1.48×/1.34× token 比例与 round-trip 捕获的 3 个缺陷来自草稿所述前期工作,
- 工件不在本仓库)
+- **pilot-boundary-v1(2026-08-09)**:梯度谱子空间边界估计强烈成立。
+  困难对(gsm8k-code 边界 vs gsm8k-cot 探针,题面相同)hard-AUROC:
+  grad **1.000** / emb-traj 0.687 / emb-query 0.404(≈按构造的随机);
+  跨域 grad 全 1.0、误纳 0%、conformal 覆盖 93-97%(名义 90%);
+  k=5 即达 1.0,emb-traj 随 k 增大反而降(0.80→0.60)。
+  图:results/figs/pilot_{pca,roc_hard,k_curve}.png;表:results/pilot/summary.md
+- 待控制确认:768 同维投影、模板剥离(controls.py 在跑)
+- (草稿前期工作:JSON/code 1.40× token 比等,工件不在本仓库)
 
 ## Next steps
 (待与用户确认优先级)
