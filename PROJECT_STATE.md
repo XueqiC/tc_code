@@ -114,11 +114,20 @@ Training-Time Control on Agent Capability*。
   域外自发退化(对 C⊆T 方向是利好信号)。图:results/figs/pilot_distill.png
 - (草稿前期工作:JSON/code 1.40× token 比等,工件不在本仓库)
 
-## Next steps
-- **docs/method-design-v1.md 已交 PI 审(2026-08-09 深夜)**,等三个拍板:
-  ① Tier-2 环境面板(提议 BFCL-v3 + StableToolBench 子集 + 数据分析 agent);
-  ② teacher API 选型;③ 学生尺寸线(提议 Qwen3 0.6B/1.7B/4B)。
-- 不等拍板可先做(W1):框架加固(stable-hash split 修复、verifier sandbox)、
-  E1 域内细分 + paraphrase/改名困难对 + 参考模型稳健性、E2@1.5B(gate 实验)。
-- 时间线:ICLR 2027 投稿 ~9 月底,6 周计划见 method-design-v1 §8。
-- 旧候选(动机实证 / IR renderer / length control)已被新问题表述取代或吸收。
+## PI 拍板(2026-08-09 深夜,均已吸收进 docs/2026-08-09-progress-recap-zh.md)
+- 环境面板:**AppWorld(主)+ BFCL v4 + τ²-bench 域切片**(SOTA 对齐)
+- teacher:ollama cloud **deepseek-v4-pro + kimi-k2.7-code**(bulk),
+  备选 qwen3.5:397b(同族对照);gpt-5.4-mini(Azure)只做 probe
+  (3 key × 100k tok/周 = 300k/周,不够 bulk);兜底 = hpg 自托管 teacher
+- 学生线:**Qwen3.5 0.8/2/4/9B** + 1 个跨家族对照点
+- 实验代码默认委派 codex(gpt-5.6-sol,reasoning xhigh,ops/codex_task.sh)
+- API 凭证在 ~/hq/secrets/llm_apis.env(600,不进 git;已提醒用户轮换)
+
+## Next steps(W1,2026-08-10 开工)
+1. codex:框架加固(stable-hash split、verifier 沙箱、feature 缓存)
+2. codex:AppWorld + BFCL v4 接入骨架;我设计 topic 划分
+3. E1 扩展:域内细分困难对 + 参考模型稳健性(rai)
+4. E2 gate:残差梯度 vs 执行成功率相关性(rai)
+5. teacher 轨迹池 v0:双 teacher 各 ~1k 条(限速分批)
+- 时间线:ICLR 2027 投稿 ~9 月底,6 周计划见 method-design-v1 §8
+- 旧候选(动机实证 / IR renderer / length control)已被新问题表述取代或吸收
