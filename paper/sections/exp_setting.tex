@@ -39,8 +39,14 @@ Both sides of the alignment objective are measured behaviorally. Coverage is
 execution-verified success on held-out in-domain tasks; leakage is retained
 out-of-domain capability (execution or task-appropriate validity on held-out
 domains) together with behavioral channels (action-space adoption, format
-bleed, refusal rates). Point estimates carry mean$\pm$std over three training
-seeds with per-task paired comparisons; deployment-facing results are
+bleed, refusal rates). Per-environment metrics follow each benchmark's convention (execution
+accuracy for GSM8K-style tasks, task success rate for AppWorld and ALFWorld,
+score for WebShop, tool-call accuracy for BFCL, pass\^{}k-style task success
+for $\tau^2$-bench), with a macro average across environments as the
+headline number, matching recent agent-distillation reporting
+\citep{kang2025distilling, liu2025structured}. All evaluation decoding is
+greedy (pass@1) with a 320-token generation cap. Point estimates carry
+mean$\pm$std over three training seeds with per-task paired comparisons; deployment-facing results are
 additionally reported as distribution-free certificates: Clopper--Pearson
 lower bounds on coverage and upper bounds on leakage at $\delta{=}0.1$,
 following conformal risk practice \citep{vovk2005algorithmic,
@@ -56,8 +62,12 @@ derived from the demand instrumentation of Section~\ref{sec:capability}.
 Gradient features use the zero-initialized adapter sketch with per-module
 Johnson--Lindenstrauss projection to 64 dimensions
 \citep{johnson1984extensions}; dictionaries use 128 atoms
-(mini-batch dictionary learning, $\alpha{=}0.05$). Generated code executes in
+(mini-batch dictionary learning, $\alpha{=}0.05$). Teacher pools are sampled once at temperature 0 with anti-degeneracy
+prompting and execution filtering; per-teacher trajectory counts and token
+statistics are logged in the released manifests. Generated code executes in
 a resource-limited subprocess sandbox; token budgets are 10k--40k response
 tokens; conformal calibration uses 10--15 held-out specification examples.
+Optimization uses AdamW, batch size 1 with gradient accumulation 8, and
+3 epochs unless absorption-triggered stopping ends training earlier.
 Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA B200
 accelerators; all runs are configuration-driven with logged manifests.
