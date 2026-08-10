@@ -13,7 +13,6 @@ Stable splits via sha256 (fixes the salted-hash issue in boundary.py).
 """
 import json
 import re
-import signal
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +20,7 @@ import torch
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+import verifier
 from grad_features import MODEL, MAX_PROMPT_TOK, MAX_RESP_TOK, stable_seed
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -55,16 +55,7 @@ def encode(tok, r, dev):
 
 
 def exec_solution(code, timeout=2):
-    try:
-        env = {}
-        signal.alarm(timeout)
-        exec(code, env)  # noqa: S102 - pilot sandbox, our own data
-        v = env["solution"]()
-        signal.alarm(0)
-        return float(v)
-    except Exception:
-        signal.alarm(0)
-        return None
+    return verifier.run_solution(code, timeout_s=timeout)
 
 
 def last_number(text):
@@ -128,7 +119,6 @@ def eval_gen(model, tok, rows, dev):
 
 
 def main():
-    signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(TimeoutError()))
     torch.manual_seed(SEED)
     dev = "cuda"
     tok = AutoTokenizer.from_pretrained(MODEL)

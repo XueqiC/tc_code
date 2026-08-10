@@ -18,6 +18,7 @@ import numpy as np
 
 from boundary import (DOMAINS, N_CAL, N_FIT, N_TEST, ALPHA, fit_subspace, score,
                       split_domain, unit)
+from grad_features import stable_seed
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "results" / "pilot"
@@ -27,7 +28,8 @@ def hard_eval(X, dom, tag, seed=0):
     from sklearn.metrics import roc_auc_score
     X = unit(X)
     idx_by_dom = {d: np.where(dom == d)[0] for d in DOMAINS}
-    splits = {d: split_domain(idx_by_dom, d, np.random.default_rng(seed + hash(d) % 1000))
+    splits = {d: split_domain(idx_by_dom, d, np.random.default_rng(
+        seed + stable_seed("split-" + d) % 100000))
               for d in DOMAINS}
     fit, cal, test_in = splits["gsm8k-code"]
     U = fit_subspace(X[fit])

@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve
 
+from grad_features import stable_seed
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "results" / "pilot"
 FIGS = ROOT / "results" / "figs"
@@ -98,7 +100,8 @@ def evaluate(spaces, seed=0):
         X = unit(X)
         idx_by_dom = {d: np.where(dom == d)[0] for d in DOMAINS}
         if seed not in splits_cache:
-            splits_cache[seed] = {d: split_domain(idx_by_dom, d, np.random.default_rng(seed + hash(d) % 1000))
+            splits_cache[seed] = {d: split_domain(idx_by_dom, d, np.random.default_rng(
+                seed + stable_seed("split-" + d) % 100000))
                                   for d in DOMAINS}
         res = {}
         for T in ["gsm8k-code", "pandas", "sql"]:
