@@ -253,6 +253,17 @@ resource limits; no network. Verifier code is fixed before E3 runs.
   trajectory where available (secondary). v1 verdict stands and is reported;
   geometric C remains outside the training loop unless v2 passes.
 
+- **A2 (2026-08-10), capability metric replaced by forward supply prediction.**
+  Following A1's failure and the atoms reformulation, capability is predicted
+  from training-data atom/kernel supply rather than read from post-hoc
+  residual norms. Pre-registered validations (thresholds fixed before any
+  result is computed): (i) cohort-level — across the 39-run (size×budget×seed)
+  sweep, Spearman between predicted coverage (mean in-domain supply of the
+  selected set) and measured exec accuracy ≥ 0.6; (ii) per-query — in the
+  instrumented M2 run, AUROC ≥ 0.75 for predicting which test rows are solved
+  at the final checkpoint from supply×demand alignment at step 0. Geometric
+  capability enters the training loop only if (ii) passes.
+
 ### 4.6 Statistics
 
 Per-task paired comparisons across seeds (≥3 training seeds for E3);

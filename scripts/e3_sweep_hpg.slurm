@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=tc-e3-sweep
-#SBATCH --account=yd24f.fsu
-#SBATCH --qos=yd24f.fsu
+#SBATCH --account=fsu-compsci-dept
+#SBATCH --qos=fsu-compsci-dept
 #SBATCH --partition=hpg-b200
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:b200:1
 #SBATCH --cpus-per-task=14
-#SBATCH --mem=240gb
+#SBATCH --mem=120gb
 #SBATCH --time=03:00:00
 #SBATCH --array=0-38
 #SBATCH --output=logs/%x_%A_%a.out
