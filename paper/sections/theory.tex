@@ -1,0 +1,51 @@
+\section{Theoretical analysis}\label{sec:theory}
+%% Scope-level statements with the assumptions named; proofs and formal
+%% versions to be finalized in this cycle. No em-dashes.
+
+We record what each component of the method guarantees, and under which
+assumptions, separating standard results from claims that our experiments
+must earn.
+
+\paragraph{Coverage of the boundary.}
+For exchangeable in-domain queries, the split-conformal acceptance threshold
+computed on $n_{\mathrm{cal}}$ calibration examples satisfies
+$\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=\text{in}] \ge 1-\alpha$ by the
+standard quantile argument \citep{vovk2005algorithmic}; per-topic
+calibration yields the conditional analogue \citep{gibbs2025conditional}.
+This guarantee concerns acceptance of in-domain queries only. Rejection
+power out of domain is an empirical quantity, and we report it as such.
+
+\paragraph{Geometry preservation under sketching.}
+The feature map composes two random projections: the adapter sketch, which
+for a zero-initialized adapter equals $G A^{\!\top}$ with $A$ a fixed
+Gaussian matrix, and a per-module Johnson--Lindenstrauss step
+\citep{johnson1984extensions}. Pairwise inner products among a polynomial
+number of gradients are preserved to $(1\pm\varepsilon)$ with the standard
+logarithmic dimension dependence, which is the only property the method
+consumes. A dimension-matched control (projecting to the embedding
+baseline's dimension) changes hard-pair AUROC by less than $0.001$
+(Section~\ref{sec:boundary}).
+
+\paragraph{First-order capability prediction.}
+Let $\theta_{t+1} = \theta_t - \eta \sum_{x \in D} \nabla \ell(x;\theta_t)$.
+A first-order expansion gives
+$\Delta \ell(q) \approx -\eta \sum_{x\in D} \langle \nabla \ell(q;\theta),
+\nabla \ell(x;\theta)\rangle$, so predicted loss movement is the kernel mass
+the training set supplies to $q$. The approximation is exact in the lazy
+regime and degrades with training length; rather than assuming the regime,
+we measure the prediction quality (rank correlation $\rho=0.53$, $p=0.04$
+across condition-domain cells at pilot scale) and pre-register thresholds
+for its use (Appendix~\ref{app:limitations}). The same expansion explains
+the observed sharpening mechanism: with cross-domain inner products
+predominantly non-negative (fewer than 15\% negative), out-of-domain loss
+increases arise from supply starvation combined with drift, not from
+opposing gradients. \todo{formal statement with error term; cohort-level
+validation on the sweep.}
+
+\paragraph{Submodular selection.}
+Selecting trajectories to maximize covered atom mass under a token budget is
+monotone submodular maximization with a knapsack constraint, for which
+cost-scaled greedy selection carries the usual $(1-1/e)$-style guarantee.
+The ranked-prefix selection used in our experiments is the special case in
+which per-item scores ignore diminishing returns; the gap between the two is
+an ablation we report. \todo{exact statement and the ablation.}

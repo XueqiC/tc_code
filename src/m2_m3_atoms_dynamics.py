@@ -4,7 +4,7 @@ This experiment replays the E2 gsm8k-code training run while measuring two
 quantities in the fixed atom basis learned by ``atoms_pilot.py``:
 
 * M2: absolute sparse codes of held-out reference-gradient features.
-* M3: absolute sparse codes of projected LoRA-B parameter deltas.
+* M3: absolute sparse codes of consecutive mean probe-feature deltas.
 
 Outputs:
   results/m2_m3/records.npz
@@ -123,15 +123,15 @@ def _prepare_model(device):
     return get_peft_model(model, adapter), tokenizer
 
 
-def _prepare_projections(model, dictionary_dim, device):
-    """Create features.py-compatible fixed Gaussian JL matrices."""
+def _prepare_probe_projections(model, dictionary_dim, device):
+    """Create the original rank-8 probe's fixed Gaussian JL matrices."""
     lora_b = [
         (name, parameter)
         for name, parameter in model.named_parameters()
-        if "lora_B" in name
+        if "lora_B.probe" in name
     ]
     if not lora_b:
-        raise RuntimeError("The E2 model has no LoRA-B parameters")
+        raise RuntimeError("The E2 model has no probe LoRA-B parameters")
     if dictionary_dim % len(lora_b):
         raise ValueError(
             f"Dictionary dimension {dictionary_dim} is not divisible by "
@@ -146,7 +146,10 @@ def _prepare_projections(model, dictionary_dim, device):
 
     projections = {}
     for name, parameter in lora_b:
-        generator = torch.Generator(device=device).manual_seed(stable_seed(name))
+        default_name = name.replace(".probe.", ".default.")
+        generator = torch.Generator(device=device).manual_seed(
+            stable_seed(default_name)
+        )
         projections[name] = torch.randn(
             parameter.numel(),
             projection_dim,
@@ -154,6 +157,10 @@ def _prepare_projections(model, dictionary_dim, device):
             device=device,
             dtype=torch.float32,
         ) / math.sqrt(projection_dim)
+        assert projections[name].shape[0] == parameter.numel(), (
+            f"Projection for {name} has {projections[name].shape[0]} rows, "
+            f"expected {parameter.numel()}"
+        )
     return lora_b, projections
 
 
@@ -174,27 +181,8 @@ def _project_current_gradients(lora_b, projections):
     return _normalized_projection(parts)
 
 
-def _snapshot_lora_b(lora_b):
-    """Keep a CPU float32 copy of LoRA-B parameters at a checkpoint."""
-    return {
-        name: parameter.detach().float().cpu().clone()
-        for name, parameter in lora_b
-    }
-
-
-@torch.no_grad()
-def _project_delta(lora_b, projections, previous, device):
-    """Project the normalized LoRA-B parameter change since a checkpoint."""
-    parts = []
-    for name, parameter in lora_b:
-        old = previous[name].to(device=device)
-        delta = parameter.detach().flatten().float() - old.flatten()
-        parts.append(projections[name].T @ delta)
-    return _normalized_projection(parts).cpu().numpy()
-
-
-def _extract_residual_features(model, tokenizer, rows, device, lora_b, projections):
-    """Extract one current-parameter reference-gradient feature per row."""
+def _extract_probe_features(model, tokenizer, rows, device, lora_b, projections):
+    """Extract one rank-8 probe-gradient feature per row."""
     features = []
     model.train()
     try:
@@ -209,6 +197,35 @@ def _extract_residual_features(model, tokenizer, rows, device, lora_b, projectio
         model.zero_grad(set_to_none=True)
         model.train()
     return np.stack(features).astype(np.float64, copy=False)
+
+
+def _suspend_merged_adapter_markers(model):
+    """Let PEFT apply the probe on top of the already-merged default weights.
+
+    PEFT's merged-layer fast path otherwise skips every active adapter. The
+    default weights stay folded into each base layer; only the bookkeeping is
+    suspended until cleanup so the zero-init probe participates in forward.
+    """
+    states = []
+    for module in model.modules():
+        merged_adapters = getattr(module, "merged_adapters", None)
+        if not merged_adapters or not hasattr(module, "lora_B"):
+            continue
+        names = tuple(merged_adapters)
+        if names != ("default",):
+            raise RuntimeError(f"Unexpected merged adapters: {names}")
+        states.append((module, names))
+    if not states:
+        raise RuntimeError("PEFT did not mark any default adapter layers merged")
+    for module, _names in states:
+        module.merged_adapters.clear()
+    return states
+
+
+def _restore_merged_adapter_markers(states):
+    """Restore PEFT's merge bookkeeping before unmerging the default adapter."""
+    for module, names in states:
+        module.merged_adapters.extend(names)
 
 
 def _correct(prediction, gold):
@@ -253,15 +270,40 @@ def _measure_checkpoint(
     rows,
     golds,
     device,
-    lora_b,
-    projections,
     dictionary,
 ):
-    """Measure M2 and behavior without changing training state or RNG state."""
+    """Measure M2/behavior through a fresh rank-8 probe at current weights."""
     cpu_rng_state = torch.get_rng_state()
     cuda_rng_states = torch.cuda.get_rng_state_all()
+    merged = False
+    probe_added = False
+    merged_marker_states = None
     try:
-        features = _extract_residual_features(
+        model.merge_adapter()
+        merged = True
+
+        # Recreate the same fresh rank-8 LoRA initialization used by
+        # features.py; checkpoint instrumentation restores RNG state below.
+        torch.manual_seed(SEED)
+        probe_config = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.0,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=list(LORA_TARGETS),
+        )
+        model.add_adapter("probe", probe_config)
+        probe_added = True
+        model.set_adapter("probe")
+        for name, parameter in model.named_parameters():
+            parameter.requires_grad = "lora_B.probe" in name
+
+        lora_b, projections = _prepare_probe_projections(
+            model, dictionary.components_.shape[1], device
+        )
+        merged_marker_states = _suspend_merged_adapter_markers(model)
+        features = _extract_probe_features(
             model, tokenizer, rows, device, lora_b, projections
         )
         if features.shape[1] != dictionary.components_.shape[1]:
@@ -271,12 +313,25 @@ def _measure_checkpoint(
             )
         absolute_codes = np.abs(dictionary.transform(features))
         successes = _exec_success(model, tokenizer, rows, golds, device)
-        return absolute_codes, successes
+        return absolute_codes, successes, features.mean(axis=0)
     finally:
         model.zero_grad(set_to_none=True)
-        model.train()
-        torch.set_rng_state(cpu_rng_state)
-        torch.cuda.set_rng_state_all(cuda_rng_states)
+        try:
+            if merged_marker_states is not None:
+                _restore_merged_adapter_markers(merged_marker_states)
+            if probe_added:
+                model.delete_adapter("probe")
+        finally:
+            try:
+                model.set_adapter("default")
+                if merged:
+                    model.unmerge_adapter()
+            finally:
+                for name, parameter in model.named_parameters():
+                    parameter.requires_grad = ".default." in name
+                model.train()
+                torch.set_rng_state(cpu_rng_state)
+                torch.cuda.set_rng_state_all(cuda_rng_states)
 
 
 def _top_k_mass_fraction(absolute_code, k=5):
@@ -396,6 +451,11 @@ def _write_summary(mean_codes, mean_success, delta_fractions):
             "",
             "## M3: carrier concentration",
             "",
+            (
+                "Each interval codes the L2-normalized difference between "
+                "consecutive checkpoint mean rank-8 probe features."
+            ),
+            "",
             "| Interval | Top-5 atom mass fraction |",
             "|:---:|---:|",
         ]
@@ -438,6 +498,7 @@ def _save_records(
     dictionary,
     atom_codes,
     mean_codes,
+    mean_probe_features,
     delta_codes,
     delta_fractions,
     successes,
@@ -456,6 +517,14 @@ def _save_records(
         "optimizer_steps": CHECKPOINTS[-1],
         "checkpoints": list(CHECKPOINTS),
         "lora": {"r": 16, "alpha": 32, "targets": list(LORA_TARGETS)},
+        "measurement_probe": {
+            "adapter_name": "probe",
+            "r": 8,
+            "alpha": 16,
+            "dropout": 0.0,
+            "targets": list(LORA_TARGETS),
+        },
+        "m3": "normalized consecutive checkpoint mean-probe-feature delta",
         "dictionary": {
             "n_components": N_ATOMS,
             "alpha": SPARSITY_ALPHA,
@@ -474,6 +543,9 @@ def _save_records(
         checkpoints=np.asarray(CHECKPOINTS, dtype=np.int64),
         atom_abs_codes=np.asarray(atom_codes, dtype=np.float64),
         atom_mean_abs_codes=np.asarray(mean_codes, dtype=np.float64),
+        checkpoint_mean_probe_features=np.asarray(
+            mean_probe_features, dtype=np.float64
+        ),
         delta_start_steps=np.asarray(CHECKPOINTS[:-1], dtype=np.int64),
         delta_end_steps=np.asarray(CHECKPOINTS[1:], dtype=np.int64),
         delta_abs_codes=np.asarray(delta_codes, dtype=np.float64),
@@ -492,9 +564,6 @@ def main():
 
     dictionary = _fit_dictionary()
     model, tokenizer = _prepare_model(device)
-    lora_b, projections = _prepare_projections(
-        model, dictionary.components_.shape[1], device
-    )
 
     train_rows, test_rows = split("gsm8k-code")
     if len(train_rows) != 90 or len(test_rows) != N_TEST:
@@ -508,15 +577,32 @@ def main():
     rng = np.random.default_rng(SEED)
     atom_codes = []
     successes = []
+    mean_probe_features = []
     delta_codes = []
     delta_fractions = []
-    previous_parameters = None
+    previous_mean_feature = None
 
     def record(checkpoint):
-        nonlocal previous_parameters
-        if previous_parameters is not None:
-            delta_feature = _project_delta(
-                lora_b, projections, previous_parameters, device
+        nonlocal previous_mean_feature
+        absolute_codes, checkpoint_success, mean_feature = _measure_checkpoint(
+            model,
+            tokenizer,
+            test_rows,
+            golds,
+            device,
+            dictionary,
+        )
+        if checkpoint == CHECKPOINTS[0]:
+            mean_active_atoms = np.count_nonzero(absolute_codes, axis=1).mean()
+            assert mean_active_atoms > 1.0, (
+                "Rank-8 probe basis mismatch: checkpoint-0 rows have only "
+                f"{mean_active_atoms:.3f} active atoms on average"
+            )
+
+        if previous_mean_feature is not None:
+            delta_feature = mean_feature - previous_mean_feature
+            delta_feature = delta_feature / (
+                np.linalg.norm(delta_feature) + 1e-8
             )
             absolute_delta_code = np.abs(
                 dictionary.transform(delta_feature[None, :])[0]
@@ -524,19 +610,10 @@ def main():
             delta_codes.append(absolute_delta_code)
             delta_fractions.append(_top_k_mass_fraction(absolute_delta_code, 5))
 
-        absolute_codes, checkpoint_success = _measure_checkpoint(
-            model,
-            tokenizer,
-            test_rows,
-            golds,
-            device,
-            lora_b,
-            projections,
-            dictionary,
-        )
         atom_codes.append(absolute_codes)
         successes.append(checkpoint_success)
-        previous_parameters = _snapshot_lora_b(lora_b)
+        mean_probe_features.append(mean_feature)
+        previous_mean_feature = mean_feature
 
         delta_text = (
             "n/a"
@@ -576,6 +653,7 @@ def main():
 
     atom_codes_array = np.stack(atom_codes)
     mean_codes = atom_codes_array.mean(axis=1)
+    mean_probe_features_array = np.stack(mean_probe_features)
     delta_codes_array = np.stack(delta_codes)
     delta_fractions_array = np.asarray(delta_fractions, dtype=np.float64)
     successes_array = np.stack(successes)
@@ -585,11 +663,20 @@ def main():
         raise RuntimeError(f"Unexpected atom-code shape {atom_codes_array.shape}")
     if delta_codes_array.shape != (len(CHECKPOINTS) - 1, N_ATOMS):
         raise RuntimeError(f"Unexpected delta-code shape {delta_codes_array.shape}")
+    if mean_probe_features_array.shape != (
+        len(CHECKPOINTS),
+        dictionary.components_.shape[1],
+    ):
+        raise RuntimeError(
+            "Unexpected mean probe-feature shape "
+            f"{mean_probe_features_array.shape}"
+        )
 
     _save_records(
         dictionary,
         atom_codes_array,
         mean_codes,
+        mean_probe_features_array,
         delta_codes_array,
         delta_fractions_array,
         successes_array,

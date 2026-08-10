@@ -1,0 +1,14 @@
+\section{Conclusion}\label{sec:conclusion}
+Distilling an agent for a deployment is, in current practice, an act of
+faith: the task domain is implicit, the boundary is guessed from surface
+text, and the student's competence is audited only by aggregate scores. We
+have argued that all three problems become tractable in one space. The
+gradient a trajectory induces at the student records what learning that task
+would change; sparse decomposition factors this record into capability
+atoms; and boundaries, capability predictions, and data selection are three
+operations on the same object, with conformal calibration supplying the
+statistical guarantee. Pilot evidence supports each component, including a
+pre-registered proxy failure that the final design absorbs rather than
+hides. Full-scale sweeps and agent-environment evaluations will determine
+how far the specification-first view of distillation carries.
+\todo{finalize once sweep and tier-2 results land.}

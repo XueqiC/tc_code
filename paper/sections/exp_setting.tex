@@ -1,0 +1,21 @@
+\section{Experimental setting}\label{sec:expsetting}
+%% Datasets, models, verifiers, protocol. Filled from configs as results land.
+\paragraph{Domains and hard pairs.} Five pilot domains built from GSM8K
+\citep{cobbe2021gsm8k} (with mechanically derived, execution-verified Python
+solutions and the original chain-of-thought solutions as an identical-query
+hard pair), DS-1000 Pandas \citep{lai2023ds1000}, Spider SQL
+\citep{yu2018spider}, and Alpaca instructions \citep{taori2023alpaca} as an
+out-of-domain pool; 120 examples per domain with sha256-stable splits.
+\todo{agent environments: AppWorld \citep{trivedi2024appworld}, BFCL~v4,
+$\tau^2$-bench topic scopes.}
+\paragraph{Teachers and students.} Verified teacher trajectories from three
+current open teachers with execution-based quality gates (95\% pass rate on
+GSM8K-code); students span Qwen3.5 0.8B--9B in base and instruct variants.
+\todo{exact teacher list and pool composition table.}
+\paragraph{Verifiers and safety.} All generated code executes in a
+resource-limited subprocess sandbox; success is execution-verified answer
+match. \todo{sandbox details; refusal metrics definitions.}
+\paragraph{Protocol.} Budget-matched selection at fixed response-token
+budgets; conformal level $\alpha=0.1$; pre-registered thresholds and
+amendments are logged in the repository and summarized in
+Appendix~\ref{app:limitations}.

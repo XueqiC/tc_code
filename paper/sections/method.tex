@@ -1,4 +1,25 @@
 \section{Method}\label{sec:method}
+\subsection{Problem setting}\label{sec:setting}
+A teacher agent $\pi_T$ acts by emitting executable code; a rollout on query
+$q$ yields a trajectory $\tau(q)$ whose success is decided by an execution
+verifier. A task domain is a distribution $P_\mathcal{T}$ over queries given
+only through $k$ examples $Q_k \sim P_\mathcal{T}$, with $k$ between 5 and a
+few hundred. From $(\pi_T, Q_k)$ and a base student $\theta_0$ we must
+produce: (1) a boundary predictor $\hat{B}(q) \in \{\text{in},\text{out}\}$
+with distribution-free coverage $\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=
+\text{in}] \ge 1-\alpha$; and (2) a student $\theta_S$ evaluated on the
+two-sided objective: coverage risk $R_{\mathrm{cov}}$ (in-domain requests the
+student fails) and leakage $L$ (out-of-domain requests the student performs).
+We report $(R_{\mathrm{cov}}, L)$ frontiers under matched token budgets and,
+across student sizes, the minimal capacity achieving target coverage.
+
+Capability and behavior are measured separately throughout: distillation can
+flip an agent's action space within tens of optimizer steps while transferring
+only part of the underlying competence (Sec.~\ref{sec:distill}), so any
+metric reading only output format overestimates capability transfer.
+
+\subsection{Capability atoms}
+
 %% Scope-level per PI instruction; each part carries its evidence pointer and
 %% will be updated as results land. Notation kept minimal.
 
