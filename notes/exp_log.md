@@ -16,3 +16,4 @@ e1-refmodel-base | Qwen3.5-{0.8,2,4,9}B-Base 特征 (节点本地缓存) | hpg B
 e3-tier1 | 6条件×40k budget, 1.5B instruct, 池=2teacher×3域+gold干扰 | rai GPU1 ~5h | 域内: D/B 90% 并列最高(饱和); 泄漏: D 域外loss最高(削最尖), F 域外拒答100%/域内误拒0%/-6.7pt; 行动空间俘获全条件100%; 梯度边界更紧(153 vs 264过阈) | results/e3_tier1/, figs/e3_tier1.png
 atoms-pilot-v1 | 256原子 alpha=0.5 稀疏分解 2072块 | rai CPU | 超参失败(平均0.5激活/块, AUROC 0.55-0.65) 但可解释性命中: join判别原子top块全是JOIN语句; v2 (128原子 alpha=0.05) 在跑 | results/atoms_pilot/report.json
 atoms-pilot-v2 | 128原子 alpha=0.05 (5.2激活/块) | rai CPU | 细粒度突破: sql-join 0.906±0.025 (密子空间0.615/emb 0.866全超); 粗粒度追平: code 0.996(hard 0.988)/sql 0.989/pandas 0.936; JOIN原子可解释性再确认 → 单一表示统一两尺度, 方法设计线收敛到 Capability Atoms | results/atoms_pilot/report.json
+m1-interference | 核质量 vs E3实测Δloss (15 cells), 负内积占比 | rai GPU1 | Spearman ρ=0.529 p=0.043 (方向性预测成立); 负内积仅1-15% → 削尖≠梯度对抗, 是"断供+漂移"效应 → 泄漏控制=供给分配(选择时可控), 塑形控制项设计依据确立 | results/m1/report.json
