@@ -116,6 +116,7 @@ def apply_environment_overrides(config):
     config["conditions"] = conditions
     config["tag"] = tag
     config["selection"]["response_token_budget"] = budget
+    config["training"]["learning_rate"] = float(os.environ.get("E3_LR", config["training"]["learning_rate"]))
     config["task_boundary"]["domain"] = task
     config["task_boundary"]["filter"] = task_filter
 
@@ -193,7 +194,7 @@ def validate_config(config):
         ("training", "epochs"): 3,
         ("training", "batch_size"): 1,
         ("training", "gradient_accumulation"): 8,
-        ("training", "learning_rate"): float(os.environ.get("E3_LR", 2e-4)),
+        ("training", "learning_rate"): 2e-4,
         ("training", "lora", "r"): 16,
         ("training", "lora", "alpha"): 32,
         ("generation", "max_new_tokens"): 320,
