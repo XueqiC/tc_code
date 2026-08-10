@@ -15,26 +15,32 @@ queries collected from the intended workload; making that implicit
 specification explicit, and holding the student to it, is the subject of
 this paper.
 
-Deploying such a student raises two questions that current distillation
-practice does not answer. First, given a new request, does it fall inside
-the domain the student was built for? Second, does the student's competence
-in fact coincide with that domain, covering neither less of it nor more than
-intended? Existing agent-distillation methods optimize aggregate benchmark
-scores \citep{kang2025distilling, tang2026smartad} and provide neither a
-boundary predictor nor a capability guarantee. We call the joint problem
-\emph{distill-to-specification}: from a teacher and $k$ example queries,
-produce a boundary predictor with a coverage guarantee together with a
-student whose measured capability matches the specified domain on both sides.
+This deployment path stands on two questions. First, how can the task's
+boundary be determined from a limited set of example queries, so that the
+system knows which future requests belong to the job? Second, how can a
+small model be distilled so that its capability meets the requirement
+exactly, mastering what the task needs and carrying no more? We call the
+joint problem \emph{distill-to-specification}: from a teacher and $k$
+example queries, produce a boundary predictor with a coverage guarantee
+together with a student whose measured capability matches the specified
+domain on both sides.
 
-The natural tool for both questions is semantic similarity over request
-text, and it fails for a structural reason rather than an empirical one.
-Consider the same arithmetic word problem solved twice, once as an executable
-Python function and once as chain-of-thought prose. The two requests are
-identical strings, so no function of the request text can distinguish them.
-They nevertheless define different tasks: the two solutions exercise
-different skills, and a student distilled for one does not acquire the other
-(Section~\ref{sec:boundary}). Task identity resides in what a model would
-have to learn, not in what the request says.
+Existing work has a fatal weakness on each question. For the boundary,
+scope decisions are drawn in the space of request text, with retrieval
+similarity or serving-time out-of-distribution gates
+\citep{li2026scope}; yet the same request text can demand entirely
+different skills. Consider one arithmetic word problem solved twice, once
+as an executable Python function and once as chain-of-thought prose: the
+queries are identical strings, no function of the text can separate them,
+and a student distilled for one does not acquire the other
+(Section~\ref{sec:boundary}). For the distillation, current agent methods
+select and imitate trajectories to maximize aggregate benchmark scores
+\citep{kang2025distilling, tang2026smartad, liu2025structured}; the
+intended requirement never enters training, so whether the student
+undershoots the task or silently covers far more than intended is neither
+controlled nor even measured. Task identity resides in what a model would
+have to learn, and requirements bind only if training is accountable to
+them.
 
 Meeting this specification involves three technical challenges.
 First, the task boundary must be estimated from a few examples in a

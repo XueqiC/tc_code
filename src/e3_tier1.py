@@ -99,6 +99,19 @@ def _environment_int(name, default):
         raise ValueError(f"{name} must be an integer, got {value!r}") from error
 
 
+def _environment_float(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        result = float(value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number, got {value!r}") from error
+    if not math.isfinite(result):
+        raise ValueError(f"{name} must be finite, got {value!r}")
+    return result
+
+
 def apply_environment_overrides(config):
     """Resolve sweep parameters while retaining the tier-1 bare-run defaults."""
     conditions_text = os.environ.get("E3_CONDITIONS", ",".join(CONDITIONS))
@@ -119,6 +132,8 @@ def apply_environment_overrides(config):
     task = os.environ.get("E3_TASK", "gsm8k-code")
     task_filter = os.environ.get("E3_TASK_FILTER") or None
     tag = os.environ.get("E3_TAG", "")
+    early_stop = _environment_int("E3_EARLYSTOP", 0)
+    selection_lambda = _environment_float("E3_LAMBDA", 0.0)
     if not student:
         raise ValueError("E3_STUDENT must not be empty")
     if budget <= 0:
@@ -127,13 +142,21 @@ def apply_environment_overrides(config):
         raise ValueError("E3_TASK must not be empty")
     if "/" in tag or "\\" in tag:
         raise ValueError("E3_TAG must be a filename suffix, not a path")
+    if early_stop not in (0, 1):
+        raise ValueError(f"E3_EARLYSTOP must be 0 or 1, got {early_stop}")
+    if selection_lambda < 0:
+        raise ValueError(
+            f"E3_LAMBDA must be non-negative, got {selection_lambda}"
+        )
 
     config["model"] = student
     config["seed"] = seed
     config["conditions"] = conditions
     config["tag"] = tag
     config["selection"]["response_token_budget"] = budget
+    config["selection"]["lambda"] = selection_lambda
     config["training"]["learning_rate"] = float(os.environ.get("E3_LR", config["training"]["learning_rate"]))
+    config["training"]["early_stop"] = early_stop
     config["task_boundary"]["domain"] = task
     config["task_boundary"]["filter"] = task_filter
 
@@ -187,6 +210,8 @@ def print_resolved_config(config):
         "spec_rows": task["spec_rows"],
         "fit_rows": task["fit_rows"],
         "calibration_rows": task["calibration_rows"],
+        "lambda": config["selection"]["lambda"],
+        "early_stop": config["training"]["early_stop"],
         "tag": config["tag"],
         "output_directory": config["outputs"]["directory"],
         "figure": config["outputs"]["figure"],
@@ -665,13 +690,24 @@ def score_pool(config, tokenizer, task_rows, pool):
     """Compute gradient and BGE trajectory scores against the same task split."""
     feat_cfg = config["gradient_features"]
     combined = task_rows + pool
+    selection_lambda = config["selection"]["lambda"]
+    out_rows = []
+    gradient_rows = combined
+    if selection_lambda != 0:
+        alpaca_non_test, _ = split("alpaca")
+        out_rows = alpaca_non_test[:35]
+        if len(out_rows) != 35:
+            raise ValueError(
+                f"D_grad OUT subspace needs 35 alpaca rows, got {len(out_rows)}"
+            )
+        gradient_rows = combined + out_rows
     print(
-        f"[setup][gradient-features] extracting {len(combined)} rows on cuda",
+        f"[setup][gradient-features] extracting {len(gradient_rows)} rows on cuda",
         flush=True,
     )
     grad = features.extract_features(
         config["model"],
-        combined,
+        gradient_rows,
         proj_dim=feat_cfg["projection_dim"],
         max_prompt_tok=feat_cfg["max_prompt_tokens"],
         max_resp_tok=feat_cfg["max_response_tokens"],
@@ -685,11 +721,20 @@ def score_pool(config, tokenizer, task_rows, pool):
     mean_spec_grad = boundary.unit(
         np.mean(grad[:spec_n], axis=0, keepdims=True)
     )[0]
-    less_scores = grad[spec_n:] @ mean_spec_grad
+    pool_end = spec_n + len(pool)
+    pool_grad = grad[spec_n:pool_end]
+    less_scores = pool_grad @ mean_spec_grad
     grad_subspace = boundary.fit_subspace(grad[:fit_n])
     grad_cal = boundary.score(grad_subspace, grad[fit_n:spec_n])
-    grad_scores = boundary.score(grad_subspace, grad[spec_n:])
+    grad_scores = boundary.score(grad_subspace, pool_grad)
     grad_threshold = conformal_threshold(grad_cal, alpha)
+    d_grad_scores = grad_scores
+    out_subspace = None
+    if selection_lambda != 0:
+        out_features = grad[pool_end:]
+        out_subspace = boundary.fit_subspace(out_features)
+        out_scores = boundary.score(out_subspace, pool_grad)
+        d_grad_scores = grad_scores - selection_lambda * out_scores
 
     # extract_features owns the temporary base model. Force its unreachable CUDA
     # allocations out before constructing the CPU embedding model.
@@ -724,10 +769,12 @@ def score_pool(config, tokenizer, task_rows, pool):
         len(grad_scores) == len(less_scores) == len(emb_scores) == len(pool)
     ):
         raise RuntimeError("feature scores do not align with the candidate pool")
-    for row, grad_score, less_score, emb_score in zip(
-        pool, grad_scores, less_scores, emb_scores
+    for row, grad_score, d_grad_score, less_score, emb_score in zip(
+        pool, grad_scores, d_grad_scores, less_scores, emb_scores
     ):
         row["_grad_score"] = float(grad_score)
+        if selection_lambda != 0:
+            row["_d_grad_score"] = float(d_grad_score)
         row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
 
@@ -750,6 +797,7 @@ def score_pool(config, tokenizer, task_rows, pool):
             "threshold": grad_threshold,
             "calibration_coverage": float(np.mean(grad_cal >= grad_threshold)),
             "pool_above_threshold": int(np.sum(grad_scores >= grad_threshold)),
+            "lambda": selection_lambda,
         },
         "embedding": {
             "model": emb_cfg["model"],
@@ -759,6 +807,12 @@ def score_pool(config, tokenizer, task_rows, pool):
             "pool_above_threshold": int(np.sum(emb_scores >= emb_threshold)),
         },
     }
+    if out_subspace is not None:
+        boundary_metrics["gradient"]["out_subspace"] = {
+            "domain": "alpaca",
+            "n_fit": len(out_rows),
+            "rank": int(out_subspace.shape[1]),
+        }
     return boundary_metrics
 
 
@@ -816,6 +870,11 @@ def build_selections(config, tokenizer, pool):
     grad_order = np.argsort(
         -np.asarray([row["_grad_score"] for row in pool]), kind="stable"
     )
+    d_grad_order = grad_order
+    if config["selection"]["lambda"] != 0:
+        d_grad_order = np.argsort(
+            -np.asarray([row["_d_grad_score"] for row in pool]), kind="stable"
+        )
     less_order = np.argsort(
         -np.asarray([row["_less_score"] for row in pool]), kind="stable"
     )
@@ -825,7 +884,7 @@ def build_selections(config, tokenizer, pool):
         "A_all": take_prefix(pool, natural, sum(r["_token_count"] for r in pool)),
         "B_random": take_prefix(pool, random_order, budget),
         "C_emb": take_prefix(pool, emb_order, budget),
-        "D_grad": take_prefix(pool, grad_order, budget),
+        "D_grad": take_prefix(pool, d_grad_order, budget),
         "E_less": take_prefix(pool, less_order, budget),
     }
 
@@ -933,6 +992,105 @@ def build_model(config, with_lora):
         target_modules=lora_cfg["target_modules"],
     )
     return get_peft_model(model, adapter)
+
+
+def lora_modules(peft_model):
+    """Return PEFT LoRA layers keyed identically across train/reference models."""
+    return {
+        name: module
+        for name, module in peft_model.named_modules()
+        if hasattr(module, "base_layer") and hasattr(module, "lora_B")
+    }
+
+
+def sync_ref_weights(train_modules, ref_modules):
+    """Copy each training layer's effective LoRA weight into the reference."""
+    with torch.no_grad():
+        for name, train_module in train_modules.items():
+            lora_a = train_module.lora_A["default"].weight
+            lora_b = train_module.lora_B["default"].weight
+            scale = train_module.scaling["default"]
+            effective = train_module.base_layer.weight + scale * (
+                lora_b @ lora_a
+            ).to(train_module.base_layer.weight.dtype)
+            ref_modules[name].base_layer.weight.copy_(effective)
+
+
+def probe_features(ref_model, tokenizer, rows, device, ref_lora_b, projections):
+    """Extract unit-normalized reference-model probe features as in M17."""
+    extracted = []
+    ref_model.train()
+    for row in rows:
+        input_ids, labels = encode(tokenizer, row, device)
+        ref_model.zero_grad(set_to_none=True)
+        ref_model(input_ids=input_ids, labels=labels).loss.backward()
+        extracted.append(
+            features._project_gradients(ref_lora_b, projections).cpu().numpy()
+        )
+    ref_model.zero_grad(set_to_none=True)
+    return np.stack(extracted).astype(np.float64)
+
+
+def prepare_absorption_monitor(config, task_rows):
+    """Build the shared M17 reference extractor and fixed task subspace."""
+    fit_n = config["task_boundary"]["fit_rows"]
+    calibration_rows = task_rows[fit_n:fit_n + 10]
+    if len(calibration_rows) != 10:
+        raise ValueError(
+            "E3_EARLYSTOP needs 10 task-spec calibration rows; "
+            f"found {len(calibration_rows)}"
+        )
+
+    tokenizer, ref_model, ref_lora_b, projections = features._prepare_extractor(
+        config["model"],
+        config["gradient_features"]["projection_dim"],
+        config["device"],
+    )
+    spec_features = probe_features(
+        ref_model,
+        tokenizer,
+        task_rows[:fit_n],
+        config["device"],
+        ref_lora_b,
+        projections,
+    )
+    subspace = boundary.fit_subspace(boundary.unit(spec_features))
+    print(
+        f"[setup][early-stop] spec_rank={subspace.shape[1]} "
+        f"fit_rows={fit_n} calibration_rows={len(calibration_rows)}",
+        flush=True,
+    )
+    return {
+        "tokenizer": tokenizer,
+        "ref_model": ref_model,
+        "ref_lora_b": ref_lora_b,
+        "projections": projections,
+        "ref_modules": lora_modules(ref_model),
+        "subspace": subspace,
+        "calibration_rows": calibration_rows,
+        "device": config["device"],
+    }
+
+
+def absorption_demand(train_modules, monitor):
+    """Measure mean unit-feature energy inside the fixed task subspace."""
+    sync_ref_weights(train_modules, monitor["ref_modules"])
+    probe = probe_features(
+        monitor["ref_model"],
+        monitor["tokenizer"],
+        monitor["calibration_rows"],
+        monitor["device"],
+        monitor["ref_lora_b"],
+        monitor["projections"],
+    )
+    projected = np.linalg.norm(probe @ monitor["subspace"], axis=1)
+    return float(np.mean(projected ** 2))
+
+
+def release_absorption_monitor(monitor):
+    """Drop every shared-extractor reference after all conditions finish."""
+    monitor.clear()
+    release_cuda()
 
 
 @torch.inference_mode()
@@ -1129,7 +1287,15 @@ def smartad_weighted_loss(model, input_ids, labels, token_weights):
     ).sum() / denominator
 
 
-def train_condition(model, tokenizer, rows, config, condition=None):
+def train_condition(
+    model,
+    tokenizer,
+    rows,
+    config,
+    condition=None,
+    absorption_monitor=None,
+    training_metrics=None,
+):
     """Train on every selected row for three epochs with true accumulation."""
     train_cfg = config["training"]
     if not rows:
@@ -1143,6 +1309,23 @@ def train_condition(model, tokenizer, rows, config, condition=None):
     rng = np.random.default_rng(config["seed"])
     accumulation = train_cfg["gradient_accumulation"]
     optimizer_steps = 0
+    stop_step = None
+    stop_training = False
+    consecutive_low_demand = 0
+    train_modules = None
+    initial_demand = None
+    if absorption_monitor is not None:
+        train_modules = lora_modules(model)
+        ref_modules = absorption_monitor["ref_modules"]
+        if set(train_modules) != set(ref_modules):
+            raise RuntimeError(
+                "LoRA module mismatch between training and reference models"
+            )
+        initial_demand = absorption_demand(train_modules, absorption_monitor)
+        print(
+            f"[{condition}][early-stop] step=0 demand={initial_demand:.6f}",
+            flush=True,
+        )
 
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
@@ -1168,7 +1351,28 @@ def train_condition(model, tokenizer, rows, config, condition=None):
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             optimizer_steps += 1
+            should_measure = optimizer_steps <= 12 or optimizer_steps % 4 == 0
+            if absorption_monitor is not None and should_measure:
+                demand = absorption_demand(train_modules, absorption_monitor)
+                threshold = 0.05 * initial_demand
+                consecutive_low_demand = (
+                    consecutive_low_demand + 1 if demand < threshold else 0
+                )
+                print(
+                    f"[{condition}][early-stop] step={optimizer_steps} "
+                    f"demand={demand:.6f} threshold={threshold:.6f} "
+                    f"consecutive={consecutive_low_demand}",
+                    flush=True,
+                )
+                if consecutive_low_demand >= 2:
+                    stop_step = optimizer_steps
+                    stop_training = True
+                    break
+        if stop_training:
+            break
     model.config.use_cache = True
+    if training_metrics is not None:
+        training_metrics["stop_step"] = stop_step
     return optimizer_steps
 
 
@@ -1604,6 +1808,10 @@ def main():
         del base_model
         release_cuda()
 
+    absorption_monitor = None
+    if trained_conditions and config["training"]["early_stop"] == 1:
+        absorption_monitor = prepare_absorption_monitor(config, task_rows)
+
     budget = config["selection"]["response_token_budget"]
     for condition in trained_conditions:
         selected = selections[condition]
@@ -1622,9 +1830,22 @@ def main():
         )
 
         model = build_model(config, with_lora=True)
-        optimizer_steps = train_condition(
-            model, tokenizer, selected, config, condition=condition
-        )
+        training_metrics = None
+        if absorption_monitor is None:
+            optimizer_steps = train_condition(
+                model, tokenizer, selected, config, condition=condition
+            )
+        else:
+            training_metrics = {}
+            optimizer_steps = train_condition(
+                model,
+                tokenizer,
+                selected,
+                config,
+                condition=condition,
+                absorption_monitor=absorption_monitor,
+                training_metrics=training_metrics,
+            )
         stats["optimizer_steps"] = optimizer_steps
         progress(
             condition,
@@ -1635,10 +1856,13 @@ def main():
         evaluation = evaluate_model(
             model, tokenizer, tests, code_golds, cot_golds, config
         )
-        metrics["conditions"][condition] = {
+        condition_metrics = {
             "selection": stats,
             "eval": evaluation,
         }
+        if training_metrics is not None:
+            condition_metrics["training"] = training_metrics
+        metrics["conditions"][condition] = condition_metrics
         progress(
             condition,
             "eval",
@@ -1647,6 +1871,9 @@ def main():
         write_json(metrics_path, metrics)
         del model
         release_cuda()
+
+    if absorption_monitor is not None:
+        release_absorption_monitor(absorption_monitor)
 
     summary = make_summary(metrics)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
