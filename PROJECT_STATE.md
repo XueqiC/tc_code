@@ -121,6 +121,8 @@ Training-Time Control on Agent Capability*。
   (3 key × 100k tok/周 = 300k/周,不够 bulk);兜底 = hpg 自托管 teacher
 - 学生线:**Qwen3.5 0.8/2/4/9B** + 1 个跨家族对照点
 - 实验代码默认委派 codex(gpt-5.6-sol,reasoning xhigh,ops/codex_task.sh)
+- hpg 算力:用户明确要求"可能的话多申请几个 B200 把实验做好"(2026-08-10)——
+  E3/E4 sweep 可放开到多卡多任务(仍守 ≤4 pending 默认;sweep 时经用户点头放宽)
 - API 凭证在 ~/hq/secrets/llm_apis.env(600,不进 git;已提醒用户轮换)
 
 ## 完整实验记录

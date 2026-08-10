@@ -12,6 +12,7 @@ Output: results/pilot/features_grad.npz  (X: [N, D], domain: [N] str, idx: [N])
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,8 @@ from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+MODEL = os.environ.get("TC_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+TAG = os.environ.get("TC_TAG", "")  # suffix for the output file, e.g. "_qwen35-4b"
 DOMAINS = ["gsm8k-code", "gsm8k-cot", "pandas", "sql", "alpaca"]
 PROJ_DIM = 64
 MAX_PROMPT_TOK = 640
@@ -86,10 +88,10 @@ def main():
 
     out_dir = ROOT / "results" / "pilot"
     out_dir.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(out_dir / "features_grad.npz",
+    np.savez_compressed(out_dir / f"features_grad{TAG}.npz",
                         X=np.stack(feats), domain=np.array(domains),
                         idx=np.array(idxs))
-    print("saved", out_dir / "features_grad.npz")
+    print("saved", out_dir / f"features_grad{TAG}.npz")
 
 
 if __name__ == "__main__":
