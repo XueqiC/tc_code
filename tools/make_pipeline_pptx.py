@@ -37,7 +37,7 @@ prs.slide_height = In(7.5)
 slide = prs.slides.add_slide(prs.slide_layouts[6])
 SH = slide.shapes
 FONT = "Times New Roman"
-SPINE = 3.30  # y center of the flow
+SPINE = 3.20  # y center of the flow
 
 
 def no_shadow(shape):
@@ -124,9 +124,9 @@ def conn(x0, y0, x1, y1, color, w=2.2, arrow=True):
     return c
 
 
-def spine_arrow(x, w, text, h=0.62):
+def spine_arrow(x, w, text, h=0.72):
     a = box(x, SPINE - h / 2, w, h, GRAY, None, shape=MSO_SHAPE.RIGHT_ARROW,
-            radius=None, text=text, size=7.5, tcolor=WHITE, bold=True)
+            radius=None, text=text, size=9, tcolor=WHITE, bold=True)
     a.adjustments[0] = 0.62
     a.adjustments[1] = 0.42
     return a
@@ -152,9 +152,9 @@ def chip(cx, cy, w, h, ec, name, size=9.5):
 
 
 def stage_chip(x, n, claim, w=3.2):
-    box(x, 0.22, 0.34, 0.34, TEXT, None, shape=MSO_SHAPE.OVAL, radius=None,
-        text=n, size=13, tcolor=WHITE, bold=True)
-    label(x + 0.42, 0.24, w, 0.34, claim, size=14, color=TEXT, bold=True,
+    box(x, 0.20, 0.40, 0.40, TEXT, None, shape=MSO_SHAPE.OVAL, radius=None,
+        text=n, size=15, tcolor=WHITE, bold=True)
+    label(x + 0.42, 0.22, w, 0.38, claim, size=16, color=TEXT, bold=True,
           align=PP_ALIGN.LEFT)
 
 
@@ -166,118 +166,119 @@ stage_chip(10.15, "4", "Certified deployment")
 
 # ---------------------------------------------------------------- node A
 for i in range(3):
-    box(0.25 + i * 0.09, 2.72 + i * 0.09, 1.42, 0.96, CARD, GRAY, lw=1.0)
-label(0.28, 2.40, 1.7, 0.28, "k example queries", size=9.5, color=MUTED,
-      italic=True)
-label(0.44, 3.02, 1.28, 0.6, '"How many members\nper club?"', size=7.5,
+    box(0.30 + i * 0.11, 2.30 + i * 0.11, 1.62, 1.35, CARD, GRAY, lw=1.2)
+label(0.30, 1.92, 2.0, 0.32, "k example queries", size=12, color=MUTED,
+      italic=True, align=PP_ALIGN.LEFT)
+label(0.55, 2.72, 1.5, 0.8, '"How many members\nper club?"', size=9,
       color=TEXT, align=PP_ALIGN.LEFT)
-label(1.30, 3.52, 0.4, 0.28, "×k", size=11, color=MUTED, bold=True)
+label(1.52, 3.42, 0.5, 0.34, "×k", size=13, color=MUTED, bold=True)
 
-spine_arrow(1.88, 0.86, "backward\npass")
+spine_arrow(2.14, 0.78, "backward\npass")
 
 # ---------------------------------------------------------------- node B
-box(2.80, 2.42, 1.58, 1.78, WHITE, GRAY, lw=1.1)
+box(2.98, 1.85, 1.66, 2.55, WHITE, GRAY, lw=1.2)
 rows = [[IN1, IN2, PALE, PALE], [IN1, PALE, IN3, PALE], [PALE, IN2, IN3, PALE]]
 for r, cols in enumerate(rows):
-    y = 2.62 + r * 0.50
-    box(2.92, y, 0.26, 0.34, CARD, GRAY, lw=0.8)
+    y = 2.10 + r * 0.72
+    box(3.10, y, 0.30, 0.44, CARD, GRAY, lw=0.9)
     for j, c in enumerate(cols):
-        tile(3.28 + j * 0.27, y + 0.05, c)
-label(2.72, 4.28, 1.75, 0.5, "needed skills light up (blue)", size=9,
+        tile(3.50 + j * 0.28, y + 0.07, c, s=0.26)
+label(2.88, 4.50, 1.9, 0.34, "needed skills light up", size=11,
       color=IN1, bold=True)
 
-spine_arrow(4.44, 0.80, "sparse\ndictionary")
+spine_arrow(4.70, 0.72, "sparse\ncoding")
 
 # ---------------------------------------------------------------- node C
-box(5.30, 2.08, 1.88, 2.24, WHITE, GRAY, lw=1.1)
+box(5.48, 1.60, 1.98, 2.95, WHITE, GRAY, lw=1.2)
 atoms = [IN1, PALE, OUT1, PALE, IN2,
          PALE, IN3, PALE, OUT2, PALE,
          OUT1, PALE, IN1, PALE, IN2]
 for i, c in enumerate(atoms):
     r, cc = divmod(i, 5)
-    x = 5.47 + cc * 0.32
-    y = 2.28 + r * 0.60
-    tile(x, y, c, s=0.26)
+    x = 5.65 + cc * 0.34
+    y = 1.86 + r * 0.85
+    tile(x, y, c, s=0.30)
     if c in (IN1, IN2, IN3):
-        box(x - 0.045, y - 0.045, 0.35, 0.35, None, IN1, lw=1.2,
+        box(x - 0.05, y - 0.05, 0.40, 0.40, None, IN1, lw=1.3,
             dash="dash", radius=0.25)
-label(5.30, 1.80, 1.3, 0.28, "skill atom library", size=9.5, color=MUTED, align=PP_ALIGN.LEFT)
-label(6.72, 1.98, 1.5, 0.26, "▸ fires on JOIN", size=8, color=TEXT,
+label(5.48, 1.22, 1.6, 0.30, "skill atom library", size=11, color=MUTED,
+      align=PP_ALIGN.LEFT)
+label(6.90, 1.62, 1.5, 0.28, "▸ fires on JOIN", size=9.5, color=TEXT,
       bold=True, align=PP_ALIGN.LEFT)
-box(5.12, 4.44, 2.24, 0.52, INBG, IN1, lw=1.3,
-    text="specification = the atoms\nyour k queries need", size=8.5,
+box(5.30, 4.68, 2.34, 0.62, INBG, IN1, lw=1.4,
+    text="specification = the atoms\nyour k queries need", size=10,
     tcolor=IN1, bold=True)
 
-spine_arrow(7.24, 0.78, "score by\nsupply")
+spine_arrow(7.52, 0.70, "score by\nsupply")
 
 # ---------------------------------------------------------------- node D
-chip(8.72, 1.42, 0.9, 0.68, IN1, "Teacher LLM", size=9)
-box(8.65, 1.98, 0.14, 0.42, GRAY, None, shape=MSO_SHAPE.DOWN_ARROW,
+chip(8.98, 1.30, 1.05, 0.80, IN1, "Teacher LLM", size=10.5)
+box(8.91, 1.98, 0.16, 0.40, GRAY, None, shape=MSO_SHAPE.DOWN_ARROW,
     radius=None)
-label(8.84, 2.05, 1.0, 0.26, "traces", size=8.5, color=MUTED,
+label(9.12, 2.04, 1.0, 0.28, "traces", size=10, color=MUTED,
       align=PP_ALIGN.LEFT)
 cards = [([IN1, IN2, PALE], True), ([IN1, IN3, IN2], True),
          ([OUT1, IN1, PALE], False)]
 for i, (comp, keep) in enumerate(cards):
-    y = 2.48 + i * 0.60
+    y = 2.50 + i * 0.78
     ec = IN1 if keep else GRAY
-    box(8.08, y, 1.26, 0.48, CARD if keep else PALE, ec, lw=1.2)
+    box(8.28, y, 1.42, 0.62, CARD if keep else PALE, ec, lw=1.3)
     for j, c in enumerate(comp):
-        tile(8.19 + j * 0.28, y + 0.12, c, s=0.24)
+        tile(8.42 + j * 0.33, y + 0.16, c, s=0.30)
     if not keep:
-        conn(8.00, y + 0.52, 9.42, y - 0.04, OUT2, w=2.0, arrow=False)
-label(7.78, 4.32, 1.9, 0.5, "rejected: carries orange\n(λ penalizes off-scope)",
-      size=8, color=OUT2, bold=True)
+        conn(8.20, y + 0.68, 9.80, y - 0.06, OUT2, w=2.2, arrow=False)
+label(8.02, 4.92, 2.0, 0.6, "rejected: carries orange\n(λ penalizes off-scope)",
+      size=9.5, color=OUT2, bold=True)
 
-spine_arrow(9.44, 0.74, "train,\nstop early")
+spine_arrow(9.82, 0.66, "train,\nstop early")
 
 # ---------------------------------------------------------------- node E
-chip(10.62, SPINE - 0.15, 0.92, 0.72, IN1, "Student LLM", size=9)
-box(10.14, 4.10, 0.95, 0.2, WHITE, GRAY, lw=1.0)
-box(10.17, 4.13, 0.80, 0.14, IN1, None, radius=0.3)
-box(11.11, 4.06, 0.26, 0.26, GREEN, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
-    radius=None, text="✓", size=9, tcolor=WHITE, bold=True)
-label(9.9, 4.38, 1.6, 0.26, "demand absorbed", size=8, color=MUTED)
+chip(11.02, SPINE - 0.42, 1.02, 0.82, IN1, "Student LLM", size=10.5)
+box(10.48, 4.42, 1.06, 0.24, WHITE, GRAY, lw=1.1)
+box(10.51, 4.45, 0.90, 0.18, IN1, None, radius=0.3)
+box(11.56, 4.36, 0.30, 0.30, GREEN, WHITE, lw=1.3, shape=MSO_SHAPE.OVAL,
+    radius=None, text="✓", size=10, tcolor=WHITE, bold=True)
+label(10.28, 4.74, 1.7, 0.28, "demand absorbed", size=9.5, color=MUTED)
 
-spine_arrow(11.24, 0.62, "deploy")
+spine_arrow(11.66, 0.58, "deploy")
 
 # ---------------------------------------------------------------- node F
-gx = 11.94
-box(gx, 2.42, 0.20, 1.76, GATE, IN1, lw=1.1)
-box(gx + 0.72, 2.42, 0.20, 1.76, GATE, IN1, lw=1.1)
-box(gx - 0.07, 2.18, 1.06, 0.28, GATE, IN1, lw=1.1)
-box(gx + 0.08, 2.00, 0.42, 0.42, GREEN, WHITE, lw=1.4, shape=MSO_SHAPE.OVAL,
-    radius=None, text="90%", size=8.5, tcolor=WHITE, bold=True)
-label(11.42, 1.46, 1.9, 0.5, "conformal gate: coverage\nguaranteed, not tuned",
-      size=8, color=MUTED)
-conn(12.30, 3.05, 12.72, 2.58, IN1, w=2.6)
-conn(12.30, 3.75, 12.72, 4.28, OUT1, w=2.6)
-box(12.60, 1.98, 0.70, 0.58, INBG, IN1, lw=1.4, text="in-spec →\nStudent",
-    size=8, tcolor=IN1, bold=True)
-box(12.60, 4.22, 0.70, 0.58, OUTBG, OUT1, lw=1.4, text="refuse /\nescalate",
-    size=8, tcolor=OUT1, bold=True)
-box(11.30, 4.98, 2.0, 0.66, WHITE, GREEN, lw=1.5,
+gx = 12.30
+box(gx, 2.10, 0.22, 2.45, GATE, IN1, lw=1.2)
+box(gx + 0.74, 2.10, 0.22, 2.45, GATE, IN1, lw=1.2)
+box(gx - 0.07, 1.82, 1.10, 0.30, GATE, IN1, lw=1.2)
+box(gx + 0.10, 1.62, 0.46, 0.46, GREEN, WHITE, lw=1.5, shape=MSO_SHAPE.OVAL,
+    radius=None, text="90%", size=9.5, tcolor=WHITE, bold=True)
+label(11.55, 1.08, 1.9, 0.55, "conformal gate: coverage\nguaranteed, not tuned",
+      size=9.5, color=MUTED)
+conn(12.42, 2.95, 12.85, 2.50, IN1, w=2.8)
+conn(12.42, 3.70, 12.85, 4.22, OUT1, w=2.8)
+box(12.55, 1.98, 0.76, 0.66, INBG, IN1, lw=1.5, text="in-spec →\nStudent",
+    size=9, tcolor=IN1, bold=True)
+box(12.55, 4.28, 0.76, 0.66, OUTBG, OUT1, lw=1.5, text="refuse /\nescalate",
+    size=9, tcolor=OUT1, bold=True)
+box(10.35, 5.42, 2.85, 0.85, WHITE, GREEN, lw=1.6,
     text="Certified, both sides:\nin-task ≥ 0.93, off-task ≤ 0.25",
-    size=8, tcolor=TEXT)
+    size=10.5, tcolor=TEXT)
 
 # captions under the spine: the full clause for each transition
-for cx, txt in [(2.31, "one backward pass at the student's\ninit reads each query's missing skills"),
-                (4.84, "a sparse dictionary over many teacher\ntraces factors gradients into atoms"),
-                (7.63, "traces are scored by the atoms they\nsupply; the budget is filled from the top"),
-                (9.81, "training stops once the remaining\nin-spec demand is absorbed"),
-                (11.55, "a calibrated gate routes requests;\nboth sides carry certificates")]:
-    label(cx - 1.05, 5.65, 2.1, 0.5, txt, size=8, color=MUTED)
+for cx, txt in [(1.25, "one backward pass at the\nstudent's init reads each\nquery's missing skills"),
+                (3.80, "a sparse dictionary over\nmany teacher traces factors\ngradients into skill atoms"),
+                (6.45, "the atoms the k queries\nactivate form the task\nspecification"),
+                (9.15, "traces are scored by the atoms\nthey supply; the budget is filled\nfrom the top; stop once the\nin-spec demand is absorbed")]:
+    label(cx - 1.05, 5.85, 2.15, 0.75, txt, size=9.5, color=MUTED)
 
 # ---------------------------------------------------------------- legend
-lx = 0.45
-tile(lx, 6.88, IN1)
-label(lx + 0.32, 6.87, 1.7, 0.28, "skill the task needs", size=9.5,
+lx = 3.6
+box(lx - 0.25, 6.78, 7.4, 0.5, CARD, None, radius=0.5)
+tile(lx, 6.90, IN1, s=0.26)
+label(lx + 0.36, 6.90, 1.75, 0.3, "skill the task needs", size=11,
       color=TEXT, align=PP_ALIGN.LEFT)
-tile(lx + 1.98, 6.88, OUT1)
-label(lx + 2.30, 6.87, 1.7, 0.28, "out-of-scope skill", size=9.5, color=TEXT,
+tile(lx + 2.30, 6.90, OUT1, s=0.26)
+label(lx + 2.66, 6.90, 1.7, 0.3, "out-of-scope skill", size=11, color=TEXT,
       align=PP_ALIGN.LEFT)
-tile(lx + 3.88, 6.88, PALE)
-label(lx + 4.20, 6.87, 1.2, 0.28, "inactive", size=9.5, color=TEXT,
+tile(lx + 4.55, 6.90, PALE, s=0.26)
+label(lx + 4.91, 6.90, 1.2, 0.3, "inactive", size=11, color=TEXT,
       align=PP_ALIGN.LEFT)
 
 prs.save("paper/figs/fig1_pipeline.pptx")
