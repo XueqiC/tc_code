@@ -15,3 +15,4 @@ e2-v2-secondary | 学生自轨迹残差 (风格漂移诊断, GPU2) | rai | ρ=-0
 e1-refmodel-base | Qwen3.5-{0.8,2,4,9}B-Base 特征 (节点本地缓存) | hpg B200 ×4 | 全部 hard-AUROC 1.000 — 稳健性矩阵完成: 9个参考模型(instruct×5含Qwen2.5-1.5B, base×4, 跨代27B)全1.000; RLHF与否不影响任务子空间 | results/pilot/features_grad_qwen35-*-base.npz
 e3-tier1 | 6条件×40k budget, 1.5B instruct, 池=2teacher×3域+gold干扰 | rai GPU1 ~5h | 域内: D/B 90% 并列最高(饱和); 泄漏: D 域外loss最高(削最尖), F 域外拒答100%/域内误拒0%/-6.7pt; 行动空间俘获全条件100%; 梯度边界更紧(153 vs 264过阈) | results/e3_tier1/, figs/e3_tier1.png
 atoms-pilot-v1 | 256原子 alpha=0.5 稀疏分解 2072块 | rai CPU | 超参失败(平均0.5激活/块, AUROC 0.55-0.65) 但可解释性命中: join判别原子top块全是JOIN语句; v2 (128原子 alpha=0.05) 在跑 | results/atoms_pilot/report.json
+atoms-pilot-v2 | 128原子 alpha=0.05 (5.2激活/块) | rai CPU | 细粒度突破: sql-join 0.906±0.025 (密子空间0.615/emb 0.866全超); 粗粒度追平: code 0.996(hard 0.988)/sql 0.989/pandas 0.936; JOIN原子可解释性再确认 → 单一表示统一两尺度, 方法设计线收敛到 Capability Atoms | results/atoms_pilot/report.json
