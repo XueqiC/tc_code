@@ -317,6 +317,12 @@ def load_candidate_pool(config):
             _pool_item(domain, row["prompt"], row["response"], "gold")
             for row in non_test
         )
+    teachers = {item["teacher"] for item in pool}
+    if teachers <= {"gold"}:
+        raise RuntimeError(
+            "candidate pool contains only gold seed items — teacher traces "
+            "(data/pool_v0) are missing; refusing to run on a degenerate diet"
+        )
     return pool
 
 
