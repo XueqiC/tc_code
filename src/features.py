@@ -14,10 +14,8 @@ def stable_seed(name: str) -> int:
     return int.from_bytes(hashlib.sha256(name.encode()).digest()[:4], "little")
 
 
-def extract_features(model_name: str, rows: list[dict], proj_dim=64,
-                     max_prompt_tok=640, max_resp_tok=512,
-                     device="cuda") -> np.ndarray:
-    """Extract normalized, fixed-projection LoRA-B gradients for each row."""
+def _prepare_extractor(model_name, proj_dim, device):
+    """Create the shared tokenizer, LoRA model, and fixed JL projections."""
     torch.manual_seed(0)
     tok = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
@@ -43,6 +41,49 @@ def extract_features(model_name: str, rows: list[dict], proj_dim=64,
             param.numel(), proj_dim, generator=generator, device=device,
             dtype=torch.float32
         ) / math.sqrt(proj_dim)
+    return tok, model, lora_b, projs
+
+
+def _project_gradients(lora_b, projs):
+    """JL-project and concatenate the current LoRA-B gradients."""
+    vec = torch.cat([
+        projs[name].T @ param.grad.detach().flatten().float()
+        for name, param in lora_b
+    ])
+    return vec / (vec.norm() + 1e-8)
+
+
+def _response_blocks(response: str, max_blocks=12) -> list[str]:
+    """Return stripped non-empty response lines, merging cap overflow."""
+    blocks = [line.strip() for line in response.splitlines() if line.strip()]
+    if len(blocks) > max_blocks:
+        blocks = blocks[:max_blocks - 1] + ["\n".join(blocks[max_blocks - 1:])]
+    return blocks
+
+
+def _block_token_spans(tok, blocks, max_resp_tok):
+    """Tokenize growing response prefixes and return their length deltas."""
+    prefix = ""
+    previous_end = 0
+    response_ids = []
+    spans = []
+    for block in blocks:
+        prefix = f"{prefix}\n{block}" if prefix else block
+        prefix_ids = tok(prefix, add_special_tokens=False)["input_ids"]
+        response_ids = prefix_ids[:max_resp_tok]
+        end = len(response_ids)
+        spans.append((previous_end, end))
+        previous_end = end
+    return response_ids, spans
+
+
+def extract_features(model_name: str, rows: list[dict], proj_dim=64,
+                     max_prompt_tok=640, max_resp_tok=512,
+                     device="cuda") -> np.ndarray:
+    """Extract normalized, fixed-projection LoRA-B gradients for each row."""
+    tok, model, lora_b, projs = _prepare_extractor(
+        model_name, proj_dim, device
+    )
 
     domain_totals = Counter(row.get("domain") for row in rows)
     domain_seen = defaultdict(int)
@@ -65,11 +106,7 @@ def extract_features(model_name: str, rows: list[dict], proj_dim=64,
         out = model(input_ids=input_ids, labels=labels)
         out.loss.backward()
 
-        vec = torch.cat([
-            projs[name].T @ param.grad.detach().flatten().float()
-            for name, param in lora_b
-        ])
-        vec = vec / (vec.norm() + 1e-8)
+        vec = _project_gradients(lora_b, projs)
         feats.append(vec.cpu().numpy())
 
         domain = row.get("domain")
@@ -79,3 +116,63 @@ def extract_features(model_name: str, rows: list[dict], proj_dim=64,
                   f"loss={out.loss.item():.3f}", flush=True)
 
     return np.stack(feats)
+
+
+def extract_features_stepwise(model_name: str, rows: list[dict], proj_dim=64,
+                              max_prompt_tok=640, max_resp_tok=512,
+                              device="cuda") -> tuple[np.ndarray, np.ndarray,
+                                                        np.ndarray]:
+    """Extract one normalized LoRA-B gradient feature per response block."""
+    tok, model, lora_b, projs = _prepare_extractor(
+        model_name, proj_dim, device
+    )
+
+    feats = []
+    row_ids = []
+    block_indices = []
+    for row_index, row in enumerate(rows):
+        blocks = _response_blocks(row["response"])
+        response_ids, spans = _block_token_spans(tok, blocks, max_resp_tok)
+
+        msgs = [{"role": "user", "content": row["prompt"]}]
+        prompt_txt = tok.apply_chat_template(
+            msgs, add_generation_prompt=True, tokenize=False
+        )
+        prompt_ids = tok(prompt_txt, add_special_tokens=False)["input_ids"]
+        prompt_ids = prompt_ids[:max_prompt_tok]
+
+        full_response_ids = response_ids + [tok.eos_token_id]
+        input_ids = torch.tensor(
+            [prompt_ids + full_response_ids], device=device
+        )
+        response_offset = len(prompt_ids)
+
+        for block_index, (start, end) in enumerate(spans):
+            if end <= start:
+                continue
+            labels = torch.full_like(input_ids, -100)
+            labels[0, response_offset + start:response_offset + end] = input_ids[
+                0, response_offset + start:response_offset + end
+            ]
+
+            model.zero_grad(set_to_none=True)
+            out = model(input_ids=input_ids, labels=labels)
+            out.loss.backward()
+
+            vec = _project_gradients(lora_b, projs)
+            feats.append(vec.cpu().numpy())
+            row_ids.append(row_index)
+            block_indices.append(block_index)
+
+        if (row_index + 1) % 40 == 0:
+            print(
+                f"rows: {row_index + 1}/{len(rows)} "
+                f"step features: {len(feats)}",
+                flush=True,
+            )
+
+    feature_dim = len(lora_b) * proj_dim
+    X_steps = (np.stack(feats).astype(np.float32, copy=False) if feats else
+               np.empty((0, feature_dim), dtype=np.float32))
+    return (X_steps, np.asarray(row_ids, dtype=np.int64),
+            np.asarray(block_indices, dtype=np.int64))

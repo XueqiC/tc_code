@@ -105,6 +105,11 @@ Training-Time Control on Agent Capability*。
   已知小问题:splits 用了内建 hash(d)(进程间加盐)→ 跑批间 split 不稳定,
   正式实验前改成稳定 hash。剩余 caveat:域间本身较易分;下一轮要加
   域内细分(如 pandas 内 filtering vs groupby)与参考模型稳健性检验。
+- **e1-intra-v1(2026-08-10 凌晨)**:域内细分是当前表示的分辨率极限——
+  grad AUROC 仅 0.62-0.75,emb-traj 在 3/4 对上更高(但细分标签按关键词
+  定义,天然偏袒 surface 方法,测试本身有循环性)。方法启示:粗边界 grad
+  压倒性成立;细边界需 (a) per-step 梯度 stacking,(b) 行为定义的细分标签,
+  (c) 子空间能量阈值调优。诚实纳入论文,不隐藏。
 - **pilot-distill-v1(2026-08-09)**:C 边界在同一梯度空间可度量,且蒸馏自然塑形。
   90 条 gsm8k-code 伪轨迹 SFT(LoRA r16, 33 步)后:
   行动空间完全切换(format 0%→100%,gen 不再出 CoT);exec_acc 0%→37%,
@@ -120,6 +125,12 @@ Training-Time Control on Agent Capability*。
   备选 qwen3.5:397b(同族对照);gpt-5.4-mini(Azure)只做 probe
   (3 key × 100k tok/周 = 300k/周,不够 bulk);兜底 = hpg 自托管 teacher
 - 学生线:**Qwen3.5 0.8/2/4/9B** + 1 个跨家族对照点
+- 模型刷新(2026-08-10 用户要求最新款):teacher = **Kimi K3**(7/27 开源)
+  + DeepSeek-V4-Pro + k2.7-code(对照);27B 参考模型换 **Qwen3.6-27B**
+- **base vs instruct(提议待确认)**:双轨——主线 Qwen3.5-*-Base*(能力归因
+  干净,R1-Distill 谱系做法),instruct 平行副线 1-2 尺寸(先验挤占现象 +
+  部署现实);pilot 已有数据归入 instruct 副线。用户提出"与质量好的论文
+  对齐",已回复方案等确认
 - 实验代码默认委派 codex(gpt-5.6-sol,reasoning xhigh,ops/codex_task.sh)
 - hpg 算力:用户明确要求"可能的话多申请几个 B200 把实验做好"(2026-08-10)——
   E3/E4 sweep 可放开到多卡多任务(仍守 ≤4 pending 默认;sweep 时经用户点头放宽)
