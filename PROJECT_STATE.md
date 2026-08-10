@@ -63,8 +63,35 @@ Training-Time Control on Agent Capability*。
 - 草稿提到的另外两个文件(problem-setting-and-method.md、
   2026-08-06-action-space-capability-shape-design.md)尚未提供
 
+## Infra(2026-08-09 晚设置)
+- GitHub 私有 repo:https://github.com/XueqiC/tc-alignment(gh CLI 在
+  ~/hq/tools/gh,配置在 ~/hq/tools/gh-config,repo 局部 credential.helper 已接好;
+  push 用 `cd projects/tc-alignment && git push`)
+- hpg blue 路径实际为 `/blue/yd24f.fsu/xc25.fsu/hq`(CLAUDE.md 与 sync 脚本已修正)
+- hpg 工具:uv 装在 /blue/.../hq/tools(UV_CACHE_DIR 也在 /blue,别用 home)
+- 组 blue 存储 8T 已用 93%(剩 ~640G),大数据集落盘前先看容量
+- 用户名下 7 个死 pending job(DependencyNeverSatisfied)已按其明确授权 scancel
+- rai:runyang 占 4 张卡(vLLM);用户想让出——已告知需其本人处理,我们不动
+- hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
+
 ## Running jobs
-(none — 格式: host | pid或jobid | 在跑什么 | 启动时间 | 预计结束)
+- rai | pid 2986637(物理 GPU1,需 CUDA_DEVICE_ORDER=PCI_BUS_ID!)|
+  pilot 梯度特征提取 src/grad_features.py | 2026-08-09 ~22:00 | ~10min
+- rai | 后台链 bajdjjs63 | 提取完自动跑 src/boundary.py 出图出表 | 同上
+
+## Pilot(exp_id: pilot-boundary-v1)
+- 数据:data/pilot/{gsm8k-code,gsm8k-cot,pandas,sql,alpaca}.jsonl 各 120 条;
+  gsm8k-code 由 CoT 的 <<a op b=c>> 注释机械转 Python(变量替换+执行验证),
+  与 gsm8k-cot 共享完全相同的 prompt(困难对,query-only 特征按构造不可分)
+- 特征:Qwen2.5-1.5B-Instruct + LoRA r8,lora_B 梯度(init 时 = 全梯度的 A^T
+  随机投影,LESS 技巧),每模块再 JL 到 64 维,196 模块拼接 → 12544 维,L2 归一
+- 对比:同一子空间+conformal 流程下 grad vs BGE emb(query+traj)vs emb(query)
+- 预注册标准见 docs/2026-08-09-pilot-design.md;结果 → results/pilot/summary.md
+
+## HPG readiness(2026-08-09 验证)
+- venv:/blue/.../hq/tc-alignment/.venv,torch 2.11.0+cu128 + numpy,python 3.12(uv)
+- 冒烟测试 job 39036449 COMPLETED:B200 178GB sm_100 正常,SMOKE_OK
+- 模板:scripts/smoke_hpg.slurm(10min 1×B200)可复制改成真实验 job
 
 ## Key results so far
 (none — 1.40×/1.48×/1.34× token 比例与 round-trip 捕获的 3 个缺陷来自草稿所述前期工作,
