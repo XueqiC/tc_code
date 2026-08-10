@@ -25,3 +25,4 @@ d-proxy-check | 前向NLL vs 梯度需求 vs 逐题最终成败 (30行, base模�
 e3.1-4cells | 满3seed格子×4 | hpg | D全胜: 0.8B×10k +17.7 / 0.8B×20k +23.4 / 2B×20k +5.5 / 2B×40k +8.9 (vs random); 约束越紧优势越大, 4B×10k 趋饱和; C_emb ≤ random 3/4 格(语义中毒复现) | results/sweep/
 e2v3-interim | A2 cohort级验证 @13 cells (41 cohorts) | rai CPU | pooled ρ≈0 (供给不编码容量, size主导); within-cell 条件排序 ρ=0.556 (阈0.6, 边缘偏下) → 严格按A2措辞判 FAIL 趋势; 与逐题失败一致的教训: 供给预测只在"固定容量内的排序"有效; 39格齐后终判
 pool-v0-final | 3 teacher × 3域 × 120 = 1080条 | API | deepseek 114/120, kimi-k2.7 114/120, qwen397b 115/120 (gsm8k验证率), pandas错误 25→2 (code标签修复后) | data/pool_v0/
+e3.1-surface-v1 | 10满格曲面 | hpg | D 8/10 格占优 (0.8B行 +15.6~+23.3, 随资源衰减); 2B×10k 噪声平局; 4B×40k 两臂皆震荡(seed摆幅0.43) = 固定lr跨尺寸失稳(非选择差异) → 4B/9B×40k 带lr缩放重跑排队 | results/figs/e31_surface.png
