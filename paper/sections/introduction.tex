@@ -1,55 +1,78 @@
 \section{Introduction}
-%% Skill check: para-1 concrete failure; para-2 crux; para-3 insight; para-4 claims.
+%% Written under .claude/skills/paper-writing: broad phenomenon -> need ->
+%% structural failure of the obvious tool -> insight -> claims with evidence.
+%% No em-dashes; formal register; every degree term carries a number.
 
-A team builds an agent on a frontier model that files expense reports by
-writing Python against internal APIs. The model is too expensive to serve, so
-they distill a 2B student from the teacher's trajectories. Two questions
-decide whether the student is deployable, and neither is answered by current
-distillation practice: given a new request, is it \emph{inside} the job the
-student was built for; and does the student's competence in fact end where
-that job ends, rather than silently covering less---or more---than intended?
+Language-model agents that act by writing and executing code are moving from
+research demonstrations into production systems, where they operate tools,
+query databases, and automate multi-step workflows
+\citep{trivedi2024appworld, yao2024taubench}. Serving a frontier model for
+every such workload is rarely economical, and practice is converging on a
+standard remedy: distill the teacher's behavior on one task domain into a
+small, specialized student \citep{kang2025distilling, tang2026smartad}. The
+task domain itself is usually specified informally, by a handful of example
+queries that a deployment team collects from the intended workload.
 
-The obvious tool for both questions is semantic similarity over the request
-text. It is structurally the wrong tool. Consider the same grade-school math
-question solved twice: once as a Python function, once as chain-of-thought
-prose. The requests are \emph{identical strings}, so no function of the query
-text can separate them; yet they define different tasks, exercising different
-skills, and a student distilled for one does not acquire the other
-(Sec.~\ref{sec:boundary}). Task identity lives in what a model would have to
-\emph{learn}, not in what the request \emph{says}.
+Deploying such a student raises two questions that current distillation
+practice does not answer. First, given a new request, does it fall inside
+the domain the student was built for? Second, does the student's competence
+in fact coincide with that domain, covering neither less of it nor more than
+intended? Existing agent-distillation methods optimize aggregate benchmark
+scores \citep{kang2025distilling, tang2026smartad} and provide neither a
+boundary predictor nor a capability guarantee. We call the joint problem
+\emph{distill-to-specification}: from a teacher and $k$ example queries,
+produce a boundary predictor with a coverage guarantee together with a
+student whose measured capability matches the specified domain on both sides.
 
-Our starting point is to represent tasks by their learning demands: the
-gradient $g(q)$ that a teacher trajectory for query $q$ induces at the
-student's initialization is a direct encoding of ``which parameters must move
-to learn this''. A sparse dictionary over trajectory-block gradients then
-factors these demands into \emph{capability atoms}: recurring directions that
-align with recognizable skills (the atoms most discriminative for SQL-join
-tasks activate precisely on \texttt{JOIN \ldots ON} clauses). One
-representation supports the full pipeline: a task specification is the atom
-support of $k$ example queries with a conformal acceptance radius; a
-student's capability is the supply each atom received from its training data;
-data selection maximizes supply to the specified atoms under a token budget.
+The natural tool for both questions is semantic similarity over request
+text, and it fails for a structural reason rather than an empirical one.
+Consider the same arithmetic word problem solved twice, once as an executable
+Python function and once as chain-of-thought prose. The two requests are
+identical strings, so no function of the request text can distinguish them.
+They nevertheless define different tasks: the two solutions exercise
+different skills, and a student distilled for one does not acquire the other
+(Section~\ref{sec:boundary}). Task identity resides in what a model would
+have to learn, not in what the request says.
 
-\textbf{Contributions.} (i)~We formalize \emph{distill-to-specification}:
-producing, from a teacher and $k$ example queries, both a boundary predictor
-with finite-sample coverage guarantees and a student whose measured
-capability matches the specified domain on both sides
-(Sec.~\ref{sec:setting}). (ii)~We show task boundaries must be estimated in
-learning space, not semantic space: on identical-query hard pairs, gradient
-features reach AUROC $1.000$ vs.\ $0.687$ for trajectory embeddings, saturate
-at $k{=}5$ examples, and are stable across nine reference models spanning
-0.8B--27B, base and instruct (Sec.~\ref{sec:boundary}, pilot).
-(iii)~We introduce capability atoms and show a single sparse representation
-covers both topic-level boundaries (AUROC $0.94$--$1.00$) and within-domain
-skill resolution ($0.906$ vs.\ $0.615$ for dense subspaces)
-(Sec.~\ref{sec:atoms}). (iv)~We report a disciplined failure: our
-pre-registered gate for a gradient-norm capability proxy failed twice
-($\rho=-0.40, -0.30$ vs.\ threshold $-0.5$); the diagnosis (style drift and
-exposure bias) motivates measuring capability as predicted atom supply,
-validated against execution outcomes (Sec.~\ref{sec:capability}).
-(v)~In budget-matched comparisons, boundary-guided selection matches the best
-in-domain execution accuracy (90\%, pilot) while most strongly removing
-out-of-domain capability, and we show mechanistically that this sharpening is
-supply starvation rather than gradient conflict: fewer than 15\% of
-cross-domain gradient inner products are negative, while kernel mass predicts
-where loss falls ($\rho=0.53$, $p=0.04$) (Sec.~\ref{sec:distill}).
+We therefore represent tasks by their learning demands. The gradient that a
+teacher trajectory for query $q$ induces at the student's initialization
+records which parameters must change for the student to learn that
+trajectory; a low-rank adapter sketch makes this representation practical at
+one backward pass per example \citep{hu2022lora, xia2024less}. A sparse
+dictionary learned over trajectory-block gradients then factors these demands
+into \emph{capability atoms}, recurring directions that align with
+recognizable skills: the atoms that separate join queries from other SQL
+activate precisely on \texttt{JOIN} clauses. One representation supports the
+full pipeline. A task specification is the atom support of the $k$ example
+queries, equipped with a split-conformal acceptance threshold that carries a
+finite-sample coverage guarantee \citep{vovk2005algorithmic,
+gibbs2025conditional}. A student's capability is predicted from the supply
+each atom receives from its training data, in the spirit of gradient-based
+attribution \citep{park2023trak, rosser2026gradient}, and is validated
+against execution outcomes. Data selection fills a token budget with the
+trajectories that supply the specified atoms.
+
+This paper makes five claims, each tied to the experiment that supports it.
+(1)~Task boundaries must be estimated in learning space: on hard pairs with
+identical questions, gradient boundaries reach AUROC $1.000$ where trajectory
+embeddings reach $0.687$, saturate at $k{=}5$ examples while embedding
+boundaries degrade with larger $k$, and reproduce across nine reference
+models spanning 0.8B to 27B parameters (Section~\ref{sec:boundary}; pilot
+scale, single seed). (2)~A single sparse representation covers both scales:
+atom support resolves within-domain skills at AUROC $0.906{\pm}0.025$ where
+dense subspaces reach $0.615$, while matching subspaces at topic level
+(Section~\ref{sec:atoms}). (3)~Post-hoc capability proxies are unreliable,
+and we say so: our pre-registered gate for a gradient-norm proxy failed at
+$\rho=-0.40$ against a $-0.5$ threshold, with the failure localized to style
+drift and exposure bias; capability is instead predicted forward from atom
+supply (Section~\ref{sec:capability}). (4)~Under matched token budgets,
+boundary-guided selection ties the best in-domain execution accuracy at
+90\% while producing the strongest reduction of out-of-domain capability,
+and a refusal variant separates in-domain from out-of-domain requests at
+100\% versus 0\% refusal rates for a 6.7-point in-domain cost
+(Section~\ref{sec:distill}; pilot scale). (5)~The mechanism of capability
+removal is supply starvation rather than gradient conflict: fewer than 15\%
+of cross-domain gradient inner products are negative, while kernel mass
+predicts where loss falls ($\rho=0.53$, $p=0.04$), which turns leakage into
+a quantity that data selection can control in advance
+(Section~\ref{sec:distill}).
