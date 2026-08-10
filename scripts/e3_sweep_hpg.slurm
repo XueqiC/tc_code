@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=14
 #SBATCH --mem=240gb
 #SBATCH --time=03:00:00
-#SBATCH --array=0-11
+#SBATCH --array=0-38
 #SBATCH --output=logs/%x_%A_%a.out
 
 # Usage: sbatch --export=ALL,TC_USE_TMP=1 scripts/e3_sweep_hpg.slurm

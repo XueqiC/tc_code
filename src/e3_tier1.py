@@ -33,7 +33,7 @@ from distill_pilot import MODEL, encode, last_number, split
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
-ALL_CONDITIONS = (
+CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "F_refusal"
 )
 COLORS = {
@@ -84,14 +84,14 @@ def _environment_int(name, default):
 
 def apply_environment_overrides(config):
     """Resolve sweep parameters while retaining the tier-1 bare-run defaults."""
-    conditions_text = os.environ.get("E3_CONDITIONS", ",".join(ALL_CONDITIONS))
+    conditions_text = os.environ.get("E3_CONDITIONS", ",".join(CONDITIONS))
     conditions = [value.strip() for value in conditions_text.split(",")]
     if not conditions or any(not value for value in conditions):
         raise ValueError("E3_CONDITIONS must be a non-empty comma-separated list")
-    unknown = [value for value in conditions if value not in ALL_CONDITIONS]
+    unknown = [value for value in conditions if value not in CONDITIONS]
     if unknown:
         raise ValueError(
-            f"unknown E3_CONDITIONS {unknown}; expected values from {ALL_CONDITIONS}"
+            f"unknown E3_CONDITIONS {unknown}; expected values from {CONDITIONS}"
         )
     if len(set(conditions)) != len(conditions):
         raise ValueError("E3_CONDITIONS must not contain duplicates")
