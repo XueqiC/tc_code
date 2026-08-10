@@ -158,9 +158,19 @@ def stage_chip(x, n, claim, w=3.2):
           align=PP_ALIGN.LEFT)
 
 
-# v8: block-per-stage layout filling the 16:9 canvas; key concepts drawn
-# as physical metaphors (shelved library, checklist spec, funnel selection,
-# vertical toll gate). One running example: an SQL-analytics agent.
+# v9: SkillOpt-Fig2 register — one central capability-space scene with
+# contrasting outcomes, plus an analogy panel and a benefits fan.
+
+from pptx.oxml.ns import qn as _qn
+
+
+def alpha_fill(shape, pct):
+    """Make the solid fill partially transparent (pct = opacity %)."""
+    sf = shape.fill.fore_color._xFill
+    clr = sf.find(_qn("a:srgbClr"))
+    a = clr.makeelement(_qn("a:alpha"), {"val": str(int(pct * 1000))})
+    clr.append(a)
+
 
 def skill(x, y, name, color, w=0.62, h=0.28, fs=8):
     tc = WHITE if color != PALE else MUTED
@@ -168,173 +178,128 @@ def skill(x, y, name, color, w=0.62, h=0.28, fs=8):
                size=fs, tcolor=tc, bold=True)
 
 
+def pill(x, y, w, text, color=TEXT, fs=9.5, bg=RGBColor(0xEC, 0xEA, 0xE4)):
+    return box(x, y, w, 0.34, bg, None, radius=0.5, text=text, size=fs,
+               tcolor=color, bold=True)
+
+
 CODE_FONT = "Consolas"
-
-
-def code_label(x, y, w, h, text, size=7.5, color=TEXT):
-    tt = label(x, y, w, h, text, size=size, color=color, align=PP_ALIGN.LEFT)
-    for p in tt.text_frame.paragraphs:
-        for r in p.runs:
-            r.font.name = CODE_FONT
-    return tt
-
-
 SKILL_COLOR = {"JOIN": IN1, "COUNT": IN2, "GROUP BY": IN3, "FILTER": IN2,
                "SORT": IN3, "PLOT": OUT1, "REGEX": OUT1, "RECURSION": OUT2}
 
-BLOCK_BG = RGBColor(0xFC, 0xFB, 0xF9)
+# ================================================================ scene
+# teacher capability: big soft region (left ~2/3 of canvas)
+teach = box(0.55, 0.85, 8.9, 6.0, OUTBG, None, shape=MSO_SHAPE.OVAL,
+            radius=None)
+alpha_fill(teach, 45)
+chip(1.55, 1.75, 0.92, 0.70, OUT1, "Teacher LLM  ❄", size=9.5)
+label(1.05, 0.62, 3.2, 0.3, "teacher capability (frozen, expensive)",
+      size=10.5, color=OUT1, bold=True, align=PP_ALIGN.LEFT)
 
+# out-of-scope skills live in the teacher blob, outside the boundary
+for (x, y, name) in [(6.6, 1.7, "PLOT"), (7.6, 2.6, "REGEX"),
+                     (6.9, 3.9, "RECURSION"), (7.7, 5.0, "…"),
+                     (5.9, 5.6, "…")]:
+    skill(x, y, name, SKILL_COLOR.get(name, PALE), w=0.9 if len(name) > 6
+          else 0.62)
 
-def block(x, w, title):
-    box(x, 0.42, w, 6.10, BLOCK_BG, GRAY, lw=1.4, radius=0.06)
-    box(x + 0.14, 0.56, w - 0.28, 0.52, TEXT, None, radius=0.3, text=title,
-        size=13, tcolor=WHITE, bold=True)
+# task boundary: thick dashed contour around the needed-skill cluster
+bnd = box(1.35, 2.35, 4.35, 3.75, WHITE, IN1, lw=3.0, dash="dash",
+          shape=MSO_SHAPE.OVAL, radius=None)
+bnd.fill.background()
 
+# our student: blue region hugging the boundary from inside
+stu = box(1.55, 2.55, 3.95, 3.35, INBG, None, shape=MSO_SHAPE.OVAL,
+          radius=None)
+alpha_fill(stu, 80)
+for (x, y, name) in [(2.2, 3.1, "JOIN"), (3.4, 2.9, "GROUP BY"),
+                     (2.0, 4.1, "FILTER"), (3.3, 3.9, "COUNT"),
+                     (2.6, 4.9, "SORT")]:
+    skill(x, y, name, SKILL_COLOR[name], w=0.92 if len(name) > 6 else 0.66)
+chip(4.35, 5.1, 0.85, 0.66, IN1, "Student  🔥", size=9)
 
-B1, B2, B3, B4 = 0.15, 3.42, 6.69, 10.21
-W1, W2, W3, W4 = 3.05, 3.05, 3.30, 2.97
-block(B1, W1, "1 · What must a student learn?")
-block(B2, W2, "2 · A library of skill atoms")
-block(B3, W3, "3 · Distill exactly to spec")
-block(B4, W4, "4 · Certified deployment")
-for gx in (3.20, 6.47, 9.99):
-    a = box(gx - 0.04, 3.28, 0.32, 0.55, GRAY, None,
-            shape=MSO_SHAPE.RIGHT_ARROW, radius=None)
-    a.adjustments[0] = 0.55
-    a.adjustments[1] = 0.55
+# baseline: dashed gray blob that spills across the boundary
+base = box(3.3, 1.35, 5.3, 3.3, PALE, GRAY, lw=2.0, dash="sysDash",
+           shape=MSO_SHAPE.OVAL, radius=None)
+alpha_fill(base, 30)
 
-# ================================================================ block 1
+# callout pills anchored on the scene (SkillOpt-style)
+pill(0.85, 6.55, 3.6, "our student: capability ends at the boundary",
+     color=IN1, fs=9, bg=INBG)
+conn(2.6, 6.52, 3.1, 5.95, IN1, w=1.6)
+pill(5.15, 0.62, 3.55, "budget-matched baseline: leaks out of scope",
+     color=OUT2, fs=9)
+conn(6.9, 0.99, 6.6, 1.55, OUT2, w=1.6)
+label(5.05, 2.62, 1.3, 0.5, "leakage", size=9.5, color=OUT2, bold=True,
+      italic=True)
+conn(5.6, 2.75, 6.35, 2.75, OUT2, w=2.0)
+
+# boundary estimation: k queries -> gradient reading -> boundary
 for i in range(2, -1, -1):
-    box(0.42 + i * 0.12, 1.35 + i * 0.12, 1.95, 1.42, CARD, GRAY, lw=1.2)
-label(0.80, 1.60, 1.9, 0.9, '"How many members\ndoes each club\nhave?"',
-      size=9.5, color=TEXT, align=PP_ALIGN.LEFT)
-label(2.30, 2.55, 0.5, 0.3, "×k", size=13, color=MUTED, bold=True)
-label(0.40, 1.10, 2.2, 0.28, "k example queries", size=10.5, color=MUTED,
-      italic=True, align=PP_ALIGN.LEFT)
-box(1.42, 3.10, 0.18, 0.42, IN1, None, shape=MSO_SHAPE.DOWN_ARROW,
-    radius=None)
-label(1.68, 3.16, 1.5, 0.3, "one backward pass", size=9.5, color=IN1,
-      bold=True, align=PP_ALIGN.LEFT)
-label(0.40, 3.62, 2.4, 0.3, "it reads what each query is missing:",
-      size=10, color=MUTED, align=PP_ALIGN.LEFT)
-needs = [["JOIN", "COUNT"], ["GROUP BY"], ["JOIN", "FILTER"]]
-for r, chips_row in enumerate(needs):
-    y = 3.98 + r * 0.62
-    box(0.48, y, 0.30, 0.42, CARD, GRAY, lw=0.9)
-    for j, name in enumerate(chips_row):
-        skill(0.90 + j * 0.86, y + 0.06, name, SKILL_COLOR[name],
-              w=0.80 if len(name) > 5 else 0.62)
-label(0.35, 5.95, 2.7, 0.34, "the gradient names the missing skills",
-      size=10, color=IN1, bold=True)
+    box(0.60 + i * 0.09, 3.95 + i * 0.09, 1.05, 0.78, CARD, GRAY, lw=1.0)
+label(0.66, 4.06, 1.0, 0.7, '"members\nper club?"', size=7, color=TEXT,
+      align=PP_ALIGN.LEFT)
+label(0.42, 3.60, 1.6, 0.3, "k queries", size=9.5, color=MUTED, italic=True,
+      align=PP_ALIGN.LEFT)
+conn(1.35, 4.35, 1.85, 4.35, IN1, w=2.0)
+pill(0.55, 5.62, 2.9, "boundary read from gradients, k≈5", color=IN1,
+     fs=8.5, bg=INBG)
 
-# ================================================================ block 2
-# shelved library: chips resting on shelf lines
-shelves = [["JOIN", "GROUP BY", "FILTER"], ["COUNT", "SORT", "…"],
-           ["PLOT", "REGEX", "RECURSION"]]
-spec_names = {"JOIN", "GROUP BY", "FILTER", "COUNT", "SORT"}
-for s_i, row in enumerate(shelves):
-    sy = 1.95 + s_i * 0.78
-    for j, name in enumerate(row):
-        x = 3.62 + j * 0.94
-        c = SKILL_COLOR.get(name, PALE)
-        box(x, sy, 0.86, 0.34, c, WHITE, lw=0.75, radius=0.45, text=name,
-            size=8, tcolor=WHITE if c != PALE else MUTED, bold=True)
-        if name in spec_names:
-            box(x - 0.05, sy - 0.05, 0.96, 0.44, None, IN1, lw=1.3,
-                dash="dash", radius=0.4)
-    conn(3.56, sy + 0.40, 6.32, sy + 0.40, GRAY, w=1.6, arrow=False)
-label(3.56, 1.28, 2.8, 0.5,
-      "a sparse dictionary over many traces\nstocks the shelves with named atoms",
+# gate on the boundary + certificate seal
+box(5.28, 3.95, 0.44, 0.44, GREEN, WHITE, lw=1.5, shape=MSO_SHAPE.OVAL,
+    radius=None, text="90%", size=8.5, tcolor=WHITE, bold=True)
+label(5.78, 3.98, 1.45, 0.55, "conformal gate\non the boundary", size=8,
+      color=GREEN, bold=True, align=PP_ALIGN.LEFT)
+
+# distillation flow along the bottom of the scene
+label(2.4, 6.95, 6.0, 0.35,
+      "distill: select only traces whose atoms lie inside the boundary "
+      "(λ rejects the rest) · train until absorbed, then stop",
       size=9.5, color=MUTED)
-# checklist card = the specification
-box(3.70, 4.42, 2.50, 1.72, WHITE, IN1, lw=1.6, radius=0.10)
-label(3.82, 4.54, 2.3, 0.32, "Task Specification", size=11, color=IN1,
+
+# ================================================================ side rail
+RX = 9.75
+# mini mechanism: query -> backward pass -> named atoms
+box(RX, 0.62, 3.35, 1.55, WHITE, GRAY, lw=1.2, radius=0.08)
+box(RX + 0.14, 0.76, 0.82, 0.62, CARD, GRAY, lw=1.0)
+label(RX + 0.18, 0.84, 0.78, 0.5, '"query"', size=7.5, color=TEXT)
+conn(RX + 1.02, 1.07, RX + 1.38, 1.07, IN1, w=1.8)
+skill(RX + 1.44, 0.78, "JOIN", IN1, w=0.6, h=0.26, fs=7)
+skill(RX + 2.10, 0.78, "COUNT", IN2, w=0.72, h=0.26, fs=7)
+label(RX + 1.40, 1.12, 1.9, 0.3, "one backward pass", size=8, color=IN1,
       bold=True, align=PP_ALIGN.LEFT)
-label(3.94, 4.92, 2.2, 0.32, "✓ JOIN    ✓ GROUP BY", size=10, color=IN1,
-      bold=True, align=PP_ALIGN.LEFT)
-label(3.94, 5.24, 2.2, 0.32, "✓ FILTER  ✓ COUNT  ✓ SORT", size=10,
-      color=IN1, bold=True, align=PP_ALIGN.LEFT)
-label(3.94, 5.56, 2.2, 0.32, "✗ PLOT   ✗ REGEX", size=10, color=OUT2,
-      bold=True, align=PP_ALIGN.LEFT)
-label(3.82, 5.90, 2.3, 0.30, "= what the k queries need, no more",
+label(RX + 0.14, 1.62, 3.1, 0.5,
+      "the gradient names the skills a query\nneeds — before any training",
       size=8.5, color=MUTED, align=PP_ALIGN.LEFT)
 
-# ================================================================ block 3
-chip(7.62, 1.72, 1.00, 0.76, IN1, "Teacher LLM", size=10)
-box(7.55, 2.36, 0.16, 0.34, GRAY, None, shape=MSO_SHAPE.DOWN_ARROW,
-    radius=None)
-label(7.76, 2.38, 1.0, 0.28, "traces", size=9.5, color=MUTED,
-      align=PP_ALIGN.LEFT)
-traces = [("SELECT c, COUNT(*)\n FROM a JOIN b …", "JOIN", True),
-          ("df.groupby('city')\n .dues.sum()", "GROUP BY", True),
-          ("plt.plot(revenue)", "PLOT", False)]
-for i, (code, chipname, keep) in enumerate(traces):
-    y = 2.62 + i * 0.86
-    ec = IN1 if keep else GRAY
-    box(6.90, y, 1.62, 0.78, CARD if keep else PALE, ec, lw=1.3)
-    code_label(7.00, y + 0.06, 1.5, 0.42, code, size=7)
-    skill(7.00, y + 0.48, chipname, SKILL_COLOR[chipname], w=0.80, h=0.22,
-          fs=6.5)
-    if keep:
-        conn(8.56, y + 0.36, 8.98, 3.40 + i * 0.12, IN1, w=2.2)
-    else:
-        conn(6.84, y + 0.84, 8.66, y - 0.06, OUT2, w=2.2, arrow=False)
-label(6.82, 5.26, 2.0, 0.55, "rejected: supplies\nPLOT, off the spec",
-      size=9, color=OUT2, bold=True)
-# funnel (two slanted sides) + lambda
-conn(8.92, 2.65, 9.28, 4.25, GRAY, w=2.6, arrow=False)
-conn(9.90, 2.65, 9.54, 4.25, GRAY, w=2.6, arrow=False)
-label(9.44, 2.72, 0.6, 0.3, "λ", size=14, color=OUT2, bold=True)
-label(8.96, 2.32, 1.0, 0.3, "budget", size=9, color=MUTED)
-box(9.32, 4.28, 0.18, 0.34, IN1, None, shape=MSO_SHAPE.DOWN_ARROW,
-    radius=None)
-chip(9.28, 5.18, 0.94, 0.74, IN1, "Student LLM", size=9.5)
-# absorption meter row at the block foot
-box(6.90, 5.92, 1.00, 0.22, WHITE, GRAY, lw=1.0)
-box(6.93, 5.95, 0.85, 0.16, IN1, None, radius=0.3)
-box(7.92, 5.88, 0.28, 0.28, GREEN, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
-    radius=None, text="✓", size=9, tcolor=WHITE, bold=True)
-label(6.80, 6.20, 2.0, 0.26, "train until absorbed, stop", size=8.5,
-      color=MUTED, align=PP_ALIGN.LEFT)
+# analogy panel (SkillOpt's table, ours)
+box(RX, 2.42, 3.35, 2.85, RGBColor(0xF2, 0xF1, 0xEC), None, radius=0.06)
+label(RX + 0.15, 2.56, 3.05, 0.32, "Capability-matching, one representation",
+      size=10, color=TEXT, bold=True, align=PP_ALIGN.LEFT)
+rows = [("task boundary", "atom support of k queries"),
+        ("capability", "atom supply of the diet"),
+        ("selection", "budgeted coverage, λ"),
+        ("stopping", "demand absorbed"),
+        ("guarantee", "conformal + binomial")]
+for i, (a, b) in enumerate(rows):
+    y = 2.95 + i * 0.44
+    label(RX + 0.15, y, 1.15, 0.4, a, size=9, color=TEXT, bold=True,
+          align=PP_ALIGN.LEFT)
+    label(RX + 1.32, y, 0.25, 0.4, "→", size=9, color=MUTED)
+    label(RX + 1.60, y, 1.72, 0.4, b, size=9, color=MUTED,
+          align=PP_ALIGN.LEFT)
 
-# ================================================================ block 4
-label(10.40, 1.22, 2.0, 0.3, "live requests", size=10.5, color=MUTED,
-      italic=True, align=PP_ALIGN.LEFT)
-box(10.44, 1.55, 1.28, 0.62, INBG, IN1, lw=1.3)
-code_label(10.52, 1.62, 1.2, 0.48, '"Avg dues\n per club?"', size=7.5,
-           color=IN1)
-box(11.82, 1.55, 1.28, 0.62, OUTBG, OUT1, lw=1.3)
-code_label(11.90, 1.62, 1.2, 0.48, '"Plot a bar\n chart"', size=7.5,
-           color=OUT1)
-# horizontal toll bar with an opening under the blue card
-box(10.40, 3.24, 0.58, 0.32, GATE, IN1, lw=1.3)
-box(11.76, 3.24, 1.38, 0.32, GATE, IN1, lw=1.3)
-box(11.16, 2.72, 0.44, 0.44, GREEN, WHITE, lw=1.5, shape=MSO_SHAPE.OVAL,
-    radius=None, text="90%", size=9, tcolor=WHITE, bold=True)
-label(11.50, 3.64, 1.75, 0.5, "conformal gate:\nguaranteed, not tuned",
-      size=8.5, color=MUTED, align=PP_ALIGN.LEFT)
-conn(11.08, 2.20, 11.08, 4.05, IN1, w=2.8)          # through the opening
-conn(12.46, 2.20, 12.46, 3.24, OUT1, w=2.8)          # blocked at the bar
-conn(12.46, 3.28, 13.02, 4.42, OUT1, w=2.8)          # deflected
-chip(11.08, 4.75, 0.94, 0.74, IN1, "Student agent", size=9.5)
-box(12.42, 4.48, 0.72, 0.5, OUTBG, OUT1, lw=1.4, text="refuse",
-    size=9, tcolor=OUT1, bold=True)
-box(10.42, 5.70, 2.56, 0.68, WHITE, GREEN, lw=1.6,
-    text="Certified, both sides:\nin-task ≥ 0.93 · off-task ≤ 0.25",
-    size=9.5, tcolor=TEXT)
-
-# ================================================================ legend
-lx = 3.4
-box(lx - 0.25, 6.72, 7.6, 0.55, CARD, None, radius=0.5)
-skill(lx, 6.86, "JOIN", IN1, w=0.55, h=0.27, fs=7.5)
-label(lx + 0.65, 6.86, 1.85, 0.3, "= skill the task needs", size=11,
-      color=TEXT, align=PP_ALIGN.LEFT)
-skill(lx + 2.60, 6.86, "PLOT", OUT1, w=0.55, h=0.27, fs=7.5)
-label(lx + 3.25, 6.86, 1.95, 0.3, "= out-of-scope skill", size=11,
-      color=TEXT, align=PP_ALIGN.LEFT)
-skill(lx + 5.15, 6.86, "…", PALE, w=0.55, h=0.27, fs=7.5)
-label(lx + 5.80, 6.86, 1.5, 0.3, "= other atoms", size=11, color=TEXT,
-      align=PP_ALIGN.LEFT)
+# benefits fan (bottom right)
+box(RX + 0.05, 5.55, 0.75, 0.85, INBG, IN1, lw=1.4, radius=0.12,
+    text="🎓", size=16)
+for i, txt in enumerate(["exact in-task ability, tied to spec",
+                         "certified leakage ≤ 0.25",
+                         "same performance at ¼ budget"]):
+    y = 5.48 + i * 0.48
+    box(RX + 1.0, y, 2.35, 0.36, RGBColor(0xDCE, 0xE5 % 256, 0xEF)
+        if False else RGBColor(0xDC, 0xE5, 0xEF), None, radius=0.5,
+        text=txt, size=8.5, tcolor=TEXT, bold=True)
+    conn(RX + 0.82, 5.95, RX + 0.98, y + 0.18, GRAY, w=1.2, arrow=False)
 
 prs.save("paper/figs/fig1_pipeline.pptx")
 
