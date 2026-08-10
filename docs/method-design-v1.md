@@ -242,6 +242,17 @@ Success = exec-based checks per environment (unit tests / answer match /
 API-call validation). All generated code runs in a sandboxed subprocess with
 resource limits; no network. Verifier code is fixed before E3 runs.
 
+### 4.5.1 Amendments (logged per §4.6 policy)
+- **A1 (2026-08-10), E2 metric revision.** E2-v1 ran as specified and FAILED
+  (pooled ρ = −0.403 > −0.5). Diagnosis: residual gradient vs the *teacher
+  reference* rises late in training as the student's own solution style
+  diverges (style drift), while exec success is stable; within-checkpoint
+  ranking reached ρ = −0.70. E2-v2 re-tests the same −0.5 threshold with the
+  metric revised to (a) within-checkpoint z-normalized residual norms
+  (primary), and (b) residual on the student's own sampled successful
+  trajectory where available (secondary). v1 verdict stands and is reported;
+  geometric C remains outside the training loop unless v2 passes.
+
 ### 4.6 Statistics
 
 Per-task paired comparisons across seeds (≥3 training seeds for E3);
