@@ -10,7 +10,7 @@ g(q) \;=\; \mathrm{normalize}\!\left(P\, \nabla_\theta\,
 \end{equation}
 the (sketched) gradient of the trajectory's action-token loss at the student
 base. With zero-initialized LoRA adapters, the adapter-$B$ gradient equals
-$G A^{\!\top}$---a free random projection of the full gradient $G$---and a
+$G A^{\!\top}$, which is a free random projection of the full gradient $G$; a
 per-module Johnson--Lindenstrauss step reduces each sample to $\sim$12k
 dimensions. Geometry is preserved (a 768-d control loses nothing measurable),
 and the resulting structure is stable across nine reference models
@@ -33,7 +33,7 @@ the spectral subspace of $\{g(q_i)\}$). A membership score is calibrated by
 split conformal prediction: with $n_{\mathrm{cal}}$ held-out examples, the
 acceptance threshold guarantees $1-\alpha$ coverage of in-domain queries.
 Measured coverage tracks the nominal level (93--97\% at $\alpha=0.1$, pilot).
-The boundary is deliberately inclusive---its job is to cover the intended
+The boundary is deliberately inclusive: its job is to cover the intended
 topic, and precision at skill level is delegated to atom support.
 
 \paragraph{Capability as supplied mass, verified behaviorally.}
@@ -55,7 +55,7 @@ fills a token budget (a first-order special case of maximizing atom coverage,
 which is submodular). Out-of-domain leakage is controlled by \emph{supply
 allocation} rather than opposition: fewer than 15\% of cross-domain gradient
 inner products are negative, so narrowing the diet starves unspecified
-capability---predictably---while parameters move for the specified task.
+capability, in a manner predictable at selection time, while parameters move for the specified task.
 An optional refusal module converts the lowest-scoring pool items into
 refusal targets, shaping behavior on the same boundary
 (100\% out-of-domain refusal at 0\% in-domain over-refusal, pilot).
