@@ -1,4 +1,14 @@
 \section{Method}\label{sec:method}
+The method relies on exactly two assumptions, and every component below
+names which one it consumes. \textbf{A1 (white-box student):} the student's
+gradients are accessible, which is what fingerprints, atoms, supply
+accounting, and absorption monitoring consume; nothing in these components
+refers to the task's content or action space. \textbf{A2 (success
+signal):} some check decides whether an attempt succeeded; certificates
+consume only this binary outcome, so an execution verifier, a unit test, or
+a judge are interchangeable instantiations. Code-acting agents are the
+instantiation we evaluate, not a requirement.
+
 \subsection{Problem setting}\label{sec:setting}
 A teacher agent $\pi_T$ acts by emitting executable code; a rollout on query
 $q$ yields a trajectory $\tau(q)$ whose success is decided by an execution

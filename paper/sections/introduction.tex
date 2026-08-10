@@ -11,7 +11,9 @@ every such workload is rarely economical, and practice is converging on a
 standard remedy: distill the teacher's behavior on one task domain into a
 small, specialized student \citep{kang2025distilling, tang2026smartad}. The
 task domain itself is usually specified informally, by a handful of example
-queries that a deployment team collects from the intended workload.
+queries collected from the intended workload; making that implicit
+specification explicit, and holding the student to it, is the subject of
+this paper.
 
 Deploying such a student raises two questions that current distillation
 practice does not answer. First, given a new request, does it fall inside
