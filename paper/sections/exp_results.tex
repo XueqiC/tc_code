@@ -2,24 +2,93 @@
 %% Each subsection opens with its falsifiable question (skill rule).
 
 \subsection{Can boundaries be estimated where semantics fail?}\label{sec:boundary}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/pilot_pca.png}
+\caption{First two principal components of three feature spaces over five
+domains (120 examples each; pilot). In gradient space (left) the
+identical-query hard pair separates (GSM8K-code, blue, versus GSM8K-CoT,
+orange); trajectory embeddings (center) mix the pair; query embeddings
+(right) place the pair on identical coordinates by construction.}
+\label{fig:pca}
+\end{figure}
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\linewidth]{figs/pilot_roc_hard.png}\hfill
+\includegraphics[width=0.5\linewidth]{figs/pilot_k_curve.png}
+\caption{Left: hard-pair ROC (30 in-domain versus 30 probe examples;
+pilot). Gradient boundaries reach AUROC $1.000$; trajectory embeddings
+$0.687$; query embeddings $0.404$, chance by construction. Right: sample
+efficiency over $k$ (5 seeds, mean$\pm$std). Gradient boundaries saturate
+at $k{=}5$; embedding boundaries degrade as $k$ grows.}
+\label{fig:hardpair}
+\end{figure}
 \todo{E1 full: hard-pair table (grad 1.000 / emb-traj 0.687 / emb-query 0.404
 $\approx$ chance by construction), $k$-efficiency (saturation at $k{=}5$;
 embeddings degrade with $k$), dimension- and template-controls, nine-model
 robustness matrix, PCA figure.}
 
 \subsection{Do atoms resolve skills within a domain?}\label{sec:atoms}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.75\linewidth]{figs/e1_intra.png}
+\caption{Within-domain boundary resolution (5 seeds, mean$\pm$std;
+pilot). Dense subspaces and embeddings on keyword-defined subgroup pairs;
+sparse atom support (Section~\ref{sec:atoms}) raises SQL-join resolution to
+$0.906{\pm}0.025$. The embedding baseline reads the discriminative keyword
+directly from the trajectory text and is therefore surface-advantaged on
+this test.}
+\label{fig:intra}
+\end{figure}
 \todo{Dense-vs-sparse table: SQL-join 0.906$\pm$0.025 vs.\ 0.615 (dense) and
 0.866 (embedding, surface-advantaged by construction); coarse-scale parity
 (0.94--1.00); atom interpretability panel; dictionary stability; pandas
 limitation (intra-line skills need finer blocks).}
 
 \subsection{Does measured capability track behavior?}\label{sec:capability}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/e2_gate.png}
+\caption{The failed pre-registered gate (pilot). Left: mean residual
+gradient norm and execution success across 66 optimizer steps; the norm
+falls, then rises as the student's own style diverges from teacher
+references while success is stable. Right: success rate by residual-norm
+decile; the lowest decile is highly predictive (96\% success) but the
+upper deciles are not, and the pooled correlation ($\rho=-0.40$) fails the
+$-0.5$ threshold.}
+\label{fig:gate}
+\end{figure}
 \todo{Gate narrative: v1/v2 failures with per-checkpoint analysis (late
 within-checkpoint $\rho=-0.70$; lowest-decile success 96\%), style-drift
 evidence (per-row residual 15.1 vs.\ 1.3), atom-supply validation on E3
 cohorts (pre-registered).}
 
 \subsection{Does boundary-guided distillation shape capability?}\label{sec:distill}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/pilot_distill.png}
+\caption{Narrow distillation sharpens the student into the task (pilot;
+90 in-domain trajectories, 33 steps). Teacher-forced loss (left) and median
+residual gradient norm (right) before (blue) and after (orange) training:
+both drop on the target domain (highlighted) and rise on all four
+out-of-domain test sets without any explicit suppression.}
+\label{fig:sharpen}
+\end{figure}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/e3_tier1.png}
+\caption{Budget-matched selection conditions (pilot, single seed,
+1.5B student, 40k response tokens). Left: in-domain execution accuracy;
+gradient-guided selection (D) ties random selection at 90\% while all
+trained conditions capture the action space completely. Right: leakage and
+behavior metrics; the refusal variant separates in-domain from
+out-of-domain requests at 100\% versus 0\% refusal.}
+\label{fig:e3}
+\end{figure}
 \todo{Budget-matched conditions (all/random/embedding/gradient/refusal):
 in-domain execution, action-space capture (63\%$\to$0\% CoT in every
 condition), out-of-domain loss movement, refusal split; (size, budget)
