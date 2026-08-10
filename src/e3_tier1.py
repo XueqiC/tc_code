@@ -1,17 +1,20 @@
 """E3 tier-1: boundary-guided versus standard trajectory distillation.
 
 The experiment derives gradient and embedding boundaries from the stable
-GSM8K-code fit/calibration split, selects a fixed-token training set under five
-conditions, trains a fresh LoRA student for each condition, and evaluates
-in-boundary capability and out-of-boundary behavior.
+GSM8K-code fit/calibration split, selects fixed-token training sets under the
+requested conditions, trains a fresh LoRA student for each condition, and
+evaluates in-boundary capability and out-of-boundary behavior.
 """
 
 import argparse
+import ast
 import gc
+import hashlib
 import json
 import math
 import os
 import random
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -21,6 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn.functional as F
 import yaml
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -34,7 +38,8 @@ from distill_pilot import MODEL, encode, last_number, split
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
 CONDITIONS = (
-    "base", "A_all", "B_random", "C_emb", "D_grad", "F_refusal"
+    "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
+    "H_nll", "E_less_std", "H_smartad_std",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -42,7 +47,11 @@ COLORS = {
     "B_random": "#eda100",
     "C_emb": "#1baf7a",
     "D_grad": "#2a78d6",
+    "E_less": "#9085e9",
+    "E_less_std": "#6b5bd6",
     "F_refusal": "#e87ba4",
+    "H_nll": "#c98500",
+    "H_smartad_std": "#a86e00",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -50,9 +59,17 @@ SHORT_LABELS = {
     "B_random": "B",
     "C_emb": "C",
     "D_grad": "D",
+    "E_less": "E",
+    "E_less_std": "E*",
     "F_refusal": "F",
+    "H_nll": "H",
+    "H_smartad_std": "H*",
 }
 MUTED = "#6b6a63"
+LESS_WARMUP_EPOCHS = 4
+LESS_WARMUP_FRACTION = 0.05
+LESS_WARMUP_LR = 2e-4
+LESS_ADAM_EPS = 1e-8
 
 
 def parse_args():
@@ -295,7 +312,356 @@ def conformal_threshold(scores, alpha):
     return float(np.sort(scores)[max(k - 1, 0)])
 
 
-def score_pool(config, task_rows, pool):
+def _less_rows_fingerprint(rows):
+    """Hash the ordered, selection-relevant contents of a row collection."""
+    digest = hashlib.sha256()
+    for row in rows:
+        identity = {
+            key: row.get(key) for key in ("domain", "prompt", "response", "teacher")
+        }
+        digest.update(
+            json.dumps(
+                identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+        )
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _less_cache(config, task_rows, pool):
+    """Return a seed-independent cache directory and its protocol manifest."""
+    feat_cfg = config["gradient_features"]
+    lora_cfg = config["training"]["lora"]
+    manifest = {
+        "version": 1,
+        "model": config["model"],
+        "pool_fingerprint": _less_rows_fingerprint(pool),
+        "task_rows_fingerprint": _less_rows_fingerprint(task_rows),
+        "pool_rows": len(pool),
+        "task_rows": len(task_rows),
+        "warmup_fraction": LESS_WARMUP_FRACTION,
+        "warmup_epochs": LESS_WARMUP_EPOCHS,
+        "warmup_learning_rate": LESS_WARMUP_LR,
+        "lora": {
+            "r": 16,
+            "alpha": 32,
+            "dropout": lora_cfg["dropout"],
+            "bias": lora_cfg["bias"],
+            "target_modules": lora_cfg["target_modules"],
+        },
+        "projection_dim": feat_cfg["projection_dim"],
+        "max_prompt_tokens": feat_cfg["max_prompt_tokens"],
+        "max_response_tokens": feat_cfg["max_response_tokens"],
+        "adam_eps": LESS_ADAM_EPS,
+    }
+    encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    cache_key = hashlib.sha256(encoded).hexdigest()[:16]
+    cache_root = ROOT / "results" / f"less_cache{config['tag']}"
+    return cache_root / cache_key, manifest
+
+
+def _build_less_model(config, warmup_seed):
+    """Build the fixed r16/alpha32 LoRA model used by faithful LESS."""
+    seed_everything(warmup_seed)
+    model = AutoModelForCausalLM.from_pretrained(
+        config["model"], torch_dtype=torch.bfloat16
+    ).to(config["device"])
+    lora_cfg = config["training"]["lora"]
+    adapter = LoraConfig(
+        r=16,
+        lora_alpha=32,
+        lora_dropout=lora_cfg["dropout"],
+        bias=lora_cfg["bias"],
+        task_type="CAUSAL_LM",
+        target_modules=lora_cfg["target_modules"],
+    )
+    return get_peft_model(model, adapter)
+
+
+def _less_adapter_state(model):
+    return {
+        name: parameter.detach().cpu().clone()
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    }
+
+
+def _less_second_moments(model, optimizer):
+    moments = {}
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        state = optimizer.state.get(parameter, {})
+        moment = state.get("exp_avg_sq")
+        moments[name] = (
+            torch.zeros_like(parameter, device="cpu", dtype=torch.float32)
+            if moment is None
+            else moment.detach().cpu().float().clone()
+        )
+    return moments
+
+
+def _run_less_warmup(config, tokenizer, pool, checkpoint_paths, warmup_seed):
+    """Train the deterministic 5% warmup and save four adapter/Adam states."""
+    warmup_n = max(1, math.ceil(len(pool) * LESS_WARMUP_FRACTION))
+    rng = np.random.default_rng(warmup_seed)
+    warmup_indices = rng.choice(len(pool), size=warmup_n, replace=False)
+    accumulation = config["training"]["gradient_accumulation"]
+    model = _build_less_model(config, warmup_seed)
+    model.config.use_cache = False
+    model.train()
+    optimizer = torch.optim.AdamW(
+        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        lr=LESS_WARMUP_LR,
+    )
+    optimizer_steps = 0
+    try:
+        print(
+            f"[setup][E_less_std][warmup] rows={warmup_n}/{len(pool)} "
+            f"epochs={LESS_WARMUP_EPOCHS}",
+            flush=True,
+        )
+        for epoch, checkpoint_path in enumerate(checkpoint_paths, start=1):
+            order = rng.permutation(warmup_indices)
+            optimizer.zero_grad(set_to_none=True)
+            for start in range(0, len(order), accumulation):
+                chunk = order[start:start + accumulation]
+                for pool_index in chunk:
+                    input_ids, labels = encode(
+                        tokenizer, pool[int(pool_index)], config["device"]
+                    )
+                    loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
+                    loss.backward()
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                optimizer_steps += 1
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "optimizer_steps": optimizer_steps,
+                    "warmup_indices": torch.as_tensor(warmup_indices.copy()),
+                    "adapter_state": _less_adapter_state(model),
+                    "second_moments": _less_second_moments(model, optimizer),
+                },
+                checkpoint_path,
+            )
+            print(
+                f"[setup][E_less_std][warmup] epoch={epoch}/"
+                f"{LESS_WARMUP_EPOCHS} optimizer_steps={optimizer_steps} saved",
+                flush=True,
+            )
+    finally:
+        del optimizer, model
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def _load_less_checkpoint(model, checkpoint_path):
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    named_parameters = dict(model.named_parameters())
+    adapter_state = checkpoint["adapter_state"]
+    missing = sorted(set(adapter_state) - set(named_parameters))
+    if missing:
+        raise RuntimeError(
+            f"LESS checkpoint has {len(missing)} unknown adapter parameters"
+        )
+    with torch.no_grad():
+        for name, value in adapter_state.items():
+            named_parameters[name].copy_(
+                value.to(
+                    device=named_parameters[name].device,
+                    dtype=named_parameters[name].dtype,
+                )
+            )
+    return checkpoint["second_moments"]
+
+
+def _less_projections(lora_b, projection_dim, device):
+    """Construct the same stable per-LoRA-B-module JL maps as features.py."""
+    projections = {}
+    for name, parameter in lora_b:
+        generator = torch.Generator(device=device).manual_seed(
+            features.stable_seed(name)
+        )
+        projections[name] = torch.randn(
+            parameter.numel(),
+            projection_dim,
+            generator=generator,
+            device=device,
+            dtype=torch.float32,
+        ) / math.sqrt(projection_dim)
+    return projections
+
+
+def _less_preconditioned_feature(lora_b, projections, second_moments):
+    """Adam-precondition current LoRA-B gradients, then JL-project and unitize."""
+    projected = []
+    for name, parameter in lora_b:
+        if parameter.grad is None:
+            raise RuntimeError(f"LESS feature gradient is missing for {name}")
+        moment = second_moments[name].to(
+            device=parameter.device, dtype=torch.float32
+        )
+        preconditioned = parameter.grad.detach().flatten().float() / (
+            moment.flatten().sqrt() + LESS_ADAM_EPS
+        )
+        projected.append(projections[name].T @ preconditioned)
+    feature = torch.cat(projected)
+    return feature / (feature.norm() + 1e-8)
+
+
+def _extract_less_features(
+    config, tokenizer, rows, checkpoint_paths, feature_paths, warmup_seed
+):
+    """Extract and cache Adam-preconditioned features at all four checkpoints."""
+    feat_cfg = config["gradient_features"]
+    model = _build_less_model(config, warmup_seed)
+    lora_b = [
+        (name, parameter)
+        for name, parameter in model.named_parameters()
+        if "lora_B" in name
+    ]
+    if not lora_b:
+        raise RuntimeError("faithful LESS found no LoRA-B parameters")
+    for name, parameter in model.named_parameters():
+        parameter.requires_grad = "lora_B" in name
+    projections = _less_projections(
+        lora_b, feat_cfg["projection_dim"], config["device"]
+    )
+    model.config.use_cache = False
+    model.eval()
+    try:
+        for epoch, (checkpoint_path, feature_path) in enumerate(
+            zip(checkpoint_paths, feature_paths), start=1
+        ):
+            saved_moments = _load_less_checkpoint(model, checkpoint_path)
+            second_moments = {
+                name: saved_moments[name].to(
+                    device=parameter.device, dtype=torch.float32
+                )
+                for name, parameter in lora_b
+            }
+            del saved_moments
+            checkpoint_features = []
+            print(
+                f"[setup][E_less_std][features] checkpoint={epoch}/"
+                f"{LESS_WARMUP_EPOCHS} rows={len(rows)}",
+                flush=True,
+            )
+            for row_index, row in enumerate(rows, start=1):
+                input_ids, labels = encode(tokenizer, row, config["device"])
+                model.zero_grad(set_to_none=True)
+                model(input_ids=input_ids, labels=labels).loss.backward()
+                checkpoint_features.append(
+                    _less_preconditioned_feature(
+                        lora_b, projections, second_moments
+                    ).cpu().numpy()
+                )
+                if row_index % 100 == 0 or row_index == len(rows):
+                    print(
+                        f"[setup][E_less_std][features] checkpoint={epoch}/"
+                        f"{LESS_WARMUP_EPOCHS} rows={row_index}/{len(rows)}",
+                        flush=True,
+                    )
+            np.save(
+                feature_path,
+                np.stack(checkpoint_features).astype(np.float32, copy=False),
+            )
+    finally:
+        del projections, model
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+def _load_valid_less_features(feature_paths, expected_rows):
+    matrices = []
+    expected_columns = None
+    try:
+        for path in feature_paths:
+            matrix = np.load(path, allow_pickle=False)
+            if matrix.ndim != 2 or matrix.shape[0] != expected_rows:
+                return None
+            if expected_columns is None:
+                expected_columns = matrix.shape[1]
+            if matrix.shape[1] != expected_columns:
+                return None
+            matrices.append(matrix.astype(np.float64, copy=False))
+    except (OSError, ValueError):
+        return None
+    return matrices
+
+
+def attach_less_std_scores(config, tokenizer, task_rows, pool):
+    """Run or reuse faithful LESS warmup/features and attach InfAdam scores."""
+    cache_dir, manifest = _less_cache(config, task_rows, pool)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = cache_dir / "manifest.json"
+    with manifest_path.open("w") as handle:
+        json.dump(manifest, handle, indent=2)
+
+    checkpoint_paths = [
+        cache_dir / f"adapter_epoch_{epoch}.pt"
+        for epoch in range(1, LESS_WARMUP_EPOCHS + 1)
+    ]
+    feature_paths = [
+        cache_dir / f"features_epoch_{epoch}.npy"
+        for epoch in range(1, LESS_WARMUP_EPOCHS + 1)
+    ]
+    combined = task_rows + pool
+    matrices = _load_valid_less_features(feature_paths, len(combined))
+    if matrices is not None:
+        print(
+            f"[setup][E_less_std][cache] hit={cache_dir.relative_to(ROOT)}",
+            flush=True,
+        )
+    else:
+        pool_fingerprint = manifest["pool_fingerprint"]
+        warmup_seed = features.stable_seed(
+            f"less-warmup-{config['model']}-{pool_fingerprint}"
+        )
+        if not all(path.is_file() for path in checkpoint_paths):
+            _run_less_warmup(
+                config, tokenizer, pool, checkpoint_paths, warmup_seed
+            )
+        else:
+            print(
+                f"[setup][E_less_std][cache] adapter-hit="
+                f"{cache_dir.relative_to(ROOT)}",
+                flush=True,
+            )
+        _extract_less_features(
+            config,
+            tokenizer,
+            combined,
+            checkpoint_paths,
+            feature_paths,
+            warmup_seed,
+        )
+        matrices = _load_valid_less_features(feature_paths, len(combined))
+        if matrices is None:
+            raise RuntimeError("failed to create valid faithful LESS feature cache")
+
+    spec_n = len(task_rows)
+    checkpoint_scores = []
+    for matrix in matrices:
+        matrix = boundary.unit(matrix)
+        mean_spec = boundary.unit(
+            np.mean(matrix[:spec_n], axis=0, keepdims=True)
+        )[0]
+        checkpoint_scores.append(matrix[spec_n:] @ mean_spec)
+    scores = np.max(np.stack(checkpoint_scores), axis=0)
+    if len(scores) != len(pool):
+        raise RuntimeError("faithful LESS scores do not align with the pool")
+    for row, score in zip(pool, scores):
+        row["_less_std_score"] = float(score)
+    print(
+        f"[setup][E_less_std][score] checkpoints={LESS_WARMUP_EPOCHS} "
+        f"pool_items={len(pool)}",
+        flush=True,
+    )
+
+
+def score_pool(config, tokenizer, task_rows, pool):
     """Compute gradient and BGE trajectory scores against the same task split."""
     feat_cfg = config["gradient_features"]
     combined = task_rows + pool
@@ -316,6 +682,10 @@ def score_pool(config, task_rows, pool):
     fit_n = config["task_boundary"]["fit_rows"]
     spec_n = config["task_boundary"]["spec_rows"]
     alpha = config["task_boundary"]["alpha"]
+    mean_spec_grad = boundary.unit(
+        np.mean(grad[:spec_n], axis=0, keepdims=True)
+    )[0]
+    less_scores = grad[spec_n:] @ mean_spec_grad
     grad_subspace = boundary.fit_subspace(grad[:fit_n])
     grad_cal = boundary.score(grad_subspace, grad[fit_n:spec_n])
     grad_scores = boundary.score(grad_subspace, grad[spec_n:])
@@ -350,11 +720,22 @@ def score_pool(config, task_rows, pool):
     del embedder, embeddings
     gc.collect()
 
-    if len(grad_scores) != len(pool) or len(emb_scores) != len(pool):
+    if not (
+        len(grad_scores) == len(less_scores) == len(emb_scores) == len(pool)
+    ):
         raise RuntimeError("feature scores do not align with the candidate pool")
-    for row, grad_score, emb_score in zip(pool, grad_scores, emb_scores):
+    for row, grad_score, less_score, emb_score in zip(
+        pool, grad_scores, less_scores, emb_scores
+    ):
         row["_grad_score"] = float(grad_score)
+        row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
+
+    if "E_less_std" in config["conditions"]:
+        attach_less_std_scores(config, tokenizer, task_rows, pool)
+
+    if {"H_nll", "H_smartad_std"} & set(config["conditions"]):
+        attach_student_nll_scores(config, tokenizer, pool)
 
     boundary_metrics = {
         "domain": config["task_boundary"]["domain"],
@@ -435,6 +816,9 @@ def build_selections(config, tokenizer, pool):
     grad_order = np.argsort(
         -np.asarray([row["_grad_score"] for row in pool]), kind="stable"
     )
+    less_order = np.argsort(
+        -np.asarray([row["_less_score"] for row in pool]), kind="stable"
+    )
     low_grad_order = grad_order[::-1]
 
     selections = {
@@ -442,7 +826,45 @@ def build_selections(config, tokenizer, pool):
         "B_random": take_prefix(pool, random_order, budget),
         "C_emb": take_prefix(pool, emb_order, budget),
         "D_grad": take_prefix(pool, grad_order, budget),
+        "E_less": take_prefix(pool, less_order, budget),
     }
+
+    if "H_nll" in config["conditions"]:
+        nll_order = np.argsort(
+            np.asarray([row["_student_nll"] for row in pool]), kind="stable"
+        )
+        selections["H_nll"] = take_prefix(pool, nll_order, budget)
+
+    if "E_less_std" in config["conditions"]:
+        less_std_order = np.argsort(
+            -np.asarray([row["_less_std_score"] for row in pool]), kind="stable"
+        )
+        selections["E_less_std"] = take_prefix(pool, less_std_order, budget)
+
+    if "H_smartad_std" in config["conditions"]:
+        best_by_prompt = {}
+        for pool_index, row in enumerate(pool):
+            if row["teacher"] == "gold":
+                continue
+            current = best_by_prompt.get(row["prompt"])
+            candidate = (row["_student_nll"], pool_index)
+            if current is None or candidate < current:
+                best_by_prompt[row["prompt"]] = candidate
+        if not best_by_prompt:
+            raise ValueError("H_smartad_std found no generated-teacher candidates")
+        smartad_order = [
+            pool_index
+            for _nll, pool_index in sorted(best_by_prompt.values())
+        ]
+        selections["H_smartad_std"] = take_prefix(
+            pool, smartad_order, budget
+        )
+        print(
+            f"[setup][H_smartad_std][selection] prompts="
+            f"{len(best_by_prompt)} generated_candidates="
+            f"{sum(row['teacher'] != 'gold' for row in pool)}",
+            flush=True,
+        )
 
     refusal_fraction = config["selection"]["refusal_fraction"]
     refusal_budget = int(round(budget * refusal_fraction))
@@ -513,7 +935,191 @@ def build_model(config, with_lora):
     return get_peft_model(model, adapter)
 
 
-def train_condition(model, tokenizer, rows, config):
+@torch.inference_mode()
+def attach_student_nll_scores(config, tokenizer, pool):
+    """Attach base-student teacher-forced NLL and its negative selection score."""
+    requested = sorted(
+        {"H_nll", "H_smartad_std"} & set(config["conditions"])
+    )
+    print(
+        f"[setup][student-nll] conditions={','.join(requested)} "
+        f"scoring={len(pool)} device={config['device']}",
+        flush=True,
+    )
+    model = build_model(config, with_lora=False)
+    model.eval()
+    try:
+        for index, row in enumerate(pool, start=1):
+            input_ids, labels = encode(tokenizer, row, config["device"])
+            nll = model(input_ids=input_ids, labels=labels).loss.item()
+            row["_student_nll"] = float(nll)
+            row["_h_nll_score"] = float(-nll)
+            if index % 100 == 0 or index == len(pool):
+                print(
+                    f"[setup][student-nll] scored={index}/{len(pool)}",
+                    flush=True,
+                )
+    finally:
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+
+
+_ACTION_LINE = re.compile(
+    r"^\s*(?:action|tool(?:\s+call)?|function\s+call)\s*:", re.IGNORECASE
+)
+_ANSWER_LINE = re.compile(
+    r"^\s*(?:(?:final\s+)?answer\s*(?::|=)|####\s*)|\\boxed\s*\{",
+    re.IGNORECASE,
+)
+_ASSIGNMENT_LINE = re.compile(
+    r"^\s*(?:[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*|"
+    r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*|\[[^\n]+\])+|"
+    r"\([^\n]+\))\s*(?::[^=\n]+)?\s*"
+    r"(?:\+=|-=|\*=|/=|//=|%=|\*\*=|&=|\|=|\^=|>>=|<<=|=(?!=))"
+)
+
+
+def _line_spans(text):
+    """Return (start, end) character spans, excluding newline characters."""
+    spans = []
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        content = line.rstrip("\r\n")
+        spans.append((offset, offset + len(content)))
+        offset += len(line)
+    if not spans and text == "":
+        return []
+    if text and not text.splitlines(keepends=True):
+        spans.append((0, len(text)))
+    return spans
+
+
+def _segment_line_weights(row):
+    """Assign SmartAD's 1/1.5/2 weights to response lines."""
+    response = row["response"]
+    lines = response.splitlines()
+    weights = [1.0] * len(lines)
+    code_domain = row.get("domain") in {"gsm8k-code", "pandas"}
+    looks_like_code = response.lstrip().startswith(
+        ("def ", "async def ", "import ", "from ")
+    )
+    return_lines = []
+    answer_lines = []
+
+    if code_domain or looks_like_code:
+        action_lines = set()
+        try:
+            tree = ast.parse(response)
+        except SyntaxError:
+            tree = None
+        if tree is not None:
+            for node in ast.walk(tree):
+                if isinstance(
+                    node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.NamedExpr)
+                ):
+                    action_lines.add(node.lineno - 1)
+                    targets = (
+                        node.targets
+                        if isinstance(node, ast.Assign)
+                        else [node.target]
+                    )
+                    target_names = {
+                        target.id.casefold()
+                        for target in targets
+                        for target in ast.walk(target)
+                        if isinstance(target, ast.Name)
+                    }
+                    if target_names & {"answer", "final_answer", "result"}:
+                        answer_lines.append(node.lineno - 1)
+                elif isinstance(node, ast.Return):
+                    line_index = node.lineno - 1
+                    action_lines.add(line_index)
+                    return_lines.append(line_index)
+        else:
+            for line_index, line in enumerate(lines):
+                if _ASSIGNMENT_LINE.match(line) or re.match(
+                    r"^\s*return\b", line
+                ):
+                    action_lines.add(line_index)
+                if re.match(r"^\s*return\b", line):
+                    return_lines.append(line_index)
+                if re.match(
+                    r"^\s*(?:answer|final_answer|result)\s*(?::[^=\n]+)?=",
+                    line,
+                    re.IGNORECASE,
+                ):
+                    answer_lines.append(line_index)
+        for line_index in action_lines:
+            if 0 <= line_index < len(weights):
+                weights[line_index] = 1.5
+    else:
+        for line_index, line in enumerate(lines):
+            if _ACTION_LINE.match(line):
+                weights[line_index] = 1.5
+
+    final_statement_lines = return_lines + answer_lines + [
+        line_index
+        for line_index, line in enumerate(lines)
+        if _ANSWER_LINE.search(line)
+    ]
+    if final_statement_lines:
+        weights[max(final_statement_lines)] = 2.0
+    return weights
+
+
+def smartad_token_weights(tokenizer, row, labels):
+    """Build a per-token SmartAD vector exactly aligned with ``labels``."""
+    response = row["response"]
+    tokenized = tokenizer(
+        response, add_special_tokens=False, return_offsets_mapping=True
+    )
+    offsets = tokenized["offset_mapping"]
+    label_positions = torch.nonzero(labels[0] != -100, as_tuple=False).flatten()
+    response_token_count = len(label_positions) - 1  # final labeled token is EOS
+    if response_token_count < 0 or len(offsets) < response_token_count:
+        raise RuntimeError("could not align SmartAD weights with response labels")
+
+    line_spans = _line_spans(response)
+    line_weights = _segment_line_weights(row)
+    weights = torch.ones(labels.shape, device=labels.device, dtype=torch.float32)
+    for token_index, (token_start, token_end) in enumerate(
+        offsets[:response_token_count]
+    ):
+        if token_end <= token_start:
+            continue
+        token_weight = 1.0
+        for (line_start, line_end), line_weight in zip(
+            line_spans, line_weights
+        ):
+            if token_start < line_end and token_end > line_start:
+                token_weight = max(token_weight, line_weight)
+        weights[0, label_positions[token_index]] = token_weight
+    return weights
+
+
+def smartad_weighted_loss(model, input_ids, labels, token_weights):
+    """Compute shifted, ignore-aware token-weighted causal cross-entropy."""
+    logits = model(input_ids=input_ids).logits
+    shift_logits = logits[:, :-1, :].contiguous()
+    shift_labels = labels[:, 1:].contiguous()
+    shift_weights = token_weights[:, 1:].contiguous()
+    token_losses = F.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1),
+        reduction="none",
+        ignore_index=-100,
+    ).reshape_as(shift_labels)
+    valid = shift_labels != -100
+    denominator = shift_weights.masked_select(valid).sum()
+    if denominator.item() == 0:
+        raise RuntimeError("SmartAD row has no supervised response tokens")
+    return (
+        token_losses.float() * shift_weights * valid.to(shift_weights.dtype)
+    ).sum() / denominator
+
+
+def train_condition(model, tokenizer, rows, config, condition=None):
     """Train on every selected row for three epochs with true accumulation."""
     train_cfg = config["training"]
     if not rows:
@@ -539,7 +1145,15 @@ def train_condition(model, tokenizer, rows, config):
                 input_ids, labels = encode(
                     tokenizer, rows[int(row_index)], config["device"]
                 )
-                loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
+                if condition == "H_smartad_std":
+                    token_weights = smartad_token_weights(
+                        tokenizer, rows[int(row_index)], labels
+                    )
+                    loss = smartad_weighted_loss(
+                        model, input_ids, labels, token_weights
+                    ) / len(chunk)
+                else:
+                    loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                 loss.backward()
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
@@ -947,7 +1561,7 @@ def main():
                 flush=True,
             )
 
-        boundary_metrics = score_pool(config, task_rows, pool)
+        boundary_metrics = score_pool(config, tokenizer, task_rows, pool)
         selections = build_selections(config, tokenizer, pool)
     tests, code_golds, cot_golds = build_eval_data(config)
 
@@ -998,7 +1612,9 @@ def main():
         )
 
         model = build_model(config, with_lora=True)
-        optimizer_steps = train_condition(model, tokenizer, selected, config)
+        optimizer_steps = train_condition(
+            model, tokenizer, selected, config, condition=condition
+        )
         stats["optimizer_steps"] = optimizer_steps
         progress(
             condition,

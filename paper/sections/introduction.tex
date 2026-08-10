@@ -34,6 +34,16 @@ different skills, and a student distilled for one does not acquire the other
 (Section~\ref{sec:boundary}). Task identity resides in what a model would
 have to learn, not in what the request says.
 
+Meeting this specification involves three technical challenges.
+First, the task boundary must be estimated from a few examples in a
+representation where it actually exists; surface semantics provably cannot
+host it. Second, the student's capability cannot be read off any predictive
+proxy we tested; it can only be certified from behavior, so the guarantee
+machinery must be built into the method rather than bolted on. Third,
+out-of-scope capability must be controlled without adversarial training,
+which requires knowing the mechanism by which unwanted capability arises or
+decays during distillation. The method answers these challenges in order.
+
 We therefore represent tasks by their learning demands. The gradient that a
 teacher trajectory for query $q$ induces at the student's initialization
 records which parameters must change for the student to learn that
