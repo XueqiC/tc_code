@@ -52,27 +52,39 @@ attribution \citep{park2023trak, rosser2026gradient}, and is validated
 against execution outcomes. Data selection fills a token budget with the
 trajectories that supply the specified atoms.
 
-This paper makes five claims, each tied to the experiment that supports it.
-(1)~Task boundaries must be estimated in learning space: on hard pairs with
-identical questions, gradient boundaries reach AUROC $1.000$ where trajectory
-embeddings reach $0.687$, saturate at $k{=}5$ examples while embedding
-boundaries degrade with larger $k$, and reproduce across nine reference
-models spanning 0.8B to 27B parameters (Section~\ref{sec:boundary}; pilot
-scale, single seed). (2)~A single sparse representation covers both scales:
-atom support resolves within-domain skills at AUROC $0.906{\pm}0.025$ where
-dense subspaces reach $0.615$, while matching subspaces at topic level
-(Section~\ref{sec:atoms}). (3)~Post-hoc capability proxies are unreliable,
-and we say so: our pre-registered gate for a gradient-norm proxy failed at
-$\rho=-0.40$ against a $-0.5$ threshold, with the failure localized to style
-drift and exposure bias; capability is instead predicted forward from atom
-supply (Section~\ref{sec:capability}). (4)~Under matched token budgets,
-boundary-guided selection ties the best in-domain execution accuracy at
-90\% while producing the strongest reduction of out-of-domain capability,
-and a refusal variant separates in-domain from out-of-domain requests at
-100\% versus 0\% refusal rates for a 6.7-point in-domain cost
-(Section~\ref{sec:distill}; pilot scale). (5)~The mechanism of capability
-removal is supply starvation rather than gradient conflict: fewer than 15\%
-of cross-domain gradient inner products are negative, while kernel mass
-predicts where loss falls ($\rho=0.53$, $p=0.04$), which turns leakage into
-a quantity that data selection can control in advance
-(Section~\ref{sec:distill}).
+Our contributions are as follows.
+\begin{itemize}
+\item \textbf{Problem formulation.} We formalize
+\emph{distill-to-specification}: from a teacher agent and $k$ example
+queries, produce a boundary predictor with a finite-sample coverage
+guarantee together with a student whose measured capability matches the
+specified domain on both sides, evaluated as a coverage--leakage frontier
+under matched token budgets across student sizes
+(Section~\ref{sec:setting}). To our knowledge, no prior agent-distillation
+work provides either component.
+\item \textbf{Key insights.} Task identity is recoverable from learning
+dynamics where it is provably invisible to surface semantics: gradient
+boundaries separate identical-query hard pairs at AUROC $1.000$ versus
+$0.687$ for trajectory embeddings, saturate at $k{=}5$ examples while
+embedding boundaries degrade with larger $k$, and reproduce across nine
+reference models from 0.8B to 27B parameters. Capability removal during
+narrow distillation operates by supply starvation rather than gradient
+conflict, which makes leakage controllable at selection time
+(Sections~\ref{sec:boundary},~\ref{sec:distill}).
+\item \textbf{Method.} Capability atoms: a sparse dictionary over
+trajectory-block gradients that serves as the single representation for
+boundary estimation (atom support with conformal calibration), forward
+capability prediction (atom supply, validated against execution outcomes
+after a pre-registered gate rejected post-hoc gradient-norm proxies), and
+budget-constrained data selection with an optional refusal module
+(Section~\ref{sec:method}).
+\item \textbf{Performance.} At pilot scale, atom support resolves
+within-domain skills at AUROC $0.906{\pm}0.025$ where dense subspaces reach
+$0.615$; boundary-guided selection ties the best in-domain execution
+accuracy (90\%) while removing out-of-domain capability most strongly among
+budget-matched baselines, and the refusal variant separates in-domain from
+out-of-domain requests at 100\% versus 0\% refusal rates. Multi-seed
+(size, budget) sweeps and agent-environment evaluations are in progress and
+will replace pilot figures in this cycle
+(Sections~\ref{sec:atoms},~\ref{sec:distill}).
+\end{itemize}

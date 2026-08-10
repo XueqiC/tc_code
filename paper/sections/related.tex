@@ -1,8 +1,62 @@
 \section{Related work}\label{sec:related}
-\todo{Compress novelty-scan clusters into 5 paragraphs: agent distillation
-(SmartAD, code-tool distillation, on-policy lines) optimizes benchmark scores
-without task specifications; gradient-based selection (LESS line) and
-attribution (TRAK, Gradient Atoms) diagnose rather than design; conformal OOD
-rejection operates at serving time, decoupled from training; learnware
-retrieves models matching capability specifications where we synthesize them;
-unlearning removes capability post hoc where we shape it during distillation.}
+%% Five clusters; each paragraph states what the line does, then the single
+%% structural difference from our setting. No em-dashes; verified citations only.
+
+\paragraph{Agent distillation.}
+Recent work transfers tool-use behavior from large teachers into small
+students: \citet{kang2025distilling} distill full task-solving trajectories
+with retrieval and code tools, \citet{liu2025structured} apply
+segment-specific losses over reasoning and action spans, and
+\citet{tang2026smartad} select teacher trajectories by student likelihood to
+match student capacity. All of these methods maximize aggregate benchmark
+performance for a fixed dataset. None estimates the task domain from
+examples, provides a boundary predictor, or evaluates whether the student's
+capability exceeds the intended scope; capacity alignment in
+\citet{tang2026smartad} concerns what the student \emph{can absorb}, not
+what the deployment \emph{specifies}. Our setting takes the specification as
+input and treats both boundary and two-sided capability match as
+deliverables.
+
+\paragraph{Gradient-based data selection and attribution.}
+LESS \citep{xia2024less} selects instruction data whose sketched gradients
+align with a target validation set, exploiting the observation that
+zero-initialized LoRA adapters yield free random projections of full
+gradients \citep{hu2022lora, johnson1984extensions}. TRAK
+\citep{park2023trak} predicts per-example model behavior from projected
+gradient inner products, and \citet{rosser2026gradient} discovers behavior
+clusters by sparse decomposition of training gradients. These lines use
+gradient geometry to diagnose or to serve a fixed target set. We repurpose
+the same geometry as a \emph{task specification}: a conformally calibrated
+region estimated from $k$ examples that drives selection, prediction, and
+refusal jointly, with the sparse decomposition acting as the shared
+representation rather than a post-hoc analysis.
+
+\paragraph{Conformal out-of-distribution rejection.}
+Split conformal prediction provides finite-sample coverage guarantees
+\citep{vovk2005algorithmic}, with conditional variants sharpening
+per-group validity \citep{gibbs2025conditional}. SCOPE \citep{li2026scope}
+applies conformal gates to hidden activations for rejecting
+out-of-distribution requests at serving time. Serving-time rejection leaves
+the student's capability untouched. In our setting the same statistical
+machinery calibrates a boundary that also shapes training, so the guarantee
+and the student are coupled rather than layered.
+
+\paragraph{Model reuse by specification.}
+The learnware paradigm equips a pool of specialized small models with
+capability specifications so that users can retrieve a model matching their
+task \citep{tan2025learnware}. Retrieval presupposes that a suitable
+specialist already exists. Distill-to-specification is the generative
+counterpart: the specification is estimated from examples and a matching
+specialist is synthesized, with the specification itself constraining
+training.
+
+\paragraph{Capability removal.}
+Unlearning removes designated capabilities from trained models, recently via
+sparse-autoencoder subspace projections \citep{wang2025sspu}. Removal
+operates post hoc on a large model and must fight the optimizer that
+installed the capability. We shape capability during distillation instead:
+our mechanism analysis indicates that out-of-domain competence decays by
+supply starvation when the training diet is narrowed
+(Section~\ref{sec:distill}), so the shaping lever is data allocation rather
+than parameter surgery. Behavioral suppression through refusal training is
+complementary and we evaluate it as a separate module.
