@@ -1,44 +1,99 @@
-% Main results table. Colored per PI preference: group headers with subtle
-% band shading, our method highlighted at the bottom. Requires xcolor with
-% \usepackage[table]{xcolor} or \usepackage{colortbl} in the preamble.
-% Numbers: baselines from logged runs (mean±std over 3 seeds); our rows use
-% "-" placeholders until the frozen final runs land (PI instruction).
+% ===== Table 1: MAIN — full benchmark panel =====
+% Structure per PI: complete benchmark suite as columns; every method as a
+% row; ours at the bottom highlighted. Per-benchmark metrics follow each
+% suite's convention; final column = macro average. Auxiliary tables
+% (Tables 2+, appendix) carry the dimension-specific rigor.
 
-\definecolor{rowours}{RGB}{232,240,251}   % light blue band for our rows
-\definecolor{rowhead}{RGB}{242,241,236}   % section band
-\definecolor{oursblue}{RGB}{42,120,214}
+\definecolor{rowours}{RGB}{232,240,251}
+\definecolor{rowhead}{RGB}{242,241,236}
 
 \begin{table}[t]
 \centering
-\caption{Main comparison on the controlled suite under matched token budgets
-(3 seeds, mean$\pm$std). Coverage is execution-verified in-task accuracy;
-leakage is retained off-task capability on the SQL-scoped task (lower is
-better). Certificates are distribution-free bounds ($\delta{=}0.1$).
-Dashes mark runs pending the frozen final protocol.
-\todo{fill our rows; add agent-environment columns when tier-2 lands.}}
+\caption{Main comparison across the full benchmark panel (student 2B unless
+noted; matched token budgets; 3 seeds, mean$\pm$std). Controlled suite
+reports execution accuracy on the five-domain mechanistic suite; agent
+environments report each benchmark's convention (success rate for AppWorld
+and ALFWorld, tool-call accuracy for BFCL~v4, task success for
+$\tau^2$-bench, score for WebShop). Macro = average over available columns.
+Dashes mark runs pending the frozen protocol.
+\todo{fill as tier-2 lands; bold best per column at freeze.}}
 \label{tab:main}
 \small
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}l cc cc c@{}}
+\setlength{\tabcolsep}{3.6pt}
+\begin{tabular}{@{}l cccccc c@{}}
 \toprule
-& \multicolumn{2}{c}{\textbf{Coverage} $\uparrow$}
-& \multicolumn{2}{c}{\textbf{Leakage} $\downarrow$}
-& \textbf{Cert.}\\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-\textbf{Method} & 0.8B, 10k & 2B, 20k & residue & UB ($\delta{=}.1$) & cov.\ LB\\
+\textbf{Method} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
+& \makecell{BFCL\\v4} & \makecell{$\tau^2$-\\bench} & \makecell{ALF-\\World}
+& \makecell{Web-\\Shop} & \textbf{Macro}\\
 \midrule
-\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{No selection}}\\
-Base student (no training) & $0.000$ & $0.000$ & $0.000$ & -- & --\\
-Full pool (all data)       & --      & --      & --      & -- & --\\
-\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Selection baselines}}\\
-Random subset              & $0.556{\pm}.057$ & $0.878{\pm}.042$ & $0.856$ & $0.982$ & $0.926$\\
-Embedding retrieval        & $0.456{\pm}.016$ & $0.800{\pm}.027$ & $0.833$ & $0.941$ & $0.926$\\
-LESS-style targeted \citep{xia2024less} & -- & -- & -- & -- & --\\
-Capacity-aligned \citep{tang2026smartad} & -- & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Ours}}\\
-\rowcolor{rowours}Spec-guided selection            & -- & -- & -- & -- & --\\
-\rowcolor{rowours}\quad + absorption stopping      & -- & -- & -- & -- & --\\
-\rowcolor{rowours}\quad + refusal (behavioral)     & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{No selection}}\\
+Base student                & $0.000$ & -- & -- & -- & -- & -- & --\\
+Full pool SFT               & --      & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Selection baselines}}\\
+Random subset               & $0.878{\pm}.042$ & -- & -- & -- & -- & -- & --\\
+Embedding retrieval         & $0.800{\pm}.027$ & -- & -- & -- & -- & -- & --\\
+LESS \citep{xia2024less}    & -- & -- & -- & -- & -- & -- & --\\
+SmartAD \citep{tang2026smartad} & -- & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Distillation baselines}}\\
+Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & -- & --\\
+SOD (on-policy)             & -- & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Ours}}\\
+\rowcolor{rowours}SpecDistill                & -- & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + absorption stop    & -- & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + refusal            & -- & -- & -- & -- & -- & -- & --\\
 \bottomrule
 \end{tabular}
 \end{table}
+
+% ===== Table 2: two-sided capability match + certificates =====
+\begin{table}[t]
+\centering
+\caption{Two-sided capability match on the SQL-scoped task (2B, 20k tokens,
+3 seeds). All methods tie in-task; certified off-task residue separates
+them by an order of magnitude. Bounds at $\delta{=}0.1$.}
+\label{tab:twosided}
+\small
+\begin{tabular}{@{}l cc cc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{In-task}} & \multicolumn{2}{c}{\textbf{Off-task residue}}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Method} & valid.\ rate & cert.\ LB & measured & cert.\ UB\\
+\midrule
+Random subset      & $1.000$ & $0.926$ & $0.856$ & $0.982$\\
+Embedding retrieval& $1.000$ & $0.926$ & $0.833$ & $0.941$\\
+\rowcolor{rowours}SpecDistill & $1.000$ & $0.926$ & $\mathbf{0.078}$ & $\mathbf{0.249}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ===== Table 3: reference-model robustness (fully filled) =====
+\begin{table}[t]
+\centering
+\caption{Boundary robustness across reference models: hard-pair AUROC and
+conformal coverage of the identical-query pair, using the same 600-example
+suite and pipeline for every model. The specification structure does not
+depend on the model used to read gradients.}
+\label{tab:robustness}
+\small
+\begin{tabular}{@{}l l cc@{}}
+\toprule
+\textbf{Reference model} & \textbf{Variant} & \textbf{Hard AUROC} & \textbf{Coverage}\\
+\midrule
+Qwen2.5-1.5B & instruct & $1.000$ & $0.93$\\
+Qwen3.5-0.8B & instruct & $1.000$ & $0.93$\\
+Qwen3.5-2B   & instruct & $1.000$ & $0.90$\\
+Qwen3.5-4B   & instruct & $1.000$ & $0.90$\\
+Qwen3.5-9B   & instruct & $1.000$ & $0.83$\\
+Qwen3.5-0.8B & base     & $1.000$ & $0.87$\\
+Qwen3.5-2B   & base     & $1.000$ & $0.97$\\
+Qwen3.5-4B   & base     & $1.000$ & $1.00$\\
+Qwen3.5-9B   & base     & $1.000$ & $0.93$\\
+Qwen3.6-27B  & instruct & $1.000$ & $0.97$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% Aux tables to add (skeletons in appendix): (size,budget) surface grid;
+% boundary-quality vs baselines with k-efficiency; ablations (lambda
+% frontier, early stop, submodular, atoms vs subspace); pre-registration
+% gate ledger; mechanism statistics (M1-M3). \todo{build as data freezes.}
