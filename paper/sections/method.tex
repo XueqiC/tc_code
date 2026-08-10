@@ -2,21 +2,22 @@
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
-\caption{The pipeline. Colored tiles are capability atoms: blue tiles are
-skills the task needs, orange tiles are out-of-scope skills, gray tiles are
-inactive. (1)~Each of the $k$ example queries is read through one backward
-pass at the student's initialization; the gradient names the skills that
-student is missing. (2)~A sparse dictionary over many teacher traces yields
-a library of skill atoms, auditable on data (one atom's top activations are
-exactly \texttt{JOIN} clauses); the specification is the set of atoms the
-$k$ queries need. (3)~Teacher traces are scored by the atoms they supply:
-traces covering the specification fill the token budget, traces carrying
-out-of-scope atoms are penalized by $\lambda$ and rejected, and training
-stops once the remaining in-specification demand is absorbed. (4)~At
-deployment a conformal gate routes requests: its threshold is the
-calibration quantile, so coverage is guaranteed rather than tuned, and both
-sides of the match carry certificates (in-task lower bound $0.93$, off-task
-upper bound $0.25$; Section~\ref{sec:results}).}
+\caption{The pipeline, illustrated end to end on an SQL-analytics
+workload. (1)~One backward pass at the student's initialization reads each
+of the $k$ example queries as the set of skills that student is missing
+(named chips, e.g.\ \textsc{join}, \textsc{group by}). (2)~A sparse
+dictionary over many teacher traces factors gradients into a library of
+skill atoms; the atoms the $k$ queries activate (dashed) form the task
+specification, while atoms such as \textsc{plot} fall outside it.
+(3)~Teacher traces are scored by the atoms they supply: traces covering the
+specification fill the token budget, a trace supplying \textsc{plot} is
+rejected ($\lambda$ penalizes out-of-scope supply), and training stops
+once the remaining in-specification demand is absorbed. (4)~At deployment
+a conformal gate whose threshold is a calibration quantile (coverage
+guaranteed rather than tuned) routes live requests: an in-specification
+request reaches the student, an out-of-specification one is refused, and
+both sides of the match carry certificates (in-task lower bound $0.93$,
+off-task upper bound $0.25$; Section~\ref{sec:results}).}
 \label{fig:pipeline}
 \end{figure}
 The method relies on exactly two assumptions, and every component below
