@@ -381,7 +381,10 @@ def _less_cache(config, task_rows, pool):
     }
     encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
     cache_key = hashlib.sha256(encoded).hexdigest()[:16]
-    cache_root = ROOT / "results" / f"less_cache{config['tag']}"
+    if os.environ.get("TC_USE_TMP") == "1" and os.environ.get("TMPDIR"):
+        cache_root = Path(os.environ["TMPDIR"]) / f"less_cache{config['tag']}"
+    else:
+        cache_root = ROOT / "results" / f"less_cache{config['tag']}"
     return cache_root / cache_key, manifest
 
 
