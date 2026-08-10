@@ -281,20 +281,22 @@ def attach_token_counts(tokenizer, pool):
         row["_token_count"] = response_token_count(tokenizer, row["response"])
 
 
-def take_prefix(pool, order, budget, response=None, excluded=None):
+def take_prefix(
+    pool, order, budget, response=None, fixed_token_count=None, excluded=None
+):
     """Take the longest ranked prefix whose response tokens fit the budget."""
     selected = []
     used = 0
     excluded = excluded or set()
-    fixed_tokens = (
-        response_token_count(_TOKENIZER_FOR_SELECTION, response)
-        if response is not None else None
-    )
     for index in order:
         index = int(index)
         if index in excluded:
             continue
-        token_count = fixed_tokens if fixed_tokens is not None else pool[index]["_token_count"]
+        token_count = (
+            fixed_token_count
+            if fixed_token_count is not None
+            else pool[index]["_token_count"]
+        )
         if used + token_count > budget:
             break
         item = dict(pool[index])
@@ -310,14 +312,7 @@ def take_prefix(pool, order, budget, response=None, excluded=None):
     return selected
 
 
-# Bound only during selection. Keeping the tokenizer out of each row and out of
-# take_prefix's public call signature makes the selection construction readable.
-_TOKENIZER_FOR_SELECTION = None
-
-
 def build_selections(config, tokenizer, pool):
-    global _TOKENIZER_FOR_SELECTION
-    _TOKENIZER_FOR_SELECTION = tokenizer
     attach_token_counts(tokenizer, pool)
     n = len(pool)
     budget = config["selection"]["response_token_budget"]
@@ -350,10 +345,12 @@ def build_selections(config, tokenizer, pool):
         low_grad_order,
         refusal_budget,
         response=config["selection"]["refusal_response"],
+        fixed_token_count=response_token_count(
+            tokenizer, config["selection"]["refusal_response"]
+        ),
         excluded=used_indices,
     )
     selections["F_refusal"] = original + refusals
-    _TOKENIZER_FOR_SELECTION = None
     return selections
 
 
