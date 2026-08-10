@@ -1,0 +1,44 @@
+% Main results table. Colored per PI preference: group headers with subtle
+% band shading, our method highlighted at the bottom. Requires xcolor with
+% \usepackage[table]{xcolor} or \usepackage{colortbl} in the preamble.
+% Numbers: baselines from logged runs (mean±std over 3 seeds); our rows use
+% "-" placeholders until the frozen final runs land (PI instruction).
+
+\definecolor{rowours}{RGB}{232,240,251}   % light blue band for our rows
+\definecolor{rowhead}{RGB}{242,241,236}   % section band
+\definecolor{oursblue}{RGB}{42,120,214}
+
+\begin{table}[t]
+\centering
+\caption{Main comparison on the controlled suite under matched token budgets
+(3 seeds, mean$\pm$std). Coverage is execution-verified in-task accuracy;
+leakage is retained off-task capability on the SQL-scoped task (lower is
+better). Certificates are distribution-free bounds ($\delta{=}0.1$).
+Dashes mark runs pending the frozen final protocol.
+\todo{fill our rows; add agent-environment columns when tier-2 lands.}}
+\label{tab:main}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l cc cc c@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{Coverage} $\uparrow$}
+& \multicolumn{2}{c}{\textbf{Leakage} $\downarrow$}
+& \textbf{Cert.}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Method} & 0.8B, 10k & 2B, 20k & residue & UB ($\delta{=}.1$) & cov.\ LB\\
+\midrule
+\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{No selection}}\\
+Base student (no training) & $0.000$ & $0.000$ & $0.000$ & -- & --\\
+Full pool (all data)       & --      & --      & --      & -- & --\\
+\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Selection baselines}}\\
+Random subset              & $0.556{\pm}.057$ & $0.878{\pm}.042$ & $0.856$ & $0.982$ & $0.926$\\
+Embedding retrieval        & $0.456{\pm}.016$ & $0.800{\pm}.027$ & $0.833$ & $0.941$ & $0.926$\\
+LESS-style targeted \citep{xia2024less} & -- & -- & -- & -- & --\\
+Capacity-aligned \citep{tang2026smartad} & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Ours}}\\
+\rowcolor{rowours}Spec-guided selection            & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + absorption stopping      & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + refusal (behavioral)     & -- & -- & -- & -- & --\\
+\bottomrule
+\end{tabular}
+\end{table}
