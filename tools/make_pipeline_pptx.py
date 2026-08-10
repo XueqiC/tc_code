@@ -158,148 +158,177 @@ def stage_chip(x, n, claim, w=3.2):
           align=PP_ALIGN.LEFT)
 
 
-# v9: SkillOpt-Fig2 register — one central capability-space scene with
-# contrasting outcomes, plus an analogy panel and a benefits fan.
+# v10: the real SkillOpt Fig.2 register — dense engineering flowchart.
+# Color families: green=data, purple=compute, blue=artifacts/documents,
+# yellow=decision gates, red=reject paths, teal=deployment container.
 
-from pptx.oxml.ns import qn as _qn
-
-
-def alpha_fill(shape, pct):
-    """Make the solid fill partially transparent (pct = opacity %)."""
-    sf = shape.fill.fore_color._xFill
-    clr = sf.find(_qn("a:srgbClr"))
-    a = clr.makeelement(_qn("a:alpha"), {"val": str(int(pct * 1000))})
-    clr.append(a)
-
-
-def skill(x, y, name, color, w=0.62, h=0.28, fs=8):
-    tc = WHITE if color != PALE else MUTED
-    return box(x, y, w, h, color, WHITE, lw=0.75, radius=0.45, text=name,
-               size=fs, tcolor=tc, bold=True)
-
-
-def pill(x, y, w, text, color=TEXT, fs=9.5, bg=RGBColor(0xEC, 0xEA, 0xE4)):
-    return box(x, y, w, 0.34, bg, None, radius=0.5, text=text, size=fs,
-               tcolor=color, bold=True)
-
+GRN_F, GRN_E = RGBColor(0xE3, 0xEF, 0xDA), RGBColor(0x77, 0x9E, 0x62)
+YEL_F, YEL_E = RGBColor(0xFF, 0xF0, 0xC2), RGBColor(0xC9, 0xA2, 0x2A)
+PUR_F, PUR_E = RGBColor(0xE6, 0xDC, 0xEF), RGBColor(0x8E, 0x6B, 0xAE)
+BLU_F, BLU_E = RGBColor(0xDD, 0xE9, 0xF7), RGBColor(0x4C, 0x72, 0xB0)
+RED_F, RED_E = RGBColor(0xF9, 0xD6, 0xD2), RGBColor(0xC0, 0x50, 0x4D)
+TEAL = RGBColor(0x2E, 0x9E, 0x97)
+GRY_F = RGBColor(0xED, 0xEC, 0xE7)
 
 CODE_FONT = "Consolas"
-SKILL_COLOR = {"JOIN": IN1, "COUNT": IN2, "GROUP BY": IN3, "FILTER": IN2,
-               "SORT": IN3, "PLOT": OUT1, "REGEX": OUT1, "RECURSION": OUT2}
+SKILL_COLOR = {"JOIN": IN1, "GROUP BY": IN3, "FILTER": IN2, "PLOT": OUT1}
 
-# ================================================================ scene
-# teacher capability: big soft region (left ~2/3 of canvas)
-teach = box(0.55, 0.85, 8.9, 6.0, OUTBG, None, shape=MSO_SHAPE.OVAL,
-            radius=None)
-alpha_fill(teach, 45)
-chip(1.55, 1.75, 0.92, 0.70, OUT1, "Teacher LLM  ❄", size=9.5)
-label(1.05, 0.62, 3.2, 0.3, "teacher capability (frozen, expensive)",
-      size=10.5, color=OUT1, bold=True, align=PP_ALIGN.LEFT)
 
-# out-of-scope skills live in the teacher blob, outside the boundary
-for (x, y, name) in [(6.6, 1.7, "PLOT"), (7.6, 2.6, "REGEX"),
-                     (6.9, 3.9, "RECURSION"), (7.7, 5.0, "…"),
-                     (5.9, 5.6, "…")]:
-    skill(x, y, name, SKILL_COLOR.get(name, PALE), w=0.9 if len(name) > 6
-          else 0.62)
+def mbox(x, y, w, h, fill, edge, title, sub=None, ts=8.5, ss=6.5):
+    """SkillOpt-style module box: bold title + small sub-label strip."""
+    box(x, y, w, h, fill, edge, lw=1.3, radius=0.12)
+    if sub:
+        label(x + 0.03, y + 0.05, w - 0.06, h * 0.55, title, size=ts,
+              color=TEXT, bold=True)
+        box(x + 0.07, y + h - 0.24, w - 0.14, 0.18,
+            WHITE, edge, lw=0.75, radius=0.3, text=sub, size=ss,
+            tcolor=MUTED)
+    else:
+        label(x + 0.03, y + (h - 0.3) / 2, w - 0.06, 0.34, title, size=ts,
+              color=TEXT, bold=True)
 
-# task boundary: thick dashed contour around the needed-skill cluster
-bnd = box(1.35, 2.35, 4.35, 3.75, WHITE, IN1, lw=3.0, dash="dash",
-          shape=MSO_SHAPE.OVAL, radius=None)
-bnd.fill.background()
 
-# our student: blue region hugging the boundary from inside
-stu = box(1.55, 2.55, 3.95, 3.35, INBG, None, shape=MSO_SHAPE.OVAL,
-          radius=None)
-alpha_fill(stu, 80)
-for (x, y, name) in [(2.2, 3.1, "JOIN"), (3.4, 2.9, "GROUP BY"),
-                     (2.0, 4.1, "FILTER"), (3.3, 3.9, "COUNT"),
-                     (2.6, 4.9, "SORT")]:
-    skill(x, y, name, SKILL_COLOR[name], w=0.92 if len(name) > 6 else 0.66)
-chip(4.35, 5.1, 0.85, 0.66, IN1, "Student  🔥", size=9)
+def doc(x, y, w, h, title, edge=BLU_E, fill=BLU_F, ts=8, stack=False):
+    if stack:
+        for i in (2, 1):
+            box(x + i * 0.05, y + i * 0.05, w, h, fill, edge, lw=1.0,
+                shape=MSO_SHAPE.FOLDED_CORNER, radius=None)
+    s = box(x, y, w, h, fill, edge, lw=1.2,
+            shape=MSO_SHAPE.FOLDED_CORNER, radius=None)
+    label(x + 0.02, y + (h - 0.55) / 2, w - 0.04, 0.6, title, size=ts,
+          color=TEXT, bold=True)
+    return s
 
-# baseline: dashed gray blob that spills across the boundary
-base = box(3.3, 1.35, 5.3, 3.3, PALE, GRAY, lw=2.0, dash="sysDash",
-           shape=MSO_SHAPE.OVAL, radius=None)
-alpha_fill(base, 30)
 
-# callout pills anchored on the scene (SkillOpt-style)
-pill(0.85, 6.55, 3.6, "our student: capability ends at the boundary",
-     color=IN1, fs=9, bg=INBG)
-conn(2.6, 6.52, 3.1, 5.95, IN1, w=1.6)
-pill(5.15, 0.62, 3.55, "budget-matched baseline: leaks out of scope",
-     color=OUT2, fs=9)
-conn(6.9, 0.99, 6.6, 1.55, OUT2, w=1.6)
-label(5.05, 2.62, 1.3, 0.5, "leakage", size=9.5, color=OUT2, bold=True,
-      italic=True)
-conn(5.6, 2.75, 6.35, 2.75, OUT2, w=2.0)
+def skill(x, y, name, color, w=0.62, h=0.24, fs=7):
+    return box(x, y, w, h, color, WHITE, lw=0.7, radius=0.45, text=name,
+               size=fs, tcolor=WHITE, bold=True)
 
-# boundary estimation: k queries -> gradient reading -> boundary
-for i in range(2, -1, -1):
-    box(0.60 + i * 0.09, 3.95 + i * 0.09, 1.05, 0.78, CARD, GRAY, lw=1.0)
-label(0.66, 4.06, 1.0, 0.7, '"members\nper club?"', size=7, color=TEXT,
-      align=PP_ALIGN.LEFT)
-label(0.42, 3.60, 1.6, 0.3, "k queries", size=9.5, color=MUTED, italic=True,
-      align=PP_ALIGN.LEFT)
-conn(1.35, 4.35, 1.85, 4.35, IN1, w=2.0)
-pill(0.55, 5.62, 2.9, "boundary read from gradients, k≈5", color=IN1,
-     fs=8.5, bg=INBG)
 
-# gate on the boundary + certificate seal
-box(5.28, 3.95, 0.44, 0.44, GREEN, WHITE, lw=1.5, shape=MSO_SHAPE.OVAL,
-    radius=None, text="90%", size=8.5, tcolor=WHITE, bold=True)
-label(5.78, 3.98, 1.45, 0.55, "conformal gate\non the boundary", size=8,
-      color=GREEN, bold=True, align=PP_ALIGN.LEFT)
-
-# distillation flow along the bottom of the scene
-label(2.4, 6.95, 6.0, 0.35,
-      "distill: select only traces whose atoms lie inside the boundary "
-      "(λ rejects the rest) · train until absorbed, then stop",
-      size=9.5, color=MUTED)
-
-# ================================================================ side rail
-RX = 9.75
-# mini mechanism: query -> backward pass -> named atoms
-box(RX, 0.62, 3.35, 1.55, WHITE, GRAY, lw=1.2, radius=0.08)
-box(RX + 0.14, 0.76, 0.82, 0.62, CARD, GRAY, lw=1.0)
-label(RX + 0.18, 0.84, 0.78, 0.5, '"query"', size=7.5, color=TEXT)
-conn(RX + 1.02, 1.07, RX + 1.38, 1.07, IN1, w=1.8)
-skill(RX + 1.44, 0.78, "JOIN", IN1, w=0.6, h=0.26, fs=7)
-skill(RX + 2.10, 0.78, "COUNT", IN2, w=0.72, h=0.26, fs=7)
-label(RX + 1.40, 1.12, 1.9, 0.3, "one backward pass", size=8, color=IN1,
+# ================================================================ inputs
+box(0.18, 0.40, 2.42, 2.02, GRY_F, GRAY, lw=1.2, radius=0.06)
+label(0.30, 0.48, 2.1, 0.28, "TASK EVIDENCE", size=9.5, color=TEXT,
       bold=True, align=PP_ALIGN.LEFT)
-label(RX + 0.14, 1.62, 3.1, 0.5,
-      "the gradient names the skills a query\nneeds — before any training",
-      size=8.5, color=MUTED, align=PP_ALIGN.LEFT)
+box(0.32, 0.80, 2.14, 0.48, GRN_F, GRN_E, lw=1.2, radius=0.15,
+    text="k example queries", size=8.5, tcolor=TEXT, bold=True)
+box(0.32, 1.34, 2.14, 0.48, YEL_F, YEL_E, lw=1.2, radius=0.15,
+    text="calibration split: gate τ", size=8.5, tcolor=TEXT, bold=True)
+box(0.32, 1.88, 2.14, 0.44, GRY_F, GRAY, lw=1.2, radius=0.15,
+    text="held-out eval 🔒 locked", size=8, tcolor=MUTED, bold=True)
 
-# analogy panel (SkillOpt's table, ours)
-box(RX, 2.42, 3.35, 2.85, RGBColor(0xF2, 0xF1, 0xEC), None, radius=0.06)
-label(RX + 0.15, 2.56, 3.05, 0.32, "Capability-matching, one representation",
-      size=10, color=TEXT, bold=True, align=PP_ALIGN.LEFT)
-rows = [("task boundary", "atom support of k queries"),
-        ("capability", "atom supply of the diet"),
-        ("selection", "budgeted coverage, λ"),
-        ("stopping", "demand absorbed"),
-        ("guarantee", "conformal + binomial")]
-for i, (a, b) in enumerate(rows):
-    y = 2.95 + i * 0.44
-    label(RX + 0.15, y, 1.15, 0.4, a, size=9, color=TEXT, bold=True,
-          align=PP_ALIGN.LEFT)
-    label(RX + 1.32, y, 0.25, 0.4, "→", size=9, color=MUTED)
-    label(RX + 1.60, y, 1.72, 0.4, b, size=9, color=MUTED,
-          align=PP_ALIGN.LEFT)
+chip(0.85, 3.35, 0.85, 0.64, OUT1, "Frozen Teacher ❄", size=8.5)
+conn(1.35, 3.72, 1.72, 3.72, GRAY, w=1.8)
+doc(1.80, 3.30, 1.05, 0.85, "trace pool\n1080 exec-\nverified", ts=7,
+    fill=CARD, edge=GRAY, stack=True)
 
-# benefits fan (bottom right)
-box(RX + 0.05, 5.55, 0.75, 0.85, INBG, IN1, lw=1.4, radius=0.12,
-    text="🎓", size=16)
-for i, txt in enumerate(["exact in-task ability, tied to spec",
-                         "certified leakage ≤ 0.25",
-                         "same performance at ¼ budget"]):
-    y = 5.48 + i * 0.48
-    box(RX + 1.0, y, 2.35, 0.36, RGBColor(0xDCE, 0xE5 % 256, 0xEF)
-        if False else RGBColor(0xDC, 0xE5, 0xEF), None, radius=0.5,
-        text=txt, size=8.5, tcolor=TEXT, bold=True)
-    conn(RX + 0.82, 5.95, RX + 0.98, y + 0.18, GRAY, w=1.2, arrow=False)
+# ================================================================ top row: boundary estimation
+conn(2.62, 1.04, 2.95, 1.04, GRAY, w=1.8)
+mbox(2.98, 0.68, 1.42, 0.78, PUR_F, PUR_E, "backward pass\n@ student init",
+     sub="LoRA-B sketch + JL", ts=8)
+conn(4.42, 1.04, 4.72, 1.04, GRAY, w=1.8)
+doc(4.75, 0.66, 0.98, 0.80, "gradient\nfingerprints", ts=7.5)
+conn(5.75, 1.04, 6.05, 1.04, GRAY, w=1.8)
+mbox(6.08, 0.68, 1.30, 0.78, PUR_F, PUR_E, "sparse\ndictionary",
+     sub="128 atoms · lasso", ts=8)
+conn(7.40, 1.04, 7.70, 1.04, GRAY, w=1.8)
+box(7.73, 0.66, 2.06, 0.80, WHITE, GRAY, lw=1.2, radius=0.10)
+skill(7.83, 0.76, "JOIN", IN1)
+skill(8.50, 0.76, "GROUP BY", IN3, w=0.86)
+skill(7.83, 1.10, "FILTER", IN2, w=0.72)
+skill(8.60, 1.10, "PLOT", OUT1, w=0.58)
+label(9.24, 1.06, 0.5, 0.3, "…", size=10, color=MUTED)
+label(7.75, 0.38, 2.0, 0.26, "named atom library", size=8, color=MUTED)
+conn(9.81, 1.04, 10.11, 1.04, GRAY, w=1.8)
+doc(10.14, 0.60, 1.30, 0.92, "TASK SPEC\natom support\n+ threshold τ",
+    ts=7.5)
+label(11.50, 0.60, 1.8, 0.9,
+      "the specification:\nwhat the task needs,\nread before any\ntraining",
+      size=8, color=MUTED, align=PP_ALIGN.LEFT)
+
+# spec influence (blue arrows down)
+conn(10.79, 1.55, 10.79, 3.14, BLU_E, w=1.8)
+conn(10.20, 1.30, 4.85, 3.05, BLU_E, w=1.8)
+label(6.3, 2.28, 1.6, 0.26, "gates the diet", size=8, color=BLU_E,
+      bold=True, italic=True)
+
+# ================================================================ mid row: selective distillation
+for i in range(3):
+    y = 2.98 + i * 0.62
+    conn(2.88, 3.72, 3.28, y + 0.24, GRAY, w=1.4)
+    mbox(3.32, y, 1.50, 0.52, PUR_F, PUR_E, f"score trace",
+         sub="in-spec − λ·out", ts=7.5)
+label(3.95, 4.86, 0.5, 0.3, "⋮", size=12, color=MUTED)
+for i in range(3):
+    y = 2.98 + i * 0.62
+    conn(4.84, y + 0.26, 5.22, 3.55, GRAY, w=1.4)
+mbox(5.26, 3.30, 1.42, 0.78, PUR_F, PUR_E, "rank · fill\ntoken budget",
+     sub="greedy prefix", ts=8)
+conn(6.70, 3.68, 7.00, 3.68, GRAY, w=1.8)
+mbox(7.03, 3.30, 1.46, 0.78, PUR_F, PUR_E, "SFT student",
+     sub="stop when absorbed", ts=8.5)
+conn(8.51, 3.68, 8.81, 3.68, GRAY, w=1.8)
+doc(8.84, 3.32, 0.96, 0.74, "candidate\nstudent S₁", ts=7.5)
+conn(9.82, 3.68, 10.10, 3.68, GRAY, w=1.8)
+# validation diamond
+box(10.12, 3.18, 1.34, 1.0, YEL_F, YEL_E, lw=1.4, shape=MSO_SHAPE.DIAMOND,
+    radius=None)
+label(10.16, 3.42, 1.26, 0.55, "certify\ntwo-sided?", size=7.5, color=TEXT,
+      bold=True)
+label(11.42, 3.40, 0.5, 0.26, "accept", size=7, color=GRN_E, bold=True)
+conn(11.48, 3.68, 11.80, 3.68, GRN_E, w=2.0)
+doc(11.83, 3.24, 1.30, 0.88, "deployed\nstudent +\ncertificates", ts=7.5)
+label(10.20, 4.24, 0.62, 0.26, "reject", size=7.5, color=RED_E, bold=True)
+# reject loop (dashed red back to lambda)
+rj = conn(10.55, 4.20, 9.10, 4.78, RED_E, w=1.6)
+box(7.55, 4.62, 1.55, 0.44, RED_F, RED_E, lw=1.2, radius=0.15,
+    text="tighten λ · re-select", size=8, tcolor=RED_E, bold=True)
+rj2 = conn(7.52, 4.82, 4.10, 4.30, RED_E, w=1.6)
+for c in (rj, rj2):
+    ln = c.line._get_or_add_ln()
+    ln.append(ln.makeelement(qn("a:prstDash"), {"val": "dash"}))
+
+# threshold provenance stated locally (no cross-figure line)
+label(4.30, 6.72, 1.35, 0.28, "τ from calibration", size=7, color=YEL_E,
+      bold=True)
+
+# ================================================================ deployment container (teal dashed)
+dep = box(0.30, 5.30, 12.88, 1.72, RGBColor(0xEC, 0xF6, 0xF5), TEAL,
+          lw=1.6, radius=0.05)
+ln = dep.line._get_or_add_ln()
+ln.append(ln.makeelement(qn("a:prstDash"), {"val": "dash"}))
+label(0.48, 5.40, 4.0, 0.3, "DEPLOYMENT-TIME ROUTING", size=9.5,
+      color=TEAL, bold=True, align=PP_ALIGN.LEFT)
+box(0.55, 5.85, 1.30, 0.55, BLU_F, BLU_E, lw=1.1)
+label(0.62, 5.90, 1.2, 0.5, '"Avg dues\nper club?"', size=7, color=IN1,
+      align=PP_ALIGN.LEFT)
+box(0.55, 6.48, 1.30, 0.48, RGBColor(0xFD, 0xF0, 0xE7), OUT1, lw=1.1)
+label(0.62, 6.52, 1.2, 0.42, '"Plot a chart"', size=7, color=OUT1,
+      align=PP_ALIGN.LEFT)
+conn(1.88, 6.12, 2.30, 6.12, GRAY, w=1.6)
+conn(1.88, 6.70, 2.30, 6.70, GRAY, w=1.6)
+mbox(2.34, 5.95, 1.60, 0.68, PUR_F, PUR_E, "conformal score",
+     sub="one backward pass", ts=8)
+conn(3.96, 6.28, 4.35, 6.28, GRAY, w=1.6)
+box(4.38, 5.92, 1.15, 0.78, YEL_F, YEL_E, lw=1.3, shape=MSO_SHAPE.DIAMOND,
+    radius=None)
+label(4.40, 6.16, 1.1, 0.4, "≤ τ ?", size=8.5, color=TEXT, bold=True)
+label(5.60, 5.86, 0.5, 0.26, "yes", size=7.5, color=GRN_E, bold=True)
+conn(5.55, 6.12, 5.95, 6.12, GRN_E, w=2.0)
+box(5.98, 5.85, 1.55, 0.55, GRN_F, GRN_E, lw=1.3, radius=0.15,
+    text="→ student agent", size=8.5, tcolor=TEXT, bold=True)
+label(5.48, 6.74, 0.4, 0.26, "no", size=7.5, color=RED_E, bold=True)
+conn(5.55, 6.55, 5.95, 6.68, RED_E, w=2.0)
+box(5.98, 6.46, 1.85, 0.5, RED_F, RED_E, lw=1.3, radius=0.15,
+    text="refuse · escalate to teacher", size=7.5, tcolor=RED_E, bold=True)
+# certificates on the right of the container
+box(8.30, 5.85, 2.20, 0.52, WHITE, GREEN, lw=1.4, radius=0.15,
+    text="coverage LB 0.93 (in-task)", size=8, tcolor=TEXT, bold=True)
+box(8.30, 6.44, 2.20, 0.52, WHITE, GREEN, lw=1.4, radius=0.15,
+    text="leakage UB 0.25 (off-task)", size=8, tcolor=TEXT, bold=True)
+label(10.60, 5.90, 2.5, 1.0,
+      "Clopper-Pearson bounds from\nbehavioral evaluation only —\nno benchmark-specific tuning",
+      size=8, color=MUTED, align=PP_ALIGN.LEFT)
+conn(12.35, 4.14, 12.42, 5.28, GRAY, w=1.6)
 
 prs.save("paper/figs/fig1_pipeline.pptx")
 
