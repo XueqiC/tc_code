@@ -1,0 +1,61 @@
+\section{Method}\label{sec:method}
+%% Scope-level per PI instruction; each part carries its evidence pointer and
+%% will be updated as results land. Notation kept minimal.
+
+\paragraph{Learning-demand features.}
+For query $q$ with trajectory $\tau(q)$, the feature is
+\begin{equation}
+g(q) \;=\; \mathrm{normalize}\!\left(P\, \nabla_\theta\,
+\ell(\tau(q);\theta_0)\right),
+\end{equation}
+the (sketched) gradient of the trajectory's action-token loss at the student
+base. With zero-initialized LoRA adapters, the adapter-$B$ gradient equals
+$G A^{\!\top}$---a free random projection of the full gradient $G$---and a
+per-module Johnson--Lindenstrauss step reduces each sample to $\sim$12k
+dimensions. Geometry is preserved (a 768-d control loses nothing measurable),
+and the resulting structure is stable across nine reference models
+(0.8B--27B, base and instruct, two generations).
+
+\paragraph{Capability atoms.}
+Trajectories decompose into blocks (statements); block gradients decompose
+sparsely over a learned dictionary $\{a_1,\dots,a_m\}$
+(mini-batch dictionary learning; $m{=}128$, $\sim$5 active atoms per block).
+Atoms are operational skill units: the atoms separating SQL-join from
+plain-SQL tasks activate on \texttt{JOIN} clauses. The identity
+$g(q) = \sum_t g_t(q)$ makes granularity an aggregation choice within one
+representation: whole-trajectory sums resolve topics; block-level support
+resolves skills. \todo{stability analysis of the dictionary across seeds;
+AST-level blocks for intra-line skills (pandas case).}
+
+\paragraph{Boundary with conformal coverage.}
+The specification of $Q_k$ is its atom support (equivalently, at topic scale,
+the spectral subspace of $\{g(q_i)\}$). A membership score is calibrated by
+split conformal prediction: with $n_{\mathrm{cal}}$ held-out examples, the
+acceptance threshold guarantees $1-\alpha$ coverage of in-domain queries.
+Measured coverage tracks the nominal level (93--97\% at $\alpha=0.1$, pilot).
+The boundary is deliberately inclusive---its job is to cover the intended
+topic, and precision at skill level is delegated to atom support.
+
+\paragraph{Capability as supplied mass, verified behaviorally.}
+We do not measure student capability by post-hoc gradient norms: that proxy
+failed its pre-registered gate (pooled Spearman $-0.40$ and $-0.30$ against a
+$-0.5$ threshold, two metric variants), with failures localized to style
+drift (residuals against teacher references rise as the student forms its own
+style) and exposure bias (teacher-forced scores cannot see decoding failure).
+Instead, capability is \emph{predicted forward}: training on data $D$
+supplies each atom with mass $\sum_{x\in D}\langle g(q), g(x)\rangle$, and
+this prediction is validated against execution outcomes. Kernel mass ranks
+measured loss changes across domains ($\rho=0.53$, $p=0.04$, pilot);
+per-student validation on budget-matched cohorts is pre-registered at
+AUROC $\ge 0.75$. \todo{results of the cohort validation (E2-v3).}
+
+\paragraph{Boundary-guided distillation and shaping control.}
+Selection ranks a heterogeneous trajectory pool by specification score and
+fills a token budget (a first-order special case of maximizing atom coverage,
+which is submodular). Out-of-domain leakage is controlled by \emph{supply
+allocation} rather than opposition: fewer than 15\% of cross-domain gradient
+inner products are negative, so narrowing the diet starves unspecified
+capability---predictably---while parameters move for the specified task.
+An optional refusal module converts the lowest-scoring pool items into
+refusal targets, shaping behavior on the same boundary
+(100\% out-of-domain refusal at 0\% in-domain over-refusal, pilot).

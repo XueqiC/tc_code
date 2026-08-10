@@ -1,0 +1,31 @@
+\section{Experiments}\label{sec:experiments}
+%% Each subsection opens with its falsifiable question (skill rule).
+
+\subsection{Can boundaries be estimated where semantics fail?}\label{sec:boundary}
+\todo{E1 full: hard-pair table (grad 1.000 / emb-traj 0.687 / emb-query 0.404
+$\approx$ chance by construction), $k$-efficiency (saturation at $k{=}5$;
+embeddings degrade with $k$), dimension- and template-controls, nine-model
+robustness matrix, PCA figure.}
+
+\subsection{Do atoms resolve skills within a domain?}\label{sec:atoms}
+\todo{Dense-vs-sparse table: SQL-join 0.906$\pm$0.025 vs.\ 0.615 (dense) and
+0.866 (embedding, surface-advantaged by construction); coarse-scale parity
+(0.94--1.00); atom interpretability panel; dictionary stability; pandas
+limitation (intra-line skills need finer blocks).}
+
+\subsection{Does measured capability track behavior?}\label{sec:capability}
+\todo{Gate narrative: v1/v2 failures with per-checkpoint analysis (late
+within-checkpoint $\rho=-0.70$; lowest-decile success 96\%), style-drift
+evidence (per-row residual 15.1 vs.\ 1.3), atom-supply validation on E3
+cohorts (pre-registered).}
+
+\subsection{Does boundary-guided distillation shape capability?}\label{sec:distill}
+\todo{Budget-matched conditions (all/random/embedding/gradient/refusal):
+in-domain execution, action-space capture (63\%$\to$0\% CoT in every
+condition), out-of-domain loss movement, refusal split; (size, budget)
+coverage surface from the 39-run sweep; supply-starvation mechanism (M1).}
+
+\subsection{Agent environments}\label{sec:agents}
+\todo{AppWorld / BFCL-v4 / $\tau^2$-bench topic-scoped results (tier 2);
+teacher pool from three current open teachers with execution-verified
+quality gates.}

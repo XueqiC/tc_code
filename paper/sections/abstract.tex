@@ -1,0 +1,24 @@
+%% v0.1 (2026-08-10). Numbers marked "pilot" are single-seed; the (size,
+%% budget) sweep and agent-environment results will replace them as they land.
+Deploying a large language-model agent often means distilling it into a small
+model that must handle one task domain, specified only by a handful of example
+queries. Deciding which requests fall inside that domain, and training a
+student whose competence ends where the domain ends, are usually treated as
+separate problems solved with semantic similarity---which cannot work when two
+tasks share their surface text but differ in the skills they require. We
+represent both problems in one space: the gradient a trajectory induces in the
+student encodes what learning that task would change, and a sparse dictionary
+over these gradients yields \emph{capability atoms}---interpretable units that
+support task boundaries, capability measurement, and data selection in a
+single representation. On a hard pair sharing identical questions but
+differing in action space (Python vs.\ chain-of-thought), gradient boundaries
+reach AUROC $1.000$ where trajectory embeddings reach $0.687$ (pilot); atom
+support resolves within-domain skills (SQL-join, AUROC $0.906{\pm}0.025$)
+where dense subspaces fail ($0.615$); boundaries carry finite-sample conformal
+coverage guarantees and are stable across nine reference models from 0.8B to
+27B parameters. Boundary-guided selection matches the best in-domain execution
+accuracy while sharpening the student most strongly away from out-of-domain
+capability, and a refusal module separates in- from out-of-domain requests
+with 100\%/0\% refusal rates at a 6.7-point cost (pilot). We report our
+failed pre-registered gate for a gradient-norm capability proxy, and the
+mechanism analysis that replaced it.
