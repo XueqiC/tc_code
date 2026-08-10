@@ -90,6 +90,9 @@ def sanitize_model(model):
 
 
 def extract_code(text):
+    tagged = re.search(r"<code>\s*(.*?)\s*</code>", text, flags=re.DOTALL)
+    if tagged:
+        return tagged.group(1).strip()
     fenced = re.search(
         r"(?P<fence>`{3,}|~{3,})[^\r\n]*\r?\n(?P<body>.*?)(?P=fence)",
         text,
