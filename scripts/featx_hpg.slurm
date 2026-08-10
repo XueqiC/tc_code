@@ -14,7 +14,13 @@
 # Usage: sbatch --export=ALL,TC_MODEL=Qwen/Qwen3.5-4B,TC_TAG=_qwen35-4b scripts/featx_hpg.slurm
 set -e
 cd "$SLURM_SUBMIT_DIR"
-export HF_HOME=/blue/yd24f.fsu/xc25.fsu/hq/tools/hf-cache
+# TC_USE_TMP=1 -> cache the model on node-local scratch (survives group-quota
+# pressure on /blue; re-downloads each run, fine for one-off big models)
+if [ "${TC_USE_TMP:-0}" = "1" ]; then
+  export HF_HOME="$TMPDIR/hf-cache"
+else
+  export HF_HOME=/blue/yd24f.fsu/xc25.fsu/hq/tools/hf-cache
+fi
 mkdir -p "$HF_HOME" logs results/pilot
 source .venv/bin/activate
 echo "=== $(hostname) $(date) model=$TC_MODEL tag=$TC_TAG ==="
