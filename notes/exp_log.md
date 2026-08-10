@@ -12,3 +12,4 @@ e1-intra-fine-v1 | per-line 块梯度, mean/max/top3 聚合, 域内复测 | rai 
 e1-refmodel-27b | Qwen3.6-27B (跨代, 节点本地缓存) 特征提取 14min | hpg B200 | hard-AUROC 1.000 / cross 1.000 / coverage 0.97 — 稳健性覆盖 0.8B→27B 跨两代五个模型 | results/pilot/features_grad_qwen36-27b.npz
 e2-gate-v2 | 修正案A1: within-checkpoint z归一主分析(CPU复用v1记录) | rai | FAIL: ρ=-0.303(比raw -0.403更弱; z归一移除跨checkpoint真实信号+早期全失败记录稀释) → gate 终审 FAIL, 几何C留在训练环外, 不再换指标; 自轨迹残差诊断(预注册副分析)GPU2在跑 | results/e2_gate/v2_analysis.json
 e2-v2-secondary | 学生自轨迹残差 (风格漂移诊断, GPU2) | rai | ρ=-0.447: 优于 teacher-ref (-0.403) 与 z-norm (-0.303) 但仍未达 -0.5; 逐行确认漂移(如 row25 teacher 残差 15.06 vs own 1.35) → 风格漂移是真实混淆但非全部; 残差梯度=有信息但不完美的能力代理, 终审维持 FAIL | logs/e2_v2_self.log
+e1-refmodel-base | Qwen3.5-{0.8,2,4,9}B-Base 特征 (节点本地缓存) | hpg B200 ×4 | 全部 hard-AUROC 1.000 — 稳健性矩阵完成: 9个参考模型(instruct×5含Qwen2.5-1.5B, base×4, 跨代27B)全1.000; RLHF与否不影响任务子空间 | results/pilot/features_grad_qwen35-*-base.npz
