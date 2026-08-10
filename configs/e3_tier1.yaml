@@ -1,0 +1,57 @@
+model: Qwen/Qwen2.5-1.5B-Instruct
+device: cuda
+dtype: bfloat16
+seed: 0
+
+data:
+  pool_glob: data/pool_v0/*/*.jsonl
+  distractor_domains: [gsm8k-cot, alpaca]
+  eval_domains: [gsm8k-code, gsm8k-cot, pandas, sql, alpaca]
+  test_rows_per_domain: 30
+
+task_boundary:
+  domain: gsm8k-code
+  spec_rows: 50
+  fit_rows: 35
+  calibration_rows: 15
+  energy: 0.90
+  alpha: 0.10
+
+gradient_features:
+  projection_dim: 64
+  max_prompt_tokens: 640
+  max_response_tokens: 512
+
+embedding_features:
+  model: BAAI/bge-base-en-v1.5
+  device: cpu
+  batch_size: 32
+
+selection:
+  response_token_budget: 40000
+  refusal_fraction: 0.15
+  refusal_response: "I can only help with grade-school math word problems solved via Python. This request is outside my scope."
+
+training:
+  epochs: 3
+  batch_size: 1
+  gradient_accumulation: 8
+  optimizer: AdamW
+  learning_rate: 0.0002
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.0
+    bias: none
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+generation:
+  strategy: greedy
+  max_new_tokens: 320
+  eval_batch_size: 4
+
+outputs:
+  directory: results/e3_tier1
+  metrics: results/e3_tier1/metrics.json
+  summary: results/e3_tier1/summary.md
+  figure: results/figs/e3_tier1.png
