@@ -15,32 +15,26 @@ queries collected from the intended workload; making that implicit
 specification explicit, and holding the student to it, is the subject of
 this paper.
 
-This deployment path stands on two questions. First, how can the task's
-boundary be determined from a limited set of example queries, so that the
-system knows which future requests belong to the job? Second, how can a
-small model be distilled so that its capability meets the requirement
-exactly, mastering what the task needs and carrying no more? We call the
-joint problem \emph{distill-to-specification}: from a teacher and $k$
-example queries, produce a boundary predictor with a coverage guarantee
-together with a student whose measured capability matches the specified
-domain on both sides.
-
-Existing work has a fatal weakness on each question. For the boundary,
-scope decisions are drawn in the space of request text (Figures~\ref{fig:motivation-a},~\ref{fig:motivation-b}), with retrieval
-similarity or serving-time out-of-distribution gates
-\citep{li2026scope}; yet the same request text can demand entirely
-different skills. Consider one arithmetic word problem solved twice, once
-as an executable Python function and once as chain-of-thought prose: the
-queries are identical strings, no function of the text can separate them,
-and a student distilled for one does not acquire the other
-(Section~\ref{sec:boundary}). For the distillation, current agent methods
-select and imitate trajectories to maximize aggregate benchmark scores
-\citep{kang2025distilling, tang2026smartad, liu2025structured}; the
-intended requirement never enters training, so whether the student
-undershoots the task or silently covers far more than intended is neither
-controlled nor even measured (Figure~\ref{fig:motivation-c}). Task identity resides in what a model would
-have to learn, and requirements bind only if training is accountable to
-them.
+This deployment path stands on two questions: how to determine the task's
+boundary from a limited set of example queries, and how to distill a small
+model whose capability meets the requirement exactly, mastering what the
+task needs and carrying no more. We call the joint problem
+\emph{distill-to-specification}, and existing work has a fatal weakness on
+each half. Boundaries are drawn in the space of request text, with
+retrieval similarity or serving-time out-of-distribution gates
+\citep{li2026scope}; yet one arithmetic problem solved once as Python and
+once as prose yields identical query strings that no function of the text
+can separate, while a student distilled for one solution style does not
+acquire the other
+(Figures~\ref{fig:motivation-a},~\ref{fig:motivation-b}). Distillation,
+in turn, selects and imitates trajectories to maximize aggregate benchmark
+scores \citep{kang2025distilling, tang2026smartad, liu2025structured};
+the requirement never enters training, so whether the student undershoots
+the task or silently covers far more than intended is neither controlled
+nor even measured (Figure~\ref{fig:motivation-c}). A method that closes
+both gaps must host the boundary in a representation where it exists,
+certify capability from behavior rather than predict it, and control
+out-of-scope capability through the training diet itself.
 
 \begin{figure}[t]
 \centering
@@ -71,15 +65,6 @@ measured.}
 \label{fig:motivation}
 \end{figure}
 
-Meeting this specification involves three technical challenges.
-First, the task boundary must be estimated from a few examples in a
-representation where it actually exists; surface semantics provably cannot
-host it. Second, the student's capability cannot be read off any predictive
-proxy we tested; it can only be certified from behavior, so the guarantee
-machinery must be built into the method rather than bolted on. Third,
-out-of-scope capability must be controlled without adversarial training,
-which requires knowing the mechanism by which unwanted capability arises or
-decays during distillation. The method answers these challenges in order.
 
 We therefore represent tasks by their learning demands. The gradient that a
 teacher trajectory for query $q$ induces at the student's initialization
