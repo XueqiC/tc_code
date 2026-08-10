@@ -105,6 +105,13 @@ Training-Time Control on Agent Capability*。
   已知小问题:splits 用了内建 hash(d)(进程间加盐)→ 跑批间 split 不稳定,
   正式实验前改成稳定 hash。剩余 caveat:域间本身较易分;下一轮要加
   域内细分(如 pandas 内 filtering vs groupby)与参考模型稳健性检验。
+- **pilot-distill-v1(2026-08-09)**:C 边界在同一梯度空间可度量,且蒸馏自然塑形。
+  90 条 gsm8k-code 伪轨迹 SFT(LoRA r16, 33 步)后:
+  行动空间完全切换(format 0%→100%,gen 不再出 CoT);exec_acc 0%→37%,
+  但 CoT-any 67%→37% —— **行为切换远快于能力迁移**(capability vs behavior 直接证据);
+  loss:in-T 1.67→0.17,out-T 全部变差(cot 0.64→1.11,alpaca 1.50→2.22);
+  残差梯度中位数:in-T 5.1→2.6,out-T 全部上升 —— 蒸馏把学生"削尖"进 T,
+  域外自发退化(对 C⊆T 方向是利好信号)。图:results/figs/pilot_distill.png
 - (草稿前期工作:JSON/code 1.40× token 比等,工件不在本仓库)
 
 ## Next steps
