@@ -2,14 +2,22 @@
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
-\caption{The pipeline. (1)~Example queries solved by the teacher are read
-as learning fingerprints. (2)~Recurring components form skill atoms; the
-needed atoms plus a conformally calibrated acceptance rule constitute the
-task specification. (3)~The specification gates the trajectory pool:
-supplying items fill the budget, everything else is starved. (4)~Training
-stops when remaining demand is absorbed. (5)~The student is certified
-behaviorally, and the same specification gates live requests. Numbers from
-logged runs.}
+\caption{The pipeline; every inset is drawn from logged runs.
+(1)~The $k$ example queries, from any code-acting workload, are each read
+as a gradient fingerprint: one backward pass at the student's
+initialization records what that student would have to learn. (2)~A sparse
+dictionary factors fingerprints into capability atoms; the specification
+is the atom set the $k$ queries activate (shaded columns), and atoms are
+auditable on data (the annotated atom's top activations are exactly
+\texttt{JOIN} clauses). (3)~Teacher traces are ranked by supply to the
+specified atoms minus $\lambda$ times out-of-scope supply, the token
+budget is filled from the top, and training stops when the remaining
+in-specification demand is absorbed. (4)~The acceptance threshold $\tau$
+is not tuned: it is the $1{-}\alpha$ quantile of calibration
+nonconformity scores, which guarantees coverage at level $1{-}\alpha$ by
+the split-conformal argument; live requests below $\tau$ route to the
+certified student and the remainder are refused or escalated, with both
+sides carrying Clopper--Pearson certificates.}
 \label{fig:pipeline}
 \end{figure}
 The method relies on exactly two assumptions, and every component below
