@@ -115,8 +115,10 @@ Training-Time Control on Agent Capability*。
 - (草稿前期工作:JSON/code 1.40× token 比等,工件不在本仓库)
 
 ## Next steps
-(待与用户确认优先级)
-- 候选 A:先补动机实证——在公开 benchmark 上测一次蒸馏后 shape-correlated 退化(draft note 要求)
-- 候选 B:搭 IR + 双 renderer/reader + round-trip 检查的代码骨架
-- 候选 C:设计 per-task length control(§2.4.2 遗留的开放问题)
-- 需要用户提供:teacher/student 选型、tool 环境与任务面板选择、以及草稿引用的另两份文档
+- **docs/method-design-v1.md 已交 PI 审(2026-08-09 深夜)**,等三个拍板:
+  ① Tier-2 环境面板(提议 BFCL-v3 + StableToolBench 子集 + 数据分析 agent);
+  ② teacher API 选型;③ 学生尺寸线(提议 Qwen3 0.6B/1.7B/4B)。
+- 不等拍板可先做(W1):框架加固(stable-hash split 修复、verifier sandbox)、
+  E1 域内细分 + paraphrase/改名困难对 + 参考模型稳健性、E2@1.5B(gate 实验)。
+- 时间线:ICLR 2027 投稿 ~9 月底,6 周计划见 method-design-v1 §8。
+- 旧候选(动机实证 / IR renderer / length control)已被新问题表述取代或吸收。
