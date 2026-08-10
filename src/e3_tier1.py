@@ -941,22 +941,32 @@ def attach_student_nll_scores(config, tokenizer, pool):
     requested = sorted(
         {"H_nll", "H_smartad_std"} & set(config["conditions"])
     )
+    score_indices = (
+        range(len(pool))
+        if "H_nll" in requested
+        else [
+            pool_index
+            for pool_index, row in enumerate(pool)
+            if row["teacher"] != "gold"
+        ]
+    )
     print(
         f"[setup][student-nll] conditions={','.join(requested)} "
-        f"scoring={len(pool)} device={config['device']}",
+        f"scoring={len(score_indices)} device={config['device']}",
         flush=True,
     )
     model = build_model(config, with_lora=False)
     model.eval()
     try:
-        for index, row in enumerate(pool, start=1):
+        for index, pool_index in enumerate(score_indices, start=1):
+            row = pool[int(pool_index)]
             input_ids, labels = encode(tokenizer, row, config["device"])
             nll = model(input_ids=input_ids, labels=labels).loss.item()
             row["_student_nll"] = float(nll)
             row["_h_nll_score"] = float(-nll)
-            if index % 100 == 0 or index == len(pool):
+            if index % 100 == 0 or index == len(score_indices):
                 print(
-                    f"[setup][student-nll] scored={index}/{len(pool)}",
+                    f"[setup][student-nll] scored={index}/{len(score_indices)}",
                     flush=True,
                 )
     finally:
@@ -1025,10 +1035,10 @@ def _segment_line_weights(row):
                         else [node.target]
                     )
                     target_names = {
-                        target.id.casefold()
+                        descendant.id.casefold()
                         for target in targets
-                        for target in ast.walk(target)
-                        if isinstance(target, ast.Name)
+                        for descendant in ast.walk(target)
+                        if isinstance(descendant, ast.Name)
                     }
                     if target_names & {"answer", "final_answer", "result"}:
                         answer_lines.append(node.lineno - 1)
