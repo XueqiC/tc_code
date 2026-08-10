@@ -10,6 +10,7 @@ import argparse
 import gc
 import json
 import math
+import os
 import random
 from collections import Counter
 from pathlib import Path
@@ -32,8 +33,9 @@ from distill_pilot import MODEL, encode, last_number, split
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
-CONDITIONS = ("base", "A_all", "B_random", "C_emb", "D_grad", "F_refusal")
-TRAINED_CONDITIONS = CONDITIONS[1:]
+ALL_CONDITIONS = (
+    "base", "A_all", "B_random", "C_emb", "D_grad", "F_refusal"
+)
 COLORS = {
     "base": "#6b6a63",
     "A_all": "#eb6834",
@@ -66,7 +68,112 @@ def load_config(path):
     with path.open() as handle:
         config = yaml.safe_load(handle)
     validate_config(config)
+    apply_environment_overrides(config)
     return config
+
+
+def _environment_int(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be an integer, got {value!r}") from error
+
+
+def apply_environment_overrides(config):
+    """Resolve sweep parameters while retaining the tier-1 bare-run defaults."""
+    conditions_text = os.environ.get("E3_CONDITIONS", ",".join(ALL_CONDITIONS))
+    conditions = [value.strip() for value in conditions_text.split(",")]
+    if not conditions or any(not value for value in conditions):
+        raise ValueError("E3_CONDITIONS must be a non-empty comma-separated list")
+    unknown = [value for value in conditions if value not in ALL_CONDITIONS]
+    if unknown:
+        raise ValueError(
+            f"unknown E3_CONDITIONS {unknown}; expected values from {ALL_CONDITIONS}"
+        )
+    if len(set(conditions)) != len(conditions):
+        raise ValueError("E3_CONDITIONS must not contain duplicates")
+
+    student = os.environ.get("E3_STUDENT", MODEL)
+    budget = _environment_int("E3_BUDGET", 40000)
+    seed = _environment_int("E3_SEED", 0)
+    task = os.environ.get("E3_TASK", "gsm8k-code")
+    task_filter = os.environ.get("E3_TASK_FILTER") or None
+    tag = os.environ.get("E3_TAG", "")
+    if not student:
+        raise ValueError("E3_STUDENT must not be empty")
+    if budget <= 0:
+        raise ValueError(f"E3_BUDGET must be positive, got {budget}")
+    if not task:
+        raise ValueError("E3_TASK must not be empty")
+    if "/" in tag or "\\" in tag:
+        raise ValueError("E3_TAG must be a filename suffix, not a path")
+
+    config["model"] = student
+    config["seed"] = seed
+    config["conditions"] = conditions
+    config["tag"] = tag
+    config["selection"]["response_token_budget"] = budget
+    config["task_boundary"]["domain"] = task
+    config["task_boundary"]["filter"] = task_filter
+
+    output_directory = f"results/e3_tier1{tag}"
+    config["outputs"].update({
+        "directory": output_directory,
+        "metrics": f"{output_directory}/metrics.json",
+        "summary": f"{output_directory}/summary.md",
+        "figure": f"results/figs/e3_tier1{tag}.png",
+    })
+
+
+def resolve_task_rows(config):
+    """Select T from the stable pilot split, optionally by response substring."""
+    task = config["task_boundary"]
+    non_test, _ = split(task["domain"])
+    task_filter = task["filter"]
+    eligible = non_test
+    if task_filter is not None:
+        needle = task_filter.casefold()
+        eligible = [
+            row for row in non_test if needle in row["response"].casefold()
+        ]
+
+    original_spec = task["spec_rows"]
+    original_fit = task["fit_rows"]
+    spec_n = min(original_spec, len(eligible))
+    if spec_n < 2:
+        raise ValueError(
+            f"task boundary needs at least two spec rows; found {spec_n} "
+            f"for domain={task['domain']!r} filter={task_filter!r}"
+        )
+    if spec_n != original_spec:
+        fit_fraction = original_fit / original_spec
+        fit_n = max(1, min(spec_n - 1, int(round(spec_n * fit_fraction))))
+        task["spec_rows"] = spec_n
+        task["fit_rows"] = fit_n
+        task["calibration_rows"] = spec_n - fit_n
+    return eligible[:spec_n], len(non_test), len(eligible)
+
+
+def print_resolved_config(config):
+    task = config["task_boundary"]
+    resolved = {
+        "student": config["model"],
+        "budget": config["selection"]["response_token_budget"],
+        "seed": config["seed"],
+        "conditions": config["conditions"],
+        "task": task["domain"],
+        "task_filter": task["filter"],
+        "spec_rows": task["spec_rows"],
+        "fit_rows": task["fit_rows"],
+        "calibration_rows": task["calibration_rows"],
+        "tag": config["tag"],
+        "output_directory": config["outputs"]["directory"],
+        "figure": config["outputs"]["figure"],
+    }
+    print(f"[config] {json.dumps(resolved, sort_keys=True)}", flush=True)
 
 
 def validate_config(config):
@@ -196,7 +303,7 @@ def score_pool(config, task_rows, pool):
         flush=True,
     )
     grad = features.extract_features(
-        MODEL,
+        config["model"],
         combined,
         proj_dim=feat_cfg["projection_dim"],
         max_prompt_tok=feat_cfg["max_prompt_tokens"],
@@ -250,6 +357,7 @@ def score_pool(config, task_rows, pool):
 
     boundary_metrics = {
         "domain": config["task_boundary"]["domain"],
+        "filter": config["task_boundary"]["filter"],
         "n_spec": spec_n,
         "n_fit": fit_n,
         "n_calibration": spec_n - fit_n,
@@ -387,7 +495,7 @@ def build_model(config, with_lora):
     """Construct a freshly seeded bf16 base model, optionally with fresh LoRA."""
     seed_everything(config["seed"])
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL, torch_dtype=torch.bfloat16
+        config["model"], torch_dtype=torch.bfloat16
     ).to(config["device"])
     if not with_lora:
         return model
@@ -525,6 +633,76 @@ def alpaca_metrics(texts, refusal_response):
     }
 
 
+def is_single_sql_statement(code):
+    """Check statement count while ignoring semicolons in quotes and comments."""
+    count = 0
+    has_content = False
+    quote = None
+    i = 0
+    while i < len(code):
+        char = code[i]
+        following = code[i + 1] if i + 1 < len(code) else ""
+
+        if quote is not None:
+            has_content = True
+            if char == quote:
+                if following == quote:
+                    i += 2
+                    continue
+                quote = None
+            i += 1
+            continue
+
+        if char == "-" and following == "-":
+            newline = code.find("\n", i + 2)
+            i = len(code) if newline < 0 else newline + 1
+            continue
+        if char == "/" and following == "*":
+            comment_end = code.find("*/", i + 2)
+            if comment_end < 0:
+                return False
+            i = comment_end + 2
+            continue
+        if char in {"'", '"', "`"}:
+            quote = char
+            has_content = True
+        elif char == "[":
+            quote = "]"
+            has_content = True
+        elif char == ";":
+            if has_content:
+                count += 1
+                has_content = False
+        elif not char.isspace():
+            has_content = True
+        i += 1
+
+    if quote is not None:
+        return False
+    if has_content:
+        count += 1
+    return count == 1
+
+
+def sql_metrics(texts):
+    return {
+        "single_statement_valid_rate": (
+            sum(is_single_sql_statement(text) for text in texts) / len(texts)
+        ),
+    }
+
+
+def pandas_metrics(texts):
+    compilable = 0
+    for text in texts:
+        try:
+            compile(text, "<e3-pandas-generation>", "exec")
+            compilable += 1
+        except (SyntaxError, ValueError, TypeError):
+            pass
+    return {"compile_rate": compilable / len(texts)}
+
+
 @torch.inference_mode()
 def mean_eval_losses(model, tokenizer, tests, device):
     """Teacher-forced response loss, matching distill_pilot.eval_loss."""
@@ -561,10 +739,14 @@ def evaluate_model(model, tokenizer, tests, code_golds, cot_golds, config):
     code_texts = generate_texts(model, tokenizer, tests["gsm8k-code"], config)
     cot_texts = generate_texts(model, tokenizer, tests["gsm8k-cot"], config)
     alpaca_texts = generate_texts(model, tokenizer, tests["alpaca"], config)
+    sql_texts = generate_texts(model, tokenizer, tests["sql"], config)
+    pandas_texts = generate_texts(model, tokenizer, tests["pandas"], config)
     return {
         "gsm8k_code": code_metrics(code_texts, code_golds, refusal),
         "gsm8k_cot": cot_metrics(cot_texts, cot_golds),
         "alpaca": alpaca_metrics(alpaca_texts, refusal),
+        "sql": sql_metrics(sql_texts),
+        "pandas": pandas_metrics(pandas_texts),
         "mean_loss": mean_eval_losses(
             model, tokenizer, tests, config["device"]
         ),
@@ -584,6 +766,7 @@ def _fmt(value, digits=3):
 
 
 def make_summary(metrics):
+    conditions = metrics["config"]["conditions"]
     lines = [
         "# E3 tier-1: boundary-guided vs standard distillation",
         "",
@@ -598,29 +781,30 @@ def make_summary(metrics):
         )
 
     boundary_metrics = metrics["task_boundary"]
-    lines.extend([
-        "",
-        "## Boundary",
-        "",
-        "| space | rank | conformal threshold | calibration coverage | pool above threshold |",
-        "|---|---:|---:|---:|---:|",
-    ])
-    for name in ("gradient", "embedding"):
-        values = boundary_metrics[name]
-        lines.append(
-            f"| {name} | {values['rank']} | {values['threshold']:.3f} | "
-            f"{values['calibration_coverage']:.3f} | "
-            f"{values['pool_above_threshold']} |"
-        )
+    if boundary_metrics is not None:
+        lines.extend([
+            "",
+            "## Boundary",
+            "",
+            "| space | rank | conformal threshold | calibration coverage | pool above threshold |",
+            "|---|---:|---:|---:|---:|",
+        ])
+        for name in ("gradient", "embedding"):
+            values = boundary_metrics[name]
+            lines.append(
+                f"| {name} | {values['rank']} | {values['threshold']:.3f} | "
+                f"{values['calibration_coverage']:.3f} | "
+                f"{values['pool_above_threshold']} |"
+            )
 
     lines.extend([
         "",
         "## Selection and behavior",
         "",
-        "| condition | items | response tokens | refusals | mean s(x) | code exec | code format | code refusal | CoT any-answer | CoT writes code | Alpaca bleed | Alpaca refusal |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| condition | items | response tokens | refusals | mean s(x) | code exec | code format | code refusal | CoT any-answer | CoT writes code | Alpaca bleed | Alpaca refusal | SQL single statement | pandas compile |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ])
-    for condition in CONDITIONS:
+    for condition in conditions:
         result = metrics["conditions"][condition]
         selection = result.get("selection") or {}
         evaluation = result["eval"]
@@ -635,7 +819,9 @@ def make_summary(metrics):
             f"{evaluation['gsm8k_cot']['any_acc']:.3f} | "
             f"{evaluation['gsm8k_cot']['writes_code_rate']:.3f} | "
             f"{evaluation['alpaca']['format_bleed_rate']:.3f} | "
-            f"{evaluation['alpaca']['refusal_rate']:.3f} |"
+            f"{evaluation['alpaca']['refusal_rate']:.3f} | "
+            f"{evaluation['sql']['single_statement_valid_rate']:.3f} | "
+            f"{evaluation['pandas']['compile_rate']:.3f} |"
         )
 
     domains = metrics["config"]["data"]["eval_domains"]
@@ -646,7 +832,7 @@ def make_summary(metrics):
         "| condition | " + " | ".join(domains) + " |",
         "|---|" + "---:|" * len(domains),
     ])
-    for condition in CONDITIONS:
+    for condition in conditions:
         losses = metrics["conditions"][condition]["eval"]["mean_loss"]
         lines.append(
             f"| {condition} | "
@@ -669,27 +855,31 @@ def style_axis(axis):
 
 
 def make_figure(metrics, path):
+    conditions = metrics["config"]["conditions"]
     fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.6), facecolor="white")
-    x_left = np.arange(len(CONDITIONS))
+    x_left = np.arange(len(conditions))
     exec_values = [
         metrics["conditions"][condition]["eval"]["gsm8k_code"]["exec_acc"]
-        for condition in CONDITIONS
+        for condition in conditions
     ]
     axes[0].bar(
         x_left,
         exec_values,
-        color=[COLORS[condition] for condition in CONDITIONS],
+        color=[COLORS[condition] for condition in conditions],
         width=0.72,
     )
-    axes[0].set_xticks(x_left, [SHORT_LABELS[c] for c in CONDITIONS])
+    axes[0].set_xticks(x_left, [SHORT_LABELS[c] for c in conditions])
     axes[0].set_ylabel("Rate")
-    axes[0].set_title("In-T execution accuracy")
+    if metrics["config"]["task_boundary"]["domain"] == "gsm8k-code":
+        axes[0].set_title("In-T execution accuracy")
+    else:
+        axes[0].set_title("GSM8K-code execution accuracy")
 
     metric_names = ("CoT any-answer", "Alpaca format bleed")
     x_right = np.arange(len(metric_names))
     width = 0.12
-    offsets = (np.arange(len(CONDITIONS)) - (len(CONDITIONS) - 1) / 2) * width
-    for offset, condition in zip(offsets, CONDITIONS):
+    offsets = (np.arange(len(conditions)) - (len(conditions) - 1) / 2) * width
+    for offset, condition in zip(offsets, conditions):
         evaluation = metrics["conditions"][condition]["eval"]
         axes[1].bar(
             x_right + offset,
@@ -722,31 +912,42 @@ def release_cuda():
 def main():
     args = parse_args()
     config = load_config(args.config)
+    task_rows, task_non_test_count, task_eligible_count = resolve_task_rows(config)
+    print_resolved_config(config)
+    if config["task_boundary"]["filter"] is not None:
+        print(
+            f"[setup][task-filter] domain={config['task_boundary']['domain']} "
+            f"substring={config['task_boundary']['filter']!r} "
+            f"matched={task_eligible_count}/{task_non_test_count}",
+            flush=True,
+        )
     if not torch.cuda.is_available():
         raise RuntimeError("E3 tier-1 requires a CUDA device")
     seed_everything(config["seed"])
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(config["model"])
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    task_train, _ = split(config["task_boundary"]["domain"])
-    task_rows = task_train[:config["task_boundary"]["spec_rows"]]
-    if len(task_rows) != config["task_boundary"]["spec_rows"]:
-        raise ValueError("not enough stable non-test rows for the task boundary")
+    conditions = config["conditions"]
+    trained_conditions = [condition for condition in conditions if condition != "base"]
+    pool = []
+    pool_composition = []
+    boundary_metrics = None
+    selections = {}
+    if trained_conditions:
+        pool = load_candidate_pool(config)
+        pool_composition = composition_rows(pool)
+        print(f"[setup][pool] eligible items={len(pool)}", flush=True)
+        for row in pool_composition:
+            print(
+                f"[setup][pool] teacher={row['teacher']} domain={row['domain']} "
+                f"n={row['n_items']}",
+                flush=True,
+            )
 
-    pool = load_candidate_pool(config)
-    pool_composition = composition_rows(pool)
-    print(f"[setup][pool] eligible items={len(pool)}", flush=True)
-    for row in pool_composition:
-        print(
-            f"[setup][pool] teacher={row['teacher']} domain={row['domain']} "
-            f"n={row['n_items']}",
-            flush=True,
-        )
-
-    boundary_metrics = score_pool(config, task_rows, pool)
-    selections = build_selections(config, tokenizer, pool)
+        boundary_metrics = score_pool(config, task_rows, pool)
+        selections = build_selections(config, tokenizer, pool)
     tests, code_golds, cot_golds = build_eval_data(config)
 
     metrics_path = resolve_path(config["outputs"]["metrics"])
@@ -762,23 +963,24 @@ def main():
         "conditions": {},
     }
 
-    progress("base", "selection", "not applicable")
-    progress("base", "train", "skipped (unadapted base model)")
-    base_model = build_model(config, with_lora=False)
-    base_eval = evaluate_model(
-        base_model, tokenizer, tests, code_golds, cot_golds, config
-    )
-    metrics["conditions"]["base"] = {"selection": None, "eval": base_eval}
-    progress(
-        "base", "eval",
-        f"exec_acc={base_eval['gsm8k_code']['exec_acc']:.3f}",
-    )
-    write_json(metrics_path, metrics)
-    del base_model
-    release_cuda()
+    if "base" in conditions:
+        progress("base", "selection", "not applicable")
+        progress("base", "train", "skipped (unadapted base model)")
+        base_model = build_model(config, with_lora=False)
+        base_eval = evaluate_model(
+            base_model, tokenizer, tests, code_golds, cot_golds, config
+        )
+        metrics["conditions"]["base"] = {"selection": None, "eval": base_eval}
+        progress(
+            "base", "eval",
+            f"exec_acc={base_eval['gsm8k_code']['exec_acc']:.3f}",
+        )
+        write_json(metrics_path, metrics)
+        del base_model
+        release_cuda()
 
     budget = config["selection"]["response_token_budget"]
-    for condition in TRAINED_CONDITIONS:
+    for condition in trained_conditions:
         selected = selections[condition]
         cap = None if condition == "A_all" else budget
         stats = selection_stats(
