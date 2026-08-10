@@ -26,7 +26,7 @@ together with a student whose measured capability matches the specified
 domain on both sides.
 
 Existing work has a fatal weakness on each question. For the boundary,
-scope decisions are drawn in the space of request text, with retrieval
+scope decisions are drawn in the space of request text (Figure~\ref{fig:pipeline}, stage~1 shows why this fails), with retrieval
 similarity or serving-time out-of-distribution gates
 \citep{li2026scope}; yet the same request text can demand entirely
 different skills. Consider one arithmetic word problem solved twice, once
@@ -38,9 +38,29 @@ select and imitate trajectories to maximize aggregate benchmark scores
 \citep{kang2025distilling, tang2026smartad, liu2025structured}; the
 intended requirement never enters training, so whether the student
 undershoots the task or silently covers far more than intended is neither
-controlled nor even measured. Task identity resides in what a model would
+controlled nor even measured (Figure~\ref{fig:pipeline}, stages~3--5 show
+the alternative). Task identity resides in what a model would
 have to learn, and requirements bind only if training is accountable to
 them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
+\caption{The pipeline. (1)~A handful of example queries, solved by the
+teacher, are read as learning fingerprints: the change the student would
+need in order to learn each solution. Identical query texts with different
+solution styles produce different fingerprints, so the task is defined by
+its demands, not its wording. (2)~Recurring fingerprint components form
+skill atoms; the atoms a task needs, with a conformally calibrated
+acceptance rule, constitute the task specification. (3)~The specification
+gates the teacher-trajectory pool: items that supply the needed atoms fill
+the token budget, everything else is starved, which is the mechanism by
+which off-task capability decays. (4)~Training monitors remaining demand
+and stops at absorption. (5)~The student is certified behaviorally on
+held-out queries; the same specification gates live requests at deployment.
+Numbers shown are from logged runs.}
+\label{fig:pipeline}
+\end{figure}
 
 Meeting this specification involves three technical challenges.
 First, the task boundary must be estimated from a few examples in a
