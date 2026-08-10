@@ -1,4 +1,22 @@
-\section{Method}\label{sec:method}
+\section{Methodology}\label{sec:method}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
+\caption{The pipeline. (1)~A handful of example queries, solved by the
+teacher, are read as learning fingerprints: the change the student would
+need in order to learn each solution. Identical query texts with different
+solution styles produce different fingerprints, so the task is defined by
+its demands, not its wording. (2)~Recurring fingerprint components form
+skill atoms; the atoms a task needs, with a conformally calibrated
+acceptance rule, constitute the task specification. (3)~The specification
+gates the teacher-trajectory pool: items that supply the needed atoms fill
+the token budget, everything else is starved, which is the mechanism by
+which off-task capability decays. (4)~Training monitors remaining demand
+and stops at absorption. (5)~The student is certified behaviorally on
+held-out queries; the same specification gates live requests at deployment.
+Numbers shown are from logged runs.}
+\label{fig:pipeline}
+\end{figure}
 The method relies on exactly two assumptions, and every component below
 names which one it consumes. \textbf{A1 (white-box student):} the student's
 gradients are accessible, which is what fingerprints, atoms, supply
