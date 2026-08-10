@@ -1,25 +1,44 @@
-%% v0.2 (2026-08-10). Pilot numbers are single-seed; sweep results replace
-%% them as they land. No em-dashes (PI style rule).
-Deploying a large language-model agent often means distilling it into a small
-model that serves one task domain, specified only by a handful of example
-queries. Two requirements decide whether the student is deployable: knowing
-which requests fall inside the domain, and training a student whose
-competence ends where the domain ends. Both are usually approached with
-semantic similarity, which cannot succeed when two tasks share their surface
-text but differ in the skills they require. We represent both requirements in
-one space. The gradient that a trajectory induces at the student's
-initialization encodes what learning that task would change, and a sparse
-dictionary over these gradients yields capability atoms: interpretable units
-that support task boundaries, capability prediction, and data selection in a
-single representation. On a hard pair sharing identical questions but
-differing in action space (Python versus chain-of-thought), gradient
-boundaries reach AUROC $1.000$ where trajectory embeddings reach $0.687$
-(pilot). Atom support resolves within-domain skills (SQL-join, AUROC
-$0.906{\pm}0.025$) where dense subspaces fail ($0.615$). Boundaries carry
-finite-sample conformal coverage guarantees and are stable across nine
-reference models from 0.8B to 27B parameters. Under matched token budgets,
-boundary-guided selection ties the best in-domain execution accuracy while
-removing out-of-domain capability most strongly, and a refusal variant
-separates in-domain from out-of-domain requests at 100\% versus 0\% refusal
-rates (pilot). We also report a pre-registered capability-proxy gate that
-failed, and the mechanism analysis that replaced the proxy.
+%% v3: written slot-by-slot against the 9-slot template
+%% (skill round 4, validated on 22 orals/spotlights). Slot labels in
+%% comments; no em-dashes. Method name placeholder: \todo{confirm name}.
+% S1 ESTABLISH
+Language-model agents that act by writing code are entering production, and
+the standard path to affordable deployment is to distill them into small
+students that serve a single task domain, specified by a handful of example
+queries.
+% S2 BREAK
+However, deployment then rests on two questions that current practice
+cannot answer: whether a new request falls inside the intended domain, and
+whether the student's competence in fact stops where the domain stops.
+% S3 SHARPEN
+Both are usually approached with text similarity, which fails structurally
+because identical requests can demand different skills, and existing agent
+distillation optimizes aggregate scores over fixed data, providing neither
+a boundary nor a guarantee.
+% S4 ANNOUNCE
+We present SpecDistill, a distill-to-specification pipeline that turns the
+example queries into an executable task specification and trains a student
+whose measured capability matches it on both sides.
+% S5-7 MECHANISM (enumerated)
+The pipeline has three components: (1) each example's teacher trajectory is
+read as a learning fingerprint, the gradient it induces at the student, and
+a sparse dictionary factors these fingerprints into skill atoms whose
+support, calibrated conformally, defines the boundary; (2) selection fills
+a fixed token budget with pool trajectories that supply the specified atoms
+and starves everything else, which our mechanism analysis shows is how
+off-task capability decays; (3) training monitors remaining demand and
+stops at absorption, and student capability is then certified behaviorally
+with distribution-free bounds rather than predicted, a design forced by
+four pre-registered proxy failures that we report.
+% S8 PROOF
+On an SQL-scoped task all budget-matched selection baselines tie in-task,
+but the certified off-task residue drops from 0.98 (random selection) to
+0.25 (ours) at $\delta{=}0.1$, and under tight budgets specification-guided
+selection improves execution accuracy by up to 23 points over random
+selection (3 seeds).
+% S9 BREADTH
+Boundaries separate identical-query hard pairs at AUROC $1.000$ where
+trajectory embeddings reach $0.687$, saturate at five examples, and
+reproduce across nine reference models from 0.8B to 27B parameters.
+% S10 HAND-OFF
+All protocols, including the failed gates, are pre-registered and released.

@@ -93,3 +93,12 @@ engineering what students will learn。*
 
 架构原则(三权分立): 几何=控制, conformal=认识论, 行为=真值。
 figure-1 = 这条供给-吸收链(机制图, 非 pipeline 拼贴)。
+
+## 8. 通用性护栏(新组件逐项,2026-08-10 晚 PI 再次强调)
+- 早停阈值:相对量(初始需求的 5%)而非绝对数——尺度无关,任何任务/模型适用;
+- λ 旋钮:作为可调参数报告 frontier 曲线族,不挑单点调优——不存在"对某 benchmark 调好的 λ";
+- 原子字典:纯无监督(稀疏编码),不注入任何任务先验;块切分是当前唯一语言相关件
+  (代码按行),AST/token 级通用化在路线图,论文 limitation 如实声明;
+- 探针/边界/证书:模型无关(任意 causal LM)、分布无关(conformal)、任务无关(执行验证器可换);
+- 反 benchmark 过拟合检验:所有组件的超参在五域套件上冻结后,tier-2 agent 环境
+  (AppWorld/BFCL/τ²/ALFWorld/WebShop)作为不许再调参的外推测试。
