@@ -123,6 +123,10 @@ Training-Time Control on Agent Capability*。
 - 实验代码默认委派 codex(gpt-5.6-sol,reasoning xhigh,ops/codex_task.sh)
 - API 凭证在 ~/hq/secrets/llm_apis.env(600,不进 git;已提醒用户轮换)
 
+## 完整实验记录
+docs/2026-08-09-pilot-report-zh.md(三实验全记录+图+证据链+insight+局限+
+W1-W6 执行计划,PI 已确认精彩)——新会话想快速恢复上下文先读它和本文件。
+
 ## Next steps(W1,2026-08-10 开工)
 1. codex:框架加固(stable-hash split、verifier 沙箱、feature 缓存)
 2. codex:AppWorld + BFCL v4 接入骨架;我设计 topic 划分
