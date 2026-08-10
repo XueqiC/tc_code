@@ -110,6 +110,13 @@ Training-Time Control on Agent Capability*。
   定义,天然偏袒 surface 方法,测试本身有循环性)。方法启示:粗边界 grad
   压倒性成立;细边界需 (a) per-step 梯度 stacking,(b) 行为定义的细分标签,
   (c) 子空间能量阈值调优。诚实纳入论文,不隐藏。
+- **e2-gate-v1(2026-08-10)**:**FAIL**(pooled ρ=−0.403 < 门槛 −0.5)→
+  按预注册,几何 C 不进训练环;E3 数据选择只用 T 侧子空间,C 一律行为化测量。
+  解剖:残差梯度后期回升(风格漂移混淆"没学会"),但 within-checkpoint
+  排序强(后期 ρ=−0.70,最低 decile 成功率 96%)。E2-v2:within-checkpoint
+  归一 / 学生自采样轨迹残差,本周重测。
+- **e1-refmodel-v1(2026-08-10)**:参考模型稳健性通过(Qwen3.5-4B/9B 与
+  1.5B 结论一致,hard-AUROC 均 1.000)。
 - **pilot-distill-v1(2026-08-09)**:C 边界在同一梯度空间可度量,且蒸馏自然塑形。
   90 条 gsm8k-code 伪轨迹 SFT(LoRA r16, 33 步)后:
   行动空间完全切换(format 0%→100%,gen 不再出 CoT);exec_acc 0%→37%,
