@@ -75,10 +75,9 @@ Training-Time Control on Agent Capability*。
 - hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
 
 ## Running jobs
-- rai | pid 2996929(物理 GPU1;注意 CUDA_DEVICE_ORDER=PCI_BUS_ID 必须设,
-  否则 CUDA 按算力排序会落到别人的卡上)| src/controls.py 两个 sanity 控制
-  (768 同维投影 / 模板剥离重提梯度)| 2026-08-09 ~22:00 | ~10min
 - 定时:cron 219d967b 每 30min(:13/:43)向 Discord 报进度(用户要求)
+-(rai GPU 提示:CUDA_DEVICE_ORDER=PCI_BUS_ID 必须设,否则 CUDA 按算力
+  排序会落到别人的卡上)
 
 ## Pilot(exp_id: pilot-boundary-v1)
 - 数据:data/pilot/{gsm8k-code,gsm8k-cot,pandas,sql,alpaca}.jsonl 各 120 条;
@@ -101,7 +100,11 @@ Training-Time Control on Agent Capability*。
   跨域 grad 全 1.0、误纳 0%、conformal 覆盖 93-97%(名义 90%);
   k=5 即达 1.0,emb-traj 随 k 增大反而降(0.80→0.60)。
   图:results/figs/pilot_{pca,roc_hard,k_curve}.png;表:results/pilot/summary.md
-- 待控制确认:768 同维投影、模板剥离(controls.py 在跑)
+- **pilot-controls-v1**:两个替代解释均排除——768 同维投影 hard-AUROC 0.999;
+  模板剥离(去 def solution()/return,裸赋值)后 1.000、拒绝率 100%。
+  已知小问题:splits 用了内建 hash(d)(进程间加盐)→ 跑批间 split 不稳定,
+  正式实验前改成稳定 hash。剩余 caveat:域间本身较易分;下一轮要加
+  域内细分(如 pandas 内 filtering vs groupby)与参考模型稳健性检验。
 - (草稿前期工作:JSON/code 1.40× token 比等,工件不在本仓库)
 
 ## Next steps
