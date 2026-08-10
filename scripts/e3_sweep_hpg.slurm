@@ -26,7 +26,7 @@ fi
 mkdir -p "$HF_HOME" logs results
 source .venv/bin/activate
 
-manifest=configs/e3_sweep_manifest.txt
+manifest=${E3_MANIFEST:-configs/e3_sweep_manifest.txt}
 line_number=$((SLURM_ARRAY_TASK_ID + 1))
 sweep_line=$(sed -n "${line_number}p" "$manifest")
 if [ -z "$sweep_line" ]; then
