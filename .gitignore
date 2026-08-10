@@ -10,3 +10,5 @@ __pycache__/
 *.safetensors
 wandb/
 .env
+envs/
+data/
