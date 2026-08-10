@@ -1,4 +1,17 @@
 \section{Methodology}\label{sec:method}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
+\caption{The pipeline. (1)~Example queries solved by the teacher are read
+as learning fingerprints. (2)~Recurring components form skill atoms; the
+needed atoms plus a conformally calibrated acceptance rule constitute the
+task specification. (3)~The specification gates the trajectory pool:
+supplying items fill the budget, everything else is starved. (4)~Training
+stops when remaining demand is absorbed. (5)~The student is certified
+behaviorally, and the same specification gates live requests. Numbers from
+logged runs.}
+\label{fig:pipeline}
+\end{figure}
 The method relies on exactly two assumptions, and every component below
 names which one it consumes. \textbf{A1 (white-box student):} the student's
 gradients are accessible, which is what fingerprints, atoms, supply

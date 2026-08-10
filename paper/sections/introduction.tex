@@ -26,7 +26,7 @@ together with a student whose measured capability matches the specified
 domain on both sides.
 
 Existing work has a fatal weakness on each question. For the boundary,
-scope decisions are drawn in the space of request text (Figure~\ref{fig:pipeline}, stage~1 shows why this fails), with retrieval
+scope decisions are drawn in the space of request text (Figure~\ref{fig:motivation}a,b), with retrieval
 similarity or serving-time out-of-distribution gates
 \citep{li2026scope}; yet the same request text can demand entirely
 different skills. Consider one arithmetic word problem solved twice, once
@@ -38,28 +38,24 @@ select and imitate trajectories to maximize aggregate benchmark scores
 \citep{kang2025distilling, tang2026smartad, liu2025structured}; the
 intended requirement never enters training, so whether the student
 undershoots the task or silently covers far more than intended is neither
-controlled nor even measured (Figure~\ref{fig:pipeline}, stages~3--5 show
-the alternative). Task identity resides in what a model would
+controlled nor even measured (Figure~\ref{fig:motivation}c). Task identity resides in what a model would
 have to learn, and requirements bind only if training is accountable to
 them.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
-\caption{The pipeline. (1)~A handful of example queries, solved by the
-teacher, are read as learning fingerprints: the change the student would
-need in order to learn each solution. Identical query texts with different
-solution styles produce different fingerprints, so the task is defined by
-its demands, not its wording. (2)~Recurring fingerprint components form
-skill atoms; the atoms a task needs, with a conformally calibrated
-acceptance rule, constitute the task specification. (3)~The specification
-gates the teacher-trajectory pool: items that supply the needed atoms fill
-the token budget, everything else is starved, which is the mechanism by
-which off-task capability decays. (4)~Training monitors remaining demand
-and stops at absorption. (5)~The student is certified behaviorally on
-held-out queries; the same specification gates live requests at deployment.
-Numbers shown are from logged runs.}
-\label{fig:pipeline}
+\includegraphics[width=\linewidth]{figs/fig1_motivation.png}
+\caption{Why both questions defeat current practice (all panels from
+logged runs). (a)~The identical-query hard pair in text-embedding space:
+240 GSM8K questions solved as code (blue) or prose (orange) share their
+query text, so any boundary drawn on the request is blind to the
+difference. (b)~The same examples in gradient space separate perfectly:
+task identity lives in what a student would have to learn. (c)~Under
+matched budgets on an SQL-scoped task, random and embedding selection tie
+ours in-task but leave 83--86\% of off-task capability in the student,
+while specification-guided selection leaves 8\%: without the requirement
+in training, leakage is neither controlled nor measured.}
+\label{fig:motivation}
 \end{figure}
 
 Meeting this specification involves three technical challenges.
