@@ -42,6 +42,27 @@ increases arise from supply starvation combined with drift, not from
 opposing gradients. \todo{formal statement with error term; cohort-level
 validation on the sweep.}
 
+
+\paragraph{Budget conservation and iso-performance efficiency.}
+Write a token budget as $b = \alpha b + (1-\alpha)b$, where $\alpha$ is
+the fraction of selected tokens whose trajectories supply the specified
+atoms. To first order, coverage is driven by the on-specification supply
+$\alpha b$ alone, so the budget required to reach a target in-task level
+scales as $1/\alpha$: two selectors reaching the same in-task performance
+differ in cost by the ratio of their on-specification fractions. The
+off-specification remainder $(1-\alpha)b$ does not vanish; it is spent
+installing out-of-scope capability, which is why a baseline's off-task
+performance is the visible receipt of its wasted budget. Measured values
+support the account: specification-guided selection runs at
+$\alpha \approx 0.93$ against $\alpha \approx 0.29$ for random
+selection, predicting a ${\sim}3.2\times$ budget ratio, and empirically
+the specification-guided student at a 10k budget exceeds the random-diet
+student at 40k on the 0.8B student (${\geq}4\times$;
+Section~\ref{sec:distill}). We therefore report iso-performance budget
+comparisons, with leakage presented as the destination of the budget other
+selectors waste. \todo{tighten constants; multi-seed budget-to-target
+table.}
+
 \paragraph{Submodular selection.}
 Selecting trajectories to maximize covered atom mass under a token budget is
 monotone submodular maximization with a knapsack constraint, for which
