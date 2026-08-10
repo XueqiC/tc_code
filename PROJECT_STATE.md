@@ -127,10 +127,9 @@ Training-Time Control on Agent Capability*。
 - 学生线:**Qwen3.5 0.8/2/4/9B** + 1 个跨家族对照点
 - 模型刷新(2026-08-10 用户要求最新款):teacher = **Kimi K3**(7/27 开源)
   + DeepSeek-V4-Pro + k2.7-code(对照);27B 参考模型换 **Qwen3.6-27B**
-- **base vs instruct(提议待确认)**:双轨——主线 Qwen3.5-*-Base*(能力归因
-  干净,R1-Distill 谱系做法),instruct 平行副线 1-2 尺寸(先验挤占现象 +
-  部署现实);pilot 已有数据归入 instruct 副线。用户提出"与质量好的论文
-  对齐",已回复方案等确认
+- **base vs instruct(已确认 2026-08-10)**:双轨——主线 Qwen3.5-*-Base*
+  (能力归因干净,R1-Distill 谱系做法),instruct 平行副线 1-2 尺寸
+  (先验挤占现象 + 部署现实);pilot 已有数据归入 instruct 副线
 - 实验代码默认委派 codex(gpt-5.6-sol,reasoning xhigh,ops/codex_task.sh)
 - hpg 算力:用户明确要求"可能的话多申请几个 B200 把实验做好"(2026-08-10)——
   E3/E4 sweep 可放开到多卡多任务(仍守 ≤4 pending 默认;sweep 时经用户点头放宽)
