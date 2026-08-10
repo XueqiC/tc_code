@@ -17,3 +17,4 @@ e3-tier1 | 6条件×40k budget, 1.5B instruct, 池=2teacher×3域+gold干扰 | r
 atoms-pilot-v1 | 256原子 alpha=0.5 稀疏分解 2072块 | rai CPU | 超参失败(平均0.5激活/块, AUROC 0.55-0.65) 但可解释性命中: join判别原子top块全是JOIN语句; v2 (128原子 alpha=0.05) 在跑 | results/atoms_pilot/report.json
 atoms-pilot-v2 | 128原子 alpha=0.05 (5.2激活/块) | rai CPU | 细粒度突破: sql-join 0.906±0.025 (密子空间0.615/emb 0.866全超); 粗粒度追平: code 0.996(hard 0.988)/sql 0.989/pandas 0.936; JOIN原子可解释性再确认 → 单一表示统一两尺度, 方法设计线收敛到 Capability Atoms | results/atoms_pilot/report.json
 m1-interference | 核质量 vs E3实测Δloss (15 cells), 负内积占比 | rai GPU1 | Spearman ρ=0.529 p=0.043 (方向性预测成立); 负内积仅1-15% → 削尖≠梯度对抗, 是"断供+漂移"效应 → 泄漏控制=供给分配(选择时可控), 塑形控制项设计依据确立 | results/m1/report.json
+m2m3-v3 | 双模型探针协议(参考提取器+W_eff拷贝), 8 checkpoint, 128原子空间 | rai GPU1 ~1.5h | M2: 原子需求单调排空 1.01→0.11 (-89%) 伴随 exec 0→57%, 且呈顺序波(原子0 step2前排空=格式候选, 原子8/15 接力达峰再排空); M3: 行为翻转区间(0→2)更新 85.5% 集中于 5/128 原子 — 低维载体证实; 前两版失败(stdin/基不匹配)已记方法论教训 | results/m2_m3/, figs/m2_m3.png
