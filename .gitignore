@@ -1,0 +1,12 @@
+data/
+logs/
+results/
+_trash/
+.venv/
+__pycache__/
+*.pyc
+*.pt
+*.ckpt
+*.safetensors
+wandb/
+.env
