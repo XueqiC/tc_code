@@ -110,6 +110,16 @@ Training-Time Control on Agent Capability*。
   定义,天然偏袒 surface 方法,测试本身有循环性)。方法启示:粗边界 grad
   压倒性成立;细边界需 (a) per-step 梯度 stacking,(b) 行为定义的细分标签,
   (c) 子空间能量阈值调优。诚实纳入论文,不隐藏。
+- **e3-tier1(2026-08-10)**:主实验首轮跑通。域内 D/B 并列 90%(饱和);
+  D 域外 loss 最高=削最尖;F 域外拒答 100%/域内误拒 0%(−6.7pt);
+  行动空间俘获全条件 100%;梯度边界较 embedding 更紧(153 vs 264 过阈)。
+  单 seed;tier-2 需更紧预算/子话题 T/agent 环境拉开覆盖差。
+  六学生 (训练集,逐题成败) 已就绪 → 核预测能力零成本验证(任务 #9)。
+- **概念迭代(2026-08-10 与 PI 实时)**:learning-kernel 统一框架 →
+  PI 嫌 kernel 过时 → 26 年锚点重选:**Capability Atoms**(梯度稀疏字典,
+  挂靠 Gradient Atoms 2603.14665 + SAE 浪潮);atoms-pilot v1 超参失败但
+  join 原子可解释性直接命中,v2 在跑。论文框架语言待 PI 定夺(datamodels
+  vs atoms)。
 - **e2-gate-v1(2026-08-10)**:**FAIL**(pooled ρ=−0.403 < 门槛 −0.5)→
   按预注册,几何 C 不进训练环;E3 数据选择只用 T 侧子空间,C 一律行为化测量。
   解剖:残差梯度后期回升(风格漂移混淆"没学会"),但 within-checkpoint
