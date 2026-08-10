@@ -49,8 +49,8 @@ out-of-scope capability through the training diet itself.
 \label{fig:motivation-b}
 \end{subfigure}\hfill
 \begin{subfigure}[b]{0.36\linewidth}
-\includegraphics[width=\linewidth]{figs/fig1c_leakage.png}
-\caption{Budget-matched selection.}
+\includegraphics[width=\linewidth]{figs/fig1c_budget.png}
+\caption{Iso-performance budget cost.}
 \label{fig:motivation-c}
 \end{subfigure}
 \caption{Why both questions defeat current practice (all panels from
@@ -58,10 +58,10 @@ logged runs). (a)~240 GSM8K questions solved as code (blue) or prose (red)
 share their query text, so any boundary drawn on the request text cannot
 separate the two tasks. (b)~The same examples separate perfectly in
 gradient space: task identity lives in what a student would have to learn.
-(c)~On an SQL-scoped task, random and embedding selection tie ours in-task
-yet leave 83--86\% of off-task capability in the student versus our 8\%:
-without the requirement inside training, leakage is neither controlled nor
-measured.}
+(c)~In-task success versus token budget (0.8B student, 3 seeds): the level
+our selection reaches with 10k tokens is still unmet by random selection at
+40k, a ${>}4\times$ budget gap; the budget others spend off-specification
+resurfaces as leaked out-of-task capability (Table~\ref{tab:twosided}).}
 \label{fig:motivation}
 \end{figure}
 
