@@ -75,6 +75,18 @@ Training-Time Control on Agent Capability*。
 - hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
 
 ## Running jobs
+- hpg | array 39058919(39 任务:4 尺寸×3 预算×3 seeds + sql-join 子话题)|
+  E3.1 (size,budget) 覆盖曲面 sweep | 2026-08-10 ~02:00 EDT | watcher bjo45egd6
+- rai | qwen3.5:397b 轨迹池生成(第三 teacher,同族对照)| pool_v0_qwen397.log
+
+## Paper(2026-08-10 启动)
+- paper/ = ICLR 2027 官方模板 + v0.1 骨架(abstract/intro 成稿,method scope,
+  TODO 槽位随实验滚动填充);写作规范 = ~/hq/.claude/skills/paper-writing/
+- Overleaf:用户经 GitHub import 链接(已发操作说明);rai 无 pdflatex,
+  待装 TinyTeX 本地校验
+- PI 要求(2026-08-10):story 最重要,精读优秀蒸馏论文的叙事写法并吸收
+- 机理:M1 完成(削尖=断供+漂移,核质量预测 ρ=0.53);M2/M3 待带仪器训练;
+  E2-v3 = 原子供给预测在 E3 cohort 验证(任务 #9,预注册门槛 AUROC 0.75)
 - 定时:cron 219d967b 每 30min(:13/:43)向 Discord 报进度(用户要求)
 -(rai GPU 提示:CUDA_DEVICE_ORDER=PCI_BUS_ID 必须设,否则 CUDA 按算力
   排序会落到别人的卡上)
