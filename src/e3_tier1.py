@@ -40,7 +40,7 @@ DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
 CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
-    "D_grad_pre", "D_grad_cov",
+    "D_grad_pre", "D_grad_cov", "D_less_bnd",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -56,6 +56,7 @@ COLORS = {
     "D_grad_iter": "#134a8e",
     "D_grad_pre": "#0e6f6a",
     "D_grad_cov": "#7a4fb3",
+    "D_less_bnd": "#0b8457",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -71,6 +72,7 @@ SHORT_LABELS = {
     "D_grad_iter": "D-iter",
     "D_grad_pre": "D-pre",
     "D_grad_cov": "D-cov",
+    "D_less_bnd": "D-bnd",
 }
 MUTED = "#6b6a63"
 LESS_WARMUP_EPOCHS = 4
@@ -773,6 +775,7 @@ def score_pool(config, tokenizer, task_rows, pool):
     grad_cal = boundary.score(grad_subspace, grad[fit_n:spec_n])
     grad_scores = boundary.score(grad_subspace, pool_grad)
     grad_threshold = conformal_threshold(grad_cal, alpha)
+    config["task_boundary"]["_grad_threshold"] = float(grad_threshold)
     d_grad_scores = grad_scores
     out_subspace = None
     if selection_lambda != 0:
@@ -823,7 +826,7 @@ def score_pool(config, tokenizer, task_rows, pool):
         row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
 
-    if {"E_less_std", "D_grad_pre"} & set(config["conditions"]):
+    if {"E_less_std", "D_grad_pre", "D_less_bnd"} & set(config["conditions"]):
         attach_less_std_scores(config, tokenizer, task_rows, pool)
 
     if {"H_nll", "H_smartad_std"} & set(config["conditions"]):
@@ -979,6 +982,22 @@ def build_selections(config, tokenizer, pool):
         print(
             f"[setup][D_grad_cov][selection] items={len(chosen)} "
             f"tokens={used} coverage={covered.mean():.3f}",
+            flush=True,
+        )
+
+    if "D_less_bnd" in config["conditions"]:
+        threshold = config["task_boundary"]["_grad_threshold"]
+        inside = [
+            i for i, row in enumerate(pool)
+            if row["_grad_score"] >= threshold
+        ]
+        bnd_order = sorted(
+            inside, key=lambda i: -pool[i]["_less_std_score"]
+        )
+        selections["D_less_bnd"] = take_prefix(pool, bnd_order, budget)
+        print(
+            f"[setup][D_less_bnd][selection] inside_boundary={len(inside)}"
+            f"/{len(pool)} threshold={threshold:.3f}",
             flush=True,
         )
 
