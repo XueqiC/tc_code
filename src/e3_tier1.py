@@ -991,13 +991,23 @@ def build_selections(config, tokenizer, pool):
             i for i, row in enumerate(pool)
             if row["_grad_score"] >= threshold
         ]
+        inside_set = set(inside)
         bnd_order = sorted(
             inside, key=lambda i: -pool[i]["_less_std_score"]
         )
-        selections["D_less_bnd"] = take_prefix(pool, bnd_order, budget)
+        # the gold-calibrated threshold is strict for teacher traces: after
+        # the inside prefix, pad toward the budget with the nearest-boundary
+        # rows (highest grad score outside), still ranked before selection
+        outside_pad = sorted(
+            (i for i in range(len(pool)) if i not in inside_set),
+            key=lambda i: -pool[i]["_grad_score"],
+        )
+        selections["D_less_bnd"] = take_prefix(
+            pool, bnd_order + outside_pad, budget
+        )
         print(
             f"[setup][D_less_bnd][selection] inside_boundary={len(inside)}"
-            f"/{len(pool)} threshold={threshold:.3f}",
+            f"/{len(pool)} threshold={threshold:.3f} pad=nearest-boundary",
             flush=True,
         )
 
