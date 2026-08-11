@@ -959,6 +959,20 @@ def build_selections(config, tokenizer, pool):
             used += pool[best]["_token_count"]
             covered = np.maximum(covered, sims[best])
             available.discard(best)
+        # coverage saturates well before the budget: top up by score order
+        if used < budget:
+            topup_order = np.argsort(
+                -np.asarray([row["_grad_score"] for row in pool]),
+                kind="stable",
+            )
+            for i in topup_order:
+                i = int(i)
+                if i in set(chosen):
+                    continue
+                if used + pool[i]["_token_count"] > budget:
+                    continue
+                chosen.append(i)
+                used += pool[i]["_token_count"]
         selections["D_grad_cov"] = take_prefix(
             pool, chosen, budget
         )
