@@ -117,6 +117,11 @@ def read_episodes(min_turn: int) -> list[dict[str, Any]]:
                             "teacher": teacher,
                             "turn_index": turn_index,
                             "prompt": serialize_prompt(turns, turn_index),
+                            "messages": [
+                                {"role": turn["role"],
+                                 "content": turn["content"]}
+                                for turn in turns[:turn_index]
+                            ],
                             "response": response,
                             "token_hint": len(response) // 4,
                         }
