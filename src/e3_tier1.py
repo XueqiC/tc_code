@@ -65,6 +65,7 @@ SHORT_LABELS = {
     "F_refusal": "F",
     "H_nll": "H",
     "H_smartad_std": "H*",
+    "D_grad_iter": "D-iter",
 }
 MUTED = "#6b6a63"
 LESS_WARMUP_EPOCHS = 4
@@ -161,6 +162,10 @@ def apply_environment_overrides(config):
     if iter_rounds < 2:
         raise ValueError(f"E3_ITER must be >= 2, got {iter_rounds}")
     config["selection"]["iter_rounds"] = iter_rounds
+    iter_mode = os.environ.get("E3_ITER_MODE", "fresh")
+    if iter_mode not in ("fresh", "cum"):
+        raise ValueError(f"E3_ITER_MODE must be fresh or cum, got {iter_mode}")
+    config["selection"]["iter_mode"] = iter_mode
     config["training"]["early_stop"] = early_stop
     config["task_boundary"]["domain"] = task
     config["task_boundary"]["filter"] = task_filter
@@ -1466,8 +1471,13 @@ def run_iterative_condition(
                 break
             excluded |= {item["_pool_index"] for item in tranche}
             all_selected.extend(tranche)
+        train_rows = (
+            all_selected
+            if config["selection"]["iter_mode"] == "cum"
+            else tranche
+        )
         steps = train_condition(
-            model, tokenizer, tranche, config, condition="D_grad_iter"
+            model, tokenizer, train_rows, config, condition="D_grad_iter"
         )
         total_steps += steps
         round_stats.append({
