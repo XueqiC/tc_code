@@ -1950,7 +1950,10 @@ def main():
             )
             stats = selection_stats(selected, budget)
             training_metrics = {"rounds": round_stats}
-        elif absorption_monitor is None:
+        elif (
+            absorption_monitor is None
+            or config["training"]["early_stop"] != 1
+        ):
             optimizer_steps = train_condition(
                 model, tokenizer, selected, config, condition=condition
             )

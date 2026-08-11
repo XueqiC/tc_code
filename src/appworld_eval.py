@@ -295,15 +295,34 @@ def make_system_prompt(task: dict[str, Any]) -> str:
         )
         if value
     ) or "not available"
-    return f"""You are an agent operating inside AppWorld. Write Python code that uses the preloaded `apis` object to complete the user's task. Your first action must consult `apis.api_docs` to discover the relevant apps, APIs, and argument schemas. Print useful API results so you can inspect them. Do not invent APIs.
-
-Return exactly one executable Python code block per turn, with no additional code blocks. You will receive the execution output and may then write the next block. State does persist in AppWorld across turns. When the task is fully complete, call `apis.supervisor.complete_task()` in the final code block.
-
-Task instruction:
-{task.get('instruction', '')}
-
-Supervisor details: {details}"""
-
+    instruction = task.get("instruction", "")
+    return (
+        "You are an agent operating inside AppWorld. Write Python code that "
+        "uses the preloaded `apis` object to complete the user's task.\n\n"
+        "How the `apis` object works (important):\n"
+        "- Apps are namespaces, APIs are methods: call "
+        "`apis.<app_name>.<api_name>(...)`. Never call an app itself "
+        "(`apis.api_docs()` is a TypeError).\n"
+        "- Discover what exists, in this order:\n"
+        "  1. `print(apis.api_docs.show_app_descriptions())`\n"
+        "  2. `print(apis.api_docs.show_api_descriptions(app_name='<app>'))`\n"
+        "  3. `print(apis.api_docs.show_api_doc(app_name='<app>', "
+        "api_name='<api>'))`\n"
+        "- Most apps require login. Get the supervisor's stored passwords "
+        "with `print(apis.supervisor.show_account_passwords())`, then call "
+        "the app's `login` API with the supervisor's email/username and that "
+        "password; pass the returned access token to later calls of that app "
+        "as its api_doc specifies.\n"
+        "- Print API results so you can inspect them before deciding the "
+        "next step. Do not invent APIs or argument names.\n\n"
+        "Return exactly one executable Python code block per turn, with no "
+        "additional code blocks. You will receive the execution output and "
+        "may then write the next block. State persists across turns. When "
+        "the task is fully complete, call `apis.supervisor.complete_task()` "
+        "in the final code block.\n\n"
+        f"Task instruction:\n{instruction}\n\n"
+        f"Supervisor details: {details}"
+    )
 
 def _append_error(existing: str | None, new_error: str) -> str:
     return new_error if existing is None else f"{existing}; {new_error}"
