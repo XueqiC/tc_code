@@ -40,6 +40,7 @@ DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
 CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
+    "D_grad_pre", "D_grad_cov",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -53,6 +54,8 @@ COLORS = {
     "H_nll": "#c98500",
     "H_smartad_std": "#a86e00",
     "D_grad_iter": "#134a8e",
+    "D_grad_pre": "#0e6f6a",
+    "D_grad_cov": "#7a4fb3",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -66,6 +69,8 @@ SHORT_LABELS = {
     "H_nll": "H",
     "H_smartad_std": "H*",
     "D_grad_iter": "D-iter",
+    "D_grad_pre": "D-pre",
+    "D_grad_cov": "D-cov",
 }
 MUTED = "#6b6a63"
 LESS_WARMUP_EPOCHS = 4
@@ -698,6 +703,23 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
         raise RuntimeError("faithful LESS scores do not align with the pool")
     for row, score in zip(pool, scores):
         row["_less_std_score"] = float(score)
+
+    if "D_grad_pre" in config["conditions"]:
+        # our subspace + ranking machinery on Adam-preconditioned features
+        fit_n = config["task_boundary"]["fit_rows"]
+        pre_scores = []
+        for matrix in matrices:
+            matrix = boundary.unit(matrix)
+            subspace = boundary.fit_subspace(matrix[:fit_n])
+            pre_scores.append(boundary.score(subspace, matrix[spec_n:]))
+        pre = np.max(np.stack(pre_scores), axis=0)
+        for row, score in zip(pool, pre):
+            row["_d_grad_pre_score"] = float(score)
+        print(
+            f"[setup][D_grad_pre][score] checkpoints={len(matrices)} "
+            f"subspace_on_preconditioned_features",
+            flush=True,
+        )
     print(
         f"[setup][E_less_std][score] checkpoints={LESS_WARMUP_EPOCHS} "
         f"pool_items={len(pool)}",
@@ -743,6 +765,10 @@ def score_pool(config, tokenizer, task_rows, pool):
     pool_end = spec_n + len(pool)
     pool_grad = grad[spec_n:pool_end]
     less_scores = pool_grad @ mean_spec_grad
+    if "D_grad_cov" in config["conditions"]:
+        spec_sims = pool_grad @ grad[:spec_n].T
+        for row_index, row_sims in enumerate(spec_sims):
+            pool[row_index]["_cov_sims"] = row_sims.astype(np.float32)
     grad_subspace = boundary.fit_subspace(grad[:fit_n])
     grad_cal = boundary.score(grad_subspace, grad[fit_n:spec_n])
     grad_scores = boundary.score(grad_subspace, pool_grad)
@@ -797,7 +823,7 @@ def score_pool(config, tokenizer, task_rows, pool):
         row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
 
-    if "E_less_std" in config["conditions"]:
+    if {"E_less_std", "D_grad_pre"} & set(config["conditions"]):
         attach_less_std_scores(config, tokenizer, task_rows, pool)
 
     if {"H_nll", "H_smartad_std"} & set(config["conditions"]):
@@ -906,6 +932,41 @@ def build_selections(config, tokenizer, pool):
         "D_grad": take_prefix(pool, d_grad_order, budget),
         "E_less": take_prefix(pool, less_order, budget),
     }
+
+    if "D_grad_pre" in config["conditions"]:
+        pre_order = np.argsort(
+            -np.asarray([row["_d_grad_pre_score"] for row in pool]),
+            kind="stable",
+        )
+        selections["D_grad_pre"] = take_prefix(pool, pre_order, budget)
+
+    if "D_grad_cov" in config["conditions"]:
+        # cost-scaled greedy facility location over task-query similarities
+        sims = np.stack([row["_cov_sims"] for row in pool])
+        costs = np.asarray([max(row["_token_count"], 1) for row in pool])
+        covered = np.zeros(sims.shape[1])
+        chosen, used = [], 0
+        available = set(range(len(pool)))
+        while available:
+            gains = np.maximum(sims - covered, 0.0).sum(axis=1) / costs
+            best = max(available, key=lambda i: gains[i])
+            if gains[best] <= 0:
+                break
+            if used + pool[best]["_token_count"] > budget:
+                available.discard(best)
+                continue
+            chosen.append(best)
+            used += pool[best]["_token_count"]
+            covered = np.maximum(covered, sims[best])
+            available.discard(best)
+        selections["D_grad_cov"] = take_prefix(
+            pool, chosen, budget
+        )
+        print(
+            f"[setup][D_grad_cov][selection] items={len(chosen)} "
+            f"tokens={used} coverage={covered.mean():.3f}",
+            flush=True,
+        )
 
     if "D_grad_iter" in config["conditions"]:
         # closed-loop selection: round 1 takes budget/R by the theta_0 score;
