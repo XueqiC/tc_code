@@ -213,7 +213,16 @@ def generate_reply(
         "return_tensors": "pt",
     }
     try:
-        encoded = tokenizer.apply_chat_template(messages, return_dict=True, **template_args)
+        if os.environ.get("APPWORLD_THINK") == "1":
+            rendered = tokenizer.apply_chat_template(
+                messages, tokenize=False, **template_args
+            )
+            suffix = "<think>\n\n</think>\n\n"
+            if rendered.endswith(suffix):
+                rendered = rendered[: -len(suffix)]
+            encoded = tokenizer(rendered, return_tensors="pt")
+        else:
+            encoded = tokenizer.apply_chat_template(messages, return_dict=True, **template_args)
     except TypeError as exc:
         if "return_dict" not in str(exc):
             raise
@@ -243,6 +252,8 @@ def generate_reply(
 
 
 def extract_python_code(reply: str) -> str | None:
+    if os.environ.get("APPWORLD_THINK") == "1" and "</think>" in reply:
+        reply = reply.split("</think>", 1)[1]
     match = CODE_BLOCK_RE.search(reply)
     if match:
         code = match.group(1).strip()

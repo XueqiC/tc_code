@@ -233,6 +233,8 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
             "model": config.model,
             "messages": messages,
             "temperature": float(os.environ.get("TEACHER_TEMP", "0.0")),
+            **({"think": True} if os.environ.get("TEACHER_THINK") == "1"
+               else {}),
             "max_tokens": MAX_COMPLETION_TOKENS,
             "stream": False,
         },
@@ -304,7 +306,14 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
     return _content_text(first_choice["message"].get("content"))
 
 
+def strip_think(reply: str) -> str:
+    if "</think>" in reply:
+        return reply.split("</think>", 1)[1].lstrip()
+    return reply
+
+
 def extract_python_code(reply: str) -> str | None:
+    reply = strip_think(reply)
     match = CODE_BLOCK_RE.search(reply)
     if match:
         code = match.group(1).strip()
@@ -538,6 +547,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     try:
                         for _ in range(args.max_steps):
                             reply = generate_reply(config, turns)
+                            reply = strip_think(reply)
                             turns.append({"role": "assistant", "content": reply})
                             code = extract_python_code(reply)
                             if code is None:
