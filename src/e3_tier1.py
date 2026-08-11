@@ -999,10 +999,16 @@ def build_selections(config, tokenizer, pool):
         # the inside prefix, pad toward the budget with the nearest-boundary
         # rows (highest grad score outside), still ranked before selection
         outside_pad = []
-        if os.environ.get("E3_BND_PAD", "1") == "1":
+        pad_mode = os.environ.get("E3_BND_PAD", "1")
+        if pad_mode != "0":
+            pad_key = (
+                (lambda i: -pool[i]["_less_std_score"])
+                if pad_mode == "less"
+                else (lambda i: -pool[i]["_grad_score"])
+            )
             outside_pad = sorted(
                 (i for i in range(len(pool)) if i not in inside_set),
-                key=lambda i: -pool[i]["_grad_score"],
+                key=pad_key,
             )
         selections["D_less_bnd"] = take_prefix(
             pool, bnd_order + outside_pad, budget
