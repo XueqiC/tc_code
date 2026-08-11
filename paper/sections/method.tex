@@ -101,13 +101,39 @@ measured loss changes across domains ($\rho=0.53$, $p=0.04$, pilot);
 per-student validation on budget-matched cohorts is pre-registered at
 AUROC $\ge 0.75$. \todo{results of the cohort validation (E2-v3).}
 
-\paragraph{Boundary-guided distillation and shaping control.}
-Selection ranks a heterogeneous trajectory pool by specification score and
-fills a token budget (a first-order special case of maximizing atom coverage,
-which is submodular). Out-of-domain leakage is controlled by \emph{supply
-allocation} rather than opposition: fewer than 15\% of cross-domain gradient
-inner products are negative, so narrowing the diet starves unspecified
-capability, in a manner predictable at selection time, while parameters move for the specified task.
-An optional refusal module converts the lowest-scoring pool items into
-refusal targets, shaping behavior on the same boundary
-(100\% out-of-domain refusal at 0\% in-domain over-refusal, pilot).
+\paragraph{Boundary-filtered selection.}
+The boundary is not a competitor to existing data selectors; it is a
+control layer composed with the strongest of them. Selection first ranks
+the trajectory pool by a functional utility score (Adam-preconditioned
+influence toward the specification queries, aggregated over warmup
+checkpoints as in LESS), then admits trajectories through the conformal
+boundary: items whose demand features fall inside the specification
+subspace are taken in utility order, and the remaining budget, when the
+task requires volume, is topped up with the nearest-boundary items still
+in utility order. Utility ranking alone matches in-task performance by
+construction but leaks out-of-scope capability heavily and unstably
+(off-task residue $0.50{\pm}0.19$ across seeds on the SQL-scoped task);
+the boundary filter removes the leakage entirely ($0.000$ on every seed)
+at no in-task cost, while retaining more general ability and, in its
+strict form, reaching the same in-task level on a fraction of the budget.
+Out-of-domain removal operates by \emph{supply allocation} rather than
+opposition: fewer than 15\% of cross-domain gradient inner products are
+negative, so starving unspecified capability is predictable at selection
+time. An optional refusal module converts the lowest-scoring pool items
+into refusal targets, shaping behavior on the same boundary (100\%
+out-of-domain refusal at 0\% in-domain over-refusal, pilot).
+
+\paragraph{Design rationale from falsified alternatives.}
+Three natural alternatives fail for mechanistic reasons that the
+composition avoids. Iterative re-selection against the residual demand of
+a partially trained student degrades performance: once the initial demand
+is absorbed, residual task gradients sit at the noise floor, and
+instance-level re-scoring selects noise, consistent with our
+pre-registered finding that instance-level gradient prediction fails while
+distribution-level structure holds. Applying Adam preconditioning to the
+subspace membership score also underperforms, locating the utility
+ranking's advantage in functional alignment rather than preconditioning
+itself. Pure coverage maximization saturates the specification long
+before the budget and starves training volume. The composition assigns
+each signal the role it is good at: functional utility orders what to
+learn from, and the boundary decides what may enter at all.
