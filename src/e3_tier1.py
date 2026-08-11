@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
 CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
-    "H_nll", "E_less_std", "H_smartad_std",
+    "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -52,6 +52,7 @@ COLORS = {
     "F_refusal": "#e87ba4",
     "H_nll": "#c98500",
     "H_smartad_std": "#a86e00",
+    "D_grad_iter": "#134a8e",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -156,6 +157,10 @@ def apply_environment_overrides(config):
     config["selection"]["response_token_budget"] = budget
     config["selection"]["lambda"] = selection_lambda
     config["training"]["learning_rate"] = float(os.environ.get("E3_LR", config["training"]["learning_rate"]))
+    iter_rounds = _environment_int("E3_ITER", 2)
+    if iter_rounds < 2:
+        raise ValueError(f"E3_ITER must be >= 2, got {iter_rounds}")
+    config["selection"]["iter_rounds"] = iter_rounds
     config["training"]["early_stop"] = early_stop
     config["task_boundary"]["domain"] = task
     config["task_boundary"]["filter"] = task_filter
@@ -897,6 +902,15 @@ def build_selections(config, tokenizer, pool):
         "E_less": take_prefix(pool, less_order, budget),
     }
 
+    if "D_grad_iter" in config["conditions"]:
+        # closed-loop selection: round 1 takes budget/R by the theta_0 score;
+        # later rounds are chosen inside run_iterative_condition against the
+        # residual demand read from the partially trained student.
+        rounds = config["selection"]["iter_rounds"]
+        selections["D_grad_iter"] = take_prefix(
+            pool, d_grad_order, budget // rounds
+        )
+
     if "H_nll" in config["conditions"]:
         nll_order = np.argsort(
             np.asarray([row["_student_nll"] for row in pool]), kind="stable"
@@ -1385,6 +1399,91 @@ def train_condition(
     return optimizer_steps
 
 
+def rescore_pool_residual(model, monitor, config, task_rows, pool, excluded):
+    """Score remaining pool rows against the residual demand subspace.
+
+    The residual subspace is fit on the task-spec queries' gradients read at
+    the CURRENT student weights (via the shared reference extractor), so it
+    spans only what the student still has to learn.
+    """
+    fit_n = config["task_boundary"]["fit_rows"]
+    sync_ref_weights(lora_modules(model), monitor["ref_modules"])
+    task_features = probe_features(
+        monitor["ref_model"], monitor["tokenizer"], task_rows[:fit_n],
+        monitor["device"], monitor["ref_lora_b"], monitor["projections"],
+    )
+    residual_subspace = boundary.fit_subspace(boundary.unit(task_features))
+    remaining = [i for i in range(len(pool)) if i not in excluded]
+    scores = np.empty(len(remaining), dtype=np.float64)
+    for position, pool_index in enumerate(remaining):
+        feature = probe_features(
+            monitor["ref_model"], monitor["tokenizer"], [pool[pool_index]],
+            monitor["device"], monitor["ref_lora_b"], monitor["projections"],
+        )
+        scores[position] = boundary.score(
+            residual_subspace, boundary.unit(feature)
+        )[0]
+        if (position + 1) % 200 == 0:
+            print(
+                f"[D_grad_iter][rescore] {position + 1}/{len(remaining)}",
+                flush=True,
+            )
+    order = [remaining[i] for i in np.argsort(-scores, kind="stable")]
+    print(
+        f"[D_grad_iter][rescore] residual_rank={residual_subspace.shape[1]} "
+        f"remaining={len(remaining)}",
+        flush=True,
+    )
+    return order
+
+
+def run_iterative_condition(
+    model, tokenizer, config, task_rows, pool, first_tranche, monitor,
+):
+    """Closed-loop distillation: select, absorb, re-read demand, select again."""
+    rounds = config["selection"]["iter_rounds"]
+    budget = config["selection"]["response_token_budget"]
+    tranche_budget = budget // rounds
+    all_selected = list(first_tranche)
+    excluded = {item["_pool_index"] for item in first_tranche}
+    total_steps = 0
+    round_stats = []
+    for round_index in range(rounds):
+        if round_index == 0:
+            tranche = first_tranche
+        else:
+            order = rescore_pool_residual(
+                model, monitor, config, task_rows, pool, excluded
+            )
+            tranche = take_prefix(
+                pool, order, tranche_budget, excluded=excluded
+            )
+            if not tranche:
+                print(
+                    f"[D_grad_iter][round {round_index + 1}] pool exhausted",
+                    flush=True,
+                )
+                break
+            excluded |= {item["_pool_index"] for item in tranche}
+            all_selected.extend(tranche)
+        steps = train_condition(
+            model, tokenizer, tranche, config, condition="D_grad_iter"
+        )
+        total_steps += steps
+        round_stats.append({
+            "round": round_index + 1,
+            "n_items": len(tranche),
+            "token_count": int(sum(r["_token_count"] for r in tranche)),
+            "optimizer_steps": steps,
+        })
+        print(
+            f"[D_grad_iter][round {round_index + 1}/{rounds}] "
+            f"items={len(tranche)} steps={steps}",
+            flush=True,
+        )
+    return all_selected, total_steps, round_stats
+
+
 @torch.inference_mode()
 def generate_texts(model, tokenizer, rows, config):
     model.eval()
@@ -1818,7 +1917,11 @@ def main():
         release_cuda()
 
     absorption_monitor = None
-    if trained_conditions and config["training"]["early_stop"] == 1:
+    needs_monitor = (
+        config["training"]["early_stop"] == 1
+        or "D_grad_iter" in trained_conditions
+    )
+    if trained_conditions and needs_monitor:
         absorption_monitor = prepare_absorption_monitor(config, task_rows)
 
     budget = config["selection"]["response_token_budget"]
@@ -1840,7 +1943,14 @@ def main():
 
         model = build_model(config, with_lora=True)
         training_metrics = None
-        if absorption_monitor is None:
+        if condition == "D_grad_iter":
+            selected, optimizer_steps, round_stats = run_iterative_condition(
+                model, tokenizer, config, task_rows, pool,
+                selected, absorption_monitor,
+            )
+            stats = selection_stats(selected, budget)
+            training_metrics = {"rounds": round_stats}
+        elif absorption_monitor is None:
             optimizer_steps = train_condition(
                 model, tokenizer, selected, config, condition=condition
             )

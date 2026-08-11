@@ -18,3 +18,58 @@ Code, logs, and the amendment history will be released.
 \section{Appendix}
 \todo{full protocols; verifier sandbox details; teacher prompts and
 anti-degeneracy filters; per-run manifests; additional figures.}
+
+
+% ===== Auxiliary tables moved from the results section (per PI: appendix) =====
+% ===== Table 2: two-sided capability match + certificates =====
+\begin{table}[t]
+\centering
+\caption{Two-sided capability match on the SQL-scoped task (2B, 20k tokens,
+3 seeds). All methods tie in-task; certified off-task residue separates
+them by an order of magnitude. Bounds at $\delta{=}0.1$.}
+\label{tab:twosided}
+\small
+\begin{tabular}{@{}l cc cc@{}}
+\toprule
+& \multicolumn{2}{c}{\textbf{In-task}} & \multicolumn{2}{c}{\textbf{Off-task residue}}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Method} & valid.\ rate & cert.\ LB & measured & cert.\ UB\\
+\midrule
+Random subset      & $1.000$ & $0.926$ & $0.856$ & $0.982$\\
+Embedding retrieval& $1.000$ & $0.926$ & $0.833$ & $0.941$\\
+\rowcolor{rowours}SpecDistill & $1.000$ & $0.926$ & $\mathbf{0.078}$ & $\mathbf{0.249}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ===== Table 3: reference-model robustness (fully filled) =====
+\begin{table}[t]
+\centering
+\caption{Boundary robustness across reference models: hard-pair AUROC and
+conformal coverage of the identical-query pair, using the same 600-example
+suite and pipeline for every model. The specification structure does not
+depend on the model used to read gradients.}
+\label{tab:robustness}
+\small
+\begin{tabular}{@{}l l cc@{}}
+\toprule
+\textbf{Reference model} & \textbf{Variant} & \textbf{Hard AUROC} & \textbf{Coverage}\\
+\midrule
+Qwen2.5-1.5B & instruct & $1.000$ & $0.93$\\
+Qwen3.5-0.8B & instruct & $1.000$ & $0.93$\\
+Qwen3.5-2B   & instruct & $1.000$ & $0.90$\\
+Qwen3.5-4B   & instruct & $1.000$ & $0.90$\\
+Qwen3.5-9B   & instruct & $1.000$ & $0.83$\\
+Qwen3.5-0.8B & base     & $1.000$ & $0.87$\\
+Qwen3.5-2B   & base     & $1.000$ & $0.97$\\
+Qwen3.5-4B   & base     & $1.000$ & $1.00$\\
+Qwen3.5-9B   & base     & $1.000$ & $0.93$\\
+Qwen3.6-27B  & instruct & $1.000$ & $0.97$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% Aux tables to add (skeletons in appendix): (size,budget) surface grid;
+% boundary-quality vs baselines with k-efficiency; ablations (lambda
+% frontier, early stop, submodular, atoms vs subspace); pre-registration
+% gate ledger; mechanism statistics (M1-M3). \todo{build as data freezes.}
