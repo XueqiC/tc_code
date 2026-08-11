@@ -432,6 +432,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 except Exception as exc:
                     error = _append_error(error, f"stop: {type(exc).__name__}: {exc}")
 
+            if os.environ.get("APPWORLD_DEBUG") == "1":
+                with (output_dir / "transcripts.jsonl").open(
+                    "a", encoding="utf-8"
+                ) as dbg:
+                    dbg.write(json.dumps(
+                        {"task_id": task_id, "messages": messages},
+                        ensure_ascii=False) + "\n")
             record: dict[str, Any] = {
                 "task_id": task_id,
                 "steps_used": steps_used,

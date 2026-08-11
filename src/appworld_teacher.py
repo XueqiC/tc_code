@@ -232,7 +232,7 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
         {
             "model": config.model,
             "messages": messages,
-            "temperature": 0.0,
+            "temperature": float(os.environ.get("TEACHER_TEMP", "0.0")),
             "max_tokens": MAX_COMPLETION_TOKENS,
             "stream": False,
         },
