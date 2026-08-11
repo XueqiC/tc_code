@@ -16,7 +16,7 @@ environments report each benchmark's convention (success rate for AppWorld
 and ALFWorld, tool-call accuracy for BFCL~v4, task success for
 $\tau^2$-bench, score for WebShop). Macro = average over available columns.
 Dashes mark runs pending the frozen protocol.
-\todo{fill as tier-2 lands; bold best per column at freeze.}}
+\todo{fill as tier-2 lands; bold best per column at freeze. LESS and SmartAD are faithful standard reimplementations (warmup checkpoints, Adam-preconditioned influence, InfAdam max-over-checkpoints; best-of-3-teacher NLL with segment weighting); 2 of 3 seeds, third pending. Ours-rows intentionally left open while the method is being improved.}}
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{3.6pt}
@@ -32,8 +32,8 @@ Full pool SFT               & --      & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Selection baselines}}\\
 Random subset               & $0.878{\pm}.042$ & -- & -- & -- & -- & -- & --\\
 Embedding retrieval         & $0.800{\pm}.027$ & -- & -- & -- & -- & -- & --\\
-LESS \citep{xia2024less}    & -- & -- & -- & -- & -- & -- & --\\
-SmartAD \citep{tang2026smartad} & -- & -- & -- & -- & -- & -- & --\\
+LESS \citep{xia2024less}    & $0.933{\pm}.033$ & -- & -- & -- & -- & -- & --\\
+SmartAD \citep{tang2026smartad} & $0.850{\pm}.017$ & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Distillation baselines}}\\
 Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & -- & --\\
 SOD (on-policy)             & -- & -- & -- & -- & -- & -- & --\\
