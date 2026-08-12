@@ -102,3 +102,26 @@ optional); (4) budget = real teacher-API spend. Paper stance: own both
 identities — general mechanism (breadth claim in conclusion), agent
 distillation as the anchoring problem where boundary+certificates+
 restocking+behavioral verification are simultaneously forced.
+
+## Active distillation loop (PI directive 2026-08-12 evening)
+Upgrade from data selection to true distillation: after (and during)
+clearing, ASK the teacher. Design (all endogenous):
+1. WHAT to ask: residual ledger W_res IS the purchase order (which atom
+   accounts unfilled, by how many tokens).
+2. HOW to build prompts: no new spec — for each under-filled atom, sample
+   loading-weighted from (pool prompts with highest atom loading) +
+   (spec queries with heaviest demand on that atom), teacher resamples
+   at higher temperature. Supply-side only; k queries stay sole boundary.
+3. WHEN (mid-method): each clearing round compare marginal gain of best
+   remaining pool trace vs expected gain of a restocked trace (estimated
+   from atom composition). Buy-vs-ask is computed, not set.
+4. Restocked traces re-enter the pool; loop until ledger cleared or
+   budget spent.
+Evidence hook: D_atom underperforms exactly at supply-constrained cells
+(0.8B x 10k: 0.56 vs 0.77) — the regime where you should ask, not settle
+for surplus. Narrative: passive one-shot market -> teacher-in-the-loop
+closed market; teacher becomes on-demand supplier, answering the
+"teacher seems irrelevant" challenge constructively.
+Validation: (a) gsm/sqljoin simulated restocking (hard-clear vs targeted
+restock, expect small-budget parity/reversal); (b) AppWorld targeted vs
+uniform thickening.
