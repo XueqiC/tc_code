@@ -32,15 +32,15 @@ Full pool SFT               & --      & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Selection baselines}}\\
 Random subset               & $0.878_{\pm.042}$ & -- & -- & -- & -- & -- & --\\
 Embedding retrieval         & $0.800_{\pm.027}$ & -- & -- & -- & -- & -- & --\\
-LESS \citep{xia2024less}    & $0.933_{\pm.033}$ & -- & -- & -- & -- & -- & --\\
-SmartAD \citep{tang2026smartad} & $0.850_{\pm.017}$ & -- & -- & -- & -- & -- & --\\
+LESS \citep{xia2024less}    & $0.911_{\pm.041}$ & -- & -- & -- & -- & -- & --\\
+SmartAD \citep{tang2026smartad} & $0.822_{\pm.042}$ & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Distillation baselines}}\\
 Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & -- & --\\
 SOD (on-policy)             & -- & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Ours}}\\
-\rowcolor{rowours}SpecDistill                & -- & -- & -- & -- & -- & -- & --\\
-\rowcolor{rowours}\quad + absorption stop    & -- & -- & -- & -- & -- & -- & --\\
-\rowcolor{rowours}\quad + refusal            & -- & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowours}SpecDistill                & $\mathbf{0.922}_{\pm.016}$ & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + behavioral stop    & $\mathbf{0.922}_{\pm.016}$ & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\quad + refusal            & $0.878_{\pm.057}$ & -- & -- & -- & -- & -- & --\\
 \bottomrule
 \end{tabular}
 \end{table}
