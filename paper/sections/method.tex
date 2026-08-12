@@ -32,8 +32,8 @@ every candidate trace becomes a \emph{supply schedule}
 token budget: each pick satisfies the largest remaining demand per token
 and is charged against the ledger, so diminishing returns and domain
 filtering arise from the accounting itself rather than from tuned
-constants (Section~\ref{sec:clearing}). Finally, training is timed and the
-result is certified by behavior alone, because our experiments show that
+constants (Section~\ref{sec:clearing}). Finally, training is timed by behavior and the deployed student ships
+with certified two-sided guarantees, because our experiments show that
 gradient geometry reliably decides what to train on but not when a
 capability has behaviorally arrived (Section~\ref{sec:behavior}). Every
 threshold in the pipeline is either a statistical convention
@@ -151,7 +151,7 @@ is satisfied, converts every surplus token into out-of-scope capability
 (off-task residue growing from $0$ to $0.44$ with budget on the SQL-scoped
 task, Section~\ref{sec:results}).
 
-\subsection{Training, stopping, and certifying by behavior}
+\subsection{Certified training and deployment}
 \label{sec:behavior}
 \textbf{Input:} the selected training set.
 \textbf{Output:} the deployed student, its certificates, and the runtime
@@ -168,10 +168,11 @@ all judging to behavior. During supervised fine-tuning, a probe every $8$
 steps measures the fraction of held-out calibration queries yielding
 runnable solutions, and the best-scoring checkpoint is kept; this makes
 aggressive small-budget training safe, because drift past the competence
-peak is detected behaviorally and rolled back. After training, the student
-is evaluated behaviorally on both sides of the boundary, and the results
-carry finite-sample Clopper--Pearson bounds: a lower bound on in-task
-coverage and an upper bound on off-task leakage. At deployment, the same
+peak is detected behaviorally and rolled back. Certification is the stage's centerpiece: the student is evaluated
+behaviorally on both sides of the boundary, and the capability match is
+stated as finite-sample Clopper--Pearson guarantees, a certified lower
+bound on in-task coverage and a certified upper bound on off-task leakage,
+so the deliverable is not a score but a bounded claim. At deployment, the same
 fingerprint machinery gates live requests: the conformal threshold
 calibrated in Section~\ref{sec:atoms} routes in-specification queries to
 the student and refuses or escalates the rest, so the certificates
