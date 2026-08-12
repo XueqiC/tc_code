@@ -1,0 +1,42 @@
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=10000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b10k_seed0
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=10000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b10k_seed1
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=10000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b10k_seed2
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=20000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=20000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=20000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=40000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b40k_seed0
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=40000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b40k_seed1
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=40000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s08b_b40k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b10k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b10k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b10k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=40000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b40k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=40000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b40k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=40000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s2b_b40k_seed2
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=10000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b10k_seed0
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=10000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b10k_seed1
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=10000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b10k_seed2
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=20000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=20000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=20000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=40000 E3_SEED=0 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b40k_seed0
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=40000 E3_SEED=1 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b40k_seed1
+E3_STUDENT=Qwen/Qwen3.5-4B E3_BUDGET=40000 E3_SEED=2 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s4b_b40k_seed2
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=10000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b10k_seed0
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=10000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b10k_seed1
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=10000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b10k_seed2
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=20000 E3_SEED=0 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=20000 E3_SEED=1 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=20000 E3_SEED=2 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=40000 E3_SEED=0 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b40k_seed0
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=40000 E3_SEED=1 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b40k_seed1
+E3_STUDENT=Qwen/Qwen3.5-9B E3_BUDGET=40000 E3_SEED=2 E3_LR=0.00005 E3_BND_PAD=less E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_ours_s9b_b40k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_BND_PAD=less E3_BND_DENSITY=1 E3_BND_EPOCHS=8 E3_STOP_FRAC=0.2 E3_CONDITIONS=base,D_less_bnd E3_TAG=_oursstop_s2b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,F_refusal E3_TAG=_oursref_s2b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_BND_PAD=less E3_BND_DENSITY=1 E3_BND_EPOCHS=8 E3_STOP_FRAC=0.2 E3_CONDITIONS=base,D_less_bnd E3_TAG=_oursstop_s2b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_CONDITIONS=base,F_refusal E3_TAG=_oursref_s2b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=2 E3_BND_PAD=less E3_BND_DENSITY=1 E3_BND_EPOCHS=8 E3_STOP_FRAC=0.2 E3_CONDITIONS=base,D_less_bnd E3_TAG=_oursstop_s2b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=2 E3_CONDITIONS=base,F_refusal E3_TAG=_oursref_s2b_b20k_seed2
