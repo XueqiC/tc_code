@@ -84,7 +84,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--selection",
         required=True,
-        choices=("full", "random", "embedding", "less_std", "smartad_std"),
+        choices=("full", "random", "embedding", "less_std", "smartad_std", "ours"),
     )
     parser.add_argument(
         "--budget",
@@ -536,6 +536,56 @@ def select_rows(
         order = np.argsort(-scores, kind="stable")
         selected = take_ranked_prefix(rows, order, args.budget)
         details["less"] = less_details
+    elif args.selection == "ours":
+        # boundary admission (conformal p-value gate learned from the task's
+        # own calibration split) composed with the utility ranking; on a
+        # single-domain pool the gate admits ~everything naturally.
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import features as _features
+        import boundary as _boundary
+        first_turn: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            key = str(row["task_id"])
+            if key not in first_turn or row["turn_index"] < first_turn[key]["turn_index"]:
+                first_turn[key] = row
+        spec_pool = sorted(first_turn.values(), key=lambda r: str(r["task_id"]))
+        rng = np.random.default_rng(args.seed)
+        rng.shuffle(spec_pool)
+        spec_rows = spec_pool[:45]
+        if len(spec_rows) < 20:
+            raise ValueError("ours needs at least 20 distinct episodes")
+        fit_n = max(int(len(spec_rows) * 0.75), 10)
+        combined = spec_rows + rows
+        grad = _features.extract_features(
+            args.student, combined, proj_dim=64,
+            max_prompt_tok=1024, max_resp_tok=512, device="cuda",
+        ).astype(np.float64)
+        grad = _boundary.unit(grad)
+        subspace = _boundary.fit_subspace(grad[:fit_n])
+        cal_scores = sorted(
+            _boundary.score(subspace, grad[fit_n:len(spec_rows)])
+        )
+        pool_scores = _boundary.score(subspace, grad[len(spec_rows):])
+        import bisect
+        alpha_admit = 0.10 / 2
+        n_cal = len(cal_scores)
+        admitted = [
+            i for i, s in enumerate(pool_scores)
+            if (1 + bisect.bisect_right(cal_scores, float(s))) / (n_cal + 1)
+            >= alpha_admit
+        ]
+        util, less_details = less_scores(args.student, args.seed, tokenizer, rows)
+        for row, score in zip(rows, util):
+            row["_selection_score"] = float(score)
+        order = sorted(admitted, key=lambda i: -util[i])
+        selected = take_ranked_prefix(rows, order, args.budget)
+        details["less"] = less_details
+        details["boundary"] = {
+            "spec_rows": len(spec_rows), "fit_rows": fit_n,
+            "admitted": len(admitted), "pool": len(rows),
+            "rule": "p>=alpha/2", "alpha": 0.10,
+        }
     else:
         attach_student_nll(args.student, args.seed, tokenizer, rows)
         best_by_task_turn: dict[tuple[str, int], tuple[float, int]] = {}
