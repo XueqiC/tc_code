@@ -734,7 +734,9 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
         support_mask[support_atoms] = True
         for row, code in zip(pool, pool_codes):
             row["_atom_supply"] = code[support_mask].astype(np.float32)
-        config["task_boundary"]["_atom_demand"] = demand[support_mask]
+        config["task_boundary"]["_atom_demand"] = [
+            float(x) for x in demand[support_mask]
+        ]
         print(
             f"[setup][D_atom] atoms=64 support={support_mask.sum()} "
             f"spec_mass_covered=0.90",
