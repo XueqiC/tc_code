@@ -76,3 +76,17 @@ architecture: geometry only selects; all judging/timing is behavioral.
   no decay constants — supply beyond remaining demand counts zero.
 - Warmup: utility side only (Adam moments); boundary works at theta_0
   (AUROC 1.000) and can skip warmup in gate-only deployments.
+
+## Restocking design (PI QA 2026-08-12 late)
+- New TRACES: only when the ledger has residual demand after clearing; the
+  residual IS the purchase order (targeted teacher re-sampling on the
+  spec queries loading on starved atoms). This is a DATA-ACQUISITION-level
+  closed loop (static, pre-training quantities) — does not violate the
+  separation principle (unlike the falsified weight-level loop).
+  Evidence: AppWorld thickening (59->128 eps) was untargeted restocking.
+  Planned experiment: targeted vs uniform restocking on AppWorld.
+- New QUERIES: never required; optional as (a) elicitation instruments for
+  restocking (teacher paraphrases of high-loading spec queries; traces
+  still pass admission), (b) tighter certificates (bounds ~ 1/sqrt(n)).
+  INVARIANT: demand ledger and boundary derive ONLY from the deployer's
+  original k queries — the specification is never silently expanded.
