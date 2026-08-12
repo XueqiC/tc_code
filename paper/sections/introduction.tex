@@ -33,24 +33,18 @@ distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
 refines how well each trace is imitated, yet even given a perfect
 boundary it neither controls nor measures what else the student absorbs,
 so equally accurate students silently carry large, unexamined capability
-beyond the job (Figure~\ref{fig:one}d).
+beyond the job (Figure~\ref{fig:one}c).
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_story.png}
-\caption{Why both questions defeat current practice, and what answering
-them buys (all panels from logged runs). (a)~240 GSM8K queries solved as
-code (blue) or prose (red) share their text exactly, so any boundary drawn
-on text cannot separate them; their gradients separate perfectly.
-(b)~Sparse capability atoms resolve skills within one domain at AUROC
-$0.906$ where the dense gradient subspace reaches $0.615$: identifiability
-comes from sparsity, not from subspace geometry. (c)~In-task success
-versus token budget (0.8B student, 3 seeds): atom-based selection reaches
-each level with no more budget than the strongest influence baseline and
-leads at the smallest budgets. (d)~Off-task capability versus budget on
-the SQL-scoped task: every method attains in-task $1.0$ by 1k tokens, after
-which the baseline converts surplus budget into out-of-scope capability
-(residue $0.44$ at 20k) while ours remains at $0.000$ at every budget.}
+\caption{(a)~Identical query texts, solved in two styles, are
+inseparable to any function of the text but separate perfectly in gradient
+space. (b)~Sparse capability atoms resolve skills that dense gradient
+subspaces cannot ($0.906$ vs.\ $0.615$). (c)~With the specification
+in hand, surplus budget stops leaking: the strongest baseline converts it
+into out-of-scope capability while ours stays at $0.000$ at every
+budget.}}
 \label{fig:one}
 \end{figure}
 
