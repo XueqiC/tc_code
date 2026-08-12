@@ -40,7 +40,7 @@ DEFAULT_CONFIG = ROOT / "configs" / "e3_tier1.yaml"
 CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
-    "D_grad_pre", "D_grad_cov", "D_less_bnd",
+    "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -57,6 +57,7 @@ COLORS = {
     "D_grad_pre": "#0e6f6a",
     "D_grad_cov": "#7a4fb3",
     "D_less_bnd": "#0b8457",
+    "D_atom": "#b8860b",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -73,6 +74,7 @@ SHORT_LABELS = {
     "D_grad_pre": "D-pre",
     "D_grad_cov": "D-cov",
     "D_less_bnd": "D-bnd",
+    "D_atom": "D-atom",
 }
 MUTED = "#6b6a63"
 LESS_WARMUP_EPOCHS = 4
@@ -706,6 +708,39 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
     for row, score in zip(pool, scores):
         row["_less_std_score"] = float(score)
 
+    if "D_atom" in config["conditions"]:
+        # capability atoms over preconditioned features: one dictionary
+        # serves boundary, utility, and monitoring. Demand = spec atom
+        # mass; support = atoms carrying 90% of spec mass (reuses the
+        # energy convention, no new constant).
+        from sklearn.decomposition import MiniBatchDictionaryLearning
+        mean_feat = np.mean(
+            [boundary.unit(matrix) for matrix in matrices], axis=0
+        )
+        mean_feat = boundary.unit(mean_feat)
+        dictionary = MiniBatchDictionaryLearning(
+            n_components=64, alpha=0.05,
+            transform_algorithm="lasso_lars", transform_alpha=0.05,
+            random_state=config["seed"], max_iter=200, batch_size=32,
+        )
+        codes = np.abs(dictionary.fit(mean_feat).transform(mean_feat))
+        spec_codes = codes[:spec_n]
+        pool_codes = codes[spec_n:]
+        demand = spec_codes.mean(axis=0)
+        order_atoms = np.argsort(-demand)
+        cum = np.cumsum(demand[order_atoms]) / max(demand.sum(), 1e-12)
+        support_atoms = order_atoms[: int(np.searchsorted(cum, 0.90)) + 1]
+        support_mask = np.zeros(codes.shape[1], dtype=bool)
+        support_mask[support_atoms] = True
+        for row, code in zip(pool, pool_codes):
+            row["_atom_supply"] = code[support_mask].astype(np.float32)
+        config["task_boundary"]["_atom_demand"] = demand[support_mask]
+        print(
+            f"[setup][D_atom] atoms=64 support={support_mask.sum()} "
+            f"spec_mass_covered=0.90",
+            flush=True,
+        )
+
     if "D_grad_pre" in config["conditions"]:
         # our subspace + ranking machinery on Adam-preconditioned features
         fit_n = config["task_boundary"]["fit_rows"]
@@ -827,7 +862,7 @@ def score_pool(config, tokenizer, task_rows, pool):
         row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
 
-    if {"E_less_std", "D_grad_pre", "D_less_bnd"} & set(config["conditions"]):
+    if {"E_less_std", "D_grad_pre", "D_less_bnd", "D_atom"} & set(config["conditions"]):
         attach_less_std_scores(config, tokenizer, task_rows, pool)
 
     if {"H_nll", "H_smartad_std"} & set(config["conditions"]):
@@ -936,6 +971,39 @@ def build_selections(config, tokenizer, pool):
         "D_grad": take_prefix(pool, d_grad_order, budget),
         "E_less": take_prefix(pool, less_order, budget),
     }
+
+    if "D_atom" in config["conditions"]:
+        # capability atoms over preconditioned features: one dictionary
+        # serves boundary, utility, and monitoring. Demand = spec atom
+        # mass; support = atoms carrying 90% of spec mass (reuses the
+        # energy convention, no new constant).
+        from sklearn.decomposition import MiniBatchDictionaryLearning
+        mean_feat = np.mean(
+            [boundary.unit(matrix) for matrix in matrices], axis=0
+        )
+        mean_feat = boundary.unit(mean_feat)
+        dictionary = MiniBatchDictionaryLearning(
+            n_components=64, alpha=0.05,
+            transform_algorithm="lasso_lars", transform_alpha=0.05,
+            random_state=config["seed"], max_iter=200, batch_size=32,
+        )
+        codes = np.abs(dictionary.fit(mean_feat).transform(mean_feat))
+        spec_codes = codes[:spec_n]
+        pool_codes = codes[spec_n:]
+        demand = spec_codes.mean(axis=0)
+        order_atoms = np.argsort(-demand)
+        cum = np.cumsum(demand[order_atoms]) / max(demand.sum(), 1e-12)
+        support_atoms = order_atoms[: int(np.searchsorted(cum, 0.90)) + 1]
+        support_mask = np.zeros(codes.shape[1], dtype=bool)
+        support_mask[support_atoms] = True
+        for row, code in zip(pool, pool_codes):
+            row["_atom_supply"] = code[support_mask].astype(np.float32)
+        config["task_boundary"]["_atom_demand"] = demand[support_mask]
+        print(
+            f"[setup][D_atom] atoms=64 support={support_mask.sum()} "
+            f"spec_mass_covered=0.90",
+            flush=True,
+        )
 
     if "D_grad_pre" in config["conditions"]:
         pre_order = np.argsort(
@@ -1055,6 +1123,67 @@ def build_selections(config, tokenizer, pool):
         print(
             f"[setup][D_less_bnd][selection] inside_boundary={len(inside)}"
             f"/{len(pool)} threshold={threshold:.3f} pad=nearest-boundary",
+            flush=True,
+        )
+
+    if "D_atom" in config["conditions"]:
+        # market clearing: tokens are the currency, atoms the goods.
+        # Demand is the spec's atom mass scaled to the budget; each trace
+        # supplies its per-token atom mass; greedy cost-scaled clearing
+        # with linear depletion. All scales endogenous.
+        cal_scores_a = sorted(config["task_boundary"]["_grad_cal"])
+        n_cal_a = len(cal_scores_a)
+        alpha_admit_a = config["task_boundary"]["alpha"] / 2
+        import bisect as _bisect
+        admitted_a = [
+            i for i, row in enumerate(pool)
+            if (1 + _bisect.bisect_right(cal_scores_a, row["_grad_score"]))
+            / (n_cal_a + 1) >= alpha_admit_a
+        ]
+        demand_vec = np.asarray(
+            config["task_boundary"]["_atom_demand"], dtype=np.float64
+        )
+        W = demand_vec / max(demand_vec.sum(), 1e-12) * budget
+        supplies = {}
+        for i in admitted_a:
+            code = np.asarray(pool[i]["_atom_supply"], dtype=np.float64)
+            total = code.sum()
+            tokens_i = max(pool[i]["_token_count"], 1)
+            supplies[i] = (code / max(total, 1e-12)) * tokens_i
+        chosen_a, used_a = [], 0
+        remaining = set(admitted_a)
+        while remaining and used_a < budget:
+            best_i, best_gain = None, 0.0
+            for i in remaining:
+                cost = max(pool[i]["_token_count"], 1)
+                gain = np.minimum(W, supplies[i]).sum() / cost
+                if gain > best_gain:
+                    best_gain, best_i = gain, i
+            if best_i is None:
+                break
+            if used_a + pool[best_i]["_token_count"] > budget:
+                remaining.discard(best_i)
+                continue
+            chosen_a.append(best_i)
+            used_a += pool[best_i]["_token_count"]
+            W = np.maximum(W - supplies[best_i], 0.0)
+            remaining.discard(best_i)
+        if used_a < budget:
+            # demand cleared: surplus reinforces support atoms by density
+            leftover = sorted(
+                remaining,
+                key=lambda i: -supplies[i].sum()
+                / max(pool[i]["_token_count"], 1),
+            )
+            for i in leftover:
+                if used_a + pool[i]["_token_count"] > budget:
+                    continue
+                chosen_a.append(i)
+                used_a += pool[i]["_token_count"]
+        selections["D_atom"] = take_prefix(pool, chosen_a, budget)
+        print(
+            f"[setup][D_atom][selection] items={len(chosen_a)} "
+            f"tokens={used_a} demand_left={W.sum():.1f}",
             flush=True,
         )
 
