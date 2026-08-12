@@ -125,3 +125,25 @@ closed market; teacher becomes on-demand supplier, answering the
 Validation: (a) gsm/sqljoin simulated restocking (hard-clear vs targeted
 restock, expect small-budget parity/reversal); (b) AppWorld targeted vs
 uniform thickening.
+
+## Query-quality robustness via atoms (PI directive 2026-08-12 eve, #2)
+Few-shot query quality strongly determines output quality; goal is to
+minimize this dependence USING atoms:
+1. Sample-complexity claim: atoms compress boundary estimation from
+   ambient-dim mean to ~#active-atom weights -> inherently lower k
+   sensitivity (quantifiable/provable).
+2. Fragility diagnosis (endogenous): per-atom demand variance across k
+   (bootstrap / leave-one-out); single-anchor atoms (supported by 1-2
+   queries) are the risk points (consistent with lambda single-anchor
+   backfire finding). Ledger becomes confidence intervals, not points.
+3. Teacher-probe calibration: for uncertain atoms, synthesize probes
+   (loading-weighted pool prompts / query variants), teacher answers,
+   re-encode answer fingerprints through dictionary -> lands on same
+   atom = confirm; scatters = query noise, down-weight/drop. Teacher as
+   falsification oracle; k queries remain sole spec source.
+4. Experiment: degrade query quality (halve k, paraphrase noise, 1-2
+   off-task contaminants) -> sensitivity curve student-perf vs quality,
+   three lines: embedding/LESS (expect steep), atom demand (flatter),
+   +probe calibration (flattest). Selling point: spec-quality
+   sensitivity becomes a controlled quantity.
+Shares teacher-in-the-loop infra with restocking experiments.
