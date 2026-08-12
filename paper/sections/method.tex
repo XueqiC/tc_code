@@ -66,11 +66,11 @@ a requirement.
 
 \subsection{Reading learning demands as gradient fingerprints}
 \label{sec:fingerprints}
-\textbf{Input:} the $k$ example queries with teacher solutions, the
-candidate trace pool, and the student initialization $\theta_0$.
-\textbf{Output:} one fingerprint vector per query and per trace.
-
-The central representational choice is to describe an example not by its
+The pipeline begins by converting everything it is given, the $k$
+example queries with their teacher solutions and the pool of candidate
+traces, into a single common representation: one fingerprint vector per
+example, read at the student initialization $\theta_0$. The central
+representational choice is to describe an example not by its
 text but by \emph{what the student would have to learn from it}: the
 gradient that the example induces on the student. Identical query texts
 solved in different styles are inseparable to any function of the text,
@@ -92,12 +92,11 @@ products, which random projections preserve to $(1\pm\varepsilon)$
 every later stage.
 
 \subsection{A vocabulary of capability atoms}\label{sec:atoms}
-\textbf{Input:} the fingerprints of queries and traces.
-\textbf{Output:} a dictionary of capability atoms; the task's demand
-ledger, its atom support, and an admission test; one supply schedule per
-trace.
-
-Fingerprints of related examples are not arbitrary vectors: they reuse a
+The fingerprints just computed become the raw material of this stage,
+which compresses them into a small vocabulary of skills and, in that
+vocabulary, rewrites the task as a demand ledger and every candidate trace
+as a supply schedule. The compression exploits a structural fact:
+fingerprints of related examples are not arbitrary vectors; they reuse a
 small set of recurring directions, the way recipes reuse a small set of
 basic operations. Sparse dictionary learning recovers exactly this
 structure. We solve
@@ -129,11 +128,10 @@ members (conformal $p$-value below $\alpha/2$) are excluded as outliers.
 
 \subsection{Spending the budget: market-clearing selection}
 \label{sec:clearing}
-\textbf{Input:} the demand ledger scaled to the token budget, the supply
-schedules of admitted traces.
-\textbf{Output:} the training set.
-
-Selection treats tokens as currency and atoms as goods. The ledger opens
+Selection now receives the two accounts prepared above, the demand
+ledger scaled to the token budget and the supply schedule of every
+admitted trace, and must return a training set. It does so by treating
+tokens as currency and atoms as goods. The ledger opens
 with each supported atom's demand converted into tokens; each round, the
 selector picks the admitted trace with the largest value of
 $\sum_a \min(\text{remaining demand}_a,\ \text{supply}_a(x)) / \text{tokens}(x)$
@@ -153,11 +151,10 @@ task, Section~\ref{sec:results}).
 
 \subsection{Certified training and deployment}
 \label{sec:behavior}
-\textbf{Input:} the selected training set.
-\textbf{Output:} the deployed student, its certificates, and the runtime
-gate.
-
-The stages above use gradient geometry only to decide \emph{what} to train
+The selected diet is all that enters the final stage, and what leaves
+it is the complete deliverable: a trained student, its two-sided
+certificates, and the runtime gate that will guard it. The stages above
+use gradient geometry only to decide \emph{what} to train
 on. Three pre-registered experiments show that the same geometry cannot
 decide \emph{when} training has succeeded: instance-level gradient signals
 fail to predict success, re-selecting against a partially trained
