@@ -14,28 +14,25 @@ example queries from the intended workload. Between those few examples and a
 deployment someone is willing to trust lies the entire distance this paper
 sets out to close.
 
-Doing so requires answering two questions. First, the task's boundary
-must be determined from the limited examples: which future requests belong
-to the job. Second, the agent built on the distilled student must possess
-capability that covers exactly this boundary, mastering what the job needs
-and carrying nothing beyond it. Neither question is trivial, and it is remarkable how little of either
-the strongest existing tools actually answer. For the first,
-boundaries are drawn where the data is easiest to compare: retrieval or
-out-of-distribution detection in text-embedding space \citep{hendrycks2017baseline, liu2020energy, geifman2017selective, li2026scope}. Although such boundaries are cheap to build,
-a single experiment defeats that entire family: take the same query
-texts, solve them in two different styles, and every function of the text
-sees one task where the student must learn two
-(Figure~\ref{fig:one}a); Influence-based selection \citep{koh2017understanding, pruthi2020estimating, park2023trak, engstrom2024dsdm, xia2024less} does, admittedly, reach
-gradient space; even so, it scores every candidate against a single
-mean target direction and therefore answers ``what helps the target'',
-never ``where the target ends''. For the second, state-of-the-art agent
+Doing so requires answering two questions: the task's boundary must be
+determined from the limited examples alone, and the agent built on the
+distilled student must possess capability that ends exactly at that
+boundary. Neither is trivial. For the first, existing methods draw the
+boundary wherever data is easiest to compare, by retrieval or
+out-of-distribution detection in text-embedding space
+\citep{hendrycks2017baseline, liu2020energy, geifman2017selective,
+li2026scope} or by gradient influence against a single mean target
+\citep{koh2017understanding, pruthi2020estimating, park2023trak,
+engstrom2024dsdm, xia2024less}, and so can say what resembles or helps the
+examples but never where the task ends; identical query texts solved in
+two styles already defeat every text-side boundary
+(Figure~\ref{fig:one}a). For the second, state-of-the-art agent
 distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
-refines how well each trace is imitated, yet even if a perfect boundary were handed to them, they would neither
-control nor measure where the token budget actually goes: equally accurate
-students turn out to have spent a large share of the budget acquiring
-capability the job never asked for, and that diverted spending, not the
-extra capability itself, is what the deployer pays for
-(Figure~\ref{fig:one}c).
+refines how faithfully each trace is imitated, yet even given a perfect
+boundary it neither controls nor measures where the token budget goes:
+equally accurate students spend a large share of it acquiring capability
+the job never asked for, and that diverted spending, not the extra
+capability, is what the deployer pays for (Figure~\ref{fig:one}c).
 
 \begin{figure}[t]
 \centering
