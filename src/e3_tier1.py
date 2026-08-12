@@ -723,7 +723,10 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             transform_algorithm="lasso_lars", transform_alpha=0.05,
             random_state=config["seed"], max_iter=200, batch_size=32,
         )
-        codes = np.abs(dictionary.fit(mean_feat).transform(mean_feat))
+        # fit on pool rows only so the vocabulary is not shaped by the
+        # spec queries; spec rows are merely encoded against it
+        dictionary.fit(mean_feat[spec_n:])
+        codes = np.abs(dictionary.transform(mean_feat))
         spec_codes = codes[:spec_n]
         pool_codes = codes[spec_n:]
         demand = spec_codes.mean(axis=0)
@@ -1100,15 +1103,20 @@ def build_selections(config, tokenizer, pool):
         # Demand is the spec's atom mass scaled to the budget; each trace
         # supplies its per-token atom mass; greedy cost-scaled clearing
         # with linear depletion. All scales endogenous.
-        cal_scores_a = sorted(config["task_boundary"]["_grad_cal"])
-        n_cal_a = len(cal_scores_a)
-        alpha_admit_a = config["task_boundary"]["alpha"] / 2
-        import bisect as _bisect
+        # admission: same calibrated boundary gate D_less_bnd uses.
+        # The earlier p-value form was vacuous at n_cal=15 (min p =
+        # 1/16 > alpha/2), which let off-task traces sell shared-atom
+        # supply into legitimate accounts.
+        gate_thr_a = config["task_boundary"]["_grad_threshold"]
         admitted_a = [
             i for i, row in enumerate(pool)
-            if (1 + _bisect.bisect_right(cal_scores_a, row["_grad_score"]))
-            / (n_cal_a + 1) >= alpha_admit_a
+            if row["_grad_score"] >= gate_thr_a
         ]
+        print(
+            f"[setup][D_atom] admitted={len(admitted_a)}/{len(pool)} "
+            f"gate_threshold={gate_thr_a:.3f}",
+            flush=True,
+        )
         demand_vec = np.asarray(
             config["task_boundary"]["_atom_demand"], dtype=np.float64
         )
