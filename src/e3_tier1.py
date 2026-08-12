@@ -776,6 +776,7 @@ def score_pool(config, tokenizer, task_rows, pool):
     grad_scores = boundary.score(grad_subspace, pool_grad)
     grad_threshold = conformal_threshold(grad_cal, alpha)
     config["task_boundary"]["_grad_threshold"] = float(grad_threshold)
+    config["task_boundary"]["_grad_cal"] = [float(x) for x in grad_cal]
     d_grad_scores = grad_scores
     out_subspace = None
     if selection_lambda != 0:
@@ -991,6 +992,36 @@ def build_selections(config, tokenizer, pool):
             i for i, row in enumerate(pool)
             if row["_grad_score"] >= threshold
         ]
+        pad_mode_env = os.environ.get("E3_BND_PAD", "auto")
+        if pad_mode_env == "auto":
+            # single learned rule, no per-task switches: admit any row whose
+            # conformal p-value (from the calibration score distribution)
+            # is at least alpha/2, rank admitted rows by utility, fill the
+            # budget. Rows the calibration distribution rejects at alpha/2
+            # never enter, so single-domain pools pad naturally and
+            # off-domain rows stay out.
+            cal_scores = sorted(config["task_boundary"]["_grad_cal"])
+            n_cal = len(cal_scores)
+            alpha_admit = config["task_boundary"]["alpha"] / 2
+
+            def p_value(score):
+                import bisect
+                below = bisect.bisect_right(cal_scores, score)
+                return (1 + below) / (n_cal + 1)
+
+            admitted = [
+                i for i, row in enumerate(pool)
+                if p_value(row["_grad_score"]) >= alpha_admit
+            ]
+            auto_order = sorted(
+                admitted, key=lambda i: -pool[i]["_less_std_score"]
+            )
+            selections["D_less_bnd"] = take_prefix(pool, auto_order, budget)
+            print(
+                f"[setup][D_less_bnd][selection] admitted={len(admitted)}"
+                f"/{len(pool)} rule=p>=alpha/2 (auto)",
+                flush=True,
+            )
         inside_set = set(inside)
         if os.environ.get("E3_BND_DENSITY") == "1":
             bnd_order = sorted(
@@ -1017,9 +1048,10 @@ def build_selections(config, tokenizer, pool):
                 (i for i in range(len(pool)) if i not in inside_set),
                 key=pad_key,
             )
-        selections["D_less_bnd"] = take_prefix(
-            pool, bnd_order + outside_pad, budget
-        )
+        if pad_mode_env != "auto":
+            selections["D_less_bnd"] = take_prefix(
+                pool, bnd_order + outside_pad, budget
+            )
         print(
             f"[setup][D_less_bnd][selection] inside_boundary={len(inside)}"
             f"/{len(pool)} threshold={threshold:.3f} pad=nearest-boundary",
