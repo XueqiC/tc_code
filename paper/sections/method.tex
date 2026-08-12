@@ -20,120 +20,159 @@ both sides of the match carry certificates (in-task lower bound $0.93$,
 off-task upper bound $0.25$; Section~\ref{sec:results}).}
 \label{fig:pipeline}
 \end{figure}
-The method relies on exactly two assumptions, and every component below
-names which one it consumes. \textbf{A1 (white-box student):} the student's
-gradients are accessible, which is what fingerprints, atoms, supply
-accounting, and absorption monitoring consume; nothing in these components
-refers to the task's content or action space. \textbf{A2 (success
-signal):} some check decides whether an attempt succeeded; certificates
-consume only this binary outcome, so an execution verifier, a unit test, or
-a judge are interchangeable instantiations. Code-acting agents are the
-instantiation we evaluate, not a requirement.
+Figure~\ref{fig:pipeline} summarizes the pipeline. The method turns
+distillation from a ranking problem into a bookkeeping problem. A short
+warmup and one backward pass per example convert queries and teacher traces
+into \emph{gradient fingerprints}, vectors that record what a student would
+have to learn (Section~\ref{sec:fingerprints}). A sparse dictionary factors
+these fingerprints into \emph{capability atoms}, a reusable vocabulary of
+skills, in which the $k$ example queries become a \emph{demand ledger} and
+every candidate trace becomes a \emph{supply schedule}
+(Section~\ref{sec:atoms}). Selection then clears this market under the
+token budget: each pick satisfies the largest remaining demand per token
+and is charged against the ledger, so diminishing returns and domain
+filtering arise from the accounting itself rather than from tuned
+constants (Section~\ref{sec:clearing}). Finally, training is timed and the
+result is certified by behavior alone, because our experiments show that
+gradient geometry reliably decides what to train on but not when a
+capability has behaviorally arrived (Section~\ref{sec:behavior}). Every
+threshold in the pipeline is either a statistical convention
+($\alpha{=}0.1$, $90\%$ mass) or learned from the task's own calibration
+data; no component is tuned per benchmark.
 
 \subsection{Problem setting}\label{sec:setting}
 A teacher agent $\pi_T$ acts by emitting executable code; a rollout on query
 $q$ yields a trajectory $\tau(q)$ whose success is decided by an execution
 verifier. A task domain is a distribution $P_\mathcal{T}$ over queries given
 only through $k$ examples $Q_k \sim P_\mathcal{T}$, with $k$ between 5 and a
-few hundred. From $(\pi_T, Q_k)$ and a base student $\theta_0$ we must
-produce: (1) a boundary predictor $\hat{B}(q) \in \{\text{in},\text{out}\}$
-with distribution-free coverage $\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=
-\text{in}] \ge 1-\alpha$; and (2) a student $\theta_S$ evaluated on the
-two-sided objective: coverage risk $R_{\mathrm{cov}}$ (in-domain requests the
-student fails) and leakage $L$ (out-of-domain requests the student performs).
-We report $(R_{\mathrm{cov}}, L)$ frontiers under matched token budgets and,
-across student sizes, the minimal capacity achieving target coverage.
+few hundred. From $(\pi_T, Q_k)$, a pool of teacher trajectories, a token
+budget $b$, and a base student $\theta_0$, we must produce: (1) a boundary
+predictor $\hat{B}(q) \in \{\text{in},\text{out}\}$ with distribution-free
+coverage $\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=\text{in}] \ge 1-\alpha$; and
+(2) a student $\theta_S$ evaluated on the two-sided objective: coverage risk
+$R_{\mathrm{cov}}$ (in-domain requests the student fails) and leakage $L$
+(out-of-domain requests the student performs). We report
+$(R_{\mathrm{cov}}, L)$ frontiers under matched token budgets and, following
+the budget-to-target protocol, the minimal budget at which each method
+reaches a target in-task level.
 
-Capability and behavior are measured separately throughout: distillation can
-flip an agent's action space within tens of optimizer steps while transferring
-only part of the underlying competence (Sec.~\ref{sec:distill}), so any
-metric reading only output format overestimates capability transfer.
+The method relies on two assumptions. \textbf{A1 (white-box student):} the
+student's gradients are accessible; this is all that fingerprints, atoms,
+and supply accounting consume. \textbf{A2 (success signal):} some check
+decides whether an attempt succeeded; certificates consume only this binary
+outcome, so an execution verifier, a unit test, or a judge are
+interchangeable. Code-acting agents are the instantiation we evaluate, not
+a requirement.
 
-\subsection{Capability atoms}
+\subsection{Reading learning demands as gradient fingerprints}
+\label{sec:fingerprints}
+\textbf{Input:} the $k$ example queries with teacher solutions, the
+candidate trace pool, and the student initialization $\theta_0$.
+\textbf{Output:} one fingerprint vector per query and per trace.
 
-%% Scope-level per PI instruction; each part carries its evidence pointer and
-%% will be updated as results land. Notation kept minimal.
+The central representational choice is to describe an example not by its
+text but by \emph{what the student would have to learn from it}: the
+gradient that the example induces on the student. Identical query texts
+solved in different styles are inseparable to any function of the text,
+yet their gradients separate perfectly (hard-pair AUROC $1.000$ against
+$0.687$ for trajectory embeddings, Section~\ref{sec:boundary}), because the
+gradient records which parameters must change, not which words appear.
+Concretely, we first run a brief warmup ($5\%$ of the pool for four
+epochs with a low-rank adapter, following \citealp{xia2024less}), which
+serves two purposes: the optimizer accumulates the second-moment statistics
+required next, and the model absorbs surface formatting so that later
+gradients reflect substantive skills. Each example then contributes one
+backward pass; its adapter gradient is rescaled coordinate-wise by the
+inverse root of the accumulated second moments, so that the vector measures
+the step the optimizer would actually take rather than raw gradient
+geometry, and is compressed by a fixed random projection. The projection is
+lossless for our purposes: all downstream computations consume only inner
+products, which random projections preserve to $(1\pm\varepsilon)$
+\citep{johnson1984extensions}. Fingerprints are computed once and reused by
+every later stage.
 
-\paragraph{Learning-demand features.}
-For query $q$ with trajectory $\tau(q)$, the feature is
-\begin{equation}
-g(q) \;=\; \mathrm{normalize}\!\left(P\, \nabla_\theta\,
-\ell(\tau(q);\theta_0)\right),
-\end{equation}
-the (sketched) gradient of the trajectory's action-token loss at the student
-base. With zero-initialized LoRA adapters, the adapter-$B$ gradient equals
-$G A^{\!\top}$, which is a free random projection of the full gradient $G$; a
-per-module Johnson--Lindenstrauss step reduces each sample to $\sim$12k
-dimensions. Geometry is preserved (a 768-d control loses nothing measurable),
-and the resulting structure is stable across nine reference models
-(0.8B--27B, base and instruct, two generations).
+\subsection{A vocabulary of capability atoms}\label{sec:atoms}
+\textbf{Input:} the fingerprints of queries and traces.
+\textbf{Output:} a dictionary of capability atoms; the task's demand
+ledger, its atom support, and an admission test; one supply schedule per
+trace.
 
-\paragraph{Capability atoms.}
-Trajectories decompose into blocks (statements); block gradients decompose
-sparsely over a learned dictionary $\{a_1,\dots,a_m\}$
-(mini-batch dictionary learning; $m{=}128$, $\sim$5 active atoms per block).
-Atoms are operational skill units: the atoms separating SQL-join from
-plain-SQL tasks activate on \texttt{JOIN} clauses. The identity
-$g(q) = \sum_t g_t(q)$ makes granularity an aggregation choice within one
-representation: whole-trajectory sums resolve topics; block-level support
-resolves skills. \todo{stability analysis of the dictionary across seeds;
-AST-level blocks for intra-line skills (pandas case).}
+Fingerprints of related examples are not arbitrary vectors: they reuse a
+small set of recurring directions, the way recipes reuse a small set of
+basic operations. Sparse dictionary learning recovers exactly this
+structure. We solve
+$\min_{D,C} \lVert X - CD\rVert_2^2 + \lambda\lVert C\rVert_1$
+for a dictionary $D$ of $64$ atoms and sparse codes $C$, alternating a
+lasso step (which few atoms explain this trace?) with a dictionary update.
+The sparsity term is what makes atoms meaningful, and it is the design
+choice that separates this component from PCA or SVD subspaces: a subspace
+is invariant to rotations of its basis, so no individual principal
+direction can be identified with a skill, whereas rotating a dictionary
+destroys the sparsity of its codes. The only bases that survive the
+$\ell_1$ penalty are those aligned with recurring, self-contained gradient
+patterns, and those patterns are skills. Empirically the identification is
+real: atom support separates fine-grained skills within one domain at
+AUROC $0.906$ where the dense subspace reaches $0.615$, and the behavioral
+change caused by distillation concentrates $85.5\%$ of its mass on $5$ of
+$128$ atoms (Section~\ref{sec:atoms-results}).
 
-\paragraph{Boundary with conformal coverage.}
-The specification of $Q_k$ is its atom support (equivalently, at topic scale,
-the spectral subspace of $\{g(q_i)\}$). A membership score is calibrated by
-split conformal prediction: with $n_{\mathrm{cal}}$ held-out examples, the
-acceptance threshold guarantees $1-\alpha$ coverage of in-domain queries.
-Measured coverage tracks the nominal level (93--97\% at $\alpha=0.1$, pilot).
-The boundary is deliberately inclusive: its job is to cover the intended
-topic, and precision at skill level is delegated to atom support.
+The dictionary turns both sides of the problem into explicit accounts.
+Encoding the $k$ queries (a lasso against the fixed dictionary) and
+averaging their absolute codes yields the \emph{demand ledger}: how much
+learning the task requires from each atom. The atoms holding $90\%$ of
+this mass form the task's \emph{support}; encoding any trace yields its
+\emph{supply schedule}, its per-token contribution to each atom. The same
+calibration queries also provide an admission test with no tuned
+threshold: a candidate trace is ranked among the held-out genuine queries
+by subspace score, and candidates ranking below essentially all genuine
+members (conformal $p$-value below $\alpha/2$) are excluded as outliers.
 
-\paragraph{Capability as supplied mass, verified behaviorally.}
-We do not measure student capability by post-hoc gradient norms: that proxy
-failed its pre-registered gate (pooled Spearman $-0.40$ and $-0.30$ against a
-$-0.5$ threshold, two metric variants), with failures localized to style
-drift (residuals against teacher references rise as the student forms its own
-style) and exposure bias (teacher-forced scores cannot see decoding failure).
-Instead, capability is \emph{predicted forward}: training on data $D$
-supplies each atom with mass $\sum_{x\in D}\langle g(q), g(x)\rangle$, and
-this prediction is validated against execution outcomes. Kernel mass ranks
-measured loss changes across domains ($\rho=0.53$, $p=0.04$, pilot);
-per-student validation on budget-matched cohorts is pre-registered at
-AUROC $\ge 0.75$. \todo{results of the cohort validation (E2-v3).}
+\subsection{Spending the budget: market-clearing selection}
+\label{sec:clearing}
+\textbf{Input:} the demand ledger scaled to the token budget, the supply
+schedules of admitted traces.
+\textbf{Output:} the training set.
 
-\paragraph{Boundary-filtered selection.}
-The boundary is not a competitor to existing data selectors; it is a
-control layer composed with the strongest of them. Selection first ranks
-the trajectory pool by a functional utility score (Adam-preconditioned
-influence toward the specification queries, aggregated over warmup
-checkpoints as in LESS), then admits trajectories through the conformal
-boundary: items whose demand features fall inside the specification
-subspace are taken in utility order, and the remaining budget, when the
-task requires volume, is topped up with the nearest-boundary items still
-in utility order. Utility ranking alone matches in-task performance by
-construction but leaks out-of-scope capability heavily and unstably
-(off-task residue $0.50{\pm}0.19$ across seeds on the SQL-scoped task);
-the boundary filter removes the leakage entirely ($0.000$ on every seed)
-at no in-task cost, while retaining more general ability and, in its
-strict form, reaching the same in-task level on a fraction of the budget.
-Out-of-domain removal operates by \emph{supply allocation} rather than
-opposition: fewer than 15\% of cross-domain gradient inner products are
-negative, so starving unspecified capability is predictable at selection
-time. An optional refusal module converts the lowest-scoring pool items
-into refusal targets, shaping behavior on the same boundary (100\%
-out-of-domain refusal at 0\% in-domain over-refusal, pilot).
+Selection treats tokens as currency and atoms as goods. The ledger opens
+with each supported atom's demand converted into tokens; each round, the
+selector picks the admitted trace with the largest value of
+$\sum_a \min(\text{remaining demand}_a,\ \text{supply}_a(x)) / \text{tokens}(x)$
+and immediately charges the ledger. Two properties follow from the
+accounting alone. First, diminishing returns are endogenous: supply beyond
+an atom's remaining demand counts zero, so a trace rich in an
+almost-satisfied skill loses value automatically and the budget flows to
+still-hungry atoms, with no decay constants. Second, domain filtering is
+endogenous: a trace from a foreign domain supplies mostly atoms outside
+the support, which never enter the sum, so it is deprioritized even when
+the admission test cannot exclude it. This contrasts with influence-based
+selection against a single mean target \citep{xia2024less}, which
+collapses a multi-skill task onto one direction and, once that direction
+is satisfied, converts every surplus token into out-of-scope capability
+(off-task residue growing from $0$ to $0.44$ with budget on the SQL-scoped
+task, Section~\ref{sec:results}).
 
-\paragraph{Design rationale from falsified alternatives.}
-Three natural alternatives fail for mechanistic reasons that the
-composition avoids. Iterative re-selection against the residual demand of
-a partially trained student degrades performance: once the initial demand
-is absorbed, residual task gradients sit at the noise floor, and
-instance-level re-scoring selects noise, consistent with our
-pre-registered finding that instance-level gradient prediction fails while
-distribution-level structure holds. Applying Adam preconditioning to the
-subspace membership score also underperforms, locating the utility
-ranking's advantage in functional alignment rather than preconditioning
-itself. Pure coverage maximization saturates the specification long
-before the budget and starves training volume. The composition assigns
-each signal the role it is good at: functional utility orders what to
-learn from, and the boundary decides what may enter at all.
+\subsection{Training, stopping, and certifying by behavior}
+\label{sec:behavior}
+\textbf{Input:} the selected training set.
+\textbf{Output:} the deployed student, its certificates, and the runtime
+gate.
+
+The stages above use gradient geometry only to decide \emph{what} to train
+on. Three pre-registered experiments show that the same geometry cannot
+decide \emph{when} training has succeeded: instance-level gradient signals
+fail to predict success, re-selecting against a partially trained
+student's residual gradients selects noise, and geometric absorption
+bottoms out roughly two orders of magnitude before behavioral competence
+forms (Section~\ref{sec:mechanism}). The training stage therefore hands
+all judging to behavior. During supervised fine-tuning, a probe every $8$
+steps measures the fraction of held-out calibration queries yielding
+runnable solutions, and the best-scoring checkpoint is kept; this makes
+aggressive small-budget training safe, because drift past the competence
+peak is detected behaviorally and rolled back. After training, the student
+is evaluated behaviorally on both sides of the boundary, and the results
+carry finite-sample Clopper--Pearson bounds: a lower bound on in-task
+coverage and an upper bound on off-task leakage. At deployment, the same
+fingerprint machinery gates live requests: the conformal threshold
+calibrated in Section~\ref{sec:atoms} routes in-specification queries to
+the student and refuses or escalates the rest, so the certificates
+describe exactly the traffic the student will see.
