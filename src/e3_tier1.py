@@ -992,9 +992,16 @@ def build_selections(config, tokenizer, pool):
             if row["_grad_score"] >= threshold
         ]
         inside_set = set(inside)
-        bnd_order = sorted(
-            inside, key=lambda i: -pool[i]["_less_std_score"]
-        )
+        if os.environ.get("E3_BND_DENSITY") == "1":
+            bnd_order = sorted(
+                inside,
+                key=lambda i: -pool[i]["_less_std_score"]
+                / max(pool[i]["_token_count"], 1),
+            )
+        else:
+            bnd_order = sorted(
+                inside, key=lambda i: -pool[i]["_less_std_score"]
+            )
         # the gold-calibrated threshold is strict for teacher traces: after
         # the inside prefix, pad toward the budget with the nearest-boundary
         # rows (highest grad score outside), still ranked before selection
@@ -1494,7 +1501,8 @@ def train_condition(
             should_measure = optimizer_steps <= 12 or optimizer_steps % 4 == 0
             if absorption_monitor is not None and should_measure:
                 demand = absorption_demand(train_modules, absorption_monitor)
-                threshold = 0.05 * initial_demand
+                stop_frac = float(os.environ.get("E3_STOP_FRAC", "0.05"))
+                threshold = stop_frac * initial_demand
                 consecutive_low_demand = (
                     consecutive_low_demand + 1 if demand < threshold else 0
                 )
@@ -2039,9 +2047,11 @@ def main():
         release_cuda()
 
     absorption_monitor = None
+    bnd_epochs = int(os.environ.get("E3_BND_EPOCHS", "0"))
     needs_monitor = (
         config["training"]["early_stop"] == 1
         or "D_grad_iter" in trained_conditions
+        or (bnd_epochs > 0 and "D_less_bnd" in trained_conditions)
     )
     if trained_conditions and needs_monitor:
         absorption_monitor = prepare_absorption_monitor(config, task_rows)
@@ -2072,6 +2082,16 @@ def main():
             )
             stats = selection_stats(selected, budget)
             training_metrics = {"rounds": round_stats}
+        elif condition == "D_less_bnd" and bnd_epochs > 0:
+            bnd_config = json.loads(json.dumps(config))
+            bnd_config["training"]["epochs"] = bnd_epochs
+            training_metrics = {}
+            optimizer_steps = train_condition(
+                model, tokenizer, selected, bnd_config,
+                condition=condition,
+                absorption_monitor=absorption_monitor,
+                training_metrics=training_metrics,
+            )
         elif (
             absorption_monitor is None
             or config["training"]["early_stop"] != 1
