@@ -1,25 +1,20 @@
-Language-model agents are increasingly deployed for narrow, well-defined
-jobs, while the models that power them are trained to do everything.
-Distilling a small, task-specific student is the economical answer, and in
-practice the task is specified only implicitly, by a few dozen example
-queries. Whether the result can be trusted then rests on two questions:
-where the boundary of the specified task lies, and whether the agent built
-on the distilled student covers exactly that boundary. We find that both
-questions share one answer. The gradient that a teacher demonstration
-induces at the student's initialization records what this student would
-have to learn from it, and a sparse dictionary over such gradient
-fingerprints resolves them into \emph{capability atoms}, recurring
-learnable skills that a principal-subspace analysis provably cannot
-identify. In this vocabulary the example queries become a demand ledger,
-every candidate demonstration becomes a per-token supply schedule, and
-distillation reduces to clearing a market: each selected trace satisfies
-the largest remaining demand per token, so diminishing returns and
-out-of-scope exclusion arise from the accounting itself, with no
-benchmark-specific tuning. Because gradient geometry decides only what to
-train on, competence is judged behaviorally: training keeps the checkpoint
-that behaves best on held-out specification queries, and the deployed
-agent ships with finite-sample certificates for both sides of the match.
-On a controlled five-domain suite, atom-based students match the strongest
-influence-based selection in-task at every budget while holding off-task
-capability at zero where that baseline leaks up to 77\% of it, and never
-spend budget outside the specification. The pipeline transfers unchanged to agent benchmarks.
+\begin{abstract}
+Language-model agents are deployed for narrow jobs that are specified, in
+practice, by nothing more than a few dozen example queries. We ask what it
+takes to trust a small distilled agent under so thin a specification, and
+reduce the answer to two requirements: the task's boundary must be
+determined from the examples alone, and the agent's capability must end
+where that boundary ends. We show that both can be read from a single
+object. The gradients that teacher demonstrations induce at the student's
+initialization decompose, under a sparse dictionary, into \emph{capability
+atoms}: recurring, nameable skills that principal subspaces provably
+cannot identify. The example queries then become a demand ledger over
+atoms, every candidate trace a per-token supply schedule, and distillation
+reduces to clearing this market under the token budget. The result is a
+certified agent: behaviorally timed training, finite-sample bounds on both
+sides of the boundary, and a conformal gate at deployment. Across a
+five-domain suite, atom-based selection matches the strongest
+influence-based baseline in-task while holding off-task capability at
+zero, where that baseline leaks up to $77\%$; certified leakage bounds and
+budget-robustness follow at no extra cost.
+\end{abstract}

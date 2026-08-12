@@ -5,10 +5,10 @@
 Enterprises are moving language-model agents out of demonstrations and
 into production, where an agent typically holds one job: querying a
 database, operating a fixed set of tools, automating one workflow
-\citep{trivedi2024appworld, yao2024taubench}. Yet serving a frontier model for a single narrow job is rarely
+\citep{yao2023react, schick2023toolformer, trivedi2024appworld, yao2024taubench, zhou2024webarena, jimenez2024swebench, mialon2024gaia}. Yet serving a frontier model for a single narrow job is rarely
 economical, and so practice converges on
 distilling the teacher's behavior on that job into a small student
-\citep{kang2025distilling, tang2026smartad}. The job itself, however, is almost never specified formally; what the
+\citep{hinton2015distilling, kim2016sequence, mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd, kang2025distilling, tang2026smartad}. The job itself, however, is almost never specified formally; what the
 deployer actually has is a few dozen
 example queries from the intended workload. Between those few examples and a
 deployment someone is willing to trust lies the entire distance this paper
@@ -21,11 +21,11 @@ capability that covers exactly this boundary, mastering what the job needs
 and carrying nothing beyond it. Neither question is trivial, and it is remarkable how little of either
 the strongest existing tools actually answer. For the first,
 boundaries are drawn where the data is easiest to compare: retrieval or
-out-of-distribution detection in text-embedding space \citep{li2026scope}. Although such boundaries are cheap to build,
+out-of-distribution detection in text-embedding space \citep{hendrycks2017baseline, liu2020energy, geifman2017selective, li2026scope}. Although such boundaries are cheap to build,
 a single experiment defeats that entire family: take the same query
 texts, solve them in two different styles, and every function of the text
 sees one task where the student must learn two
-(Figure~\ref{fig:one}a); Influence-based selection \citep{xia2024less} does, admittedly, reach
+(Figure~\ref{fig:one}a); Influence-based selection \citep{koh2017understanding, pruthi2020estimating, park2023trak, engstrom2024dsdm, xia2024less} does, admittedly, reach
 gradient space; even so, it scores every candidate against a single
 mean target direction and therefore answers ``what helps the target'',
 never ``where the target ends''. For the second, state-of-the-art agent
@@ -54,7 +54,7 @@ teacher demonstration induces at the student's initialization records what
 this student would have to learn from it, and across a task these learning
 demands are not arbitrary; they are combinations of a small set of
 recurring directions, the way recipes are combinations of a small set of
-basic techniques. A sparse dictionary recovers them as \emph{capability atoms};
+basic techniques. A sparse dictionary \citep{olshausen1996emergence} recovers them as \emph{capability atoms}, the learning-demand analogue of the sparse features that dictionary methods extract from network activations \citep{huben2024sparse, bricken2023monosemanticity, templeton2024scaling};
 sparsity is what makes the recovery meaningful, because a principal
 subspace is invariant to rotations of its basis and thus cannot attach
 identity to any direction, whereas rotation destroys code sparsity, so

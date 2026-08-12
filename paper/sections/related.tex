@@ -17,11 +17,11 @@ pre-existing model pool, and it is decoupled from how the served model was
 trained. Surface representations fail structurally in our setting: two
 tasks can share identical query text while demanding different skills
 (Section~\ref{sec:boundary}), and a serving-time gate cannot make the
-student's competence stop where the boundary stops.
+student's competence stop where the boundary stops. A parallel line selects instruction data by quality, diversity, or mixture weights \citep{zhou2023lima, chen2024alpagasus, liu2024deita, xie2023doremi, sorscher2022beyond}; these methods curate for aggregate quality and, like influence methods, carry no notion of a task boundary. At serving time, routers and cascades \citep{chen2023frugalgpt, ong2024routellm} decide who answers a request but not what a distilled student was allowed to learn; weight-space editing \citep{ilharco2023task, yadav2023ties} manipulates capabilities post hoc without a specification to match, and regularization against forgetting \citep{kirkpatrick2017overcoming} protects capability rather than bounding it.
 
 \paragraph{Distilling LLM agents.}
 Agent distillation transfers tool-use trajectories from a large teacher to
-a small student: with retrieval and code tools \citep{kang2025distilling},
+a small student: with retrieval and code tools \citep{tunstall2023zephyr, mukherjee2023orca, gu2024minillm, agarwal2024gkd, kang2025distilling},
 with segment-specific losses over reasoning and action spans
 \citep{liu2025structured}, or with trajectories selected for compatibility
 with student capacity \citep{tang2026smartad}. These methods take a fixed
@@ -34,7 +34,7 @@ student can absorb rather than what the deployment requires.
 The two lines do not meet: boundary methods do not shape training, and
 distillation methods do not know their boundary. The raw material for a
 bridge exists in gradient-based analysis, where sketched gradients select
-influential data \citep{xia2024less, hu2022lora}, predict per-example
+influential data \citep{koh2017understanding, pruthi2020estimating, xia2024less, hu2022lora}, predict per-example
 behavior \citep{park2023trak}, and expose behavior clusters through sparse
 decomposition \citep{rosser2026gradient}. These tools have been used to
 diagnose models or to serve fixed validation sets. We use the same geometry
