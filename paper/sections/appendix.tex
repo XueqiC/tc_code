@@ -73,3 +73,25 @@ Qwen3.6-27B  & instruct & $1.000$ & $0.97$\\
 % boundary-quality vs baselines with k-efficiency; ablations (lambda
 % frontier, early stop, submodular, atoms vs subspace); pre-registration
 % gate ledger; mechanism statistics (M1-M3). \todo{build as data freezes.}
+
+
+% ===== Ablation: method variants (moved from Table 1 per PI) =====
+\begin{table}[h]
+\centering
+\caption{Variant ablations at the main cell (2B, 20k tokens, 3 seeds).
+Behavioral stopping matches the base method at no cost and wins at the
+smallest budgets (2k: $0.500_{\pm.027}$ vs.\ field $0.478$); the refusal
+variant trades $0.044$ in-task for $98\%$ out-of-domain refusal at $0\%$
+in-domain over-refusal.}
+\label{tab:variants}
+\small
+\begin{tabular}{@{}l c c c@{}}
+\toprule
+\textbf{Variant} & In-task & Out-refusal & Over-refusal\\
+\midrule
+SpecDistill & $0.922_{\pm.016}$ & -- & --\\
+\quad + behavioral stop & $0.922_{\pm.016}$ & -- & --\\
+\quad + refusal & $0.878_{\pm.057}$ & $0.98$ & $0.00$\\
+\bottomrule
+\end{tabular}
+\end{table}
