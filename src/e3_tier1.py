@@ -2051,7 +2051,6 @@ def main():
     needs_monitor = (
         config["training"]["early_stop"] == 1
         or "D_grad_iter" in trained_conditions
-        or (bnd_epochs > 0 and "D_less_bnd" in trained_conditions)
     )
     if trained_conditions and needs_monitor:
         absorption_monitor = prepare_absorption_monitor(config, task_rows)
@@ -2083,14 +2082,13 @@ def main():
             stats = selection_stats(selected, budget)
             training_metrics = {"rounds": round_stats}
         elif condition == "D_less_bnd" and bnd_epochs > 0:
+            # geometric absorption bottoms out orders of magnitude before
+            # behavioral convergence (E2 separation principle) — train the
+            # boundary-filtered diet for the full raised epoch count
             bnd_config = json.loads(json.dumps(config))
             bnd_config["training"]["epochs"] = bnd_epochs
-            training_metrics = {}
             optimizer_steps = train_condition(
-                model, tokenizer, selected, bnd_config,
-                condition=condition,
-                absorption_monitor=absorption_monitor,
-                training_metrics=training_metrics,
+                model, tokenizer, selected, bnd_config, condition=condition
             )
         elif (
             absorption_monitor is None
