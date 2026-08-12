@@ -10,20 +10,21 @@ a single narrow job is rarely economical, so practice converges on
 distilling the teacher's behavior on that job into a small student
 \citep{kang2025distilling, tang2026smartad}. The job itself is almost
 never specified formally; what the deployer actually has is a few dozen
-example queries from the intended workload. Turning this implicit
-specification into a trustworthy deployment is the problem this paper
-addresses.
+example queries from the intended workload. Between those few examples and a
+deployment someone is willing to trust lies the entire distance this paper
+sets out to close.
 
 Doing so requires answering two questions. First, the task's boundary
 must be determined from the limited examples: which future requests belong
 to the job. Second, the agent built on the distilled student must possess
 capability that covers exactly this boundary, mastering what the job needs
-and carrying nothing beyond it. Neither question is trivial, and the
-strongest existing tools each answer only half of one. For the first,
+and carrying nothing beyond it. Neither question is trivial, and it is remarkable how little of either
+the strongest existing tools actually answer. For the first,
 boundaries are drawn where the data is easiest to compare: retrieval or
 out-of-distribution detection in text-embedding space \citep{li2026scope},
-which one experiment defeats outright, since the same query text solved in
-two styles is textually identical yet demands different capabilities
+and a single experiment defeats that entire family: take the same query
+texts, solve them in two different styles, and every function of the text
+sees one task where the student must learn two
 (Figure~\ref{fig:one}a); influence-based selection \citep{xia2024less}
 does reach gradient space, but it scores every candidate against a single
 mean target direction and therefore answers ``what helps the target'',
@@ -53,18 +54,20 @@ which the baseline converts surplus budget into out-of-scope capability
 \label{fig:one}
 \end{figure}
 
-We address both questions with one representation. The gradient a teacher
-demonstration induces at the student's initialization records what this
-student would have to learn from it, and we discover that across a task
-these learning demands are combinations of a small set of recurring
-directions. A sparse dictionary recovers them as \emph{capability atoms};
+Our starting point is a change of representation with a satisfying
+consequence: both questions turn out to share one answer. The gradient a
+teacher demonstration induces at the student's initialization records what
+this student would have to learn from it, and across a task these learning
+demands are not arbitrary; they are combinations of a small set of
+recurring directions, the way recipes are combinations of a small set of
+basic techniques. A sparse dictionary recovers them as \emph{capability atoms};
 sparsity is what makes the recovery meaningful, because a principal
 subspace is invariant to rotations of its basis and thus cannot attach
 identity to any direction, whereas rotation destroys code sparsity, so
 atoms lock onto self-contained recurring skills. Atoms resolve skills
 within a single domain at AUROC $0.906$ where dense subspaces reach
-$0.615$ (Figure~\ref{fig:one}b). Distillation then becomes bookkeeping in
-this vocabulary: the example queries define a demand ledger with a
+$0.615$ (Figure~\ref{fig:one}b). In this vocabulary distillation stops being a ranking problem and
+becomes bookkeeping: the example queries define a demand ledger with a
 conformal admission test calibrated on the queries themselves, every
 candidate trace defines a per-token supply schedule, and selection
 repeatedly takes the admitted trace satisfying the largest remaining
