@@ -10,9 +10,12 @@ economical, and so practice converges on
 distilling the teacher's behavior on that job into a small student
 \citep{hinton2015distilling, kim2016sequence, mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd, kang2025distilling, tang2026smartad}. The job itself, however, is almost never specified formally; what the
 deployer actually has is a few dozen
-example queries from the intended workload. Between those few examples and a
-deployment someone is willing to trust lies the entire distance this paper
-sets out to close.
+example queries from the intended workload. The teacher, meanwhile, is in
+practice a closed commercial model reachable only through a metered API:
+its weights, logits, and internals are out of reach, and every
+demonstration token it emits is billed. Between those few examples, that
+black-box teacher, and a deployment someone is willing to trust lies the
+entire distance this paper sets out to close.
 
 Doing so requires answering two questions: the task's boundary must be
 determined from the limited examples alone, and the agent built on the
