@@ -2,22 +2,16 @@
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
-\caption{The pipeline, illustrated end to end on an SQL-analytics
-workload. (1)~One backward pass at the student's initialization reads each
-of the $k$ example queries as the set of skills that student is missing
-(named chips, e.g.\ \textsc{join}, \textsc{group by}). (2)~A sparse
-dictionary over many teacher traces factors gradients into a library of
-skill atoms; the atoms the $k$ queries activate (dashed) form the task
-specification, while atoms such as \textsc{plot} fall outside it.
-(3)~Teacher traces are scored by the atoms they supply: traces covering the
-specification fill the token budget, a trace supplying \textsc{plot} is
-rejected ($\lambda$ penalizes out-of-scope supply), and training stops
-once the remaining in-specification demand is absorbed. (4)~At deployment
-a conformal gate whose threshold is a calibration quantile (coverage
-guaranteed rather than tuned) routes live requests: an in-specification
-request reaches the student, an out-of-specification one is refused, and
-both sides of the match carry certificates (in-task lower bound $0.93$,
-off-task upper bound $0.25$; Section~\ref{sec:results}).}
+\caption{The pipeline. One backward pass turns a query into a gradient
+fingerprint of what must be learned; a sparse dictionary resolves
+fingerprints into named capability atoms, and the $k$ example queries
+become a demand ledger over them. Selection clears this market: each pick
+satisfies the largest remaining demand per token and drains the ledger, so
+a trace supplying only out-of-ledger atoms (\textsc{plot}) has zero value
+and the budget is spent strictly inside the specification. The student
+trains on the result with behaviorally timed checkpointing and ships as a
+certified agent: finite-sample bounds on both sides of the boundary,
+behind a conformal gate (Section~\ref{sec:behavior}).}}
 \label{fig:pipeline}
 \end{figure}
 Figure~\ref{fig:pipeline} summarizes the pipeline. The method turns
