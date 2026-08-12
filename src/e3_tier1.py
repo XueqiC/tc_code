@@ -1434,6 +1434,20 @@ def smartad_weighted_loss(model, input_ids, labels, token_weights):
     ).sum() / denominator
 
 
+def _behavioral_probe(model, tokenizer, rows, config):
+    """Fraction of calibration prompts yielding runnable solution code."""
+    texts = generate_texts(model, tokenizer, rows, config)
+    runnable = 0
+    for text in texts:
+        start = text.find("def solution")
+        if start >= 0:
+            prediction = verifier.run_solution(text[start:])
+            runnable += int(prediction is not None)
+    model.train()
+    model.config.use_cache = False
+    return runnable / max(len(texts), 1)
+
+
 def train_condition(
     model,
     tokenizer,
@@ -1474,6 +1488,9 @@ def train_condition(
             flush=True,
         )
 
+    behav_rows = config.get("_behav_rows")
+    best_behav = -1.0
+    best_state = None
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
         order = rng.permutation(len(rows))
@@ -1498,6 +1515,20 @@ def train_condition(
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             optimizer_steps += 1
+            if behav_rows and optimizer_steps % 8 == 0:
+                behav = _behavioral_probe(model, tokenizer, behav_rows, config)
+                print(
+                    f"[{condition}][behav-stop] step={optimizer_steps} "
+                    f"runnable={behav:.2f} best={max(best_behav, 0):.2f}",
+                    flush=True,
+                )
+                if behav >= best_behav:
+                    best_behav = behav
+                    best_state = {
+                        name: parameter.detach().clone()
+                        for name, parameter in model.named_parameters()
+                        if parameter.requires_grad
+                    }
             should_measure = optimizer_steps <= 12 or optimizer_steps % 4 == 0
             if absorption_monitor is not None and should_measure:
                 demand = absorption_demand(train_modules, absorption_monitor)
@@ -1518,6 +1549,18 @@ def train_condition(
                     break
         if stop_training:
             break
+    if behav_rows and best_state is not None:
+        final = _behavioral_probe(model, tokenizer, behav_rows, config)
+        if final < best_behav:
+            with torch.no_grad():
+                for name, parameter in model.named_parameters():
+                    if parameter.requires_grad and name in best_state:
+                        parameter.copy_(best_state[name])
+            print(
+                f"[{condition}][behav-stop] restored best checkpoint "
+                f"(runnable {best_behav:.2f} > final {final:.2f})",
+                flush=True,
+            )
     model.config.use_cache = True
     if training_metrics is not None:
         training_metrics["stop_step"] = stop_step
@@ -2046,6 +2089,10 @@ def main():
         del base_model
         release_cuda()
 
+    if os.environ.get("E3_BEHAV_STOP") == "1":
+        fit_n = config["task_boundary"]["fit_rows"]
+        spec_n = config["task_boundary"]["spec_rows"]
+        config["_behav_rows"] = task_rows[fit_n:spec_n][:10]
     absorption_monitor = None
     bnd_epochs = int(os.environ.get("E3_BND_EPOCHS", "0"))
     needs_monitor = (
