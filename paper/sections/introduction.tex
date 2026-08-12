@@ -5,11 +5,11 @@
 Enterprises are moving language-model agents out of demonstrations and
 into production, where an agent typically holds one job: querying a
 database, operating a fixed set of tools, automating one workflow
-\citep{trivedi2024appworld, yao2024taubench}. Serving a frontier model for
-a single narrow job is rarely economical, so practice converges on
+\citep{trivedi2024appworld, yao2024taubench}. Yet serving a frontier model for a single narrow job is rarely
+economical, and so practice converges on
 distilling the teacher's behavior on that job into a small student
-\citep{kang2025distilling, tang2026smartad}. The job itself is almost
-never specified formally; what the deployer actually has is a few dozen
+\citep{kang2025distilling, tang2026smartad}. The job itself, however, is almost never specified formally; what the
+deployer actually has is a few dozen
 example queries from the intended workload. Between those few examples and a
 deployment someone is willing to trust lies the entire distance this paper
 sets out to close.
@@ -21,17 +21,17 @@ capability that covers exactly this boundary, mastering what the job needs
 and carrying nothing beyond it. Neither question is trivial, and it is remarkable how little of either
 the strongest existing tools actually answer. For the first,
 boundaries are drawn where the data is easiest to compare: retrieval or
-out-of-distribution detection in text-embedding space \citep{li2026scope},
-and a single experiment defeats that entire family: take the same query
+out-of-distribution detection in text-embedding space \citep{li2026scope}. Although such boundaries are cheap to build,
+a single experiment defeats that entire family: take the same query
 texts, solve them in two different styles, and every function of the text
 sees one task where the student must learn two
-(Figure~\ref{fig:one}a); influence-based selection \citep{xia2024less}
-does reach gradient space, but it scores every candidate against a single
+(Figure~\ref{fig:one}a); Influence-based selection \citep{xia2024less} does, admittedly, reach
+gradient space; even so, it scores every candidate against a single
 mean target direction and therefore answers ``what helps the target'',
 never ``where the target ends''. For the second, state-of-the-art agent
 distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
-refines how well each trace is imitated, yet even given a perfect
-boundary it neither controls nor measures what else the student absorbs,
+refines how well each trace is imitated, yet even if a perfect boundary were handed to them, they would neither
+control nor measure what else the student absorbs,
 so equally accurate students silently carry large, unexamined capability
 beyond the job (Figure~\ref{fig:one}c).
 
