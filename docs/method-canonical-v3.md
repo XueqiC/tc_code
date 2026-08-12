@@ -90,3 +90,15 @@ architecture: geometry only selects; all judging/timing is behavioral.
   still pass admission), (b) tighter certificates (bounds ~ 1/sqrt(n)).
   INVARIANT: demand ledger and boundary derive ONLY from the deployer's
   original k queries — the specification is never silently expanded.
+
+## Positioning: teacher-agnostic core, agent-anchored problem (PI QA 2026-08-12)
+The clearing core is deliberately teacher-agnostic (general spec-matched
+data selection). The agent setting enters substantively at four points:
+(1) pool is GENERATED + execution-verified, enabling restocking (residual
+ledger -> targeted teacher sampling) which has no analogue on static
+corpora; (2) transfer unit = acting episodes, evaluation behavioral;
+(3) out-of-scope capability ACTS (gate/certificates are demanded, not
+optional); (4) budget = real teacher-API spend. Paper stance: own both
+identities — general mechanism (breadth claim in conclusion), agent
+distillation as the anchoring problem where boundary+certificates+
+restocking+behavioral verification are simultaneously forced.
