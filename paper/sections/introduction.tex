@@ -31,9 +31,11 @@ mean target direction and therefore answers ``what helps the target'',
 never ``where the target ends''. For the second, state-of-the-art agent
 distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
 refines how well each trace is imitated, yet even if a perfect boundary were handed to them, they would neither
-control nor measure what else the student absorbs,
-so equally accurate students silently carry large, unexamined capability
-beyond the job (Figure~\ref{fig:one}c).
+control nor measure where the token budget actually goes: equally accurate
+students turn out to have spent a large share of the budget acquiring
+capability the job never asked for, and that diverted spending, not the
+extra capability itself, is what the deployer pays for
+(Figure~\ref{fig:one}c).
 
 \begin{figure}[t]
 \centering
