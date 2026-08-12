@@ -1,0 +1,2 @@
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=10000 E3_SEED=0 E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_auto_gsm_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=sql E3_TASK_FILTER=join E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,D_less_bnd,E_less_std E3_TAG=_auto_sqljoin_seed0
