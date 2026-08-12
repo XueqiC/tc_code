@@ -1,44 +1,28 @@
-%% v3: written slot-by-slot against the 9-slot template
-%% (skill round 4, validated on 22 orals/spotlights). Slot labels in
-%% comments; no em-dashes. Method name placeholder: \todo{confirm name}.
-% S1 ESTABLISH
-Language-model agents that act by writing code are entering production, and
-the standard path to affordable deployment is to distill them into small
-students that serve a single task domain, specified by a handful of example
-queries.
-% S2 BREAK
-However, this rests on two questions that current practice cannot answer:
-how to determine the task's boundary from the limited examples, and how to
-distill a student whose capability meets the requirement exactly.
-% S3 SHARPEN
-Both are usually approached with text similarity, which fails structurally
-because identical requests can demand different skills, and existing agent
-distillation optimizes aggregate scores over fixed data, providing neither
-a boundary nor a guarantee.
-% S4 ANNOUNCE
-We present SpecDistill, a distill-to-specification pipeline that turns the
-example queries into an executable task specification and trains a student
-whose measured capability matches it on both sides.
-% S5-7 MECHANISM (enumerated)
-The pipeline has three components: (1) each example's teacher trajectory is
-read as a learning fingerprint, the gradient it induces at the student, and
-a sparse dictionary factors these fingerprints into skill atoms whose
-support, calibrated conformally, defines the boundary; (2) selection fills
-a fixed token budget with pool trajectories that supply the specified atoms
-and starves everything else, which our mechanism analysis shows is how
-off-task capability decays; (3) training monitors remaining demand and
-stops at absorption, and student capability is then certified behaviorally
-with distribution-free bounds rather than predicted, a design forced by
-four pre-registered proxy failures that we report.
-% S8 PROOF
-On an SQL-scoped task all budget-matched selection baselines tie in-task,
-but the certified off-task residue drops from 0.98 (random selection) to
-0.25 (ours) at $\delta{=}0.1$, and under tight budgets specification-guided
-selection improves execution accuracy by up to 23 points over random
-selection (3 seeds).
-% S9 BREADTH
-Boundaries separate identical-query hard pairs at AUROC $1.000$ where
-trajectory embeddings reach $0.687$, saturate at five examples, and
-reproduce across nine reference models from 0.8B to 27B parameters.
-% S10 HAND-OFF
-All protocols, including the failed gates, are pre-registered and released.
+\begin{abstract}
+Language-model agents are increasingly deployed for narrow, well-defined
+jobs, while the models that power them are trained to do everything.
+Distilling a small, task-specific student is the economical answer, and in
+practice the task is specified only implicitly, by a few dozen example
+queries. Whether the result can be trusted then rests on two questions:
+where the boundary of the specified task lies, and whether the agent built
+on the distilled student covers exactly that boundary. We find that both
+questions share one answer. The gradient that a teacher demonstration
+induces at the student's initialization records what this student would
+have to learn from it, and a sparse dictionary over such gradient
+fingerprints resolves them into \emph{capability atoms}, recurring
+learnable skills that a principal-subspace analysis provably cannot
+identify. In this vocabulary the example queries become a demand ledger,
+every candidate demonstration becomes a per-token supply schedule, and
+distillation reduces to clearing a market: each selected trace satisfies
+the largest remaining demand per token, so diminishing returns and
+out-of-scope exclusion arise from the accounting itself, with no
+benchmark-specific tuning. Because gradient geometry decides only what to
+train on, competence is judged behaviorally: training keeps the checkpoint
+that behaves best on held-out specification queries, and the deployed
+agent ships with finite-sample certificates for both sides of the match.
+On a controlled five-domain suite, atom-based students match the strongest
+influence-based selection in-task at every budget while holding off-task
+capability at zero where that baseline leaks up to 77\% of it, and they
+reach target performance with a fraction of the token budget on scoped
+tasks. The pipeline transfers unchanged to agent benchmarks.
+\end{abstract}

@@ -1,125 +1,108 @@
 \section{Introduction}
-%% Written under .claude/skills/paper-writing: broad phenomenon -> need ->
-%% structural failure of the obvious tool -> insight -> claims with evidence.
-%% No em-dashes; formal register; every degree term carries a number.
+%% Four-paragraph arc per PI 2026-08-12: need -> two requirements with SOTA
+%% weaknesses -> our method with figure anchors -> contributions.
 
-Language-model agents that act by writing and executing code are moving from
-research demonstrations into production systems, where they operate tools,
-query databases, and automate multi-step workflows
+Enterprises are moving language-model agents out of demonstrations and
+into production, where an agent typically holds one job: querying a
+database, operating a fixed set of tools, automating one workflow
 \citep{trivedi2024appworld, yao2024taubench}. Serving a frontier model for
-every such workload is rarely economical, and practice is converging on a
-standard remedy: distill the teacher's behavior on one task domain into a
-small, specialized student \citep{kang2025distilling, tang2026smartad}. The
-task domain itself is usually specified informally, by a handful of example
-queries collected from the intended workload; making that implicit
-specification explicit, and holding the student to it, is the subject of
-this paper.
+a single narrow job is rarely economical, so practice converges on
+distilling the teacher's behavior on that job into a small student
+\citep{kang2025distilling, tang2026smartad}. The job itself is almost
+never specified formally; what the deployer actually has is a few dozen
+example queries from the intended workload. Turning this implicit
+specification into a trustworthy deployment is the problem this paper
+addresses.
 
-This deployment path stands on two questions: how to determine the task's
-boundary from a limited set of example queries, and how to distill a small
-model whose capability meets the requirement exactly, mastering what the
-task needs and carrying no more. We call the joint problem
-\emph{distill-to-specification}, and existing work has a fatal weakness on
-each half. Boundaries are drawn in the space of request text, with
-retrieval similarity or serving-time out-of-distribution gates
-\citep{li2026scope}; yet one arithmetic problem solved once as Python and
-once as prose yields identical query strings that no function of the text
-can separate, while a student distilled for one solution style does not
-acquire the other
-(Figures~\ref{fig:motivation-a},~\ref{fig:motivation-b}). Distillation,
-in turn, selects and imitates trajectories to maximize aggregate benchmark
-scores \citep{kang2025distilling, tang2026smartad, liu2025structured};
-the requirement never enters training, so whether the student undershoots
-the task or silently covers far more than intended is neither controlled
-nor even measured (Figure~\ref{fig:motivation-c}). A method that closes
-both gaps must host the boundary in a representation where it exists,
-certify capability from behavior rather than predict it, and control
-out-of-scope capability through the training diet itself.
+Doing so requires answering two questions. First, the task's boundary
+must be determined from the limited examples: which future requests belong
+to the job. Second, the agent built on the distilled student must possess
+capability that covers exactly this boundary, mastering what the job needs
+and carrying nothing beyond it. Neither question is trivial, and the
+strongest existing tools each answer only half of one. For the first,
+boundaries are drawn where the data is easiest to compare: retrieval or
+out-of-distribution detection in text-embedding space \citep{li2026scope},
+which one experiment defeats outright, since the same query text solved in
+two styles is textually identical yet demands different capabilities
+(Figure~\ref{fig:one}a); influence-based selection \citep{xia2024less}
+does reach gradient space, but it scores every candidate against a single
+mean target direction and therefore answers ``what helps the target'',
+never ``where the target ends''. For the second, state-of-the-art agent
+distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
+refines how well each trace is imitated, yet even given a perfect
+boundary it neither controls nor measures what else the student absorbs,
+so equally accurate students silently carry large, unexamined capability
+beyond the job (Figure~\ref{fig:one}d).
 
 \begin{figure}[t]
 \centering
-\begin{subfigure}[b]{0.29\linewidth}
-\includegraphics[width=\linewidth]{figs/fig1a_text_space.png}
-\caption{Identical query text, inseparable tasks.}
-\label{fig:motivation-a}
-\end{subfigure}\hfill
-\begin{subfigure}[b]{0.29\linewidth}
-\includegraphics[width=\linewidth]{figs/fig1b_gradient_space.png}
-\caption{Gradient space separates them exactly.}
-\label{fig:motivation-b}
-\end{subfigure}\hfill
-\begin{subfigure}[b]{0.36\linewidth}
-\includegraphics[width=\linewidth]{figs/fig1c_budget.png}
-\caption{Same in-task level, a fraction of the budget.}
-\label{fig:motivation-c}
-\end{subfigure}
-\caption{Why both questions defeat current practice (all panels from
-logged runs). (a)~240 GSM8K questions solved as code (blue) or prose (red)
-share their query text, so any boundary drawn on the request text cannot
-separate the two tasks. (b)~The same examples separate perfectly in
-gradient space: task identity lives in what a student would have to learn.
-(c)~Where the budget goes (3 seeds each). Left: on the SQL-scoped task
-every method reaches in-task $1.0$ by 1k tokens, but the strongest
-selection baseline converts every surplus token into out-of-scope
-capability (residue $0.44$ at 20k) while our boundary-filtered selection
-stays at $0.000$ at every budget. Right: in-task growth on GSM-code (0.8B)
-is statistically indistinguishable from the strongest baseline, so the
-control costs nothing.}
-\label{fig:motivation}
+\includegraphics[width=\linewidth]{figs/fig1_story.png}
+\caption{Why both questions defeat current practice, and what answering
+them buys (all panels from logged runs). (a)~240 GSM8K queries solved as
+code (blue) or prose (red) share their text exactly, so any boundary drawn
+on text cannot separate them; their gradients separate perfectly.
+(b)~Sparse capability atoms resolve skills within one domain at AUROC
+$0.906$ where the dense gradient subspace reaches $0.615$: identifiability
+comes from sparsity, not from subspace geometry. (c)~In-task success
+versus token budget (0.8B student, 3 seeds): atom-based selection reaches
+each level with no more budget than the strongest influence baseline and
+leads at the smallest budgets. (d)~Off-task capability versus budget on
+the SQL-scoped task: every method attains in-task $1.0$ by 1k tokens, after
+which the baseline converts surplus budget into out-of-scope capability
+(residue $0.44$ at 20k) while ours remains at $0.000$ at every budget.}
+\label{fig:one}
 \end{figure}
 
-
-We therefore represent tasks by their learning demands. The gradient that a
-teacher trajectory for query $q$ induces at the student's initialization
-records which parameters must change for the student to learn that
-trajectory; a low-rank adapter sketch makes this representation practical at
-one backward pass per example \citep{hu2022lora, xia2024less}. A sparse
-dictionary learned over trajectory-block gradients then factors these demands
-into \emph{capability atoms}, recurring directions that align with
-recognizable skills: the atoms that separate join queries from other SQL
-activate precisely on \texttt{JOIN} clauses. One representation supports the
-full pipeline. A task specification is the atom support of the $k$ example
-queries, equipped with a split-conformal acceptance threshold that carries a
-finite-sample coverage guarantee \citep{vovk2005algorithmic,
-gibbs2025conditional}. A student's capability is predicted from the supply
-each atom receives from its training data, in the spirit of gradient-based
-attribution \citep{park2023trak, rosser2026gradient}, and is validated
-against execution outcomes. Data selection fills a token budget with the
-trajectories that supply the specified atoms.
+We address both questions with one representation. The gradient a teacher
+demonstration induces at the student's initialization records what this
+student would have to learn from it, and we discover that across a task
+these learning demands are combinations of a small set of recurring
+directions. A sparse dictionary recovers them as \emph{capability atoms};
+sparsity is what makes the recovery meaningful, because a principal
+subspace is invariant to rotations of its basis and thus cannot attach
+identity to any direction, whereas rotation destroys code sparsity, so
+atoms lock onto self-contained recurring skills. Atoms resolve skills
+within a single domain at AUROC $0.906$ where dense subspaces reach
+$0.615$ (Figure~\ref{fig:one}b). Distillation then becomes bookkeeping in
+this vocabulary: the example queries define a demand ledger with a
+conformal admission test calibrated on the queries themselves, every
+candidate trace defines a per-token supply schedule, and selection
+repeatedly takes the admitted trace satisfying the largest remaining
+demand per token, charging the ledger as it goes. Budget therefore flows
+to skills with unsatisfied demand and never to out-of-scope ones: the student reaches
+target in-task performance with less budget, and off-task capability stays
+at zero at every budget while the strongest baseline converts every
+surplus token into out-of-scope capability (Figure~\ref{fig:one}c,d).
+Finally, because gradient geometry proves reliable for selecting data but
+unreliable for judging competence, training keeps the checkpoint that
+behaves best on held-out specification queries, and the deployed agent
+ships with finite-sample Clopper--Pearson certificates on both sides of
+the boundary, behind a conformal gate that routes live requests.
 
 Our contributions are as follows.
 \begin{itemize}[left=0pt,itemsep=0pt]
 \item \textbf{Problem formulation.} We formalize
 \emph{distill-to-specification}: from a teacher agent and $k$ example
-queries, produce a boundary predictor with a finite-sample coverage
-guarantee together with a student whose measured capability matches the
-specified domain on both sides, evaluated as a coverage--leakage frontier
-under matched token budgets across student sizes
-(Section~\ref{sec:setting}). To our knowledge, no prior agent-distillation
-work provides either component.
-\item \textbf{Key insights.} Task identity is recoverable from learning
-dynamics where it is provably invisible to surface semantics: gradient
-boundaries separate identical-query hard pairs at AUROC $1.000$ versus
-$0.687$ for trajectory embeddings, saturate at $k{=}5$ examples while
-embedding boundaries degrade with larger $k$, and reproduce across nine
-reference models from 0.8B to 27B parameters. Capability removal during
-narrow distillation operates by supply starvation rather than gradient
-conflict, which makes leakage controllable at selection time
-(Sections~\ref{sec:boundary},~\ref{sec:distill}).
-\item \textbf{Method.} Capability atoms: a sparse dictionary over
-trajectory-block gradients that serves as the single representation for
-boundary estimation (atom support with conformal calibration), forward
-capability prediction (atom supply, validated against execution outcomes
-after a pre-registered gate rejected post-hoc gradient-norm proxies), and
-budget-constrained data selection with an optional refusal module
-(Section~\ref{sec:method}).
-\item \textbf{Performance.} At pilot scale, atom support resolves
-within-domain skills at AUROC $0.906{\pm}0.025$ where dense subspaces reach
-$0.615$; boundary-guided selection ties the best in-domain execution
-accuracy (90\%) while removing out-of-domain capability most strongly among
-budget-matched baselines, and the refusal variant separates in-domain from
-out-of-domain requests at 100\% versus 0\% refusal rates. Multi-seed
-(size, budget) sweeps and agent-environment evaluations are in progress and
-will replace pilot figures in this cycle
-(Sections~\ref{sec:atoms},~\ref{sec:distill}).
+queries, produce a boundary predictor with finite-sample coverage together
+with a student agent whose measured capability matches the specified
+domain on both sides, evaluated by budget-to-target curves and certified
+leakage under matched token budgets.
+\item \textbf{Key insight.} Task identity and task boundary live in the
+space of learning demands: gradients separate what text cannot, and their
+recurring structure is identifiable as capability atoms precisely because
+of sparsity, not subspace geometry. A separation principle with
+pre-registered evidence, geometry selects while behavior judges, dictates
+where each signal may be used.
+\item \textbf{Method.} Market-clearing distillation over capability atoms:
+demand ledgers, per-token supply schedules, a calibrated admission test,
+and endogenous diminishing returns, with behaviorally timed training and
+certified two-sided deployment; every threshold is a statistical
+convention or learned from the task's own calibration data.
+\item \textbf{Results.} On a controlled five-domain suite the method
+matches or beats the strongest influence-based selection in-task at every
+size and budget (all wins at the canonical budget across four student
+sizes), with 3 to 10 times lower variance, zero off-task residue where
+baselines leak $0.40$ to $0.77$, and target performance at a fraction of
+the budget on scoped tasks; the pipeline transfers unchanged to agent
+benchmarks.
 \end{itemize}
