@@ -58,10 +58,13 @@ logged runs). (a)~240 GSM8K questions solved as code (blue) or prose (red)
 share their query text, so any boundary drawn on the request text cannot
 separate the two tasks. (b)~The same examples separate perfectly in
 gradient space: task identity lives in what a student would have to learn.
-(c)~In-task success versus token budget (0.8B student, 3 seeds; all selectors start from the same untrained student): the level
-our selection reaches with 10k tokens is still unmet by random selection at
-40k, a ${>}4\times$ budget gap; the budget others spend off-specification
-resurfaces as leaked out-of-task capability (Table~\ref{tab:twosided}).}
+(c)~Where the budget goes (3 seeds each). Left: on the SQL-scoped task
+every method reaches in-task $1.0$ by 1k tokens, but the strongest
+selection baseline converts every surplus token into out-of-scope
+capability (residue $0.44$ at 20k) while our boundary-filtered selection
+stays at $0.000$ at every budget. Right: in-task growth on GSM-code (0.8B)
+is statistically indistinguishable from the strongest baseline, so the
+control costs nothing.}
 \label{fig:motivation}
 \end{figure}
 
