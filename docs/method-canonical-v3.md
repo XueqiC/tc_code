@@ -40,3 +40,24 @@ fine-grained AUROC 0.906 vs dense 0.615; behavior flip on 5/128 atoms.
 Three falsifications (gate ledger, closed-loop reselection, geometric stop)
 show geometry cannot judge/time behavior. The method complies by
 architecture: geometry only selects; all judging/timing is behavioral.
+
+## Dictionary-learning deep-dive (for method section, 2026-08-12)
+- Objective: min_{D,C} ||X - C D||^2 + lambda ||C||_1 (K=64 atoms, lambda=.05),
+  alternating lasso coding / dictionary update (MiniBatch).
+- WHY SPARSITY: without L1 this is PCA/SVD — dense, rotation-unidentifiable
+  directions with no skill correspondence. L1 kills the rotation freedom:
+  the only way to make ALL traces sparse is to align atoms with recurring
+  self-contained patterns = skills (same mechanism as NMF parts).
+- WHY GRADIENTS: an atom is a recurring direction of parameter change;
+  granularity is decided by the data (always-co-occurring skills merge;
+  skills appearing in varied mixtures must be isolated for sparsity).
+  Identifiability is forced by optimization, not annotation.
+- Reading codes: c_a(x) = learning signal trace x supplies to skill a;
+  spec mean code = demand distribution; 90% cumulative mass = support.
+- Four validations: JOIN interpretability; 0.906 vs 0.615 granularity;
+  absorption order ~ spectral order (rho=.73); behavior flip 85.5% mass on
+  5/128 atoms.
+- One-liner: dictionary learning is a TOKENIZER FOR GRADIENT SPACE — it
+  segments continuous learning demand into a reusable, nameable, countable
+  skill vocabulary, and the whole pipeline does its bookkeeping in that
+  vocabulary.
