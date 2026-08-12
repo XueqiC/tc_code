@@ -147,3 +147,15 @@ minimize this dependence USING atoms:
    +probe calibration (flattest). Selling point: spec-quality
    sensitivity becomes a controlled quantity.
 Shares teacher-in-the-loop infra with restocking experiments.
+
+## QA: where does "PLOT is missing" knowledge come from (2026-08-12)
+Not from the k queries — from the dictionary corpus. After learning
+atoms, compute co-occurrence stats across corpus trace codes (e.g.
+P(PLOT|GROUPBY)=0.6): world knowledge about how skills travel together,
+available before seeing any query. Inference = market-basket completion
+(Amazon analogy: this customer's basket vs all customers' baskets).
+Two guards: LOO first validates whether co-occurrence inference works
+on this task at all (strength -> 0 if not); teacher probes falsify each
+hypothesized account. Honest scope: skills that NEVER co-occur with any
+observed atom in corpus are information-theoretically unrecoverable
+without new spec — state this limitation in the paper.
