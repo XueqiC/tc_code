@@ -159,3 +159,17 @@ on this task at all (strength -> 0 if not); teacher probes falsify each
 hypothesized account. Honest scope: skills that NEVER co-occur with any
 observed atom in corpus are information-theoretically unrecoverable
 without new spec — state this limitation in the paper.
+
+## QA: dictionary corpus provenance (2026-08-12)
+The "free trajectories" are PUBLIC corpora (Alpaca/Tulu-style
+instructions, OSS code, StackExchange) — fingerprints computable for any
+text since they measure the student's gradient response, not authorship.
+Dictionary + co-occurrence prior = task-agnostic, one-time, amortized
+assets (like a tokenizer); the k queries are the ONLY task-specific
+input. Current experiments already instantiate this: dictionary corpus
+mixes sql/pandas/gsm/alpaca domains. Vocabulary insufficiency is
+endogenous too: bought teacher traces with high dictionary
+reconstruction residual signal "unknown goods" -> trigger dictionary
+refresh including new traces. Cost structure: one-time task-agnostic
+investment + per-task (demand estimation + purchasing) — method as
+infrastructure, not a one-off script.
