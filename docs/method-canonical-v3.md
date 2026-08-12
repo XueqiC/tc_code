@@ -61,3 +61,18 @@ architecture: geometry only selects; all judging/timing is behavioral.
   segments continuous learning demand into a reusable, nameable, countable
   skill vocabulary, and the whole pipeline does its bookkeeping in that
   vocabulary.
+
+## Writing positioning notes (PI QA, 2026-08-12 evening)
+- JOIN atom = interpretability CASE STUDY on the SQL slice only; never a
+  general claim. General claims rest on task-agnostic metrics: granularity
+  AUROC (both sql & pandas), flip concentration 5/128, absorption-spectral
+  rho=0.73.
+- Demand extraction = dictionary TRANSFORM: fixed dictionary, per-query
+  lasso for sparse coefficients; |c_a| averaged over k queries.
+- p-gate = rank test against the calibration score distribution of genuine
+  spec members ("where would this trace rank among real members"); the
+  distribution itself is the threshold.
+- Diminishing returns in clearing = min(ledger remainder, supply) + deduction;
+  no decay constants — supply beyond remaining demand counts zero.
+- Warmup: utility side only (Adam moments); boundary works at theta_0
+  (AUROC 1.000) and can skip warmup in gate-only deployments.
