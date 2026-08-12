@@ -972,39 +972,6 @@ def build_selections(config, tokenizer, pool):
         "E_less": take_prefix(pool, less_order, budget),
     }
 
-    if "D_atom" in config["conditions"]:
-        # capability atoms over preconditioned features: one dictionary
-        # serves boundary, utility, and monitoring. Demand = spec atom
-        # mass; support = atoms carrying 90% of spec mass (reuses the
-        # energy convention, no new constant).
-        from sklearn.decomposition import MiniBatchDictionaryLearning
-        mean_feat = np.mean(
-            [boundary.unit(matrix) for matrix in matrices], axis=0
-        )
-        mean_feat = boundary.unit(mean_feat)
-        dictionary = MiniBatchDictionaryLearning(
-            n_components=64, alpha=0.05,
-            transform_algorithm="lasso_lars", transform_alpha=0.05,
-            random_state=config["seed"], max_iter=200, batch_size=32,
-        )
-        codes = np.abs(dictionary.fit(mean_feat).transform(mean_feat))
-        spec_codes = codes[:spec_n]
-        pool_codes = codes[spec_n:]
-        demand = spec_codes.mean(axis=0)
-        order_atoms = np.argsort(-demand)
-        cum = np.cumsum(demand[order_atoms]) / max(demand.sum(), 1e-12)
-        support_atoms = order_atoms[: int(np.searchsorted(cum, 0.90)) + 1]
-        support_mask = np.zeros(codes.shape[1], dtype=bool)
-        support_mask[support_atoms] = True
-        for row, code in zip(pool, pool_codes):
-            row["_atom_supply"] = code[support_mask].astype(np.float32)
-        config["task_boundary"]["_atom_demand"] = demand[support_mask]
-        print(
-            f"[setup][D_atom] atoms=64 support={support_mask.sum()} "
-            f"spec_mass_covered=0.90",
-            flush=True,
-        )
-
     if "D_grad_pre" in config["conditions"]:
         pre_order = np.argsort(
             -np.asarray([row["_d_grad_pre_score"] for row in pool]),
