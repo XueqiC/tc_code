@@ -1302,7 +1302,9 @@ def build_selections(config, tokenizer, pool):
             bought_u, spent_u = purchase_in_order(
                 rng_boot.permutation(cache_indices)
             )
-            selections["F_uni_boot"] = [dict(pool[i]) for i in bought_u]
+            selections["F_uni_boot"] = [
+                {**pool[i], "_is_refusal": False} for i in bought_u
+            ]
             print(
                 f"[setup][F_uni_boot] items={len(bought_u)} tokens={spent_u}",
                 flush=True,
@@ -1316,7 +1318,9 @@ def build_selections(config, tokenizer, pool):
             sims = pool_emb @ centroid
             emb_boot_order = sorted(cache_indices, key=lambda i: -sims[i])
             bought_e, spent_e = purchase_in_order(emb_boot_order)
-            selections["F_emb_boot"] = [dict(pool[i]) for i in bought_e]
+            selections["F_emb_boot"] = [
+                {**pool[i], "_is_refusal": False} for i in bought_e
+            ]
             print(
                 f"[setup][F_emb_boot] items={len(bought_e)} tokens={spent_e}",
                 flush=True,
@@ -1421,7 +1425,9 @@ def build_selections(config, tokenizer, pool):
                 max(pool[i]["_token_count"], 1)
                 for i in bought_a if i not in set(admitted_boot)
             )
-            selected_boot = [dict(pool[i]) for i in admitted_boot]
+            selected_boot = [
+                {**pool[i], "_is_refusal": False} for i in admitted_boot
+            ]
             if use_implicit and selected_boot and dict_boot is not None:
                 demand_dir = ledger / max(ledger.sum(), 1e-12)
                 sel_codes = np.abs(dict_boot.transform(
