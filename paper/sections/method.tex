@@ -194,34 +194,62 @@ named destination. The loop stops when the quotas are filled or the
 budget is exhausted; unspent budget is returned and reported, since
 reaching the target cheaper is exactly the $B^{*}(\tau)$ objective.
 
-\subsection{Distillation: weighted imitation with behavioral timing}
+\subsection{Distillation: the same skill vocabulary directs learning}
 \label{sec:distill}
 The purchased demonstrations are distilled into the student by supervised
-fine-tuning, with two departures from uniform behavior cloning, both
-driven by the demand estimate. First, examples are not weighted equally:
-each admitted demonstration's loss is scaled by how much of the remaining
-demand its code serves, so a demonstration that mostly repeats an
-already-satisfied skill contributes less than one that carries scarce
-skills --- importance weighting with weights read off the same accounting
-that directed acquisition. In multi-turn environments the weight is
-applied per turn, the granularity at which the environment responds
-\citep{liu2025structured}. Second, the student's own failures direct a
-corrective phase in the style of \textsc{DAgger} \citep{ross2011dagger}:
-the student is rolled out locally on held-out support queries, the
-execution check localizes the states where it goes wrong, and those very
-states are sent to the teacher as continuation prompts --- charged
-against $b$ like any other purchase --- yielding demonstrations of
-recovery behavior precisely where successful teacher trajectories are
-silent. Throughout training, gradient geometry is never asked to judge
-success: three pre-registered experiments show it cannot (instance-level
-gradient signals fail to predict success; re-selecting against residual
-gradients selects noise; geometric absorption bottoms out two orders of
+fine-tuning, but not by uniform behavior cloning: the skill vocabulary
+that directed spending now directs learning, and every departure from
+plain imitation below is skill-resolved through the atoms --- the design
+that separates this stage from prior agent distillation, which reweights
+or corrects at the level of whole traces or states
+\citep{tang2026smartad, liu2025structured, ross2011dagger}.
+
+\textbf{Demand-weighted loss.} Examples are not weighted equally: each
+admitted demonstration's loss is scaled by how much of the remaining
+demand its code serves. The form is importance weighting, but the weights
+are not heuristic --- they are read off the same per-atom quotas that
+directed acquisition, so a demonstration repeating an already-satisfied
+skill contributes little while one carrying scarce skills is amplified.
+In multi-turn environments the weight is applied per turn, the
+granularity at which the environment responds \citep{liu2025structured}.
+
+\textbf{Skill-resolved absorption tracking.} As training proceeds, the
+support queries' gradient features are periodically recomputed on the
+\emph{current} student and re-encoded against the dictionary. Each atom's
+demand now traces a decay curve --- the absorption progress of that
+individual skill. Two decisions read off these curves. Atoms whose demand
+has collapsed stop attracting weight, which removes exactly the surplus
+training that our collapse study identifies as the failure mode of
+small-budget fine-tuning (Section~\ref{sec:mechanism}). Atoms whose
+demand refuses to decay are \emph{stalled}: the purchased demonstrations
+for that skill are not teaching it, and the stall triggers a further
+targeted purchase rather than more epochs on data that has already shown
+it cannot help.
+
+\textbf{Skill-resolved correction.} The student is rolled out locally on
+held-out support queries, and the execution check flags the failures.
+Where \textsc{DAgger} \citep{ross2011dagger} would forward the failure
+\emph{states} to the expert, we first encode the failed rollouts' gradient
+features against the dictionary, which names the deficient \emph{skills};
+corrective prompts are then synthesized per deficient atom, from the
+failure states, and the correction budget is split across atoms by their
+failure rates --- charged against $b$ like any other purchase. This buys
+demonstrations of recovery behavior precisely where successful teacher
+trajectories are silent, and buys more of them for the skills that fail
+most.
+
+Throughout, gradient geometry is never asked to judge success: three
+pre-registered experiments show it cannot (instance-level gradient
+signals fail to predict success; re-selecting against residual gradients
+selects noise; aggregate geometric absorption bottoms out two orders of
 magnitude before behavioral competence forms,
-Section~\ref{sec:mechanism}). All judging is behavioral: a probe every
-$8$ steps measures the fraction of held-out calibration queries yielding
-runnable solutions, and the best-scoring checkpoint is kept, making
-aggressive small-budget training safe because drift past the competence
-peak is detected and rolled back.
+Section~\ref{sec:mechanism}). The division of labor is strict: per-atom
+demand decay only \emph{diagnoses} --- which skill is saturated, which is
+stalled, where the next token should go --- while behavior remains the
+sole judge of arrival. A probe every $8$ steps measures the fraction of
+held-out calibration queries yielding runnable solutions, and the
+best-scoring checkpoint is kept, making aggressive small-budget training
+safe because drift past the competence peak is detected and rolled back.
 
 \subsection{Certified deployment}
 \label{sec:behavior}
