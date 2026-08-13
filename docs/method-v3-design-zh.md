@@ -164,3 +164,22 @@ Related work 新增簇:OPSD/RLSD/SDAR/StepOPSD/AgentOPSD(蒸馏信号做
 隐式需求) ③ 获取-训练交替(定向合成/turn级加权SFT/DAgger纠错/需求
 刷新+字典增长) ④ 认证部署。方法全程只见 k 条 + 自购 trace。
 实现迁移:现行池上拟合已接近;主要改动 = 增量更新 + 残差触发加atom。
+
+## Agent 蒸馏 vs 普通 LLM 蒸馏:六条本质差异(2026-08-13,文献综合)
+1. 交互闭环->误差复利(covariate shift):C2M/SOD 解;我们 DAgger 纠错,
+   预算按需求残差分配覆盖vs纠错
+2. 监督单位=决策非 token(格式脆断,全对或全废):StructuredAD span,
+   AgentOPSD turn>token;我们 turn 级加权 loss
+3. 成功信号稀疏但可执行验证(免费判官,文本蒸馏没有):我们用在
+   录取过滤/行为停/证书三处
+4. 能力=离散技能组合:kang2025 工具外挂/AMD 记忆库/SkillBank 文本表示;
+   我们 atoms = 技能的梯度空间操作化(定向采样的前提)
+5. 错误恢复在成功轨迹中稀缺,student 最需要:纠错采样从真实失败态收集
+6. 能力会执行、越界有后果 + 预算化获取:边界+conformal 证书+gate ——
+   文献空白,我们的护城河
+Problem setting 改写:经典 few-shot 式 support set S={q_i}~P_T,
+除 S 零任务信息;baseline 同协议。落点 method.tex。
+文献:kang2025 (2505.17612, first-thought prefix / self-consistent action),
+C2M (2509.14257, student rollout + teacher correction + RL),
+StructuredAD (2505.13820), SOD (2605.07725), AMD (2608.07169),
+AgentOPSD (2608.05987)。
