@@ -794,6 +794,34 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
         prompt_feat = boundary.unit(np.mean(
             [boundary.unit(matrix) for matrix in prompt_matrices], axis=0
         ))
+        spec_prompt_rows = [
+            {"prompt": "", "response": row["prompt"]} for row in task_rows
+        ]
+        spec_prompt_paths = [
+            cache_dir / f"spec_prompt_features_epoch_{epoch}.npy"
+            for epoch in range(1, LESS_WARMUP_EPOCHS + 1)
+        ]
+        spec_prompt_matrices = _load_valid_less_features(
+            spec_prompt_paths, len(spec_prompt_rows)
+        )
+        if spec_prompt_matrices is None:
+            warmup_seed = features.stable_seed(
+                f"less-warmup-{config['model']}-"
+                f"{manifest['pool_fingerprint']}"
+            )
+            _extract_less_features(
+                config, tokenizer, spec_prompt_rows,
+                checkpoint_paths, spec_prompt_paths, warmup_seed,
+            )
+            spec_prompt_matrices = _load_valid_less_features(
+                spec_prompt_paths, len(spec_prompt_rows)
+            )
+            if spec_prompt_matrices is None:
+                raise RuntimeError("failed to cache spec prompt features")
+        spec_prompt_feat = boundary.unit(np.mean(
+            [boundary.unit(matrix) for matrix in spec_prompt_matrices],
+            axis=0,
+        ))
         emb_cfg = config["embedding_features"]
         from sentence_transformers import SentenceTransformer
         embedder = SentenceTransformer(
@@ -816,6 +844,7 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             "spec_feat": boot_feat[:spec_n],
             "pool_feat": boot_feat[spec_n:],
             "pool_prompt_feat": prompt_feat,
+            "spec_prompt_feat": spec_prompt_feat,
             "spec_prompt_emb": spec_prompt_emb,
             "pool_prompt_emb": pool_prompt_emb,
         })
@@ -1301,8 +1330,13 @@ def build_selections(config, tokenizer, pool):
             # (b) per-row demand-aligned loss weights for training.
             use_implicit = boot_name.endswith("2")
             from sklearn.decomposition import MiniBatchDictionaryLearning
-            spec_feat = _BOOT_STATE["spec_feat"]
-            pool_feat = _BOOT_STATE["pool_feat"]
+            # planning, demand, and accounting all live in the PROMPT-view
+            # feature space (the only signal available pre-purchase);
+            # mixing response-view demand with prompt-view predictions
+            # made codes meaningless across modalities (97% overhead).
+            # The response view is used only by the admission gate.
+            spec_feat = _BOOT_STATE["spec_prompt_feat"]
+            pool_feat = _BOOT_STATE["pool_prompt_feat"]
             pool_pfeat = _BOOT_STATE["pool_prompt_feat"]
             gate_thr_boot = config["task_boundary"]["_grad_threshold"]
             bought_a, spent_a = [], 0
@@ -1325,16 +1359,10 @@ def build_selections(config, tokenizer, pool):
                 dict_boot.fit(corpus)
                 spec_codes_b = np.abs(dict_boot.transform(spec_feat))
                 demand_b = spec_codes_b.mean(axis=0)
-                if use_implicit and len(bought_a) >= 8:
-                    implicit_codes = np.abs(dict_boot.transform(
-                        np.vstack([pool_feat[i][None] for i in bought_a])
-                    ))
-                    implicit_b = implicit_codes.mean(axis=0)
-                    demand_b = 0.5 * (
-                        demand_b / max(demand_b.sum(), 1e-12)
-                    ) + 0.5 * (
-                        implicit_b / max(implicit_b.sum(), 1e-12)
-                    )
+                # implicit-demand completion needs a response-to-prompt
+                # bridge to stay modality-consistent; deferred. boot2
+                # currently differs from boot only in the per-row loss
+                # weights attached below.
                 ledger = demand_b / max(demand_b.sum(), 1e-12) * budget
                 if bought_a:
                     bought_codes = np.abs(dict_boot.transform(
