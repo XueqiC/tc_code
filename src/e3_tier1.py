@@ -421,7 +421,10 @@ def _less_cache(config, task_rows, pool):
     if os.environ.get("TC_USE_TMP") == "1" and os.environ.get("TMPDIR"):
         cache_root = Path(os.environ["TMPDIR"]) / f"less_cache{config['tag']}"
     else:
-        cache_root = ROOT / "results" / f"less_cache{config['tag']}"
+        # shared across tags/seeds: the manifest hash already keys the
+        # model, pool fingerprint, and feature params. Per-tag isolation
+        # recomputed ~50min of identical features for every run.
+        cache_root = ROOT / "results" / "less_cache_shared"
     return cache_root / cache_key, manifest
 
 
