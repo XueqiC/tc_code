@@ -1,0 +1,12 @@
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=2000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b2k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=2000 E3_SEED=1 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b2k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=2000 E3_SEED=2 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b2k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b10k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=1 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b10k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=10000 E3_SEED=2 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b10k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b20k_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b20k_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=2 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_b20k_seed2
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=sql E3_TASK_FILTER=join E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_sqljoin_seed0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=sql E3_TASK_FILTER=join E3_BUDGET=20000 E3_SEED=1 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_sqljoin_seed1
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=sql E3_TASK_FILTER=join E3_BUDGET=20000 E3_SEED=2 E3_CONDITIONS=base,F_atom_boot,F_atom_boot2 E3_TAG=_e9s_2b_sqljoin_seed2
