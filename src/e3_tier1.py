@@ -1338,7 +1338,13 @@ def build_selections(config, tokenizer, pool):
             spec_feat = _BOOT_STATE["spec_prompt_feat"]
             pool_feat = _BOOT_STATE["pool_prompt_feat"]
             pool_pfeat = _BOOT_STATE["pool_prompt_feat"]
-            gate_thr_boot = config["task_boundary"]["_grad_threshold"]
+            # admission for PURCHASED goods is an outlier test, not a
+            # top-quantile selector: a return is trainable if it scores
+            # at least as spec-like as the least spec-like genuine
+            # calibration query. The tight D_less_bnd threshold is for
+            # free shelves, where selectivity costs nothing; here every
+            # rejection was paid for.
+            gate_thr_boot = float(min(config["task_boundary"]["_grad_cal"]))
             bought_a, spent_a = [], 0
             remaining_a = set(cache_indices)
             expected_tokens = 200.0
