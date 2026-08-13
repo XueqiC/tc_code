@@ -41,6 +41,7 @@ CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
+    "F_uni_boot", "F_emb_boot", "F_atom_boot",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -58,6 +59,9 @@ COLORS = {
     "D_grad_cov": "#7a4fb3",
     "D_less_bnd": "#0b8457",
     "D_atom": "#b8860b",
+    "F_uni_boot": "#8a8a8a",
+    "F_emb_boot": "#2aa198",
+    "F_atom_boot": "#c0392b",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -75,7 +79,13 @@ SHORT_LABELS = {
     "D_grad_cov": "D-cov",
     "D_less_bnd": "D-bnd",
     "D_atom": "D-atom",
+    "F_uni_boot": "F-uni",
+    "F_emb_boot": "F-emb",
+    "F_atom_boot": "F-atom",
 }
+BOOT_CONDS = ("F_uni_boot", "F_emb_boot", "F_atom_boot")
+BOOT_TEACHER = "deepseek-v4-pro"
+_BOOT_STATE = {}
 MUTED = "#6b6a63"
 LESS_WARMUP_EPOCHS = 4
 LESS_WARMUP_FRACTION = 0.05
@@ -746,6 +756,72 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             flush=True,
         )
 
+    if set(BOOT_CONDS) & set(config["conditions"]):
+        # metered-teacher bootstrap arms. Planning may only use what a
+        # deployer would hold BEFORE paying for a response: the spec
+        # queries and the candidate prompts. Response-view features are
+        # consulted only for rows already bought.
+        boot_feat = np.mean(
+            [boundary.unit(matrix) for matrix in matrices], axis=0
+        )
+        boot_feat = boundary.unit(boot_feat)
+        prompt_rows = [
+            {"prompt": "", "response": row["prompt"]} for row in pool
+        ]
+        prompt_feature_paths = [
+            cache_dir / f"prompt_features_epoch_{epoch}.npy"
+            for epoch in range(1, LESS_WARMUP_EPOCHS + 1)
+        ]
+        prompt_matrices = _load_valid_less_features(
+            prompt_feature_paths, len(prompt_rows)
+        )
+        if prompt_matrices is None:
+            warmup_seed = features.stable_seed(
+                f"less-warmup-{config['model']}-"
+                f"{manifest['pool_fingerprint']}"
+            )
+            _extract_less_features(
+                config, tokenizer, prompt_rows,
+                checkpoint_paths, prompt_feature_paths, warmup_seed,
+            )
+            prompt_matrices = _load_valid_less_features(
+                prompt_feature_paths, len(prompt_rows)
+            )
+            if prompt_matrices is None:
+                raise RuntimeError("failed to cache prompt-view features")
+        prompt_feat = boundary.unit(np.mean(
+            [boundary.unit(matrix) for matrix in prompt_matrices], axis=0
+        ))
+        emb_cfg = config["embedding_features"]
+        from sentence_transformers import SentenceTransformer
+        embedder = SentenceTransformer(
+            emb_cfg["model"], device=emb_cfg["device"]
+        )
+        spec_prompt_emb = embedder.encode(
+            [row["prompt"] for row in task_rows],
+            batch_size=emb_cfg["batch_size"],
+            normalize_embeddings=True, show_progress_bar=False,
+        ).astype(np.float64, copy=False)
+        pool_prompt_emb = embedder.encode(
+            [row["prompt"] for row in pool],
+            batch_size=emb_cfg["batch_size"],
+            normalize_embeddings=True, show_progress_bar=False,
+        ).astype(np.float64, copy=False)
+        del embedder
+        gc.collect()
+        _BOOT_STATE.clear()
+        _BOOT_STATE.update({
+            "spec_feat": boot_feat[:spec_n],
+            "pool_feat": boot_feat[spec_n:],
+            "pool_prompt_feat": prompt_feat,
+            "spec_prompt_emb": spec_prompt_emb,
+            "pool_prompt_emb": pool_prompt_emb,
+        })
+        print(
+            f"[setup][F_boot] prompt-view features ready pool={len(pool)}",
+            flush=True,
+        )
+
     if "D_grad_pre" in config["conditions"]:
         # our subspace + ranking machinery on Adam-preconditioned features
         fit_n = config["task_boundary"]["fit_rows"]
@@ -867,7 +943,8 @@ def score_pool(config, tokenizer, task_rows, pool):
         row["_less_score"] = float(less_score)
         row["_emb_score"] = float(emb_score)
 
-    if {"E_less_std", "D_grad_pre", "D_less_bnd", "D_atom"} & set(config["conditions"]):
+    if {"E_less_std", "D_grad_pre", "D_less_bnd", "D_atom",
+        *BOOT_CONDS} & set(config["conditions"]):
         attach_less_std_scores(config, tokenizer, task_rows, pool)
 
     if {"H_nll", "H_smartad_std"} & set(config["conditions"]):
@@ -1163,6 +1240,143 @@ def build_selections(config, tokenizer, pool):
             f"tokens={used_a} demand_left={W.sum():.1f}",
             flush=True,
         )
+
+    if set(BOOT_CONDS) & set(config["conditions"]):
+        # Clean few-shot protocol simulation: a single metered teacher
+        # (deepseek cache rows). Prompts are visible before purchase;
+        # responses, their token counts, and response-view features
+        # become visible only after paying for the row.
+        cache_indices = [
+            i for i, row in enumerate(pool)
+            if row.get("teacher") == BOOT_TEACHER
+        ]
+        if not cache_indices:
+            raise RuntimeError("bootstrap arms found no metered-teacher rows")
+
+        def purchase_in_order(order):
+            bought_local, spent_local = [], 0
+            for i in order:
+                i = int(i)
+                cost = max(pool[i]["_token_count"], 1)
+                if spent_local + cost > budget:
+                    continue
+                bought_local.append(i)
+                spent_local += cost
+                if spent_local >= budget:
+                    break
+            return bought_local, spent_local
+
+        if "F_uni_boot" in config["conditions"]:
+            rng_boot = np.random.default_rng(seed + 1013)
+            bought_u, spent_u = purchase_in_order(
+                rng_boot.permutation(cache_indices)
+            )
+            selections["F_uni_boot"] = [dict(pool[i]) for i in bought_u]
+            print(
+                f"[setup][F_uni_boot] items={len(bought_u)} tokens={spent_u}",
+                flush=True,
+            )
+
+        if "F_emb_boot" in config["conditions"]:
+            spec_emb = _BOOT_STATE["spec_prompt_emb"]
+            pool_emb = _BOOT_STATE["pool_prompt_emb"]
+            centroid = spec_emb.mean(axis=0)
+            centroid /= (np.linalg.norm(centroid) + 1e-12)
+            sims = pool_emb @ centroid
+            emb_boot_order = sorted(cache_indices, key=lambda i: -sims[i])
+            bought_e, spent_e = purchase_in_order(emb_boot_order)
+            selections["F_emb_boot"] = [dict(pool[i]) for i in bought_e]
+            print(
+                f"[setup][F_emb_boot] items={len(bought_e)} tokens={spent_e}",
+                flush=True,
+            )
+
+        if "F_atom_boot" in config["conditions"]:
+            from sklearn.decomposition import MiniBatchDictionaryLearning
+            spec_feat = _BOOT_STATE["spec_feat"]
+            pool_feat = _BOOT_STATE["pool_feat"]
+            pool_pfeat = _BOOT_STATE["pool_prompt_feat"]
+            gate_thr_boot = config["task_boundary"]["_grad_threshold"]
+            bought_a, spent_a = [], 0
+            remaining_a = set(cache_indices)
+            expected_tokens = 200.0
+            rounds = 0
+            ledger = None
+            while remaining_a and spent_a < budget:
+                rounds += 1
+                corpus = np.vstack(
+                    [spec_feat] + [pool_feat[i][None] for i in bought_a]
+                )
+                n_atoms = int(min(64, max(8, corpus.shape[0] // 2)))
+                dict_boot = MiniBatchDictionaryLearning(
+                    n_components=n_atoms, alpha=0.05,
+                    transform_algorithm="lasso_lars", transform_alpha=0.05,
+                    random_state=seed, max_iter=100, batch_size=16,
+                )
+                dict_boot.fit(corpus)
+                spec_codes_b = np.abs(dict_boot.transform(spec_feat))
+                demand_b = spec_codes_b.mean(axis=0)
+                ledger = demand_b / max(demand_b.sum(), 1e-12) * budget
+                if bought_a:
+                    bought_codes = np.abs(dict_boot.transform(
+                        np.vstack([pool_feat[i][None] for i in bought_a])
+                    ))
+                    for code_row, i in zip(bought_codes, bought_a):
+                        supply = (
+                            code_row / max(code_row.sum(), 1e-12)
+                            * max(pool[i]["_token_count"], 1)
+                        )
+                        ledger = np.maximum(ledger - supply, 0.0)
+                rem_list = sorted(remaining_a)
+                rem_codes = np.abs(dict_boot.transform(
+                    np.vstack([pool_pfeat[i][None] for i in rem_list])
+                ))
+                gains = np.array([
+                    np.minimum(
+                        ledger,
+                        code_row / max(code_row.sum(), 1e-12)
+                        * expected_tokens,
+                    ).sum() / expected_tokens
+                    for code_row in rem_codes
+                ])
+                picked = 0
+                for order_pos in np.argsort(-gains):
+                    i = rem_list[int(order_pos)]
+                    if gains[int(order_pos)] <= 1e-9:
+                        break
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_a + cost > budget:
+                        remaining_a.discard(i)
+                        continue
+                    bought_a.append(i)
+                    spent_a += cost
+                    remaining_a.discard(i)
+                    picked += 1
+                    if picked >= 8 or spent_a >= budget:
+                        break
+                if bought_a:
+                    expected_tokens = float(np.mean(
+                        [max(pool[i]["_token_count"], 1) for i in bought_a]
+                    ))
+                if picked == 0:
+                    break
+            admitted_boot = [
+                i for i in bought_a
+                if pool[i]["_grad_score"] >= gate_thr_boot
+            ]
+            overhead_boot = sum(
+                max(pool[i]["_token_count"], 1)
+                for i in bought_a if i not in set(admitted_boot)
+            )
+            selections["F_atom_boot"] = [dict(pool[i]) for i in admitted_boot]
+            print(
+                f"[setup][F_atom_boot] bought={len(bought_a)} "
+                f"spent={spent_a} admitted={len(admitted_boot)} "
+                f"overhead={overhead_boot} rounds={rounds} "
+                f"unspent={budget - spent_a} "
+                f"demand_left={ledger.sum():.1f}",
+                flush=True,
+            )
 
     if "D_grad_iter" in config["conditions"]:
         # closed-loop selection: round 1 takes budget/R by the theta_0 score;
