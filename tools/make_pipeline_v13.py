@@ -260,7 +260,7 @@ ital(4.40, 2.84, 2.0, "sparse dictionary", size=14.6)
 arrow(2.35, 3.30, 2.35, 3.55)
 
 # atoms with names
-NAMES = ("JOIN", "AGG", "LOOP", "PLOT", "REGEX")
+NAMES = ("a₁", "a₂", "a₃", "a₄", "a₅")
 for i, (c, nm) in enumerate(zip((BLUED, IN2, IN3, ORAN, REDL), NAMES)):
     x0 = 0.62 + i * 0.72
     box(x0, 3.62, 0.54, 0.54, c, WHITE, lw=1.4, radius=0.18)
