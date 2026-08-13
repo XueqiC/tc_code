@@ -119,3 +119,18 @@ AppWorld 128eps 直接复用为缓存)。
 验证:E7a 加权 loss vs 平权(同语料);E7b 交替 vs 一次性(同预算);
 E7c 纠错采样 @ AppWorld。
 方法两条腿:数据获取侧(需求估计->定向采样)+ 蒸馏侧(1-3)。
+
+## AgentOPSD (arXiv 2608.05987) insights 吸收(2026-08-13)
+论文:turn 级信用 = 对最终成功信念的边际修正(log-odds 递归贝叶斯),
+self-teacher(skill 条件化)likelihood 差做证据,reshape GRPO advantage;
+ALFWorld 7B 89.1%。
+吸收两条:
+1. E7a 定型为 TURN 级 demand-weighted loss(their ablation: turn 89.1 >
+   token 85.9 > trajectory):每 turn 指纹(per-step stacking 基建现成)
+   -> 码 -> 需求对齐度 = turn 权重。
+2. 权重乘历史衰减项(gamma 递归累积,被前文覆盖的重复套路降权):
+   静态对齐度 -> 历史感知边际贡献,与 buy-vs-ask 边际逻辑同构。
+定位:他们 self-teacher RL(无外部 teacher/预算),我们 black-box teacher
+预算化蒸馏;SkillBank 文本 skill vs 我们梯度空间 atoms(接 Fig1a 故事)。
+Related work 新增簇:OPSD/RLSD/SDAR/StepOPSD/AgentOPSD(蒸馏信号做
+信用分配)。附带 ALFWorld/WebShop 参考数字(Line-1 对表)。
