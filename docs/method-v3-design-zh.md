@@ -134,3 +134,20 @@ ALFWorld 7B 89.1%。
 预算化蒸馏;SkillBank 文本 skill vs 我们梯度空间 atoms(接 Fig1a 故事)。
 Related work 新增簇:OPSD/RLSD/SDAR/StepOPSD/AgentOPSD(蒸馏信号做
 信用分配)。附带 ALFWorld/WebShop 参考数字(Line-1 对表)。
+
+## 定稿快照:v3 完整方法四阶段(2026-08-13 发 PI 版)
+阶段0 任务无关预备(免费):公开语料指纹 -> 字典(K atoms)+共现统计
+阶段1 需求估计(全部 k):码均值 -> 共现扩散(留一定强度)-> bootstrap CI -> w·b
+阶段2 种子生成(计费):teacher 解 k 条,执行验证,探针确认低置信分量
+阶段3 定向获取-训练交替循环:
+  (a) 定向合成(欠供 atoms,载荷加权 self-instruct;录取=执行+边界分,
+      不合格记 overhead)
+  (b) SFT:turn 级加权 loss(需求对齐 x 历史衰减边际新颖度)
+  (c) on-policy 纠错(DAgger,black-box 兼容):cal 条 rollout 失败态
+      -> teacher 延续演示
+  (d) 需求刷新(当前 student 上重算 k 条指纹,已吸收自然衰减)
+  停:行为探针收敛且需求残差平;省下的 b = B* 战绩
+阶段4 认证部署:fit 子空间+cal conformal 阈值,探针选 checkpoint,
+  gate 界外回退 teacher。
+原则:梯度定获取与权重,行为定停止与证书;k 条唯一规格。
+指标:in-task 官方分、B*(tau)、off-task 残留、overhead 率。
