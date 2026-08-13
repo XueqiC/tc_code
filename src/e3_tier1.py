@@ -42,7 +42,7 @@ CONDITIONS = (
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3",
+    "F_atom_boot3", "F_selfinst",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -65,6 +65,7 @@ COLORS = {
     "F_atom_boot": "#c0392b",
     "F_atom_boot2": "#7d1f14",
     "F_atom_boot3": "#4a0e08",
+    "F_selfinst": "#6b6a63",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -87,10 +88,11 @@ SHORT_LABELS = {
     "F_atom_boot": "F-atom",
     "F_atom_boot2": "F-atom2",
     "F_atom_boot3": "F-atom3",
+    "F_selfinst": "SelfInst",
 }
 BOOT_CONDS = (
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3",
+    "F_atom_boot3", "F_selfinst",
 )
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
@@ -1330,6 +1332,52 @@ def build_selections(config, tokenizer, pool):
             ]
             print(
                 f"[setup][F_uni_boot] items={len(bought_u)} tokens={spent_u}",
+                flush=True,
+            )
+
+        if "F_selfinst" in config["conditions"]:
+            # Self-Instruct (Wang et al., ACL 2023) adapted to the metered
+            # protocol: uniform generation order, official ROUGE-L
+            # similarity filter (drop a return whose ROUGE-L with any kept
+            # instruction exceeds 0.7); filtered returns are still paid
+            # for, as in the original pipeline where they are discarded.
+            def _lcs(a, b):
+                m, n = len(a), len(b)
+                dp = [0] * (n + 1)
+                for i in range(1, m + 1):
+                    prev = 0
+                    for j in range(1, n + 1):
+                        cur = dp[j]
+                        dp[j] = prev + 1 if a[i-1] == b[j-1] else max(dp[j], dp[j-1])
+                        prev = cur
+                return dp[n]
+            def _rougeL(a, b):
+                ta, tb = a.split(), b.split()
+                if not ta or not tb:
+                    return 0.0
+                l = _lcs(ta, tb)
+                p, r = l / len(ta), l / len(tb)
+                return 0.0 if p + r == 0 else 2 * p * r / (p + r)
+            rng_si = np.random.default_rng(seed + 2027)
+            kept_si, kept_prompts, spent_si = [], [], 0
+            for i in rng_si.permutation(cache_indices):
+                i = int(i)
+                cost = max(pool[i]["_token_count"], 1)
+                if spent_si + cost > budget:
+                    continue
+                spent_si += cost  # paid regardless of the filter
+                prompt_i = pool[i]["prompt"]
+                if any(_rougeL(prompt_i, p) > 0.7 for p in kept_prompts):
+                    continue
+                kept_si.append(i)
+                kept_prompts.append(prompt_i)
+                if spent_si >= budget:
+                    break
+            selections["F_selfinst"] = [
+                {**pool[i], "_is_refusal": False} for i in kept_si
+            ]
+            print(
+                f"[setup][F_selfinst] kept={len(kept_si)} spent={spent_si}",
                 flush=True,
             )
 
