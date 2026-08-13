@@ -183,3 +183,15 @@ Problem setting 改写:经典 few-shot 式 support set S={q_i}~P_T,
 C2M (2509.14257, student rollout + teacher correction + RL),
 StructuredAD (2505.13820), SOD (2605.07725), AMD (2608.07169),
 AgentOPSD (2608.05987)。
+
+## 四个升级点(2026-08-13,对照六差异查缺)
+E8a 可学性条件生成:生成 prompt 要求 teacher 最简/规范/少风格噪声
+    (first-thought prefix 启发);指标 = 同 atom 覆盖的 token 花费、
+    每块钱需求清偿率
+E8b 二级加权 loss:turn 权重(需求对齐x边际新颖) x span 类型
+    (动作 span 严格 / 推理 span 轻量,StructuredAD 启发)
+E8c SFT 后短 RFT 打磨:calibration query 上环境成功率作奖励,零 teacher
+    预算(E4c SFT->RFT 基建复用);C2M 证明超越纯模仿上限
+E8d 推理期免费武器:self-consistent action generation(执行表决)+
+    工具调用约束解码(封死格式报废)
+优先级:E8a/E8d 最便宜见效快,atomg 判定后先做。
