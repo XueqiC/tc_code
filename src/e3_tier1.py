@@ -42,6 +42,7 @@ CONDITIONS = (
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
+    "F_atom_boot3",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -63,6 +64,7 @@ COLORS = {
     "F_emb_boot": "#2aa198",
     "F_atom_boot": "#c0392b",
     "F_atom_boot2": "#7d1f14",
+    "F_atom_boot3": "#4a0e08",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -84,8 +86,12 @@ SHORT_LABELS = {
     "F_emb_boot": "F-emb",
     "F_atom_boot": "F-atom",
     "F_atom_boot2": "F-atom2",
+    "F_atom_boot3": "F-atom3",
 }
-BOOT_CONDS = ("F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2")
+BOOT_CONDS = (
+    "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
+    "F_atom_boot3",
+)
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -1343,21 +1349,30 @@ def build_selections(config, tokenizer, pool):
                 flush=True,
             )
 
-        for boot_name in ("F_atom_boot", "F_atom_boot2"):
+        for boot_name in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3"):
             if boot_name not in config["conditions"]:
                 continue
             # boot2 adds (a) implicit-demand completion: bought teacher
             # responses reveal skills the queries never mentioned, and
             # (b) per-row demand-aligned loss weights for training.
-            use_implicit = boot_name.endswith("2")
+            use_implicit = boot_name.endswith(("2", "3"))
+            use_bridge = boot_name.endswith("3")
             from sklearn.decomposition import MiniBatchDictionaryLearning
-            # planning, demand, and accounting all live in the PROMPT-view
-            # feature space (the only signal available pre-purchase);
-            # mixing response-view demand with prompt-view predictions
-            # made codes meaningless across modalities (97% overhead).
-            # The response view is used only by the admission gate.
-            spec_feat = _BOOT_STATE["spec_prompt_feat"]
-            pool_feat = _BOOT_STATE["pool_prompt_feat"]
+            if use_bridge:
+                # skills live in RESPONSE-view gradient space (all atom
+                # identifiability evidence is response-side); prompt-view
+                # demand degrades to a topic distribution. boot3 keeps
+                # the ledger in response-skill space and predicts a
+                # candidate's response feature from its prompt feature
+                # via a ridge bridge fit on already-paid (prompt,
+                # response) pairs — legal, and sharper every round.
+                spec_feat = _BOOT_STATE["spec_feat"]
+                pool_feat = _BOOT_STATE["pool_feat"]
+            else:
+                # boot/boot2: everything in prompt view (legacy variant)
+                spec_feat = _BOOT_STATE["spec_prompt_feat"]
+                pool_feat = _BOOT_STATE["pool_prompt_feat"]
+            spec_pfeat = _BOOT_STATE["spec_prompt_feat"]
             pool_pfeat = _BOOT_STATE["pool_prompt_feat"]
             # admission for PURCHASED goods is an outlier test in
             # prompt-view space (see gate construction above): trainable
@@ -1396,17 +1411,48 @@ def build_selections(config, tokenizer, pool):
                 # fabricated full-strength supply from weak alignments
                 # (95% overhead). A raw-code token supplies little when
                 # its gradient does not lie in demanded directions.
+                round_kappa = 1.0
+                if use_bridge:
+                    known_resp = np.vstack(
+                        [spec_feat] + [pool_feat[i][None] for i in bought_a]
+                    )
+                    known_mass = np.abs(
+                        dict_boot.transform(known_resp)
+                    ).sum(axis=1)
+                    round_kappa = max(float(known_mass.mean()), 1e-9)
                 if bought_a:
                     bought_codes = np.abs(dict_boot.transform(
                         np.vstack([pool_feat[i][None] for i in bought_a])
-                    ))
+                    )) / round_kappa
                     for code_row, i in zip(bought_codes, bought_a):
                         supply = code_row * max(pool[i]["_token_count"], 1)
                         ledger = np.maximum(ledger - supply, 0.0)
                 rem_list = sorted(remaining_a)
-                rem_codes = np.abs(dict_boot.transform(
-                    np.vstack([pool_pfeat[i][None] for i in rem_list])
-                ))
+                if use_bridge:
+                    # ridge bridge in dual form: pairs are the spec
+                    # examples plus everything bought so far
+                    pair_p = np.vstack(
+                        [spec_pfeat] + [pool_pfeat[i][None] for i in bought_a]
+                    )
+                    pair_r = np.vstack(
+                        [spec_feat] + [pool_feat[i][None] for i in bought_a]
+                    )
+                    gram = pair_p @ pair_p.T
+                    lam = 0.1 * np.trace(gram) / max(gram.shape[0], 1)
+                    dual = np.linalg.solve(
+                        gram + lam * np.eye(gram.shape[0]), pair_r
+                    )
+                    cand_p = np.vstack([pool_pfeat[i][None] for i in rem_list])
+                    pred_resp = (cand_p @ pair_p.T) @ dual
+                    # exchange-rate calibration: an average on-task
+                    # example's code mass counts as one token of supply
+                    rem_codes = np.abs(
+                        dict_boot.transform(pred_resp)
+                    ) / round_kappa
+                else:
+                    rem_codes = np.abs(dict_boot.transform(
+                        np.vstack([pool_pfeat[i][None] for i in rem_list])
+                    ))
                 gains = np.array([
                     np.minimum(
                         ledger, code_row * expected_tokens
@@ -1414,14 +1460,25 @@ def build_selections(config, tokenizer, pool):
                     for code_row in rem_codes
                 ])
                 picked = 0
+                ledger_work = ledger.copy()
                 for order_pos in np.argsort(-gains):
                     i = rem_list[int(order_pos)]
                     if gains[int(order_pos)] <= 1e-9:
                         break
+                    code_row = rem_codes[int(order_pos)]
+                    # within-batch sequential accounting: a batch of
+                    # near-duplicates stops paying after the first
+                    if np.minimum(
+                        ledger_work, code_row * expected_tokens
+                    ).sum() / expected_tokens <= 1e-9:
+                        continue
                     cost = max(pool[i]["_token_count"], 1)
                     if spent_a + cost > budget:
                         remaining_a.discard(i)
                         continue
+                    ledger_work = np.maximum(
+                        ledger_work - code_row * cost, 0.0
+                    )
                     bought_a.append(i)
                     spent_a += cost
                     remaining_a.discard(i)
@@ -1481,7 +1538,11 @@ def build_selections(config, tokenizer, pool):
                 spec_dir = spec_dir / max(spec_dir.sum(), 1e-12)
                 raw_w = sel_codes @ spec_dir
                 raw_w = raw_w / max(raw_w.mean(), 1e-12)
-                raw_w = np.clip(raw_w, 0.25, 4.0)
+                # weight range shrinks with corpus size: on a dozen rows
+                # a 4x weight is pure gradient variance, on 64+ it is
+                # signal (observed seed swings .60/.40 at small n)
+                clip_c = 1.0 + 3.0 * min(1.0, len(selected_boot) / 64.0)
+                raw_w = np.clip(raw_w, 1.0 / clip_c, clip_c)
                 for row_sel, weight in zip(selected_boot, raw_w):
                     row_sel["_v3_weight"] = float(weight)
             selections[boot_name] = selected_boot
@@ -1981,7 +2042,12 @@ def train_condition(
                     loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                 row_weight = rows[int(row_index)].get("_v3_weight")
                 if row_weight is not None:
-                    loss = loss * float(row_weight)
+                    # first epoch trains uniformly for coverage; weights
+                    # focus later epochs (small-corpus variance control)
+                    if not (
+                        train_cfg.get("weight_warm_epoch") and _epoch == 0
+                    ):
+                        loss = loss * float(row_weight)
                 loss.backward()
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
@@ -2563,7 +2629,7 @@ def main():
     if os.environ.get("E3_BEHAV_STOP") == "1":
         fit_n = config["task_boundary"]["fit_rows"]
         spec_n = config["task_boundary"]["spec_rows"]
-        config["_behav_rows"] = task_rows[fit_n:spec_n][:10]
+        config["_behav_rows"] = task_rows[fit_n:spec_n]
     absorption_monitor = None
     bnd_epochs = int(os.environ.get("E3_BND_EPOCHS", "0"))
     needs_monitor = (
@@ -2608,7 +2674,7 @@ def main():
             optimizer_steps = train_condition(
                 model, tokenizer, selected, bnd_config, condition=condition
             )
-        elif condition in ("F_atom_boot", "F_atom_boot2"):
+        elif condition in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3"):
             # compute-matched training: the budget caps teacher tokens,
             # not local compute. A targeted corpus is smaller than an
             # unfiltered one, so epochs scale up until optimizer steps
@@ -2623,6 +2689,8 @@ def main():
             )))
             boot_config = json.loads(json.dumps(config))
             boot_config["training"]["epochs"] = boot_epochs
+            if condition == "F_atom_boot3":
+                boot_config["training"]["weight_warm_epoch"] = 1
             print(
                 f"[{condition}][compute-match] tokens={sel_tokens} "
                 f"epochs={boot_epochs}",
