@@ -75,6 +75,7 @@ Training-Time Control on Agent Capability*。
 - hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
 
 ## Running jobs
+- E9 v3-lite COMPLETE on rai (2026-08-13 05:40 EDT): 0.8B 3-seed 5-arm table done (b2k atom ties uni .478, b10k atom .467 < emb .667 — premature-clearing cause identified); 2B sqljoin bootstrap purity DECISIVE (atom res 0.00x3 vs uni .80-.93 / emb .77-.83). hpg: 2B atom final-gate rerun wave 39338655 running (2R8P). NEXT: surplus phase + exchange-rate calibration, then AppWorld distillation ablations.
 - 39307304 COMPLETE (2026-08-13): atomg 9/9 — sqljoin purity 3/3 sql=1.00/res=0.00 (gate works); 0.8B×10k 0.60±.03 < comp 0.77-0.83; 2B×20k 0.75±.07 < comp 0.93 (strict gate starves large budgets). E9 (rai) = directed-generation piece, in flight.
 - hpg | array 39058919(39 任务:4 尺寸×3 预算×3 seeds + sql-join 子话题)|
   E3.1 (size,budget) 覆盖曲面 sweep | 2026-08-10 ~02:00 EDT | watcher bjo45egd6
