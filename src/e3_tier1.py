@@ -41,7 +41,7 @@ CONDITIONS = (
     "base", "A_all", "B_random", "C_emb", "D_grad", "E_less", "F_refusal",
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
-    "F_uni_boot", "F_emb_boot", "F_atom_boot",
+    "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
 )
 COLORS = {
     "base": "#6b6a63",
@@ -62,6 +62,7 @@ COLORS = {
     "F_uni_boot": "#8a8a8a",
     "F_emb_boot": "#2aa198",
     "F_atom_boot": "#c0392b",
+    "F_atom_boot2": "#7d1f14",
 }
 SHORT_LABELS = {
     "base": "base",
@@ -82,8 +83,9 @@ SHORT_LABELS = {
     "F_uni_boot": "F-uni",
     "F_emb_boot": "F-emb",
     "F_atom_boot": "F-atom",
+    "F_atom_boot2": "F-atom2",
 }
-BOOT_CONDS = ("F_uni_boot", "F_emb_boot", "F_atom_boot")
+BOOT_CONDS = ("F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2")
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -1291,7 +1293,13 @@ def build_selections(config, tokenizer, pool):
                 flush=True,
             )
 
-        if "F_atom_boot" in config["conditions"]:
+        for boot_name in ("F_atom_boot", "F_atom_boot2"):
+            if boot_name not in config["conditions"]:
+                continue
+            # boot2 adds (a) implicit-demand completion: bought teacher
+            # responses reveal skills the queries never mentioned, and
+            # (b) per-row demand-aligned loss weights for training.
+            use_implicit = boot_name.endswith("2")
             from sklearn.decomposition import MiniBatchDictionaryLearning
             spec_feat = _BOOT_STATE["spec_feat"]
             pool_feat = _BOOT_STATE["pool_feat"]
@@ -1302,6 +1310,7 @@ def build_selections(config, tokenizer, pool):
             expected_tokens = 200.0
             rounds = 0
             ledger = None
+            dict_boot = None
             while remaining_a and spent_a < budget:
                 rounds += 1
                 corpus = np.vstack(
@@ -1316,6 +1325,16 @@ def build_selections(config, tokenizer, pool):
                 dict_boot.fit(corpus)
                 spec_codes_b = np.abs(dict_boot.transform(spec_feat))
                 demand_b = spec_codes_b.mean(axis=0)
+                if use_implicit and len(bought_a) >= 8:
+                    implicit_codes = np.abs(dict_boot.transform(
+                        np.vstack([pool_feat[i][None] for i in bought_a])
+                    ))
+                    implicit_b = implicit_codes.mean(axis=0)
+                    demand_b = 0.5 * (
+                        demand_b / max(demand_b.sum(), 1e-12)
+                    ) + 0.5 * (
+                        implicit_b / max(implicit_b.sum(), 1e-12)
+                    )
                 ledger = demand_b / max(demand_b.sum(), 1e-12) * budget
                 if bought_a:
                     bought_codes = np.abs(dict_boot.transform(
@@ -1368,9 +1387,25 @@ def build_selections(config, tokenizer, pool):
                 max(pool[i]["_token_count"], 1)
                 for i in bought_a if i not in set(admitted_boot)
             )
-            selections["F_atom_boot"] = [dict(pool[i]) for i in admitted_boot]
+            selected_boot = [dict(pool[i]) for i in admitted_boot]
+            if use_implicit and selected_boot and dict_boot is not None:
+                demand_dir = ledger / max(ledger.sum(), 1e-12)
+                sel_codes = np.abs(dict_boot.transform(
+                    np.vstack([pool_feat[i][None] for i in admitted_boot])
+                ))
+                sel_codes = sel_codes / np.maximum(
+                    sel_codes.sum(axis=1, keepdims=True), 1e-12
+                )
+                spec_dir = np.abs(dict_boot.transform(spec_feat)).mean(axis=0)
+                spec_dir = spec_dir / max(spec_dir.sum(), 1e-12)
+                raw_w = sel_codes @ spec_dir
+                raw_w = raw_w / max(raw_w.mean(), 1e-12)
+                raw_w = np.clip(raw_w, 0.25, 4.0)
+                for row_sel, weight in zip(selected_boot, raw_w):
+                    row_sel["_v3_weight"] = float(weight)
+            selections[boot_name] = selected_boot
             print(
-                f"[setup][F_atom_boot] bought={len(bought_a)} "
+                f"[setup][{boot_name}] bought={len(bought_a)} "
                 f"spent={spent_a} admitted={len(admitted_boot)} "
                 f"overhead={overhead_boot} rounds={rounds} "
                 f"unspent={budget - spent_a} "
@@ -1863,6 +1898,9 @@ def train_condition(
                     ) / len(chunk)
                 else:
                     loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
+                row_weight = rows[int(row_index)].get("_v3_weight")
+                if row_weight is not None:
+                    loss = loss * float(row_weight)
                 loss.backward()
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
