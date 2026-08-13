@@ -81,6 +81,7 @@ fig.legend(h, l, frameon=False, ncol=5, loc="upper center",
            handletextpad=0.1, columnspacing=0.9)
 fig.tight_layout(rect=(0, 0, 1, 0.94))
 fig.savefig("paper/figs/pilot_pca.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/pilot_pca.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ------------------------------------------------------------ pilot_roc_hard
@@ -97,6 +98,7 @@ style(ax, ylab="True Positive Rate", xlab="False Positive Rate")
 ax.legend(frameon=False, loc="lower right", labelcolor=TEXT)
 fig.tight_layout()
 fig.savefig("paper/figs/pilot_roc_hard.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/pilot_roc_hard.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ------------------------------------------------------------ pilot_k_curve
@@ -116,6 +118,7 @@ style(ax, ylab="Hard-Pair AUROC", xlab="Examples Used to Fit Boundary (k)")
 ax.legend(frameon=False, loc="center right", labelcolor=TEXT)
 fig.tight_layout()
 fig.savefig("paper/figs/pilot_k_curve.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/pilot_k_curve.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ------------------------------------------------------------ pilot_distill
@@ -137,6 +140,7 @@ ax.set_xticks(x, ["Code", "CoT", "SQL", "Pandas", "Alpaca"])
 style(ax, ylab="Held-Out Loss")
 fig.tight_layout()
 fig.savefig("paper/figs/pilot_distill.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/pilot_distill.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ---------------------------------------------------------------- e1_intra
@@ -161,6 +165,7 @@ style(ax, ylab="Directed AUROC")
 ax.legend(frameon=False, loc="upper right", labelcolor=TEXT)
 fig.tight_layout()
 fig.savefig("paper/figs/e1_intra.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/e1_intra.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ---------------------------------------------------------------- e2_gate
@@ -182,6 +187,7 @@ style(ax, ylab="Residual Gradient Norm", xlab="Training Step")
 ax.legend(frameon=False, loc="lower left", labelcolor=TEXT, markerscale=1.8)
 fig.tight_layout()
 fig.savefig("paper/figs/e2_gate.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/e2_gate.pdf", bbox_inches="tight")
 plt.close(fig)
 
 # ---------------------------------------------------------------- e3_tier1
@@ -199,6 +205,7 @@ style(ax, ylab="Accuracy")
 ax.legend(frameon=False, loc="upper left", labelcolor=TEXT)
 fig.tight_layout()
 fig.savefig("paper/figs/e3_tier1.png", dpi=200, bbox_inches="tight")
+fig.savefig("paper/figs/e3_tier1.pdf", bbox_inches="tight")
 plt.close(fig)
 
 print("regenerated 7 figures")

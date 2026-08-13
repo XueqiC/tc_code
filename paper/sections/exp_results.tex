@@ -7,7 +7,7 @@
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figs/pilot_pca.png}
+\includegraphics[width=\linewidth]{figs/pilot_pca.pdf}
 \caption{First two principal components of three feature spaces over five
 domains (120 examples each; pilot). In gradient space (left) the
 identical-query hard pair separates (GSM8K-code, blue, versus GSM8K-CoT,
@@ -17,8 +17,8 @@ orange); trajectory embeddings (center) mix the pair; query embeddings
 \end{figure}
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.48\linewidth]{figs/pilot_roc_hard.png}\hfill
-\includegraphics[width=0.5\linewidth]{figs/pilot_k_curve.png}
+\includegraphics[width=0.48\linewidth]{figs/pilot_roc_hard.pdf}\hfill
+\includegraphics[width=0.5\linewidth]{figs/pilot_k_curve.pdf}
 \caption{Left: hard-pair ROC (30 in-domain versus 30 probe examples;
 pilot). Gradient boundaries reach AUROC $1.000$; trajectory embeddings
 $0.687$; query embeddings $0.404$, chance by construction. Right: sample
@@ -35,7 +35,7 @@ robustness matrix, PCA figure.}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.75\linewidth]{figs/e1_intra.png}
+\includegraphics[width=0.75\linewidth]{figs/e1_intra.pdf}
 \caption{Within-domain boundary resolution (5 seeds, mean$\pm$std;
 pilot). Dense subspaces and embeddings on keyword-defined subgroup pairs;
 sparse atom support (Section~\ref{sec:atoms}) raises SQL-join resolution to
@@ -53,7 +53,7 @@ limitation (intra-line skills need finer blocks).}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figs/e2_gate.png}
+\includegraphics[width=\linewidth]{figs/e2_gate.pdf}
 \caption{The failed pre-registered gate (pilot). Left: mean residual
 gradient norm and execution success across 66 optimizer steps; the norm
 falls, then rises as the student's own style diverges from teacher
@@ -72,7 +72,7 @@ cohorts (pre-registered).}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figs/pilot_distill.png}
+\includegraphics[width=\linewidth]{figs/pilot_distill.pdf}
 \caption{Narrow distillation sharpens the student into the task (pilot;
 90 in-domain trajectories, 33 steps). Teacher-forced loss (left) and median
 residual gradient norm (right) before (blue) and after (orange) training:
@@ -82,7 +82,7 @@ out-of-domain test sets without any explicit suppression.}
 \end{figure}
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figs/e3_tier1.png}
+\includegraphics[width=\linewidth]{figs/e3_tier1.pdf}
 \caption{Budget-matched selection conditions (pilot, single seed,
 1.5B student, 40k response tokens). Left: in-domain execution accuracy;
 gradient-guided selection (D) ties random selection at 90\% while all
