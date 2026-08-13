@@ -89,9 +89,14 @@ def parse_leading_score(reply: str) -> float:
     if "</think>" in reply:
         reply = reply.split("</think>", 1)[1]
     match = LEADING_FLOAT_RE.match(reply)
-    if match is None:
-        raise ValueError("teacher reply does not begin with a numeric score")
-    score = float(match.group(1))
+    if match is not None:
+        score = float(match.group(1))
+    else:
+        # tolerate formatting variance: first number anywhere in the reply
+        any_match = re.search(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)", reply)
+        if any_match is None:
+            raise ValueError("teacher reply contains no numeric score")
+        score = float(any_match.group(0))
     if not math.isfinite(score) or not 0.0 <= score <= 5.0:
         raise ValueError(f"teacher score must be between 0 and 5, got {score!r}")
     return score
