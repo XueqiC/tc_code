@@ -62,13 +62,11 @@ subspace is invariant to rotations of its basis and thus cannot attach
 identity to any direction, whereas rotation destroys code sparsity, so
 atoms lock onto self-contained recurring skills. Atoms resolve skills
 within a single domain at AUROC $0.906$ where dense subspaces reach
-$0.615$ (Figure~\ref{fig:one}b). In this vocabulary distillation stops being a ranking problem and
-becomes bookkeeping: the example queries define a demand ledger with a
-conformal admission test calibrated on the queries themselves, every
-candidate trace defines a per-token supply schedule, and selection
-repeatedly takes the admitted trace satisfying the largest remaining
-demand per token, charging the ledger as it goes. Budget therefore flows
-to skills with unsatisfied demand and never to out-of-scope ones: the student reaches
+$0.615$ (Figure~\ref{fig:one}b). In this vocabulary distillation becomes active learning against the
+teacher: the example queries fix a per-skill token quota, each round the
+method asks the teacher where the remaining quota is largest, and every
+verified answer is charged against the quota it fills. Budget therefore
+flows to skills with unmet demand and never to out-of-scope ones: the student reaches
 target in-task performance with less budget, and off-task capability stays
 at zero at every budget while the strongest baseline converts every
 surplus token into out-of-scope capability (Figure~\ref{fig:one}c,d).
@@ -92,11 +90,12 @@ recurring structure is identifiable as capability atoms precisely because
 of sparsity, not subspace geometry. A separation principle with
 pre-registered evidence, geometry selects while behavior judges, dictates
 where each signal may be used.
-\item \textbf{Method.} Market-clearing distillation over capability atoms:
-demand ledgers, per-token supply schedules, a calibrated admission test,
-and endogenous diminishing returns, with behaviorally timed training and
-certified two-sided deployment; every threshold is a statistical
-convention or learned from the task's own calibration data.
+\item \textbf{Method.} Budgeted acquisition and distillation over
+capability atoms: per-skill token quotas, quota-directed teacher querying
+with a calibrated admission gate, demand-weighted supervised fine-tuning,
+and behaviorally timed training with certified two-sided deployment;
+every threshold is a statistical convention or estimated from the support
+set itself.
 \item \textbf{Results.} On a controlled five-domain suite the method
 matches or beats the strongest influence-based selection in-task at every
 size and budget (all wins at the canonical budget across four student
