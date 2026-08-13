@@ -105,3 +105,17 @@ AppWorld 128eps 直接复用为缓存)。
 新诊断指标:损耗率(不合格/超供 token 占比)。
 叙事:v2 在货架上把钱花对;v3 按账本向工厂下生产订单 ——
 账本从挑货的秤升级为生产计划表。
+
+## 蒸馏侧设计(PI 要求补强 2026-08-13;术语规范:弃用市场比喻)
+1. Demand-weighted token-level loss:span 级 CE 加权(atom 组成 x 需求
+   对齐度),界外夹带内容 loss 降权而非整条二值取舍。
+2. Interleaved acquisition-training:SFT 若干步 <-> 当前 student 上重算
+   k 条指纹/需求(已吸收技能需求自然衰减)-> 下轮采样只补未吸收技能。
+   分离原则:梯度决定采什么,行为探针决定何时停。
+3. DAgger 式纠错采样:学生本地 rollout,执行反馈定位错误中间状态,
+   发 teacher 要延续演示(计费),进下轮 SFT。black-box 下唯一可行的
+   on-policy 蒸馏(GKD/MiniLLM 需 logits 已被设定排除)。覆盖 vs 纠错
+   的预算分配由需求残差决定。
+验证:E7a 加权 loss vs 平权(同语料);E7b 交替 vs 一次性(同预算);
+E7c 纠错采样 @ AppWorld。
+方法两条腿:数据获取侧(需求估计->定向采样)+ 蒸馏侧(1-3)。
