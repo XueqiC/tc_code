@@ -195,3 +195,15 @@ E8c SFT 后短 RFT 打磨:calibration query 上环境成功率作奖励,零 teac
 E8d 推理期免费武器:self-consistent action generation(执行表决)+
     工具调用约束解码(封死格式报废)
 优先级:E8a/E8d 最便宜见效快,atomg 判定后先做。
+
+## 蒸馏侧定稿(method.tex 已重写)+ 实验矩阵对齐(2026-08-13 晚)
+蒸馏三创新(全部 atom 分辨率,统一原则:指挥花钱的词汇表同时指挥学习):
+1. 需求加权 loss(权重来源=配额,非启发式)
+2. 技能分辨吸收监控:per-atom 需求衰减曲线;饱和->降权(治 M17 surplus),
+   停滞->触发定向补采;行为探针仍是唯一裁判
+3. 技能分辨纠错:失败 rollout 特征过字典命名缺陷技能,纠错 prompt 按
+   atom 合成、预算按 atom 失败率分配(超越状态级 DAgger)
+实验矩阵:今晚受控套件五臂(uniform/emb/atom/atom2=+补全+加权/base,
+0.8B x {2k,10k} x 3 seeds,指标含浪费率与 B*);明天 AppWorld:
+吸收监控消融(饱和降权 vs 固定;停滞触发 vs 不触发)+
+纠错消融(atom 级 vs 状态级 DAgger vs 无)。
