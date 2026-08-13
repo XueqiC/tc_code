@@ -1377,15 +1377,18 @@ def build_selections(config, tokenizer, pool):
                 # currently differs from boot only in the per-row loss
                 # weights attached below.
                 ledger = demand_b / max(demand_b.sum(), 1e-12) * budget
+                # supply uses RAW code magnitudes, never normalized:
+                # lasso gives off-task prompts small codes (the atoms
+                # cannot reduce their error), and normalizing that away
+                # fabricated full-strength supply from weak alignments
+                # (95% overhead). A raw-code token supplies little when
+                # its gradient does not lie in demanded directions.
                 if bought_a:
                     bought_codes = np.abs(dict_boot.transform(
                         np.vstack([pool_feat[i][None] for i in bought_a])
                     ))
                     for code_row, i in zip(bought_codes, bought_a):
-                        supply = (
-                            code_row / max(code_row.sum(), 1e-12)
-                            * max(pool[i]["_token_count"], 1)
-                        )
+                        supply = code_row * max(pool[i]["_token_count"], 1)
                         ledger = np.maximum(ledger - supply, 0.0)
                 rem_list = sorted(remaining_a)
                 rem_codes = np.abs(dict_boot.transform(
@@ -1393,9 +1396,7 @@ def build_selections(config, tokenizer, pool):
                 ))
                 gains = np.array([
                     np.minimum(
-                        ledger,
-                        code_row / max(code_row.sum(), 1e-12)
-                        * expected_tokens,
+                        ledger, code_row * expected_tokens
                     ).sum() / expected_tokens
                     for code_row in rem_codes
                 ])
