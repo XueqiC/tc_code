@@ -842,8 +842,22 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
         ).astype(np.float64, copy=False)
         del embedder
         gc.collect()
+        # admission gate lives in PROMPT-view space too: response-view
+        # spec features form a tight self-cluster that rejects every
+        # pool row (measured passrate 0.00 even on-task), while
+        # prompt-view separates on-task (0.89) from off-task (0.35-0.47)
+        # at the min-calibration threshold. Response quality is judged
+        # by the execution check, topic membership by this gate.
+        boot_fit_n = config["task_boundary"]["fit_rows"]
+        gate_subspace = boundary.fit_subspace(spec_prompt_feat[:boot_fit_n])
+        gate_cal = boundary.score(
+            gate_subspace, spec_prompt_feat[boot_fit_n:]
+        )
+        gate_pool_scores = boundary.score(gate_subspace, prompt_feat)
         _BOOT_STATE.clear()
         _BOOT_STATE.update({
+            "gate_thr": float(gate_cal.min()),
+            "gate_pool_scores": gate_pool_scores,
             "spec_feat": boot_feat[:spec_n],
             "pool_feat": boot_feat[spec_n:],
             "pool_prompt_feat": prompt_feat,
@@ -1345,13 +1359,12 @@ def build_selections(config, tokenizer, pool):
             spec_feat = _BOOT_STATE["spec_prompt_feat"]
             pool_feat = _BOOT_STATE["pool_prompt_feat"]
             pool_pfeat = _BOOT_STATE["pool_prompt_feat"]
-            # admission for PURCHASED goods is an outlier test, not a
-            # top-quantile selector: a return is trainable if it scores
-            # at least as spec-like as the least spec-like genuine
-            # calibration query. The tight D_less_bnd threshold is for
-            # free shelves, where selectivity costs nothing; here every
-            # rejection was paid for.
-            gate_thr_boot = float(min(config["task_boundary"]["_grad_cal"]))
+            # admission for PURCHASED goods is an outlier test in
+            # prompt-view space (see gate construction above): trainable
+            # if the prompt scores at least as spec-like as the least
+            # spec-like genuine calibration query.
+            gate_thr_boot = _BOOT_STATE["gate_thr"]
+            gate_scores_boot = _BOOT_STATE["gate_pool_scores"]
             bought_a, spent_a = [], 0
             remaining_a = set(cache_indices)
             expected_tokens = 200.0
@@ -1423,7 +1436,7 @@ def build_selections(config, tokenizer, pool):
                     break
             admitted_boot = [
                 i for i in bought_a
-                if pool[i]["_grad_score"] >= gate_thr_boot
+                if gate_scores_boot[i] >= gate_thr_boot
             ]
             overhead_boot = sum(
                 max(pool[i]["_token_count"], 1)
