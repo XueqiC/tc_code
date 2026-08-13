@@ -80,3 +80,16 @@ PI 指出:当前受控实验的池 prompt 来自 benchmark train 分布 —— �
 k-sweep(5/10/25/50)把 few-shot 声明变成实测样本复杂度曲线。
 受控套件保留现协议作可比赛道;E6f 为 v3 主战场。
 优先级:atomg 判定 → E6b → E6f/k-sweep。
+
+## 干净 few-shot 蒸馏 problem setting(PI 定调 2026-08-13 凌晨,待最终拍板)
+给定:k 条 query(唯一任务信息)· 单 black-box teacher(API 计费)·
+white-box base student · 预算 b(teacher API 总 token)· 免费资产(公开
+语料+本地算力)。不给:现成池 / benchmark train 集 / 额外标注 ——
+每条 trace 都从 b 购买(解 k 条、变体、探针、补货全计费)。
+求:(student, 边界, 证书);Q1 conformal 覆盖,Q2 界内逼近 teacher、
+零界外浪费。评价:同 (teacher,k,b) 比花钱效率。
+单 teacher 定调:主表 deepseek-v4-pro;多 teacher 降为 ablation /
+混合价格市场 future work(deepseek-only 子池重跑选择即可复用数据)。
+Baseline 适配:LESS/SmartAD 无池起步 = 均匀自举再排序 vs 我们定向自举。
+实验技巧:缓存超池 + 付费采样接口(信息等价于真 API,现有 952 池 /
+AppWorld 128eps 直接复用为缓存)。
