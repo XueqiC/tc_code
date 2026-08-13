@@ -218,9 +218,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             score = parse_leading_score(reply)
         except Exception as exc:
-            raise RuntimeError(
-                f"failed to grade candidate-pool row {index} ({key}): {exc}"
-            ) from exc
+            print(
+                f"[skip] row={index} key={key} error={exc}",
+                flush=True,
+            )
+            failures = getattr(main, "_failures", 0) + 1
+            main._failures = failures
+            if failures > 50:
+                raise RuntimeError("too many grading failures") from exc
+            scores[key] = None
+            write_scores(OUTPUT_PATH, scores)
+            completed += 1
+            continue
 
         scores[key] = score
         write_scores(OUTPUT_PATH, scores)
