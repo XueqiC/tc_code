@@ -43,3 +43,48 @@ SOD (on-policy)             & -- & -- & -- & -- & -- & -- & --\\
 \end{tabular}
 \end{table}
 
+
+% ---- Cross matrix: acquisition x curation/training (bootstrap protocol) ----
+\begin{table}[t]
+\centering
+\caption{Acquisition $\times$ curation on the few-shot protocol
+(GSM8K-code, 2B student, $b{=}20$k, 3 seeds; execution accuracy, off-task
+residue as subscript). Rows generate the training data from the metered
+teacher; columns decide what is kept and how it is weighted during
+supervised fine-tuning. Our acquisition helps under every curation, our
+curation helps for every generator, and the full method (boxed) combines
+both.}
+\label{tab:cross}
+\small
+\begin{tabular}{l|cccc}
+\toprule
+ & \multicolumn{4}{c}{\textbf{Curation + training}} \\
+\textbf{Acquisition} & Plain SFT & AlpaGasus & LESS score & \textbf{Ours} \\
+\midrule
+Self-Instruct \citeyear{wang2023selfinstruct}\hspace{-4pt} & -- & -- & -- & -- \\
+Evol-Instruct \citeyear{xu2024wizardlm} & -- & -- & -- & -- \\
+LLM2LLM \citeyear{lee2024llm2llm}       & -- & -- & -- & -- \\
+\rowcolor{rowours}\textbf{Ours (demand-directed)} & -- & -- & -- & \fbox{--} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Best configuration per system on the few-shot protocol
+(2B, $b{=}20$k): in-task execution accuracy, off-task residue, wasted
+budget, and budget-to-target $B^{*}(0.9)$.}
+\label{tab:best}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{System (best config)} & In-task $\uparrow$ & Residue $\downarrow$ &
+Wasted $\downarrow$ & $B^{*}(0.9)$ $\downarrow$ \\
+\midrule
+Self-Instruct (+ best curation)  & -- & -- & -- & -- \\
+Evol-Instruct (+ best curation)  & -- & -- & -- & -- \\
+LLM2LLM                          & -- & -- & -- & -- \\
+\rowcolor{rowours}\textbf{Ours (full)} & -- & $\mathbf{0.00}$ & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
