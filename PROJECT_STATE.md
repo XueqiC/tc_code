@@ -75,7 +75,7 @@ Training-Time Control on Agent Capability*。
 - hpg-b200 分区快照(08-09 晚):464 GPU,空闲仅 ~12;两账户队列基本无我方任务
 
 ## Running jobs
-- 39307304 (hpg group queue, array 0-8): atomg verdict rerun — D_atom with FIXED admission gate (calibrated boundary threshold; old p>=alpha/2 form was vacuous at n_cal=15) + pool-only dictionary fit. Cells: sqljoin x3 / 0.8Bx10k x3 / 2Bx20k x3. Submitted 2026-08-12 ~19:55 EDT, ~1-3h/task, watcher armed. Decides final method form (gate x clearing).
+- 39307304 COMPLETE (2026-08-13): atomg 9/9 — sqljoin purity 3/3 sql=1.00/res=0.00 (gate works); 0.8B×10k 0.60±.03 < comp 0.77-0.83; 2B×20k 0.75±.07 < comp 0.93 (strict gate starves large budgets). E9 (rai) = directed-generation piece, in flight.
 - hpg | array 39058919(39 任务:4 尺寸×3 预算×3 seeds + sql-join 子话题)|
   E3.1 (size,budget) 覆盖曲面 sweep | 2026-08-10 ~02:00 EDT | watcher bjo45egd6
 - rai | qwen3.5:397b 轨迹池生成(第三 teacher,同族对照)| pool_v0_qwen397.log
