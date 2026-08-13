@@ -1434,6 +1434,30 @@ def build_selections(config, tokenizer, pool):
                     ))
                 if picked == 0:
                     break
+            if spent_a < budget and remaining_a and dict_boot is not None:
+                # surplus phase: quotas cleared but budget remains. Spend
+                # it on gate-passing candidates (prompts are visible
+                # pre-purchase, so the prompt-view gate is a legal
+                # planning signal) with the highest on-vocabulary supply
+                # density, instead of returning the money.
+                surplus_list = sorted(remaining_a)
+                surplus_codes = np.abs(dict_boot.transform(
+                    np.vstack([pool_pfeat[i][None] for i in surplus_list])
+                ))
+                density = surplus_codes.sum(axis=1)
+                for order_pos in np.argsort(-density):
+                    i = surplus_list[int(order_pos)]
+                    if _BOOT_STATE["gate_pool_scores"][i] < \
+                            _BOOT_STATE["gate_thr"]:
+                        continue
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_a + cost > budget:
+                        continue
+                    bought_a.append(i)
+                    spent_a += cost
+                    remaining_a.discard(i)
+                    if spent_a >= budget:
+                        break
             admitted_boot = [
                 i for i in bought_a
                 if gate_scores_boot[i] >= gate_thr_boot
@@ -2583,6 +2607,29 @@ def main():
             bnd_config["training"]["epochs"] = bnd_epochs
             optimizer_steps = train_condition(
                 model, tokenizer, selected, bnd_config, condition=condition
+            )
+        elif condition in ("F_atom_boot", "F_atom_boot2"):
+            # compute-matched training: the budget caps teacher tokens,
+            # not local compute. A targeted corpus is smaller than an
+            # unfiltered one, so epochs scale up until optimizer steps
+            # match what the full-budget corpus would receive (cap 8);
+            # the behavioral probe guards against over-training.
+            sel_tokens = max(
+                sum(row["_token_count"] for row in selected), 1
+            )
+            boot_epochs = int(min(8, max(
+                config["training"]["epochs"],
+                round(config["training"]["epochs"] * budget / sel_tokens),
+            )))
+            boot_config = json.loads(json.dumps(config))
+            boot_config["training"]["epochs"] = boot_epochs
+            print(
+                f"[{condition}][compute-match] tokens={sel_tokens} "
+                f"epochs={boot_epochs}",
+                flush=True,
+            )
+            optimizer_steps = train_condition(
+                model, tokenizer, selected, boot_config, condition=condition
             )
         elif (
             absorption_monitor is None
