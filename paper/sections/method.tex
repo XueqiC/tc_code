@@ -2,174 +2,239 @@
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.png}
-\caption{The pipeline. One backward pass turns a query into a gradient
-fingerprint of what must be learned; a sparse dictionary resolves
-fingerprints into named capability atoms, and the $k$ example queries
-become a demand ledger over them. Selection clears this market: each pick
-satisfies the largest remaining demand per token and drains the ledger, so
-a trace supplying only out-of-ledger atoms (\textsc{plot}) has zero value
-and the budget is spent strictly inside the specification. The student
-trains on the result with behaviorally timed checkpointing and ships as a
-certified agent: finite-sample bounds on both sides of the boundary,
-behind a conformal gate (Section~\ref{sec:behavior}).}
+\caption{The pipeline. One backward pass turns each example into a
+gradient feature; sparse dictionary learning over these features yields
+capability atoms (Definition~\ref{def:atom}), in which the support set
+becomes a task demand (Definition~\ref{def:demand}) scaled to the token
+budget. Acquisition queries the pay-per-token teacher where unmet demand
+is largest, filters returns through an execution check and a conformal
+gate, and distillation weights each admitted demonstration by the demand
+it serves. The student ships with finite-sample guarantees on both sides
+of the task boundary.}
 \label{fig:pipeline}
 \end{figure}
-Figure~\ref{fig:pipeline} summarizes the pipeline. The method turns
-distillation from a ranking problem into a bookkeeping problem. A short
-warmup and one backward pass per example convert queries and teacher traces
-into \emph{gradient fingerprints}, vectors that record what a student would
-have to learn (Section~\ref{sec:fingerprints}). A sparse dictionary factors
-these fingerprints into \emph{capability atoms}, a reusable vocabulary of
-skills, in which the $k$ example queries become a \emph{demand ledger} and
-every candidate trace becomes a \emph{supply schedule}
-(Section~\ref{sec:atoms}). Selection then clears this market under the
-token budget: each pick satisfies the largest remaining demand per token
-and is charged against the ledger, so diminishing returns and domain
-filtering arise from the accounting itself rather than from tuned
-constants (Section~\ref{sec:clearing}). Finally, training is timed by behavior and the deployed student ships
-with certified two-sided guarantees, because our experiments show that
-gradient geometry reliably decides what to train on but not when a
-capability has behaviorally arrived (Section~\ref{sec:behavior}). Every
-threshold in the pipeline is either a statistical convention
-($\alpha{=}0.1$, $90\%$ mass) or learned from the task's own calibration
-data; no component is tuned per benchmark.
+Figure~\ref{fig:pipeline} summarizes the pipeline. Because no training
+corpus is given (Section~\ref{sec:setting}), the method cannot rank an
+existing pool; it must decide what to ask the teacher, one paid query at
+a time. We therefore cast few-shot distillation as \emph{active
+learning against a pay-per-token teacher} \citep{settles2009active}: a
+skill-level description of the task, estimated from the support set,
+serves as the acquisition target; teacher queries are synthesized where
+the description shows unmet need; and the returned demonstrations are
+weighted, during supervised fine-tuning, by how much of that need they
+serve. Concretely, one backward pass per example yields its
+\emph{gradient feature} \citep{xia2024less}, a vector recording what the
+student would have to learn from that example
+(Section~\ref{sec:fingerprints}). Sparse dictionary learning over these
+features yields \emph{capability atoms}, a task-local vocabulary of
+skills, and in this vocabulary the support set induces a \emph{task
+demand}: how many training tokens each skill deserves under the budget
+(Section~\ref{sec:atoms}). An acquisition loop spends the budget against
+this demand (Section~\ref{sec:acquire}); importance-weighted training
+with behaviorally timed checkpointing turns the purchases into a student
+(Section~\ref{sec:distill}); conformal calibration turns the student
+into a certified, gated deployment (Section~\ref{sec:behavior}). Every
+threshold is either a statistical convention ($\alpha{=}0.1$, $90\%$
+mass) or estimated from the support set itself; no component is tuned
+per benchmark.
 
-\subsection{Problem setting}\label{sec:setting}
-A teacher agent $\pi_T$ acts by emitting executable code; a rollout on query
-$q$ yields a trajectory $\tau(q)$ whose success is decided by an execution
-verifier. We treat $\pi_T$ as a black box: it is sampled through an API that
-returns text and charges per token, and nothing in what follows touches its
-weights or logits --- matching the practical regime where the strongest
-teachers are closed commercial models, and ruling out
-distribution-matching distillation \citep{gu2024minillm, agarwal2024gkd}
-from the start. Every gradient this paper computes is taken on the student. A task domain is a distribution $P_\mathcal{T}$ over queries given
-only through $k$ examples $Q_k \sim P_\mathcal{T}$, with $k$ between 5 and a
-few hundred. From $(\pi_T, Q_k)$, a pool of teacher trajectories, a token
-budget $b$, and a base student $\theta_0$, we must produce: (1) a boundary
+\subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
+We formulate the problem in the classic few-shot mold. A task is a
+distribution $P_\mathcal{T}$ over queries, revealed only through a
+\emph{support set} $S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$ of $k$
+example queries --- the deployer's sample of the intended workload, and the
+\emph{only} task-specific information any method receives. Alongside the
+support set, every method is given the same three resources: (i) a single
+teacher agent $\pi_T$ that acts by emitting executable code and is accessed
+strictly as a black box --- an API that returns sampled trajectories and
+charges per emitted token, with weights and logits out of reach, matching
+the regime where the strongest teachers are closed commercial models and
+ruling out distribution-matching distillation \citep{gu2024minillm,
+agarwal2024gkd} from the start; (ii) an open-weight base student $\theta_0$,
+trainable locally; and (iii) a token budget $b$ that caps the total number
+of teacher tokens the method may purchase over its entire run. Nothing else
+is provided: there is no pre-existing trajectory pool and no auxiliary
+labeled corpus --- every demonstration a method trains on must be generated
+by querying $\pi_T$, and every returned token is charged against $b$.
+Prompts sent to the teacher are constructed by the method itself (solving
+the support queries, sampling variants of them, probing); the support set
+is never expanded.
+
+From $(S, \pi_T, \theta_0, b)$ each method must produce: (1) a boundary
 predictor $\hat{B}(q) \in \{\text{in},\text{out}\}$ with distribution-free
 coverage $\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=\text{in}] \ge 1-\alpha$; and
 (2) a student $\theta_S$ evaluated on the two-sided objective: coverage risk
 $R_{\mathrm{cov}}$ (in-domain requests the student fails) and leakage $L$
 (out-of-domain requests the student performs). We report
-$(R_{\mathrm{cov}}, L)$ frontiers under matched token budgets and, following
-the budget-to-target protocol, the minimal budget at which each method
-reaches a target in-task level.
+$(R_{\mathrm{cov}}, L)$ under matched $(S, \pi_T, b)$, the
+budget-to-target level $B^{*}(\tau)$, and the fraction of purchased tokens
+that are excluded from training because the returned generation failed
+verification --- wasted budget, an audit of how well each method's spending
+is aimed. Baselines run under exactly this protocol: a selection method
+that presupposes a corpus is given the same pay-per-token teacher and must
+generate its own.
 
 The method relies on two assumptions. \textbf{A1 (white-box student):} the
-student's gradients are accessible; this is all that fingerprints, atoms,
-and supply accounting consume. \textbf{A2 (success signal):} some check
-decides whether an attempt succeeded; certificates consume only this binary
-outcome, so an execution verifier, a unit test, or a judge are
-interchangeable. Code-acting agents are the instantiation we evaluate, not
-a requirement.
+student's gradients are accessible; this is all that gradient features and
+atoms consume. \textbf{A2 (success signal):} some check decides whether an
+attempt succeeded; certificates consume only this binary outcome, so an
+execution verifier, a unit test, or a judge are interchangeable.
+Code-acting agents are the instantiation we evaluate, not a requirement.
 
-\subsection{Reading learning demands as gradient fingerprints}
+\subsection{Gradient features: reading what an example teaches}
 \label{sec:fingerprints}
-The pipeline begins by converting everything it is given, the $k$
-example queries with their teacher solutions and the pool of candidate
-traces, into a single common representation: one fingerprint vector per
-example, read at the student initialization $\theta_0$. The central
-representational choice is to describe an example not by its
-text but by \emph{what the student would have to learn from it}: the
-gradient that the example induces on the student. Identical query texts
-solved in different styles are inseparable to any function of the text,
-yet their gradients separate perfectly (hard-pair AUROC $1.000$ against
-$0.687$ for trajectory embeddings, Section~\ref{sec:boundary}), because the
-gradient records which parameters must change, not which words appear.
-Concretely, we first run a brief warmup ($5\%$ of the pool for four
-epochs with a low-rank adapter, following \citealp{xia2024less}), which
-serves two purposes: the optimizer accumulates the second-moment statistics
-required next, and the model absorbs surface formatting so that later
-gradients reflect substantive skills. Each example then contributes one
-backward pass; its adapter gradient is rescaled coordinate-wise by the
-inverse root of the accumulated second moments, so that the vector measures
-the step the optimizer would actually take rather than raw gradient
-geometry, and is compressed by a fixed random projection. The projection is
-lossless for our purposes: all downstream computations consume only inner
-products, which random projections preserve to $(1\pm\varepsilon)$
-\citep{johnson1984extensions}. Fingerprints are computed once and reused by
-later stages.
+Every example the method touches --- each support query, and later each
+purchased demonstration --- is represented by its \emph{gradient feature}
+\citep{xia2024less}: the Adam-preconditioned gradient that the example
+induces on the student, compressed by a fixed random projection. The
+representational point is that the gradient describes an example by what
+the student would have to \emph{learn} from it, not by which words appear
+in it. Identical query texts solved in two different styles are
+inseparable to any function of the text, yet their gradients separate
+perfectly (hard-pair AUROC $1.000$ against $0.687$ for text embeddings,
+Section~\ref{sec:boundary}). Following \citet{xia2024less}, a brief
+warmup on the first purchased demonstrations (four epochs, low-rank
+adapter) accumulates the optimizer's second-moment statistics and absorbs
+surface formatting; each example then contributes one backward pass, and
+the adapter gradient is rescaled coordinate-wise by the inverse root of
+the second moments, so the feature measures the update step the optimizer
+would actually take. The random projection preserves the inner products
+that all downstream computation consumes, up to $(1\pm\varepsilon)$
+\citep{johnson1984extensions}. One distinction matters under the metered
+protocol: for a purchased demonstration the feature is computed on the
+teacher's response, whereas for a candidate prompt whose answer has not
+been bought yet, only the feature of the \emph{prompt text} is available
+--- and the acquisition step below is careful to plan with the latter and
+account with the former.
 
-\subsection{A vocabulary of capability atoms}\label{sec:atoms}
-The fingerprints just computed become the raw material of this stage,
-which compresses them into a small vocabulary of skills and, in that
-vocabulary, rewrites the task as a demand ledger and every candidate trace
-as a supply schedule. The compression exploits a structural fact:
-fingerprints of related examples are not arbitrary vectors; they reuse a
-small set of recurring directions, the way recipes reuse a small set of
-basic operations. Sparse dictionary learning recovers exactly this
-structure. We solve
-$\min_{D,C} \lVert X - CD\rVert_2^2 + \lambda\lVert C\rVert_1$
-for a dictionary $D$ of $64$ atoms and sparse codes $C$, alternating a
-lasso step (which few atoms explain this trace?) with a dictionary update.
-The sparsity term is what makes atoms meaningful, and it is the design
-choice that separates this component from PCA or SVD subspaces: a subspace
-is invariant to rotations of its basis, so no individual principal
-direction can be identified with a skill, whereas rotating a dictionary
-destroys the sparsity of its codes. The only bases that survive the
-$\ell_1$ penalty are those aligned with recurring, self-contained gradient
-patterns, and those patterns are skills. Empirically the identification is
-real: atom support separates fine-grained skills within one domain at
-AUROC $0.906$ where the dense subspace reaches $0.615$, and the behavioral
-change caused by distillation concentrates $85.5\%$ of its mass on $5$ of
-$128$ atoms (Section~\ref{sec:atoms-results}).
+\subsection{Capability atoms and task demand}\label{sec:atoms}
+Gradient features of related examples are not arbitrary vectors: they
+reuse a small set of recurring directions, the way recipes reuse a small
+set of basic operations. Sparse dictionary learning
+\citep{olshausen1996emergence} recovers exactly this structure. Writing
+the feature matrix as $X$, we solve
+$\min_{D,C}\ \lVert X - CD\rVert_2^2 + \lambda\lVert C\rVert_1$,
+alternating a lasso step with a dictionary update.
 
-The dictionary turns both sides of the problem into explicit accounts.
-Encoding the $k$ queries (a lasso against the fixed dictionary) and
-averaging their absolute codes yields the \emph{demand ledger}: how much
-learning the task requires from each atom. The atoms holding $90\%$ of
-this mass form the task's \emph{support}; encoding any trace yields its
-\emph{supply schedule}, its per-token contribution to each atom. The same
-calibration queries also provide an admission test with no tuned
-threshold: a candidate trace is ranked among the held-out genuine queries
-by subspace score, and candidates ranking below essentially all genuine
-members (conformal $p$-value below $\alpha/2$) are excluded as outliers.
+\begin{definition}[Capability atom]\label{def:atom}
+A \emph{capability atom} is one row of the learned dictionary $D$: a
+unit-norm direction in gradient-feature space. The sparse code $c(x)$ of
+an example $x$ is its coefficient vector over the atoms, obtained by a
+lasso solve against $D$; $|c(x)|_a$ measures how strongly example $x$
+exercises atom $a$.
+\end{definition}
 
-\subsection{Spending the budget: market-clearing selection}
-\label{sec:clearing}
-Selection now receives the two accounts prepared above, the demand
-ledger scaled to the token budget and the supply schedule of every
-admitted trace, and must return a training set. It does so by treating
-tokens as currency and atoms as goods. The ledger opens
-with each supported atom's demand converted into tokens; each round, the
-selector picks the admitted trace with the largest value of
-$\sum_a \min(\text{remaining demand}_a,\ \text{supply}_a(x)) / \text{tokens}(x)$
-and immediately charges the ledger. Two properties follow from the
-accounting alone. First, diminishing returns are endogenous: supply beyond
-an atom's remaining demand counts zero, so a trace rich in an
-almost-satisfied skill loses value automatically and the budget flows to
-atoms with unsatisfied demand, with no decay constants. Second, domain filtering is
-endogenous: a trace from a foreign domain supplies mostly atoms outside
-the support, which never enter the sum, so it is deprioritized even when
-the admission test cannot exclude it. This contrasts with influence-based
-selection against a single mean target \citep{xia2024less}, which
-collapses a multi-skill task onto one direction and, once that direction
-is satisfied, converts every surplus token into out-of-scope capability
-(off-task residue growing from $0$ to $0.44$ with budget on the SQL-scoped
-task, Section~\ref{sec:results}).
+The $\ell_1$ penalty is what makes atoms identifiable, and it is the
+design choice that separates this component from PCA or SVD: a subspace is
+invariant to rotations of its basis, so no individual principal direction
+can be identified with a skill, whereas rotating a dictionary destroys
+the sparsity of its codes. The only bases that survive the penalty are
+those aligned with recurring, self-contained gradient patterns --- and
+those patterns behave like skills. Empirically, atom support separates
+fine-grained skills within one domain at AUROC $0.906$ where the dense
+subspace reaches $0.615$, and the behavioral change caused by
+distillation concentrates $85.5\%$ of its mass on $5$ of $128$ atoms
+(Section~\ref{sec:atoms-results}). Because no corpus is given, the
+dictionary cannot be pretrained: it is fit first on the support features
+alone and refit as purchased demonstrations accumulate, so the atom count
+grows with the evidence, and a demonstration the current dictionary
+reconstructs poorly signals, through its residual, that a new skill has
+appeared.
 
-\subsection{Certified training and deployment}
+\begin{definition}[Task demand]\label{def:demand}
+Given a dictionary $D$ and the support set $S$, the \emph{task demand} is
+$w = \frac{1}{k}\sum_{q\in S} |c(q)|$, normalized to sum to one and
+restricted to the atoms carrying $90\%$ of its mass. Scaled by the
+budget, $w \cdot b$ assigns each atom a token quota: the number of
+training tokens the task asks the method to spend on that skill.
+\end{definition}
+
+The support set is a small sample, so $w$ inherits its blind spots. The
+teacher's own solutions correct part of them: atoms that appear
+persistently in the codes of demonstrations for support queries, yet
+carry little weight in $w$, are skills the task requires \emph{implicitly}
+--- the query said ``aggregate by month,'' every competent solution also
+plotted --- and their demand is filled in from the demonstration side
+before further budget is spent. This completion touches only how the
+budget is allocated; the boundary and all certificates remain calibrated
+on the original $k$ queries alone.
+
+\subsection{Spending the budget: acquisition against demand}
+\label{sec:acquire}
+The acquisition loop spends $b$ against the token quotas. At each round
+the method holds a set of candidate prompts (support queries, their
+sampled variants in the style of self-instruct \citep{wang2023selfinstruct},
+and probes), and for each candidate only its prompt-text gradient feature
+is legitimately available. Encoding that feature against the current
+dictionary predicts which atoms the answer would exercise; the candidate's
+\emph{acquisition score} is
+\[
+u(x) \;=\; \frac{\sum_a \min\!\big(r_a,\ \hat{s}_a(x)\big)}{\hat{t}(x)},
+\]
+where $r_a$ is atom $a$'s remaining quota, $\hat{s}_a(x)$ the predicted
+token contribution of $x$ to atom $a$, and $\hat{t}(x)$ the predicted
+response length. The method buys the highest-scoring batch, then
+reconciles: the realized response is encoded, its realized token count is
+charged, and the quotas are decremented by what was actually delivered,
+so prediction errors correct within a few rounds instead of compounding.
+Two properties follow directly. Returns diminish endogenously: predicted
+contribution beyond a filled quota counts zero, so a candidate rich in an
+almost-satisfied skill loses priority with no decay constants. And
+spending is auditable: every return must pass the execution check (A2)
+and a conformal gate calibrated on held-out support queries
+(Section~\ref{sec:behavior}); a generation that drifted off-task is paid
+for --- the budget is real --- but never trains the student, and this
+wasted-budget fraction is reported alongside accuracy. The contrast with
+influence-based selection against a single mean target \citep{xia2024less}
+is structural: collapsing a multi-skill task onto one direction leaves
+surplus tokens nowhere to go but out of scope (off-task residue growing
+from $0$ to $0.44$ with budget on the SQL-scoped task,
+Section~\ref{sec:results}), whereas per-atom quotas give every token a
+named destination. The loop stops when the quotas are filled or the
+budget is exhausted; unspent budget is returned and reported, since
+reaching the target cheaper is exactly the $B^{*}(\tau)$ objective.
+
+\subsection{Distillation: weighted imitation with behavioral timing}
+\label{sec:distill}
+The purchased demonstrations are distilled into the student by supervised
+fine-tuning, with two departures from uniform behavior cloning, both
+driven by the demand estimate. First, examples are not weighted equally:
+each admitted demonstration's loss is scaled by how much of the remaining
+demand its code serves, so a demonstration that mostly repeats an
+already-satisfied skill contributes less than one that carries scarce
+skills --- importance weighting with weights read off the same accounting
+that directed acquisition. In multi-turn environments the weight is
+applied per turn, the granularity at which the environment responds
+\citep{liu2025structured}. Second, the student's own failures direct a
+corrective phase in the style of \textsc{DAgger} \citep{ross2011dagger}:
+the student is rolled out locally on held-out support queries, the
+execution check localizes the states where it goes wrong, and those very
+states are sent to the teacher as continuation prompts --- charged
+against $b$ like any other purchase --- yielding demonstrations of
+recovery behavior precisely where successful teacher trajectories are
+silent. Throughout training, gradient geometry is never asked to judge
+success: three pre-registered experiments show it cannot (instance-level
+gradient signals fail to predict success; re-selecting against residual
+gradients selects noise; geometric absorption bottoms out two orders of
+magnitude before behavioral competence forms,
+Section~\ref{sec:mechanism}). All judging is behavioral: a probe every
+$8$ steps measures the fraction of held-out calibration queries yielding
+runnable solutions, and the best-scoring checkpoint is kept, making
+aggressive small-budget training safe because drift past the competence
+peak is detected and rolled back.
+
+\subsection{Certified deployment}
 \label{sec:behavior}
-The selected training set is all that enters the final stage, and what leaves
-it is the complete deliverable: a trained student, its two-sided
-certificates, and the runtime gate that will guard it. The stages above
-use gradient geometry only to decide \emph{what} to train
-on. Three pre-registered experiments show that the same geometry cannot
-decide \emph{when} training has succeeded: instance-level gradient signals
-fail to predict success, re-selecting against a partially trained
-student's residual gradients selects noise, and geometric absorption
-bottoms out roughly two orders of magnitude before behavioral competence
-forms (Section~\ref{sec:mechanism}). The training stage therefore hands
-all judging to behavior. During supervised fine-tuning, a probe every $8$
-steps measures the fraction of held-out calibration queries yielding
-runnable solutions, and the best-scoring checkpoint is kept; this makes
-aggressive small-budget training safe, because drift past the competence
-peak is detected behaviorally and rolled back. Certification is the stage's centerpiece: the student is evaluated
-behaviorally on both sides of the boundary, and the capability match is
-stated as finite-sample Clopper--Pearson guarantees, a certified lower
-bound on in-task coverage and a certified upper bound on off-task leakage,
-so the deliverable is not a score but a bounded claim. At deployment, the same
-fingerprint machinery gates live requests: the conformal threshold
-calibrated in Section~\ref{sec:atoms} routes in-specification queries to
-the student and refuses or escalates the rest, so the certificates
-describe exactly the traffic the student will see.
+What leaves the pipeline is not a model but a deliverable: the trained
+student, a boundary predictor, and two-sided certificates. The boundary
+predictor is built from the support set alone --- a subspace fit to the
+gradient features of a fit split, a norm-ratio score, and a conformal
+threshold from a disjoint calibration split, giving distribution-free
+coverage $\ge 1-\alpha$ \citep{angelopoulos2023conformal}. The student is
+then evaluated behaviorally on both sides of the boundary and the
+capability match is stated as finite-sample Clopper--Pearson bounds: a
+certified lower bound on in-task coverage and a certified upper bound on
+off-task leakage --- a bounded claim, not a score. At deployment the same
+machinery gates live requests: in-specification queries route to the
+student, the rest are refused or escalated to the teacher, so the
+certificates describe exactly the traffic the student will see.

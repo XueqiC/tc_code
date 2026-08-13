@@ -1,21 +1,21 @@
-\begin{abstract}
 Language-model agents are deployed for narrow jobs that are specified, in
-practice, by nothing more than a few dozen example queries. We ask what it
-takes to trust a small distilled agent under so thin a specification, and
-reduce the answer to two requirements: the task's boundary must be
-determined from the examples alone, and the agent's capability must end
-where that boundary ends. We show that both can be read from a single
-object. The gradients that teacher demonstrations induce at the student's
-initialization decompose, under a sparse dictionary, into \emph{capability
-atoms}: recurring, nameable skills that principal subspaces provably
-cannot identify. The example queries then become a demand ledger over
-atoms, every candidate trace a per-token supply schedule, and distillation
-reduces to clearing this market under the token budget. The result is a
-certified agent: behaviorally timed training, finite-sample bounds on both
-sides of the boundary, and a conformal gate at deployment. Across a
-five-domain suite, atom-based selection matches the strongest
-influence-based baseline in-task while spending no budget outside the
-specification; the baseline's off-task capability, up to $77\%$, is the
-visible receipt of the budget it diverts. Certified two-sided bounds
-follow at no extra cost.
-\end{abstract}
+practice, by nothing more than a few dozen example queries, while the
+strongest teachers sit behind APIs that charge for every token. We study
+few-shot agent distillation under exactly these terms: given only a
+support set of $k$ queries, a black-box pay-per-token teacher, and a token
+budget, produce a small agent whose capability provably ends where the
+task ends. Our key observation is that the whole problem can be read from
+one object. The gradients that examples induce on the student decompose,
+under sparse dictionary learning, into \emph{capability atoms}: recurring,
+nameable skills that principal subspaces provably cannot identify. The
+support set then fixes a per-skill token quota, and distillation becomes
+active learning against the teacher: query where the quota is unmet,
+verify what returns, weight each demonstration by the demand it serves,
+and stop when the quotas are filled --- spending less than the budget when
+the task allows it. The result is a certified agent: behaviorally timed
+training, finite-sample bounds on both sides of the task boundary, and a
+conformal gate at deployment. Across a five-domain suite, skill-directed
+acquisition matches the strongest influence-based baseline in-task while
+spending no budget outside the specification; the baseline's off-task
+capability, up to $77\%$, is the visible receipt of the budget it
+diverts.
