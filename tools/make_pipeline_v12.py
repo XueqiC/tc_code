@@ -175,7 +175,7 @@ def gridlines(x, y, w, n=4, gap=0.16):
         conn(x, y - i * gap, x + w, y - i * gap, RGBColor(0xE4,0xE4,0xE4),
              w=0.9, arrow=False)
 
-def bars(x, y, hs, colors, bw=0.13, gap=0.045, grid=True):
+def bars(x, y, hs, colors, bw=0.17, gap=0.055, grid=True):
     """Mini bar chart. y = baseline; heights in inches (positive up)."""
     n = len(hs)
     W = n * bw + (n - 1) * gap
@@ -190,7 +190,7 @@ def bars(x, y, hs, colors, bw=0.13, gap=0.045, grid=True):
             shape=MSO_SHAPE.RECTANGLE)
     return W
 
-def ital(x, y, w, t, size=11, color=TEXT, align=PP_ALIGN.CENTER, bold=True):
+def ital(x, y, w, t, size=14, color=TEXT, align=PP_ALIGN.CENTER, bold=True):
     label(x, y, w, 0.3, t, size=size, color=color, italic=True, bold=bold,
           align=align)
 
@@ -202,7 +202,7 @@ def dashline(x0, y0, x1, y1):
 def arrow(x0, y0, x1, y1, color=RGBColor(0x33,0x33,0x33), w=2.4):
     conn(x0, y0, x1, y1, color, w=w, arrow=True)
 
-def matrix_icon(x, y, s=0.72, cols=(BLUED, GRNB, ORAN), badge=True):
+def matrix_icon(x, y, s=0.92, cols=(BLUED, GRNB, ORAN), badge=True):
     box(x, y, s, s, WHITE, RGBColor(0x55,0x55,0x55), lw=1.4, radius=0.12)
     cell = s / 3.6
     for r in range(3):
@@ -218,7 +218,7 @@ def matrix_icon(x, y, s=0.72, cols=(BLUED, GRNB, ORAN), badge=True):
 
 def coin_stack(x, y, n=4):
     for i in range(n):
-        box(x, y - i * 0.10, 0.34, 0.085, GOLD, RGBColor(0x9A,0x7B,0x2E),
+        box(x, y - i * 0.12, 0.34, 0.085, GOLD, RGBColor(0x9A,0x7B,0x2E),
             lw=1.0, shape=MSO_SHAPE.OVAL, radius=None)
 
 # frame
@@ -228,98 +228,98 @@ dashline(6.55, 0.22, 6.55, 7.26)
 dashline(6.66, 4.30, 13.10, 4.30)
 
 # ------------------------------------------------ LEFT: demand estimation
-ital(0.35, 0.24, 5.4, "Reading the task as skill demand", size=14,
+ital(0.35, 0.24, 5.4, "Reading the task as skill demand", size=19,
      align=PP_ALIGN.LEFT)
 
 # support set docs
-for i, dx in enumerate((0.0, 0.16, 0.32)):
-    box(0.55 + dx, 0.90 + dx * 0.4, 0.86, 1.02, WHITE,
+for i, dx in enumerate((0.0, 0.18, 0.36)):
+    box(0.50 + dx, 0.82 + dx * 0.4, 1.00, 1.20, WHITE,
         RGBColor(0x77,0x77,0x77), lw=1.2, radius=0.06)
-for yy in (1.30, 1.48, 1.66):
-    box(1.02, yy, 0.52, 0.045, GRAYB, None, radius=None,
+for yy in (1.28, 1.50, 1.72):
+    box(1.02, yy, 0.62, 0.055, GRAYB, None, radius=None,
         shape=MSO_SHAPE.RECTANGLE)
-ital(0.42, 2.16, 1.7, "Support Set S", size=11)
+ital(0.35, 2.20, 1.9, "Support Set S", size=14)
 
 arrow(1.95, 1.55, 2.55, 1.55)
 
 # student robot
-chip(3.15, 1.45, 1.05, 0.95, BLUED, "Student Model")
+chip(3.15, 1.42, 1.30, 1.15, BLUED, "Student Model", size=13)
 label(2.55, 2.30, 1.2, 0.3, "∇", size=18, color=TEXT, bold=True)
 
 arrow(3.85, 1.45, 4.45, 1.45)
 
 # gradient features bars
 bars(4.62, 1.95, [0.62, 0.30, 0.50, 0.22], [ORAN]*4)
-ital(4.35, 2.10, 1.6, "Gradient Features", size=11)
+ital(4.20, 2.14, 2.1, "Gradient Features", size=14)
 
 # dictionary formula + atoms
 label(0.30, 2.80, 4.0, 0.36,
-      "min‖X − CD‖²  +  λ‖C‖₁", size=15, color=TEXT, bold=False)
+      "min‖X − CD‖²  +  λ‖C‖₁", size=19, color=TEXT, bold=False)
 arrow(4.60, 2.55, 4.60, 3.30, color=RGBColor(0x33,0x33,0x33))
 
 # atoms row (colored tiles) -> demand bar chart
 for i, c in enumerate((BLUED, IN2, IN3, ORAN, REDL)):
-    box(0.85 + i * 0.52, 3.45, 0.40, 0.40, c, WHITE, lw=1.2, radius=0.18)
-ital(0.62, 3.95, 3.2, "Capability Atoms (dictionary D)", size=11)
+    box(0.80 + i * 0.62, 3.42, 0.50, 0.50, c, WHITE, lw=1.2, radius=0.18)
+ital(0.45, 4.00, 3.6, "Capability Atoms (dictionary D)", size=14)
 
-arrow(3.60, 3.65, 4.25, 3.65)
-bars(4.40, 4.10, [0.66, 0.44, 0.28, 0.10], [BLUED, IN2, IN3, GRAYB])
-ital(4.15, 4.25, 1.9, "Task Demand w", size=11)
+arrow(3.98, 3.67, 4.38, 3.67)
+bars(4.52, 4.10, [0.66, 0.44, 0.28, 0.10], [BLUED, IN2, IN3, GRAYB])
+ital(4.05, 4.30, 2.2, "Task Demand w", size=14)
 
 # quota line
 label(0.50, 4.70, 5.8, 0.36,
-      "per-skill token quota  =  w · b", size=14, color=TEXT)
+      "per-skill token quota  =  w · b", size=17, color=TEXT)
 
 # bridge strip (bottom left)
-ital(0.35, 5.20, 5.9, "Cross-modal bridge (fit on paid pairs)", size=12,
+ital(0.35, 5.20, 5.9, "Cross-modal bridge (fit on paid pairs)", size=15,
      align=PP_ALIGN.LEFT)
 bars(0.75, 6.45, [0.30, 0.48, 0.22], [GRAYB]*3, grid=False)
-ital(0.48, 6.58, 1.4, "Prompt g", size=10)
+ital(0.40, 6.62, 1.6, "Prompt g", size=13)
 arrow(1.55, 6.20, 2.30, 6.20)
 matrix_icon(2.40, 5.85, badge=False)
-ital(2.15, 6.68, 1.3, "Ridge Map", size=10)
+ital(2.05, 6.72, 1.7, "Ridge Map", size=13)
 arrow(3.25, 6.20, 4.00, 6.20)
 bars(4.20, 6.45, [0.55, 0.25, 0.42], [GRNB]*3, grid=False)
-ital(3.95, 6.58, 1.6, "Predicted Skills", size=10)
+ital(3.85, 6.62, 2.1, "Predicted Skills", size=13)
 
 # ---------------------------------------- RIGHT TOP: budgeted acquisition
 ital(6.80, 0.24, 6.2, "Spending the budget where demand is unmet",
-     size=14, align=PP_ALIGN.LEFT)
+     size=19, align=PP_ALIGN.LEFT)
 
-chip(7.55, 1.35, 1.05, 0.95, RGBColor(0x8A,0x5A,0xA8), "Teacher API")
+chip(7.50, 1.32, 1.30, 1.15, RGBColor(0x8A,0x5A,0xA8), "Teacher API", size=13)
 coin_stack(8.25, 1.30)
-ital(8.05, 1.48, 0.9, "b", size=12)
+ital(8.05, 1.50, 0.9, "b", size=15)
 
 # candidate -> predicted skills -> min() gauge
 arrow(8.35, 1.35, 8.90, 1.35)
 bars(9.05, 1.75, [0.42, 0.20, 0.34], [GRNB]*3, grid=False)
-ital(8.80, 1.88, 1.5, "ŝ(x)  predicted", size=10)
+ital(8.65, 1.92, 1.8, "ŝ(x) predicted", size=13)
 # quota gauge: two bars remaining
 bars(10.55, 1.75, [0.55, 0.15, 0.30], [BLUED, GRAYB, IN2], grid=False)
-ital(10.30, 1.88, 1.6, "r  remaining quota", size=10)
-label(11.75, 1.05, 1.5, 0.9, "u(x) =\nΣ min(r, ŝ) / t̂", size=13,
+ital(10.10, 1.92, 2.1, "r  remaining quota", size=13)
+label(11.75, 1.05, 1.5, 0.9, "u(x) =\nΣ min(r, ŝ) / t̂", size=15,
       color=TEXT)
 arrow(9.90, 1.55, 10.35, 1.55)
 
 # returns gate row
 label(6.85, 2.55, 3.4, 0.32, "returns → execution check + gate",
-      size=11, color=MUTED, align=PP_ALIGN.LEFT)
-box(10.30, 2.45, 0.34, 0.34, GRNB, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
+      size=14, color=MUTED, align=PP_ALIGN.LEFT)
+box(10.30, 2.40, 0.44, 0.44, GRNB, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
     radius=None, text="✓", size=12, tcolor=WHITE, bold=True)
-box(10.75, 2.45, 0.34, 0.34, REDL, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
+box(10.85, 2.40, 0.44, 0.44, REDL, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
     radius=None, text="✗", size=12, tcolor=WHITE, bold=True)
-label(11.20, 2.46, 1.9, 0.32, "wasted ≤ 3%", size=11, color=MUTED,
+label(11.20, 2.42, 2.0, 0.36, "wasted ≤ 3%", size=14, color=MUTED,
       align=PP_ALIGN.LEFT)
 
 # draining quota before/after
 bars(7.30, 3.90, [0.62, 0.40, 0.26], [BLUED, IN2, IN3])
 arrow(8.35, 3.60, 9.05, 3.60)
 bars(9.25, 3.90, [0.16, 0.10, 0.06], [BLUED, IN2, IN3])
-ital(7.10, 4.00, 3.3, "quota drains as verified supply arrives", size=10)
+ital(6.95, 4.02, 3.8, "quota drains as verified supply arrives", size=12.5)
 
 # ------------------------------------- RIGHT BOTTOM: distill + certificate
 ital(6.80, 4.42, 6.3, "Demand-weighted distillation, certified deployment",
-     size=14, align=PP_ALIGN.LEFT)
+     size=19, align=PP_ALIGN.LEFT)
 
 # weighted rows: doc + weight bar
 for i, (wh, yy) in enumerate(((0.42, 4.95), (0.22, 5.45), (0.34, 5.95))):
@@ -329,7 +329,7 @@ for i, (wh, yy) in enumerate(((0.42, 4.95), (0.22, 5.45), (0.34, 5.95))):
         shape=MSO_SHAPE.RECTANGLE)
     box(7.80, yy + 0.34 - wh, 0.16, wh, ORAN, RGBColor(0x66,0x66,0x66),
         lw=1.0, radius=None, shape=MSO_SHAPE.RECTANGLE)
-ital(6.80, 6.45, 1.6, "loss weights ∝ demand served", size=9.5)
+ital(6.70, 6.50, 2.2, "loss weights ∝ demand served", size=12)
 
 # probe curve
 gridlines(8.75, 6.15, 1.7, n=4)
@@ -339,18 +339,18 @@ for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
     conn(xa, ya, xb, yb, BLUED, w=2.4, arrow=False)
 box(9.72, 5.27, 0.16, 0.16, GRND, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
     radius=None)
-ital(8.55, 6.30, 2.2, "behavioral probe keeps best step", size=9.5)
+ital(8.45, 6.38, 2.5, "behavioral probe keeps best step", size=12)
 
 # certificate seal + gate
-box(11.05, 4.90, 1.85, 1.05, RGBColor(0xEF,0xF7,0xEE), GRND, lw=2.0,
+box(10.90, 4.88, 2.22, 1.10, RGBColor(0xEF,0xF7,0xEE), GRND, lw=2.0,
     radius=0.10)
-box(11.20, 5.05, 0.55, 0.55, GRND, WHITE, lw=1.6, shape=MSO_SHAPE.OVAL,
+box(11.15, 5.00, 0.66, 0.66, GRND, WHITE, lw=1.6, shape=MSO_SHAPE.OVAL,
     radius=None, text="✓", size=16, tcolor=WHITE, bold=True)
-label(11.80, 5.02, 1.05, 0.7,
-      "coverage ≥ 1−α\nleakage ≤ ε", size=10, color=TEXT,
+label(11.85, 5.06, 1.30, 0.7,
+      "coverage ≥ 1−α\nleakage ≤ ε", size=12.5, color=TEXT,
       align=PP_ALIGN.LEFT)
-ital(11.00, 6.02, 2.0, "Certificate", size=11)
-label(10.80, 6.45, 2.3, 0.32, "in → student · out → teacher", size=10,
+ital(11.00, 6.06, 2.0, "Certificate", size=14)
+label(10.80, 6.45, 2.3, 0.32, "in → student · out → teacher", size=13,
       color=MUTED)
 arrow(10.40, 5.42, 10.95, 5.42)
 
