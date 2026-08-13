@@ -190,7 +190,7 @@ def bars(x, y, hs, colors, bw=0.17, gap=0.055, grid=True):
             lw=1.1, radius=None, shape=MSO_SHAPE.RECTANGLE)
     return W
 
-def ital(x, y, w, t, size=13, color=DARK, align=PP_ALIGN.CENTER):
+def ital(x, y, w, t, size=15.9, color=DARK, align=PP_ALIGN.CENTER):
     label(x, y, w, 0.32, t, size=size, color=color, italic=True, bold=True,
           align=align)
 
@@ -204,7 +204,7 @@ def arrow(x0, y0, x1, y1, color=DARK, w=2.6):
 
 def stagenum(x, y, n):
     box(x, y, 0.40, 0.40, DARK, None, shape=MSO_SHAPE.OVAL, radius=None,
-        text=str(n), size=16, tcolor=WHITE, bold=True)
+        text=str(n), size=19.5, tcolor=WHITE, bold=True)
 
 def matrix_icon(x, y, s=0.92, name=None):
     box(x, y, s, s, WHITE, DARK, lw=1.6, radius=0.12)
@@ -216,7 +216,7 @@ def matrix_icon(x, y, s=0.92, name=None):
                 cell * 0.8, cols[(r + cc) % 3], WHITE, lw=0.6, radius=None,
                 shape=MSO_SHAPE.RECTANGLE)
     if name:
-        ital(x - 0.45, y + s + 0.05, s + 0.9, name, size=12)
+        ital(x - 0.45, y + s + 0.05, s + 0.9, name, size=14.6)
 
 def coin_stack(x, y, n=4):
     for i in range(n):
@@ -239,24 +239,24 @@ dashline(6.66, 4.42, 13.10, 4.42)
 
 # ============================== LEFT: demand ==============================
 stagenum(0.32, 0.26, 1)
-ital(0.82, 0.30, 5.4, "Reading the task as skill demand", size=18,
+ital(0.82, 0.30, 5.4, "Reading the task as skill demand", size=22,
      align=PP_ALIGN.LEFT)
 
 docs(0.50, 0.92)
-ital(0.30, 2.28, 2.0, "Support Set S (k queries)", size=12)
+ital(0.20, 2.30, 2.3, "Support Set S", size=14.6)
 arrow(2.02, 1.55, 2.55, 1.55)
-label(1.95, 1.10, 0.9, 0.3, "∇", size=20, color=DARK, bold=True)
+label(1.95, 1.10, 0.9, 0.3, "∇", size=24.4, color=DARK, bold=True)
 
-chip(3.22, 1.48, 1.30, 1.15, BLUED, "Student Model", size=13)
+chip(3.22, 1.48, 1.30, 1.15, BLUED, "Student Model", size=15.9)
 arrow(3.95, 1.48, 4.48, 1.48)
 
 bars(4.62, 1.98, [0.62, 0.30, 0.50, 0.22], [ORAN]*4)
-ital(4.30, 2.28, 1.9, "Gradient Features", size=12)
+ital(4.30, 2.28, 1.9, "Gradient Features", size=14.6)
 
 # sparse dictionary formula in pale box
 box(0.45, 2.72, 3.85, 0.56, PALEB, BLUED, lw=1.6, radius=0.18,
-    text="min‖X − CD‖²  +  λ‖C‖₁", size=17, tcolor=DARK, bold=True)
-ital(4.40, 2.84, 2.0, "sparse dictionary", size=12)
+    text="min‖X − CD‖²  +  λ‖C‖₁", size=20.7, tcolor=DARK, bold=True)
+ital(4.40, 2.84, 2.0, "sparse dictionary", size=14.6)
 arrow(2.35, 3.30, 2.35, 3.55)
 
 # atoms with names
@@ -264,44 +264,44 @@ NAMES = ("JOIN", "AGG", "LOOP", "PLOT", "REGEX")
 for i, (c, nm) in enumerate(zip((BLUED, IN2, IN3, ORAN, REDL), NAMES)):
     x0 = 0.62 + i * 0.72
     box(x0, 3.62, 0.54, 0.54, c, WHITE, lw=1.4, radius=0.18)
-    ital(x0 - 0.23, 4.20, 1.0, nm, size=10.5)
-ital(0.55, 4.50, 3.6, "Capability Atoms (dictionary D)", size=13)
+    ital(x0 - 0.23, 4.20, 1.0, nm, size=12.8)
+ital(0.55, 4.50, 3.6, "Capability Atoms (dictionary D)", size=15.9)
 arrow(4.35, 3.90, 4.72, 3.90)
 
 bars(4.86, 4.28, [0.66, 0.44, 0.28, 0.10], [BLUED, IN2, IN3, GRAYB])
-ital(4.55, 4.55, 2.1, "Task Demand w", size=13)
+ital(4.55, 4.55, 2.1, "Task Demand w", size=15.9)
 
 # quota line with coin
 box(0.75, 4.98, 4.30, 0.52, PALEY, RGBColor(0xB8,0x8A,0x2E), lw=1.6,
-    radius=0.18, text="per-skill token quota  =  w · b", size=16,
+    radius=0.18, text="per-skill token quota  =  w · b", size=19.5,
     tcolor=DARK, bold=True)
 coin_stack(5.25, 5.35, n=3)
 
 # bridge strip
 box(0.40, 5.75, 5.85, 1.45, CARD, RGBColor(0x9A,0x9A,0x9A), lw=1.3,
     radius=0.10)
-ital(0.55, 5.82, 5.5, "Cross-modal bridge  (fit on paid pairs)", size=13,
+ital(0.55, 5.82, 5.5, "Cross-modal bridge  (fit on paid pairs)", size=15.9,
      align=PP_ALIGN.LEFT)
 bars(0.90, 6.95, [0.30, 0.48, 0.22], [GRAYB]*3, grid=False)
-ital(0.55, 7.00, 1.6, "Prompt g", size=11)
+ital(0.55, 7.00, 1.6, "Prompt g", size=13.4)
 arrow(1.80, 6.70, 2.35, 6.70)
 matrix_icon(2.45, 6.28, s=0.78)
-ital(2.20, 7.06, 1.3, "Ridge Map", size=11)
+ital(2.20, 7.06, 1.3, "Ridge Map", size=13.4)
 arrow(3.40, 6.70, 3.95, 6.70)
 bars(4.15, 6.95, [0.55, 0.25, 0.42], [GRNB]*3, grid=False)
-ital(3.85, 7.00, 1.7, "Predicted Skills", size=11)
-label(5.35, 6.35, 0.95, 0.6, "legal before\npaying", size=10.5,
+ital(3.85, 7.00, 1.7, "Predicted Skills", size=13.4)
+label(5.35, 6.35, 0.95, 0.6, "legal before\npaying", size=12.8,
       color=DARK, bold=True, italic=True)
 
 # ====================== RIGHT TOP: acquisition loop ======================
 stagenum(6.75, 0.26, 2)
 ital(7.25, 0.30, 6.1, "Spending the budget where demand is unmet",
-     size=18, align=PP_ALIGN.LEFT)
+     size=22, align=PP_ALIGN.LEFT)
 
 chip(7.55, 1.42, 1.30, 1.15, RGBColor(0x8A,0x5A,0xA8), "Teacher API",
-     size=13)
+     size=15.9)
 coin_stack(8.30, 1.30)
-ital(8.28, 1.48, 0.9, "b", size=15)
+ital(8.28, 1.48, 0.9, "b", size=18.3)
 
 arrow(8.85, 1.42, 9.30, 1.42)
 box(9.38, 1.02, 0.78, 0.92, WHITE, RGBColor(0x44,0x44,0x44), lw=1.3,
@@ -309,46 +309,46 @@ box(9.38, 1.02, 0.78, 0.92, WHITE, RGBColor(0x44,0x44,0x44), lw=1.3,
 for yy in (1.22, 1.42, 1.62):
     box(9.50, yy, 0.52, 0.05, GRAYB, None, radius=None,
         shape=MSO_SHAPE.RECTANGLE)
-ital(9.15, 2.00, 1.3, "candidate x", size=11.5)
+ital(9.15, 2.00, 1.3, "candidate x", size=14)
 arrow(10.22, 1.42, 10.62, 1.42)
 bars(10.75, 1.80, [0.42, 0.20, 0.34], [GRNB]*3, grid=False)
-ital(10.50, 2.00, 1.6, "ŝ(x) predicted", size=11.5)
+ital(10.50, 2.00, 1.6, "ŝ(x) predicted", size=14)
 arrow(11.72, 1.42, 12.10, 1.42)
-bars(12.20, 1.80, [0.55, 0.15, 0.30], [BLUED, GRAYB, IN2], grid=False)
-ital(11.95, 2.00, 1.6, "r remaining", size=11.5)
+bars(12.12, 1.80, [0.55, 0.15, 0.30], [BLUED, GRAYB, IN2], grid=False)
+ital(11.85, 2.00, 1.5, "r remaining", size=13.5)
 
 # focal rule
 box(7.30, 2.45, 4.30, 0.62, PALEY, RGBColor(0xB8,0x8A,0x2E), lw=2.2,
     radius=0.18, text="buy  argmax  u(x) = Σ min(r, ŝ(x)) ∕ t̂",
-    size=16, tcolor=DARK, bold=True)
+    size=19.5, tcolor=DARK, bold=True)
 # cycle arrow back to teacher
 conn(7.30, 2.76, 6.95, 2.76, DARK, w=2.2, arrow=False)
 conn(6.95, 2.76, 6.95, 1.75, DARK, w=2.2, arrow=False)
 arrow(6.95, 1.75, 7.05, 1.62)
-ital(11.70, 2.52, 1.6, "each round", size=11.5)
+ital(11.70, 2.52, 1.6, "each round", size=14)
 
 # returns + gate + drain
-label(6.90, 3.20, 3.5, 0.34, "returns → execution ✓ + prompt gate",
-      size=13, color=DARK, bold=True, align=PP_ALIGN.LEFT)
+label(6.90, 3.20, 3.5, 0.34, "returns → exec ✓ + gate",
+      size=15, color=DARK, bold=True, align=PP_ALIGN.LEFT)
 box(10.35, 3.14, 0.44, 0.44, GRNB, WHITE, lw=1.3, shape=MSO_SHAPE.OVAL,
-    radius=None, text="✓", size=15, tcolor=WHITE, bold=True)
+    radius=None, text="✓", size=18.3, tcolor=WHITE, bold=True)
 box(10.90, 3.14, 0.44, 0.44, REDL, WHITE, lw=1.3, shape=MSO_SHAPE.OVAL,
-    radius=None, text="✗", size=15, tcolor=WHITE, bold=True)
-label(11.45, 3.18, 1.8, 0.36, "wasted ≤ 3%", size=13, color=DARK,
+    radius=None, text="✗", size=18.3, tcolor=WHITE, bold=True)
+label(11.45, 3.18, 1.8, 0.36, "wasted ≤ 3%", size=15.9, color=DARK,
       bold=True, align=PP_ALIGN.LEFT)
 
 bars(7.60, 4.20, [0.55, 0.36, 0.22], [BLUED, IN2, IN3])
 arrow(8.70, 3.95, 9.30, 3.95)
 bars(9.45, 4.20, [0.14, 0.09, 0.05], [BLUED, IN2, IN3])
-ital(10.35, 3.86, 2.9, "quota drains as verified", size=12)
-ital(10.35, 4.10, 2.9, "supply arrives", size=12)
+ital(10.35, 3.86, 2.9, "quota drains as verified", size=14.6)
+ital(10.35, 4.10, 2.9, "supply arrives", size=14.6)
 
 # ============== RIGHT BOTTOM: distill + certify ==============
 stagenum(6.75, 4.56, 3)
-ital(7.25, 4.60, 3.6, "Demand-weighted distillation", size=17,
+ital(7.22, 4.62, 3.2, "Weighted distillation", size=19,
      align=PP_ALIGN.LEFT)
-stagenum(10.55, 4.56, 4)
-ital(11.05, 4.60, 2.2, "Certified deployment", size=17,
+stagenum(10.42, 4.56, 4)
+ital(10.92, 4.62, 2.3, "Certified deployment", size=19,
      align=PP_ALIGN.LEFT)
 
 for i, (wh, yy) in enumerate(((0.44, 5.15), (0.22, 5.65), (0.36, 6.15))):
@@ -358,9 +358,9 @@ for i, (wh, yy) in enumerate(((0.44, 5.15), (0.22, 5.65), (0.36, 6.15))):
         shape=MSO_SHAPE.RECTANGLE)
     box(7.82, yy + 0.36 - wh, 0.18, wh, ORAN, RGBColor(0x44,0x44,0x44),
         lw=1.1, radius=None, shape=MSO_SHAPE.RECTANGLE)
-ital(6.70, 6.72, 2.0, "loss ∝ demand served", size=11.5)
+ital(6.70, 6.72, 2.0, "loss ∝ demand served", size=14)
 arrow(8.15, 5.75, 8.60, 5.75)
-chip(9.05, 5.70, 1.10, 0.98, BLUED, "Student", size=12)
+chip(9.05, 5.70, 1.10, 0.98, BLUED, "Student", size=14.6)
 
 # probe curve
 gridlines(8.55, 7.02, 1.55, n=3)
@@ -370,21 +370,21 @@ for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
     conn(xa, ya, xb, yb, BLUED, w=2.6, arrow=False)
 box(9.47, 6.34, 0.17, 0.17, GRND, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
     radius=None)
-ital(8.30, 7.06, 2.2, "probe keeps best step", size=11)
+ital(8.30, 7.06, 2.2, "probe keeps best step", size=13.4)
 
 # certificate + gate
 box(10.55, 5.05, 2.45, 1.10, RGBColor(0xEC,0xF6,0xEB), GRND, lw=2.2,
     radius=0.10)
 box(10.72, 5.22, 0.66, 0.66, GRND, WHITE, lw=1.6, shape=MSO_SHAPE.OVAL,
-    radius=None, text="✓", size=18, tcolor=WHITE, bold=True)
-label(11.48, 5.22, 1.45, 0.72, "coverage ≥ 1−α\nleakage ≤ ε", size=13,
+    radius=None, text="✓", size=22, tcolor=WHITE, bold=True)
+label(11.48, 5.22, 1.45, 0.72, "coverage ≥ 1−α\nleakage ≤ ε", size=15.9,
       color=DARK, bold=True, align=PP_ALIGN.LEFT)
-ital(10.70, 6.20, 2.2, "Certificate", size=13)
+ital(10.70, 6.20, 2.2, "Certificate", size=15.9)
 box(10.75, 6.55, 0.50, 0.50, GATE, DARK, lw=1.4,
     shape=MSO_SHAPE.DIAMOND, radius=None)
-label(11.35, 6.52, 1.75, 0.3, "in → student", size=12, color=GRND,
+label(11.35, 6.52, 1.75, 0.3, "in → student", size=14.6, color=GRND,
       bold=True, align=PP_ALIGN.LEFT)
-label(11.35, 6.80, 1.75, 0.3, "out → teacher", size=12,
+label(11.35, 6.80, 1.75, 0.3, "out → teacher", size=14.6,
       color=RGBColor(0x8A,0x5A,0xA8), bold=True, align=PP_ALIGN.LEFT)
 arrow(10.20, 6.80, 10.68, 6.80)
 
