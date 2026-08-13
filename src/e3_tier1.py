@@ -43,7 +43,15 @@ CONDITIONS = (
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
     "F_atom_boot3", "F_selfinst",
+) + tuple(
+    f"M_{a}_{c}"
+    for a in ("selfinst", "evol", "llm2llm", "ours")
+    for c in ("plain", "alpagasus", "less", "ours")
 )
+for _a in ("selfinst", "evol", "llm2llm", "ours"):
+    for _c in ("plain", "alpagasus", "less", "ours"):
+        COLORS[f"M_{_a}_{_c}"] = "#555555"
+        SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}"
 COLORS = {
     "base": "#6b6a63",
     "A_all": "#eb6834",
@@ -93,7 +101,15 @@ SHORT_LABELS = {
 BOOT_CONDS = (
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
     "F_atom_boot3", "F_selfinst",
+) + tuple(
+    f"M_{a}_{c}"
+    for a in ("selfinst", "evol", "llm2llm", "ours")
+    for c in ("plain", "alpagasus", "less", "ours")
 )
+for _a in ("selfinst", "evol", "llm2llm", "ours"):
+    for _c in ("plain", "alpagasus", "less", "ours"):
+        COLORS[f"M_{_a}_{_c}"] = "#555555"
+        SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}"
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -362,6 +378,29 @@ def load_candidate_pool(config):
             "candidate pool contains only gold seed items — teacher traces "
             "(data/pool_v0) are missing; refusing to run on a degenerate diet"
         )
+    return pool
+
+
+def _maybe_extend_pool_with_evol(pool):
+    """Merge Evol-Instruct generations (data/evol_pool_v1.jsonl) when
+    E3_EVOL_POOL=1. Changes the pool fingerprint, hence feature caches."""
+    if os.environ.get("E3_EVOL_POOL") != "1":
+        return pool
+    path = ROOT / "data" / "evol_pool_v1.jsonl"
+    if not path.is_file():
+        raise RuntimeError("E3_EVOL_POOL=1 but data/evol_pool_v1.jsonl missing")
+    added = 0
+    with path.open() as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            item = _pool_item(row["domain"], row["prompt"], row["response"],
+                              row.get("teacher", "deepseek-v4-pro"))
+            item["evol"] = 1
+            pool.append(item)
+            added += 1
+    print(f"[setup][pool] evol extension rows={added}", flush=True)
     return pool
 
 
@@ -1376,6 +1415,7 @@ def build_selections(config, tokenizer, pool):
             selections["F_selfinst"] = [
                 {**pool[i], "_is_refusal": False} for i in kept_si
             ]
+            _BOOT_STATE["selfinst_rows"] = list(kept_si)
             print(
                 f"[setup][F_selfinst] kept={len(kept_si)} spent={spent_si}",
                 flush=True,
@@ -1594,6 +1634,9 @@ def build_selections(config, tokenizer, pool):
                 for row_sel, weight in zip(selected_boot, raw_w):
                     row_sel["_v3_weight"] = float(weight)
             selections[boot_name] = selected_boot
+            if use_bridge:
+                _BOOT_STATE["boot3_bought"] = list(bought_a)
+                _BOOT_STATE["boot3_spent"] = spent_a
             print(
                 f"[setup][{boot_name}] bought={len(bought_a)} "
                 f"spent={spent_a} admitted={len(admitted_boot)} "
@@ -1664,6 +1707,149 @@ def build_selections(config, tokenizer, pool):
         ),
         excluded=used_indices,
     )
+    matrix_conditions = [
+        c for c in config["conditions"] if c.startswith("M_")
+    ]
+    if matrix_conditions:
+        import hashlib as _hl
+        cache_idx_m = [
+            i for i, row in enumerate(pool)
+            if row.get("teacher") == BOOT_TEACHER
+        ]
+        scores_path = ROOT / "data" / "alpagasus_scores.json"
+        alpa_scores = {}
+        if scores_path.is_file():
+            alpa_scores = json.loads(scores_path.read_text())
+
+        def _row_key(row):
+            return _hl.sha256(
+                (row["prompt"] + row["response"]).encode()
+            ).hexdigest()[:16]
+
+        def _acquire(name):
+            if name == "ours":
+                if "boot3_bought" not in _BOOT_STATE:
+                    raise RuntimeError(
+                        "M_ours_* requires F_atom_boot3 in conditions"
+                    )
+                return list(_BOOT_STATE["boot3_bought"])
+            if name == "selfinst":
+                if "selfinst_rows" not in _BOOT_STATE:
+                    raise RuntimeError(
+                        "M_selfinst_* requires F_selfinst in conditions"
+                    )
+                return list(_BOOT_STATE["selfinst_rows"])
+            if name == "evol":
+                evol_idx = [
+                    i for i in cache_idx_m if pool[i].get("evol") == 1
+                ]
+                if not evol_idx:
+                    raise RuntimeError(
+                        "M_evol_* requires E3_EVOL_POOL=1 with evol rows"
+                    )
+                rng_e = np.random.default_rng(seed + 4099)
+                bought_e, spent_e = [], 0
+                for i in rng_e.permutation(evol_idx):
+                    i = int(i)
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_e + cost > budget:
+                        continue
+                    bought_e.append(i)
+                    spent_e += cost
+                    if spent_e >= budget:
+                        break
+                return bought_e
+            raise NotImplementedError(f"acquisition {name} pending")
+
+        def _curate(name, bought):
+            rows_out = []
+            if name == "plain":
+                rows_out = [
+                    {**pool[i], "_is_refusal": False} for i in bought
+                ]
+            elif name == "alpagasus":
+                for i in bought:
+                    score = alpa_scores.get(_row_key(pool[i]))
+                    if score is not None and float(score) >= 4.5:
+                        rows_out.append(
+                            {**pool[i], "_is_refusal": False}
+                        )
+                if not rows_out:
+                    # official fallback: if the filter empties the set,
+                    # keep the top-scoring half instead
+                    ranked = sorted(
+                        bought,
+                        key=lambda i: -float(
+                            alpa_scores.get(_row_key(pool[i]), 0.0)
+                        ),
+                    )
+                    rows_out = [
+                        {**pool[i], "_is_refusal": False}
+                        for i in ranked[: max(1, len(ranked) // 2)]
+                    ]
+            elif name == "less":
+                raw = np.array(
+                    [pool[i]["_less_std_score"] for i in bought]
+                )
+                shifted = raw - raw.min() + 1e-6
+                wts = shifted / shifted.mean()
+                wts = np.clip(wts, 0.25, 4.0)
+                for i, w in zip(bought, wts):
+                    rows_out.append(
+                        {**pool[i], "_is_refusal": False,
+                         "_v3_weight": float(w)}
+                    )
+            elif name == "ours":
+                thr = _BOOT_STATE["gate_thr"]
+                gsc = _BOOT_STATE["gate_pool_scores"]
+                admitted = [i for i in bought if gsc[i] >= thr]
+                if not admitted:
+                    admitted = bought
+                from sklearn.decomposition import MiniBatchDictionaryLearning
+                spec_r = _BOOT_STATE["spec_feat"]
+                pool_r = _BOOT_STATE["pool_feat"]
+                dict_m = MiniBatchDictionaryLearning(
+                    n_components=int(min(64, max(8, len(spec_r) // 2))),
+                    alpha=0.05, transform_algorithm="lasso_lars",
+                    transform_alpha=0.05, random_state=seed,
+                    max_iter=100, batch_size=16,
+                )
+                dict_m.fit(spec_r)
+                spec_dir = np.abs(dict_m.transform(spec_r)).mean(axis=0)
+                spec_dir = spec_dir / max(spec_dir.sum(), 1e-12)
+                codes_m = np.abs(dict_m.transform(
+                    np.vstack([pool_r[i][None] for i in admitted])
+                ))
+                codes_m = codes_m / np.maximum(
+                    codes_m.sum(axis=1, keepdims=True), 1e-12
+                )
+                raw_w = codes_m @ spec_dir
+                raw_w = raw_w / max(raw_w.mean(), 1e-12)
+                clip_c = 1.0 + 3.0 * min(1.0, len(admitted) / 64.0)
+                raw_w = np.clip(raw_w, 1.0 / clip_c, clip_c)
+                for i, w in zip(admitted, raw_w):
+                    rows_out.append(
+                        {**pool[i], "_is_refusal": False,
+                         "_v3_weight": float(w)}
+                    )
+            else:
+                raise NotImplementedError(name)
+            return rows_out
+
+        acquired_cache = {}
+        for cond in matrix_conditions:
+            _, acq, cur = cond.split("_", 2)
+            if acq not in acquired_cache:
+                acquired_cache[acq] = _acquire(acq)
+            bought_m = acquired_cache[acq]
+            rows_m = _curate(cur, bought_m)
+            selections[cond] = rows_m
+            print(
+                f"[setup][{cond}] bought={len(bought_m)} "
+                f"kept={len(rows_m)}",
+                flush=True,
+            )
+
     selections["F_refusal"] = original + refusals
     return selections
 
@@ -2632,6 +2818,7 @@ def main():
     selections = {}
     if trained_conditions:
         pool = load_candidate_pool(config)
+        pool = _maybe_extend_pool_with_evol(pool)
         pool_composition = composition_rows(pool)
         print(f"[setup][pool] eligible items={len(pool)}", flush=True)
         for row in pool_composition:
@@ -2722,7 +2909,8 @@ def main():
             optimizer_steps = train_condition(
                 model, tokenizer, selected, bnd_config, condition=condition
             )
-        elif condition in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3"):
+        elif (condition in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3")
+              or condition.startswith("M_")):
             # compute-matched training: the budget caps teacher tokens,
             # not local compute. A targeted corpus is smaller than an
             # unfiltered one, so epochs scale up until optimizer steps
@@ -2737,7 +2925,8 @@ def main():
             )))
             boot_config = json.loads(json.dumps(config))
             boot_config["training"]["epochs"] = boot_epochs
-            if condition == "F_atom_boot3":
+            if condition == "F_atom_boot3" or condition.endswith("_ours") \
+                    or condition.endswith("_less"):
                 boot_config["training"]["weight_warm_epoch"] = 1
             print(
                 f"[{condition}][compute-match] tokens={sel_tokens} "
