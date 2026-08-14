@@ -1,0 +1,12 @@
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot7 E3_TAG=_boot7_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot7 E3_TAG=_boot7_s1_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=2 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot7 E3_TAG=_boot7_s2_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_DIV_WEIGHT=0.25 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot6 E3_TAG=_boot6_dw25_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_DIV_WEIGHT=0.75 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot6 E3_TAG=_boot6_dw75_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_SPEC_ROWS=15 E3_PROBE_DIV=20 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot5 E3_TAG=_k15_pd20_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_SPEC_ROWS=15 E3_PROBE_DIV=5 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot5 E3_TAG=_k15_pd5_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_SPEC_ROWS=25 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot5 E3_TAG=_k25_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_SPEC_ROWS=35 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot5 E3_TAG=_k35_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=pandas E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot3,F_atom_boot6,F_atom_boot7 E3_TAG=_pandas_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=40000 E3_SEED=0 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot6,F_atom_boot7 E3_TAG=_b40k_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-0.8B E3_BUDGET=10000 E3_SEED=0 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot5,F_atom_boot7 E3_TAG=_08b_boot57_l4
