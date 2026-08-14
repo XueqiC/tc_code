@@ -42,7 +42,8 @@ CONDITIONS = (
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_atom_boot6",
+    "F_selfinst",
 ) + tuple(
     f"M_{a}_{c}"
     for a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours")
@@ -96,7 +97,8 @@ SHORT_LABELS = {
 }
 BOOT_CONDS = (
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_atom_boot6",
+    "F_selfinst",
 )
 for _a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours"):
     for _c in ("plain", "alpagasus", "less", "ours"):
@@ -106,6 +108,8 @@ COLORS["F_atom_boot4"] = "#2d0a06"
 SHORT_LABELS["F_atom_boot4"] = "F-atom4"
 COLORS["F_atom_boot5"] = "#1a0503"
 SHORT_LABELS["F_atom_boot5"] = "F-atom5"
+COLORS["F_atom_boot6"] = "#33110a"
+SHORT_LABELS["F_atom_boot6"] = "F-atom6"
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -1446,7 +1450,7 @@ def build_selections(config, tokenizer, pool):
             )
 
         for boot_name in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3",
-                          "F_atom_boot4", "F_atom_boot5"):
+                          "F_atom_boot4", "F_atom_boot5", "F_atom_boot6"):
             if boot_name not in config["conditions"]:
                 continue
             # boot2 adds (a) implicit-demand completion: bought teacher
@@ -1457,10 +1461,16 @@ def build_selections(config, tokenizer, pool):
             # is checked against the teacher's actual response; the
             # agreement (per-atom reliability) rescales demand, so the
             # budget flows toward skills the teacher confirmed.
-            use_implicit = boot_name.endswith(("2", "3", "4", "5"))
-            use_bridge = boot_name.endswith(("3", "4", "5"))
+            use_implicit = boot_name.endswith(("2", "3", "4", "5", "6"))
+            use_bridge = boot_name.endswith(("3", "4", "5", "6"))
             use_probe = boot_name.endswith(("4", "5"))
             use_validate = boot_name.endswith("5")
+            # boot6 = boot3 + a marginal-diversity factor on the
+            # acquisition objective: homogenized corpora came out of
+            # pure quota-chasing (bought rows drift toward the support
+            # centroid), so each candidate's gain is discounted by its
+            # similarity to what is already bought.
+            use_diversity = boot_name.endswith("6")
             from sklearn.decomposition import MiniBatchDictionaryLearning
             if use_bridge:
                 # skills live in RESPONSE-view gradient space (all atom
@@ -1697,6 +1707,23 @@ def build_selections(config, tokenizer, pool):
                     ).sum() / expected_tokens
                     for code_row in rem_codes
                 ])
+                if use_diversity and bought_a:
+                    # marginal-diversity discount: a candidate whose
+                    # skill code duplicates an already-bought row
+                    # supplies redundant tokens even when quotas remain.
+                    bought_n = np.abs(dict_boot.transform(
+                        np.vstack([pool_feat[i][None] for i in bought_a])
+                    ))
+                    bought_n = bought_n / np.maximum(
+                        np.linalg.norm(bought_n, axis=1, keepdims=True),
+                        1e-12,
+                    )
+                    rem_n = rem_codes / np.maximum(
+                        np.linalg.norm(rem_codes, axis=1, keepdims=True),
+                        1e-12,
+                    )
+                    max_sim = (rem_n @ bought_n.T).max(axis=1)
+                    gains = gains * (1.0 - 0.5 * np.clip(max_sim, 0.0, 1.0))
                 picked = 0
                 ledger_work = ledger.copy()
                 for order_pos in np.argsort(-gains):

@@ -79,7 +79,9 @@ Training-Time Control on Agent Capability*。
 (2026-08-14 下午)
 - rai GPU2 | fam_b2_rai(对决 seed2:boot3/boot4/llm2llm/ourscorr ×{plain,ours})| pid 4053126 | logs/fam_b2_rai.log | ~3.5h
 - rai GPU3 | mx_2b_s2(矩阵 seed2:13 conds)| pid 4053127 | logs/mx_2b_s2.log | ~5h
-- hpg | 39392528(fam array 0-4, group)/ 39392529(array 5-8, dept)| 周五早提交,仍 PENDING;rai seed2 波先落地则覆盖 fam_b/mx 对应格
+- hpg | 39411442(cfx 0-2, group:策展修复 E3_CURATE_GATE=0 ×3 seeds)/ 39411443(k15 3-5, dept:boot3/4/5 @k=15 ×3 seeds)| 旧全家福 39392528/29 已按失败分析 scancel
+- rai GPU4 | boot5_smoke(k=15 b2k 烟测)| logs/boot5_smoke.log
+- 后台 | evol 扩池 --per-query 4(公平性修复)| logs/evol_extend2.log;完成后 evol 行 3 种子重跑
 - 已完成今日:fam_b0_rai、fam_b1_rai、mx_2b_s0、mx_2b_s1(两种子矩阵+对决全表在 results/,聚合器 tools/aggregate_tables.py 2B)
 
 ## Paper(2026-08-10 启动)
