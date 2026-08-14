@@ -1751,6 +1751,86 @@ def build_selections(config, tokenizer, pool):
                     if spent_e >= budget:
                         break
                 return bought_e
+            if name == "llm2llm":
+                # LLM2LLM (Lee et al., Findings of ACL 2024): train on a
+                # seed set, find training examples the student still
+                # fails, acquire similar examples, train on the union.
+                rng_l = np.random.default_rng(seed + 5077)
+                seed_budget = budget // 2
+                seed_idx, spent_l = [], 0
+                for i in rng_l.permutation(cache_idx_m):
+                    i = int(i)
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_l + cost > seed_budget:
+                        continue
+                    seed_idx.append(i)
+                    spent_l += cost
+                    if spent_l >= seed_budget:
+                        break
+                seed_rows = [
+                    {**pool[i], "_is_refusal": False} for i in seed_idx
+                ]
+                print(
+                    f"[setup][llm2llm] seed={len(seed_idx)} "
+                    f"tokens={spent_l}",
+                    flush=True,
+                )
+                temp_model = build_model(config, with_lora=True)
+                train_condition(
+                    temp_model, tokenizer, seed_rows, config,
+                    condition="llm2llm_seed",
+                )
+                gen_texts = generate_texts(
+                    temp_model, tokenizer, seed_rows, config
+                )
+                del temp_model
+                gc.collect()
+                torch.cuda.empty_cache()
+                failures = []
+                for row_i, text in zip(seed_idx, gen_texts):
+                    gold = None
+                    resp = pool[row_i]["response"]
+                    g0 = resp.find("def solution")
+                    if g0 >= 0:
+                        gold = verifier.run_solution(resp[g0:])
+                    pred = None
+                    p0 = text.find("def solution")
+                    if p0 >= 0:
+                        pred = verifier.run_solution(text[p0:])
+                    if not close_enough(pred, gold):
+                        failures.append(row_i)
+                print(
+                    f"[setup][llm2llm] failures={len(failures)}"
+                    f"/{len(seed_idx)}",
+                    flush=True,
+                )
+                pe_l = _BOOT_STATE["pool_prompt_emb"]
+                seed_set = set(seed_idx)
+                if failures:
+                    fail_emb = pe_l[failures]
+                    sims_l = pe_l @ fail_emb.T
+                    sim_of = {
+                        i: float(sims_l[i].max())
+                        for i in cache_idx_m if i not in seed_set
+                    }
+                else:
+                    sim_of = {
+                        i: 0.0 for i in cache_idx_m if i not in seed_set
+                    }
+                for i in sorted(sim_of, key=lambda j: -sim_of[j]):
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_l + cost > budget:
+                        continue
+                    seed_idx.append(i)
+                    spent_l += cost
+                    if spent_l >= budget:
+                        break
+                print(
+                    f"[setup][llm2llm] total={len(seed_idx)} "
+                    f"tokens={spent_l}",
+                    flush=True,
+                )
+                return seed_idx
             raise NotImplementedError(f"acquisition {name} pending")
 
         def _curate(name, bought):
