@@ -1,0 +1,3 @@
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CURATE_GATE=0 E3_CONDITIONS=base,F_selfinst,F_atom_boot3,M_selfinst_ours,M_ours_ours,M_ourscorr_ours E3_TAG=_cfx_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_SPEC_ROWS=15 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_atom_boot3,F_atom_boot4,F_atom_boot5 E3_TAG=_k15_s0_l4
+E3_STUDENT=Qwen/Qwen3.5-2B E3_TASK=sql E3_TASK_FILTER=join E3_BUDGET=20000 E3_SEED=0 E3_CONDITIONS=base,F_atom_boot3,F_atom_boot6 E3_TAG=_boot6_sql_l4
