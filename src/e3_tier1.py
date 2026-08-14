@@ -42,7 +42,7 @@ CONDITIONS = (
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_atom_boot4", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_selfinst",
 ) + tuple(
     f"M_{a}_{c}"
     for a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours")
@@ -96,7 +96,7 @@ SHORT_LABELS = {
 }
 BOOT_CONDS = (
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_atom_boot4", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_atom_boot5", "F_selfinst",
 )
 for _a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours"):
     for _c in ("plain", "alpagasus", "less", "ours"):
@@ -104,6 +104,8 @@ for _a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours"):
         SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}"
 COLORS["F_atom_boot4"] = "#2d0a06"
 SHORT_LABELS["F_atom_boot4"] = "F-atom4"
+COLORS["F_atom_boot5"] = "#1a0503"
+SHORT_LABELS["F_atom_boot5"] = "F-atom5"
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -208,6 +210,16 @@ def apply_environment_overrides(config):
     config["training"]["early_stop"] = early_stop
     config["task_boundary"]["domain"] = task
     config["task_boundary"]["filter"] = task_filter
+    spec_rows = _environment_int("E3_SPEC_ROWS", 0)
+    if spec_rows:
+        if spec_rows < 5:
+            raise ValueError(
+                f"E3_SPEC_ROWS must be >= 5, got {spec_rows}"
+            )
+        fit_n = max(1, min(spec_rows - 1, int(round(spec_rows * 0.7))))
+        config["task_boundary"]["spec_rows"] = spec_rows
+        config["task_boundary"]["fit_rows"] = fit_n
+        config["task_boundary"]["calibration_rows"] = spec_rows - fit_n
 
     output_directory = f"results/e3_tier1{tag}"
     config["outputs"].update({
@@ -275,9 +287,10 @@ def validate_config(config):
         ("device",): "cuda",
         ("dtype",): "bfloat16",
         ("seed",): 0,
-        ("task_boundary", "spec_rows"): 50,
-        ("task_boundary", "fit_rows"): 35,
-        ("task_boundary", "calibration_rows"): 15,
+        ("task_boundary", "spec_rows"): config["task_boundary"]["spec_rows"],
+        ("task_boundary", "fit_rows"): config["task_boundary"]["fit_rows"],
+        ("task_boundary", "calibration_rows"):
+            config["task_boundary"]["calibration_rows"],
         ("task_boundary", "energy"): 0.90,
         ("task_boundary", "alpha"): 0.10,
         ("selection", "response_token_budget"): 40000,
@@ -1433,15 +1446,21 @@ def build_selections(config, tokenizer, pool):
             )
 
         for boot_name in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3",
-                          "F_atom_boot4"):
+                          "F_atom_boot4", "F_atom_boot5"):
             if boot_name not in config["conditions"]:
                 continue
             # boot2 adds (a) implicit-demand completion: bought teacher
             # responses reveal skills the queries never mentioned, and
             # (b) per-row demand-aligned loss weights for training.
-            use_implicit = boot_name.endswith(("2", "3", "4"))
-            use_bridge = boot_name.endswith(("3", "4"))
-            use_probe = boot_name.endswith("4")
+            # boot5 turns the probe phase into hypothesis testing: each
+            # demanded atom gets probes whose PREDICTED skill activation
+            # is checked against the teacher's actual response; the
+            # agreement (per-atom reliability) rescales demand, so the
+            # budget flows toward skills the teacher confirmed.
+            use_implicit = boot_name.endswith(("2", "3", "4", "5"))
+            use_bridge = boot_name.endswith(("3", "4", "5"))
+            use_probe = boot_name.endswith(("4", "5"))
+            use_validate = boot_name.endswith("5")
             from sklearn.decomposition import MiniBatchDictionaryLearning
             if use_bridge:
                 # skills live in RESPONSE-view gradient space (all atom
@@ -1508,6 +1527,16 @@ def build_selections(config, tokenizer, pool):
                     and (var_a[a] > np.median(var_a[demand_mask])
                          or anchor[a] > 0.5)
                 ][:5]
+                if use_validate:
+                    # boot5 probes every top-demand atom, not only the
+                    # uncertain tail: probes double as validation data.
+                    top_demand = [
+                        int(a) for a in
+                        np.argsort(-spec_codes_p.mean(axis=0))
+                        if demand_mask[a]
+                    ][:8]
+                    uncertain = list(dict.fromkeys(top_demand + uncertain))[:8]
+                probe_map = {}
                 if uncertain:
                     pair_p0 = spec_pfeat
                     pair_r0 = spec_feat
@@ -1523,7 +1552,9 @@ def build_selections(config, tokenizer, pool):
                         (cand0 @ pair_p0.T) @ dual0
                     ))
                     rem0 = sorted(remaining_a)
-                    probe_budget = max(200, budget // 20)
+                    probe_budget = max(
+                        200, budget // (10 if use_validate else 20)
+                    )
                     probe_spent = 0
                     for atom_id in uncertain:
                         order0 = np.argsort(-pred0[:, atom_id])
@@ -1538,10 +1569,41 @@ def build_selections(config, tokenizer, pool):
                             spent_a += cost
                             probe_spent += cost
                             remaining_a.discard(i)
+                            probe_map.setdefault(atom_id, []).append(
+                                (int(pos), i)
+                            )
                     print(
                         f"[setup][{boot_name}][probe] "
                         f"uncertain_atoms={len(uncertain)} "
                         f"probes={len(bought_a)} tokens={probe_spent}",
+                        flush=True,
+                    )
+                rel_p = None
+                if use_validate and probe_map:
+                    # per-atom reliability: predicted activation (bridge
+                    # forecast at purchase time) vs the activation the
+                    # teacher's actual response produced. min/max ratio
+                    # in [0,1]; atoms without probes keep 1.0 (no
+                    # evidence against them).
+                    rel_p = np.ones(spec_codes_p.shape[1])
+                    for atom_id, pairs in probe_map.items():
+                        ratios = []
+                        for pos, i in pairs:
+                            predicted = float(pred0[pos, atom_id])
+                            actual = float(np.abs(dict_p.transform(
+                                pool_feat[i][None]
+                            ))[0, atom_id])
+                            hi = max(predicted, actual, 1e-12)
+                            ratios.append(min(predicted, actual) / hi)
+                        rel_p[atom_id] = float(np.mean(ratios))
+                    low_rel = [
+                        a for a in probe_map if rel_p[a] < 0.5
+                    ]
+                    print(
+                        f"[setup][{boot_name}][validate] "
+                        f"probed_atoms={len(probe_map)} "
+                        f"mean_rel={rel_p[list(probe_map)].mean():.3f} "
+                        f"low_rel={low_rel}",
                         flush=True,
                     )
             while remaining_a and spent_a < budget:
@@ -1558,6 +1620,24 @@ def build_selections(config, tokenizer, pool):
                 dict_boot.fit(corpus)
                 spec_codes_b = np.abs(dict_boot.transform(spec_feat))
                 demand_b = spec_codes_b.mean(axis=0)
+                if use_validate and rel_p is not None:
+                    # carry per-atom reliability from the probe-time
+                    # dictionary onto this round's refit atoms via
+                    # component similarity (atoms are not index-aligned
+                    # across refits).
+                    comp_b = dict_boot.components_
+                    comp_b = comp_b / np.maximum(
+                        np.linalg.norm(comp_b, axis=1, keepdims=True), 1e-12
+                    )
+                    comp_p = dict_p.components_
+                    comp_p = comp_p / np.maximum(
+                        np.linalg.norm(comp_p, axis=1, keepdims=True), 1e-12
+                    )
+                    sim_bp = np.abs(comp_b @ comp_p.T)
+                    sim_bp = sim_bp / np.maximum(
+                        sim_bp.sum(axis=1, keepdims=True), 1e-12
+                    )
+                    demand_b = demand_b * (sim_bp @ rel_p)
                 # implicit-demand completion needs a response-to-prompt
                 # bridge to stay modality-consistent; deferred. boot2
                 # currently differs from boot only in the per-row loss
