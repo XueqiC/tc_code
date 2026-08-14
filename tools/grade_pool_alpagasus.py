@@ -167,7 +167,10 @@ def load_pool(config_path: Path | None) -> list[dict[str, Any]]:
     e3_tier1 = _load_e3_module()
 
     config = e3_tier1.load_config(config_path or e3_tier1.DEFAULT_CONFIG)
-    return e3_tier1.load_candidate_pool(config)
+    pool = e3_tier1.load_candidate_pool(config)
+    if hasattr(e3_tier1, "_maybe_extend_pool_with_evol"):
+        pool = e3_tier1._maybe_extend_pool_with_evol(pool)
+    return pool
 
 
 def _pending_count(
