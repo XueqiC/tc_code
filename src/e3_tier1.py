@@ -42,10 +42,10 @@ CONDITIONS = (
     "H_nll", "E_less_std", "H_smartad_std", "D_grad_iter",
     "D_grad_pre", "D_grad_cov", "D_less_bnd", "D_atom",
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_selfinst",
 ) + tuple(
     f"M_{a}_{c}"
-    for a in ("selfinst", "evol", "llm2llm", "ours")
+    for a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours")
     for c in ("plain", "alpagasus", "less", "ours")
 )
 COLORS = {
@@ -96,12 +96,14 @@ SHORT_LABELS = {
 }
 BOOT_CONDS = (
     "F_uni_boot", "F_emb_boot", "F_atom_boot", "F_atom_boot2",
-    "F_atom_boot3", "F_selfinst",
+    "F_atom_boot3", "F_atom_boot4", "F_selfinst",
 )
-for _a in ("selfinst", "evol", "llm2llm", "ours"):
+for _a in ("selfinst", "evol", "llm2llm", "ourscorr", "ours"):
     for _c in ("plain", "alpagasus", "less", "ours"):
         COLORS[f"M_{_a}_{_c}"] = "#555555"
         SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}"
+COLORS["F_atom_boot4"] = "#2d0a06"
+SHORT_LABELS["F_atom_boot4"] = "F-atom4"
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
 MUTED = "#6b6a63"
@@ -1429,14 +1431,16 @@ def build_selections(config, tokenizer, pool):
                 flush=True,
             )
 
-        for boot_name in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3"):
+        for boot_name in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3",
+                          "F_atom_boot4"):
             if boot_name not in config["conditions"]:
                 continue
             # boot2 adds (a) implicit-demand completion: bought teacher
             # responses reveal skills the queries never mentioned, and
             # (b) per-row demand-aligned loss weights for training.
-            use_implicit = boot_name.endswith(("2", "3"))
-            use_bridge = boot_name.endswith("3")
+            use_implicit = boot_name.endswith(("2", "3", "4"))
+            use_bridge = boot_name.endswith(("3", "4"))
+            use_probe = boot_name.endswith("4")
             from sklearn.decomposition import MiniBatchDictionaryLearning
             if use_bridge:
                 # skills live in RESPONSE-view gradient space (all atom
@@ -1466,6 +1470,79 @@ def build_selections(config, tokenizer, pool):
             rounds = 0
             ledger = None
             dict_boot = None
+            if use_probe:
+                # probe-refined dictionary: the k queries are a small,
+                # possibly unlucky sample, so atoms they support weakly
+                # are refined by BUYING targeted probes before the main
+                # loop. Uncertainty is measured on the queries
+                # themselves (leave-one-out demand variance +
+                # single-anchor mass); probes join the corpus so every
+                # later dictionary refit sees them.
+                from sklearn.decomposition import (
+                    MiniBatchDictionaryLearning as _MBDL,
+                )
+                dict_p = _MBDL(
+                    n_components=int(min(64, max(8, len(spec_feat) // 2))),
+                    alpha=0.05, transform_algorithm="lasso_lars",
+                    transform_alpha=0.05, random_state=seed,
+                    max_iter=100, batch_size=16,
+                )
+                dict_p.fit(spec_feat)
+                spec_codes_p = np.abs(dict_p.transform(spec_feat))
+                k_n = spec_codes_p.shape[0]
+                loo = np.stack([
+                    np.delete(spec_codes_p, i, axis=0).mean(axis=0)
+                    for i in range(k_n)
+                ])
+                var_a = loo.std(axis=0)
+                mass = spec_codes_p.sum(axis=0)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    anchor = np.where(
+                        mass > 1e-12, spec_codes_p.max(axis=0) / mass, 0.0
+                    )
+                demand_mask = spec_codes_p.mean(axis=0) > 1e-9
+                uncertain = [
+                    int(a) for a in np.argsort(-var_a)
+                    if demand_mask[a]
+                    and (var_a[a] > np.median(var_a[demand_mask])
+                         or anchor[a] > 0.5)
+                ][:5]
+                if uncertain:
+                    pair_p0 = spec_pfeat
+                    pair_r0 = spec_feat
+                    gram0 = pair_p0 @ pair_p0.T
+                    lam0 = 0.1 * np.trace(gram0) / max(gram0.shape[0], 1)
+                    dual0 = np.linalg.solve(
+                        gram0 + lam0 * np.eye(gram0.shape[0]), pair_r0
+                    )
+                    cand0 = np.vstack(
+                        [pool_pfeat[i][None] for i in sorted(remaining_a)]
+                    )
+                    pred0 = np.abs(dict_p.transform(
+                        (cand0 @ pair_p0.T) @ dual0
+                    ))
+                    rem0 = sorted(remaining_a)
+                    probe_budget = max(200, budget // 20)
+                    probe_spent = 0
+                    for atom_id in uncertain:
+                        order0 = np.argsort(-pred0[:, atom_id])
+                        for pos in order0[:2]:
+                            i = rem0[int(pos)]
+                            if i not in remaining_a:
+                                continue
+                            cost = max(pool[i]["_token_count"], 1)
+                            if probe_spent + cost > probe_budget:
+                                continue
+                            bought_a.append(i)
+                            spent_a += cost
+                            probe_spent += cost
+                            remaining_a.discard(i)
+                    print(
+                        f"[setup][{boot_name}][probe] "
+                        f"uncertain_atoms={len(uncertain)} "
+                        f"probes={len(bought_a)} tokens={probe_spent}",
+                        flush=True,
+                    )
             while remaining_a and spent_a < budget:
                 rounds += 1
                 corpus = np.vstack(
@@ -1627,8 +1704,8 @@ def build_selections(config, tokenizer, pool):
                     row_sel["_v3_weight"] = float(weight)
             selections[boot_name] = selected_boot
             if use_bridge:
-                _BOOT_STATE["boot3_bought"] = list(bought_a)
-                _BOOT_STATE["boot3_spent"] = spent_a
+                _BOOT_STATE[boot_name + "_bought"] = list(bought_a)
+                _BOOT_STATE[boot_name + "_spent"] = spent_a
             print(
                 f"[setup][{boot_name}] bought={len(bought_a)} "
                 f"spent={spent_a} admitted={len(admitted_boot)} "
@@ -1720,11 +1797,11 @@ def build_selections(config, tokenizer, pool):
 
         def _acquire(name):
             if name == "ours":
-                if "boot3_bought" not in _BOOT_STATE:
+                if "F_atom_boot3_bought" not in _BOOT_STATE:
                     raise RuntimeError(
                         "M_ours_* requires F_atom_boot3 in conditions"
                     )
-                return list(_BOOT_STATE["boot3_bought"])
+                return list(_BOOT_STATE["F_atom_boot3_bought"])
             if name == "selfinst":
                 if "selfinst_rows" not in _BOOT_STATE:
                     raise RuntimeError(
@@ -1751,6 +1828,121 @@ def build_selections(config, tokenizer, pool):
                     if spent_e >= budget:
                         break
                 return bought_e
+            if name == "ourscorr":
+                # Skill-resolved corrective acquisition (our distillation
+                # innovation): identical protocol to LLM2LLM except the
+                # augmentation rule — failed rollouts are encoded against
+                # the atom dictionary to NAME the deficient skills, and
+                # the remaining budget buys predicted supply for that
+                # deficit (atom-deficit targeting vs. LLM2LLM's
+                # instance-similarity targeting).
+                rng_c = np.random.default_rng(seed + 5077)  # same seed
+                seed_budget_c = budget // 2
+                seed_idx_c, spent_c = [], 0
+                for i in rng_c.permutation(cache_idx_m):
+                    i = int(i)
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_c + cost > seed_budget_c:
+                        continue
+                    seed_idx_c.append(i)
+                    spent_c += cost
+                    if spent_c >= seed_budget_c:
+                        break
+                seed_rows_c = [
+                    {**pool[i], "_is_refusal": False} for i in seed_idx_c
+                ]
+                print(
+                    f"[setup][ourscorr] seed={len(seed_idx_c)} "
+                    f"tokens={spent_c}",
+                    flush=True,
+                )
+                temp_model_c = build_model(config, with_lora=True)
+                train_condition(
+                    temp_model_c, tokenizer, seed_rows_c, config,
+                    condition="ourscorr_seed",
+                )
+                gen_c = generate_texts(
+                    temp_model_c, tokenizer, seed_rows_c, config
+                )
+                del temp_model_c
+                gc.collect()
+                torch.cuda.empty_cache()
+                fail_c = []
+                for row_i, text in zip(seed_idx_c, gen_c):
+                    gold = None
+                    resp = pool[row_i]["response"]
+                    g0 = resp.find("def solution")
+                    if g0 >= 0:
+                        gold = verifier.run_solution(resp[g0:])
+                    pred = None
+                    p0 = text.find("def solution")
+                    if p0 >= 0:
+                        pred = verifier.run_solution(text[p0:])
+                    if not close_enough(pred, gold):
+                        fail_c.append(row_i)
+                print(
+                    f"[setup][ourscorr] failures={len(fail_c)}"
+                    f"/{len(seed_idx_c)}",
+                    flush=True,
+                )
+                from sklearn.decomposition import (
+                    MiniBatchDictionaryLearning as _MBDLc,
+                )
+                spec_r_c = _BOOT_STATE["spec_feat"]
+                pool_r_c = _BOOT_STATE["pool_feat"]
+                pool_p_c = _BOOT_STATE["pool_prompt_feat"]
+                spec_p_c = _BOOT_STATE["spec_prompt_feat"]
+                dict_c = _MBDLc(
+                    n_components=int(min(64, max(8, len(spec_r_c) // 2))),
+                    alpha=0.05, transform_algorithm="lasso_lars",
+                    transform_alpha=0.05, random_state=seed,
+                    max_iter=100, batch_size=16,
+                )
+                dict_c.fit(np.vstack(
+                    [spec_r_c] + [pool_r_c[i][None] for i in seed_idx_c]
+                ))
+                if fail_c:
+                    deficit = np.abs(dict_c.transform(
+                        np.vstack([pool_r_c[i][None] for i in fail_c])
+                    )).mean(axis=0)
+                else:
+                    deficit = np.abs(
+                        dict_c.transform(spec_r_c)
+                    ).mean(axis=0)
+                deficit = deficit / max(deficit.sum(), 1e-12)
+                pair_p_c = np.vstack(
+                    [spec_p_c] + [pool_p_c[i][None] for i in seed_idx_c]
+                )
+                pair_r_c = np.vstack(
+                    [spec_r_c] + [pool_r_c[i][None] for i in seed_idx_c]
+                )
+                gram_c = pair_p_c @ pair_p_c.T
+                lam_c = 0.1 * np.trace(gram_c) / max(gram_c.shape[0], 1)
+                dual_c = np.linalg.solve(
+                    gram_c + lam_c * np.eye(gram_c.shape[0]), pair_r_c
+                )
+                seed_set_c = set(seed_idx_c)
+                rem_c = [i for i in cache_idx_m if i not in seed_set_c]
+                cand_c = np.vstack([pool_p_c[i][None] for i in rem_c])
+                pred_codes_c = np.abs(dict_c.transform(
+                    (cand_c @ pair_p_c.T) @ dual_c
+                ))
+                score_c = pred_codes_c @ deficit
+                for pos in np.argsort(-score_c):
+                    i = rem_c[int(pos)]
+                    cost = max(pool[i]["_token_count"], 1)
+                    if spent_c + cost > budget:
+                        continue
+                    seed_idx_c.append(i)
+                    spent_c += cost
+                    if spent_c >= budget:
+                        break
+                print(
+                    f"[setup][ourscorr] total={len(seed_idx_c)} "
+                    f"tokens={spent_c}",
+                    flush=True,
+                )
+                return seed_idx_c
             if name == "llm2llm":
                 # LLM2LLM (Lee et al., Findings of ACL 2024): train on a
                 # seed set, find training examples the student still
@@ -2981,7 +3173,8 @@ def main():
             optimizer_steps = train_condition(
                 model, tokenizer, selected, bnd_config, condition=condition
             )
-        elif (condition in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3")
+        elif (condition in ("F_atom_boot", "F_atom_boot2", "F_atom_boot3",
+                            "F_atom_boot4")
               or condition.startswith("M_")):
             # compute-matched training: the budget caps teacher tokens,
             # not local compute. A targeted corpus is smaller than an
@@ -2997,7 +3190,8 @@ def main():
             )))
             boot_config = json.loads(json.dumps(config))
             boot_config["training"]["epochs"] = boot_epochs
-            if condition == "F_atom_boot3" or condition.endswith("_ours") \
+            if condition in ("F_atom_boot3", "F_atom_boot4") \
+                    or condition.endswith("_ours") \
                     or condition.endswith("_less"):
                 boot_config["training"]["weight_warm_epoch"] = 1
             print(
