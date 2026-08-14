@@ -1,0 +1,1 @@
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_EVOL_POOL=1 E3_CONDITIONS=base,F_selfinst,F_atom_boot3,M_evol_plain,M_evol_ours E3_CURATE_GATE=0 E3_TAG=_evolfair_s0_l4
