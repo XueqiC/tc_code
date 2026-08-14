@@ -101,14 +101,6 @@ BOOT_CONDS = (
 for _a in ("selfinst", "evol", "llm2llm", "ours"):
     for _c in ("plain", "alpagasus", "less", "ours"):
         COLORS[f"M_{_a}_{_c}"] = "#555555"
-        SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}" + tuple(
-    f"M_{a}_{c}"
-    for a in ("selfinst", "evol", "llm2llm", "ours")
-    for c in ("plain", "alpagasus", "less", "ours")
-)
-for _a in ("selfinst", "evol", "llm2llm", "ours"):
-    for _c in ("plain", "alpagasus", "less", "ours"):
-        COLORS[f"M_{_a}_{_c}"] = "#555555"
         SHORT_LABELS[f"M_{_a}_{_c}"] = f"{_a[:4]}x{_c[:4]}"
 BOOT_TEACHER = "deepseek-v4-pro"
 _BOOT_STATE = {}
