@@ -1599,16 +1599,28 @@ def build_selections(config, tokenizer, pool):
                     # teacher's actual response produced. min/max ratio
                     # in [0,1]; atoms without probes keep 1.0 (no
                     # evidence against them).
+                    # compare L1-normalized activation SHARES, not raw
+                    # magnitudes: the ridge bridge shrinks feature
+                    # magnitude wholesale (regression to the mean), so
+                    # raw predicted codes are systematically ~100x
+                    # smaller than actual ones and a raw min/max ratio
+                    # collapses to ~0 for every atom.
                     rel_p = np.ones(spec_codes_p.shape[1])
                     for atom_id, pairs in probe_map.items():
                         ratios = []
                         for pos, i in pairs:
-                            predicted = float(pred0[pos, atom_id])
-                            actual = float(np.abs(dict_p.transform(
+                            pred_vec = pred0[pos]
+                            act_vec = np.abs(dict_p.transform(
                                 pool_feat[i][None]
-                            ))[0, atom_id])
-                            hi = max(predicted, actual, 1e-12)
-                            ratios.append(min(predicted, actual) / hi)
+                            ))[0]
+                            p_share = float(pred_vec[atom_id]) / max(
+                                float(pred_vec.sum()), 1e-12
+                            )
+                            a_share = float(act_vec[atom_id]) / max(
+                                float(act_vec.sum()), 1e-12
+                            )
+                            hi = max(p_share, a_share, 1e-12)
+                            ratios.append(min(p_share, a_share) / hi)
                         rel_p[atom_id] = float(np.mean(ratios))
                     low_rel = [
                         a for a in probe_map if rel_p[a] < 0.5
