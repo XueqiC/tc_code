@@ -380,9 +380,10 @@ def _maybe_extend_pool_with_evol(pool):
     E3_EVOL_POOL=1. Changes the pool fingerprint, hence feature caches."""
     if os.environ.get("E3_EVOL_POOL") != "1":
         return pool
-    path = ROOT / "data" / "evol_pool_v1.jsonl"
+    path = ROOT / os.environ.get(
+        "E3_EVOL_POOL_FILE", "data/evol_pool_v1.jsonl")
     if not path.is_file():
-        raise RuntimeError("E3_EVOL_POOL=1 but data/evol_pool_v1.jsonl missing")
+        raise RuntimeError(f"E3_EVOL_POOL=1 but {path} missing")
     added = 0
     with path.open() as handle:
         for line in handle:
@@ -2064,11 +2065,17 @@ def build_selections(config, tokenizer, pool):
                          "_v3_weight": float(w)}
                     )
             elif name == "ours":
-                thr = _BOOT_STATE["gate_thr"]
-                gsc = _BOOT_STATE["gate_pool_scores"]
-                admitted = [i for i in bought if gsc[i] >= thr]
-                if not admitted:
-                    admitted = bought
+                # E3_CURATE_GATE=0: weights-only curation — the outlier
+                # gate stays in the acquisition loop (where surplus
+                # rebuy exists) instead of discarding sunk purchases.
+                if os.environ.get("E3_CURATE_GATE", "1") == "0":
+                    admitted = list(bought)
+                else:
+                    thr = _BOOT_STATE["gate_thr"]
+                    gsc = _BOOT_STATE["gate_pool_scores"]
+                    admitted = [i for i in bought if gsc[i] >= thr]
+                    if not admitted:
+                        admitted = bought
                 from sklearn.decomposition import MiniBatchDictionaryLearning
                 spec_r = _BOOT_STATE["spec_feat"]
                 pool_r = _BOOT_STATE["pool_feat"]

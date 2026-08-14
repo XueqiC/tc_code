@@ -22,6 +22,8 @@ COLS = ("plain", "alpagasus", "less", "ours")
 
 def cell_key(tag):
     """Extract (student, budget, task) from a run tag."""
+    if tag.startswith("fam_"):
+        return "2B", "20k", "gsm"
     student = "2B" if "2b" in tag else ("0.8B" if "08b" in tag else "?")
     m = re.search(r"b(\d+)k", tag)
     budget = m.group(1) + "k" if m else ("20k" if "2b" in tag else "?")
