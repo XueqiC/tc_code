@@ -186,39 +186,43 @@ that separates this stage from prior agent distillation, which reweights
 or corrects at the level of whole traces or states
 \citep{tang2026smartad, liu2025structured, ross2011dagger}.
 
-\textbf{Demand-weighted loss.} Examples are not weighted equally: each
-admitted demonstration's loss is scaled by how much of the remaining
-demand its code serves. The form is importance weighting, but the weights
-are not heuristic --- they are read off the same per-atom quotas that
-directed acquisition, so a demonstration repeating an already-satisfied
-skill contributes little while one carrying scarce skills is amplified.
-In multi-turn environments the weight is applied per turn, the
-granularity at which the environment responds \citep{liu2025structured}.
+\textbf{Compute-matched supervised fine-tuning.} All purchased
+demonstrations are distilled with standard supervised fine-tuning under a
+fixed compute budget (smaller corpora receive proportionally more
+epochs). We deliberately do \emph{not} reweight the loss by demand:
+controlled comparisons across acquisition methods show that on
+exec-verified, on-task corpora, demand weighting yields no in-task gain
+and its residual boundary-control effect is subsumed by the acquisition
+gate (Section~\ref{sec:experiments}); it is reported as an ablation.
 
-\textbf{Skill-resolved absorption tracking.} As training proceeds, the
-support queries' gradient features are periodically recomputed on the
-\emph{current} student and re-encoded against the dictionary. Each atom's
-demand now traces a decay curve --- the absorption progress of that
-individual skill. Two decisions read off these curves. Atoms whose demand
-has collapsed stop attracting weight, which removes exactly the surplus
-training that our collapse study identifies as the failure mode of
-small-budget fine-tuning (Section~\ref{sec:mechanism}). Atoms whose
-demand refuses to decay are \emph{stalled}: the purchased demonstrations
-for that skill are not teaching it, and the stall triggers a further
-targeted purchase rather than more epochs on data that has already shown
-it cannot help.
+\textbf{Skill-resolved absorption tracking.} Every purchased
+demonstration is labeled at selection time with its dominant atom, so the
+per-example training losses aggregate --- at no extra cost --- into
+per-atom absorption curves: the loss trajectory of each individual skill.
+These curves make the distillation process observable at the skill level:
+most atoms' losses collapse within the first epochs, while a small,
+seed-dependent set \emph{lags}, its purchased demonstrations failing to
+teach it. Lagging skills are not treated with more epochs on data that
+has already shown it cannot help; they trigger corrective acquisition.
 
-\textbf{Skill-resolved correction.} The student is rolled out locally on
-held-out support queries, and the execution check flags the failures.
-Where \textsc{DAgger} \citep{ross2011dagger} would forward the failure
-\emph{states} to the expert, we first encode the failed rollouts' gradient
-features against the dictionary, which names the deficient \emph{skills};
-corrective prompts are then synthesized per deficient atom, from the
-failure states, and the correction budget is split across atoms by their
-failure rates --- charged against $b$ like any other purchase. This buys
-demonstrations of recovery behavior precisely where successful teacher
-trajectories are silent, and buys more of them for the skills that fail
-most.
+\textbf{Skill-resolved corrective acquisition.} Half of the budget first
+buys a seed corpus and trains an intermediate student. The remaining
+budget is then spent \emph{against that student's deficiencies}, named in
+the atom vocabulary in either of two ways: (i) the intermediate student
+is rolled out on the seed prompts, execution checks flag failures, and
+the failed examples' codes average into a deficit direction
+(rollout-based); or (ii) the deficit is read directly from the lagging
+atoms of the seed round's absorption curves, requiring no rollouts at
+all (dynamics-based; the two agree in accuracy while the latter removes
+the most expensive step). Candidates are ranked by their bridge-predicted
+supply of the deficit and purchased until the budget closes. Where
+\textsc{DAgger} \citep{ross2011dagger} forwards failure \emph{states} to
+the expert and LLM2LLM \citep{lee2024llm2llm} augments near failure
+\emph{instances}, the deficit here lives in skill space: correction
+spreads across the deficient skill's support rather than concentrating on
+hard instances, which at a matched budget buys measurably more distinct
+demonstrations per token and halves the across-seed variance
+(Section~\ref{sec:experiments}).
 
 Throughout, gradient geometry is never asked to judge success: three
 pre-registered experiments show it cannot (instance-level gradient
