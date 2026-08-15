@@ -1825,8 +1825,14 @@ def build_selections(config, tokenizer, pool):
                 # signal (observed seed swings .60/.40 at small n)
                 clip_c = 1.0 + 3.0 * min(1.0, len(selected_boot) / 64.0)
                 raw_w = np.clip(raw_w, 1.0 / clip_c, clip_c)
-                for row_sel, weight in zip(selected_boot, raw_w):
+                # dominant-atom tag per row: powers skill-resolved
+                # absorption tracking during training (free to compute).
+                atom_ids = np.argmax(sel_codes, axis=1)
+                for row_sel, weight, atom_id in zip(
+                    selected_boot, raw_w, atom_ids
+                ):
                     row_sel["_v3_weight"] = float(weight)
+                    row_sel["_atom_id"] = int(atom_id)
             selections[boot_name] = selected_boot
             if use_bridge:
                 _BOOT_STATE[boot_name + "_bought"] = list(bought_a)
@@ -2655,6 +2661,7 @@ def train_condition(
     # modes skip the _v3_weight loss multiplication so ordering is the
     # only difference between arms.
     cur_mode = os.environ.get("E3_CURRICULUM", "")
+    absorb_curves = {}
     static_order = None
     if cur_mode in ("demand", "anti"):
         cur_scores = np.array(
@@ -2686,6 +2693,11 @@ def train_condition(
                     ) / len(chunk)
                 else:
                     loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
+                atom_tag = rows[int(row_index)].get("_atom_id")
+                if atom_tag is not None:
+                    absorb_curves.setdefault(atom_tag, []).append(
+                        (optimizer_steps, float(loss.item()) * len(chunk))
+                    )
                 row_weight = rows[int(row_index)].get("_v3_weight")
                 if row_weight is not None and not cur_mode:
                     # first epoch trains uniformly for coverage; weights
@@ -2745,6 +2757,30 @@ def train_condition(
                 flush=True,
             )
     model.config.use_cache = True
+    if absorb_curves:
+        # skill-resolved absorption summary: per-atom mean loss by epoch
+        # thirds (early/mid/late) — a free view of which skills the
+        # student has absorbed and which still carry loss.
+        summary_abs = {}
+        for atom_id, points in sorted(absorb_curves.items()):
+            losses = [p[1] for p in points]
+            third = max(1, len(losses) // 3)
+            summary_abs[int(atom_id)] = {
+                "n_rows_seen": len(losses),
+                "early": float(np.mean(losses[:third])),
+                "late": float(np.mean(losses[-third:])),
+            }
+        lagging = [
+            a for a, s in summary_abs.items()
+            if s["late"] > 0.5 * s["early"] and s["n_rows_seen"] >= 6
+        ]
+        print(
+            f"[{condition}][absorb] atoms={len(summary_abs)} "
+            f"lagging(late>50%early)={lagging}",
+            flush=True,
+        )
+        if training_metrics is not None:
+            training_metrics["absorption"] = summary_abs
     if training_metrics is not None:
         training_metrics["stop_step"] = stop_step
     return optimizer_steps
