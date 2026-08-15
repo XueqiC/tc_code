@@ -1987,35 +1987,6 @@ def build_selections(config, tokenizer, pool):
                     f"tokens={spent_c}",
                     flush=True,
                 )
-                temp_model_c = build_model(config, with_lora=True)
-                train_condition(
-                    temp_model_c, tokenizer, seed_rows_c, config,
-                    condition="ourscorr_seed",
-                )
-                gen_c = generate_texts(
-                    temp_model_c, tokenizer, seed_rows_c, config
-                )
-                del temp_model_c
-                gc.collect()
-                torch.cuda.empty_cache()
-                fail_c = []
-                for row_i, text in zip(seed_idx_c, gen_c):
-                    gold = None
-                    resp = pool[row_i]["response"]
-                    g0 = resp.find("def solution")
-                    if g0 >= 0:
-                        gold = verifier.run_solution(resp[g0:])
-                    pred = None
-                    p0 = text.find("def solution")
-                    if p0 >= 0:
-                        pred = verifier.run_solution(text[p0:])
-                    if not close_enough(pred, gold):
-                        fail_c.append(row_i)
-                print(
-                    f"[setup][ourscorr] failures={len(fail_c)}"
-                    f"/{len(seed_idx_c)}",
-                    flush=True,
-                )
                 from sklearn.decomposition import (
                     MiniBatchDictionaryLearning as _MBDLc,
                 )
@@ -2032,14 +2003,84 @@ def build_selections(config, tokenizer, pool):
                 dict_c.fit(np.vstack(
                     [spec_r_c] + [pool_r_c[i][None] for i in seed_idx_c]
                 ))
-                if fail_c:
-                    deficit = np.abs(dict_c.transform(
-                        np.vstack([pool_r_c[i][None] for i in fail_c])
-                    )).mean(axis=0)
-                else:
-                    deficit = np.abs(
+                # E3_CORR_MODE=absorb (H4): the deficit is read from the
+                # seed round's TRAINING DYNAMICS — atoms whose loss did
+                # not come down — instead of from post-hoc rollout
+                # failures. No student rollouts needed at all.
+                corr_mode = os.environ.get("E3_CORR_MODE", "fail")
+                if corr_mode == "absorb":
+                    seed_codes_c = np.abs(dict_c.transform(
+                        np.vstack([pool_r_c[i][None] for i in seed_idx_c])
+                    ))
+                    for row_c, atom_c in zip(
+                        seed_rows_c, np.argmax(seed_codes_c, axis=1)
+                    ):
+                        row_c["_atom_id"] = int(atom_c)
+                tm_c = {}
+                temp_model_c = build_model(config, with_lora=True)
+                train_condition(
+                    temp_model_c, tokenizer, seed_rows_c, config,
+                    condition="ourscorr_seed",
+                    training_metrics=tm_c,
+                )
+                fail_c = []
+                if corr_mode == "absorb":
+                    del temp_model_c
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    spec_demand_c = np.abs(
                         dict_c.transform(spec_r_c)
                     ).mean(axis=0)
+                    lag_c = [
+                        a for a, s in tm_c.get("absorption", {}).items()
+                        if s["late"] > 0.5 * s["early"]
+                        and s["n_rows_seen"] >= 6
+                    ]
+                    if lag_c:
+                        mask_c = np.zeros_like(spec_demand_c)
+                        mask_c[lag_c] = 1.0
+                        deficit = spec_demand_c * mask_c
+                        if deficit.sum() <= 1e-12:
+                            deficit = spec_demand_c
+                    else:
+                        deficit = spec_demand_c
+                    print(
+                        f"[setup][ourscorr] corr_mode=absorb "
+                        f"lagging={lag_c}",
+                        flush=True,
+                    )
+                else:
+                    gen_c = generate_texts(
+                        temp_model_c, tokenizer, seed_rows_c, config
+                    )
+                    del temp_model_c
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    for row_i, text in zip(seed_idx_c, gen_c):
+                        gold = None
+                        resp = pool[row_i]["response"]
+                        g0 = resp.find("def solution")
+                        if g0 >= 0:
+                            gold = verifier.run_solution(resp[g0:])
+                        pred = None
+                        p0 = text.find("def solution")
+                        if p0 >= 0:
+                            pred = verifier.run_solution(text[p0:])
+                        if not close_enough(pred, gold):
+                            fail_c.append(row_i)
+                    print(
+                        f"[setup][ourscorr] failures={len(fail_c)}"
+                        f"/{len(seed_idx_c)}",
+                        flush=True,
+                    )
+                    if fail_c:
+                        deficit = np.abs(dict_c.transform(
+                            np.vstack([pool_r_c[i][None] for i in fail_c])
+                        )).mean(axis=0)
+                    else:
+                        deficit = np.abs(
+                            dict_c.transform(spec_r_c)
+                        ).mean(axis=0)
                 deficit = deficit / max(deficit.sum(), 1e-12)
                 pair_p_c = np.vstack(
                     [spec_p_c] + [pool_p_c[i][None] for i in seed_idx_c]
