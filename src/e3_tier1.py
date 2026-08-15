@@ -3147,12 +3147,15 @@ def _external_gsm_eval(config):
     n = int(os.environ.get("E3_EVAL_EXT", "0") or 0)
     if n <= 0:
         return None
-    from datasets import load_dataset
-    ds = load_dataset("gsm8k", "main", split="test")
-    order = np.random.default_rng(20260814).permutation(len(ds))[:n]
+    # local export of the official test split: hermetic w.r.t. cluster
+    # nodes that lack `datasets` or outbound network.
+    path = ROOT / "data" / "gsm8k_test.jsonl"
+    with path.open() as handle:
+        items = [json.loads(line) for line in handle if line.strip()]
+    order = np.random.default_rng(20260814).permutation(len(items))[:n]
     rows, golds = [], []
     for i in order:
-        item = ds[int(i)]
+        item = items[int(i)]
         gold = last_number(item["answer"].split("####")[-1])
         if gold is None:
             continue
