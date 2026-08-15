@@ -3010,6 +3010,26 @@ def build_eval_data(config):
     return tests, code_golds, cot_golds
 
 
+def _external_gsm_eval(config):
+    """Official GSM8K test questions (disjoint from our train-derived
+    corpus) for a wider, lower-noise exec metric. E3_EVAL_EXT=<n>."""
+    n = int(os.environ.get("E3_EVAL_EXT", "0") or 0)
+    if n <= 0:
+        return None
+    from datasets import load_dataset
+    ds = load_dataset("gsm8k", "main", split="test")
+    order = np.random.default_rng(20260814).permutation(len(ds))[:n]
+    rows, golds = [], []
+    for i in order:
+        item = ds[int(i)]
+        gold = last_number(item["answer"].split("####")[-1])
+        if gold is None:
+            continue
+        rows.append({"prompt": item["question"], "response": ""})
+        golds.append(gold)
+    return rows, golds
+
+
 def evaluate_model(model, tokenizer, tests, code_golds, cot_golds, config):
     refusal = config["selection"]["refusal_response"]
     code_texts = generate_texts(model, tokenizer, tests["gsm8k-code"], config)
@@ -3017,7 +3037,7 @@ def evaluate_model(model, tokenizer, tests, code_golds, cot_golds, config):
     alpaca_texts = generate_texts(model, tokenizer, tests["alpaca"], config)
     sql_texts = generate_texts(model, tokenizer, tests["sql"], config)
     pandas_texts = generate_texts(model, tokenizer, tests["pandas"], config)
-    return {
+    out = {
         "gsm8k_code": code_metrics(code_texts, code_golds, refusal),
         "gsm8k_cot": cot_metrics(cot_texts, cot_golds),
         "alpaca": alpaca_metrics(alpaca_texts, refusal),
@@ -3027,6 +3047,13 @@ def evaluate_model(model, tokenizer, tests, code_golds, cot_golds, config):
             model, tokenizer, tests, config["device"]
         ),
     }
+    ext = _external_gsm_eval(config)
+    if ext is not None:
+        ext_rows, ext_golds = ext
+        ext_texts = generate_texts(model, tokenizer, ext_rows, config)
+        out["gsm8k_ext"] = code_metrics(ext_texts, ext_golds, refusal)
+        out["gsm8k_ext"]["n_questions"] = len(ext_rows)
+    return out
 
 
 def write_json(path, payload):
