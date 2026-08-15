@@ -2649,9 +2649,26 @@ def train_condition(
     behav_rows = config.get("_behav_rows")
     best_behav = -1.0
     best_state = None
+    # E3_CURRICULUM: order-only manipulation for the curriculum test.
+    # "demand"/"anti" fix the epoch order by demand-alignment score
+    # (descending/ascending); "shuffle" keeps random order. All three
+    # modes skip the _v3_weight loss multiplication so ordering is the
+    # only difference between arms.
+    cur_mode = os.environ.get("E3_CURRICULUM", "")
+    static_order = None
+    if cur_mode in ("demand", "anti"):
+        cur_scores = np.array(
+            [float(r.get("_v3_weight", 1.0)) for r in rows]
+        )
+        static_order = np.argsort(
+            -cur_scores if cur_mode == "demand" else cur_scores
+        )
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
-        order = rng.permutation(len(rows))
+        if static_order is not None:
+            order = static_order
+        else:
+            order = rng.permutation(len(rows))
         for start in range(0, len(order), accumulation):
             chunk = order[start:start + accumulation]
             # Divide by the actual final-chunk size so all selected examples
@@ -2670,7 +2687,7 @@ def train_condition(
                 else:
                     loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                 row_weight = rows[int(row_index)].get("_v3_weight")
-                if row_weight is not None:
+                if row_weight is not None and not cur_mode:
                     # first epoch trains uniformly for coverage; weights
                     # focus later epochs (small-corpus variance control)
                     if not (
