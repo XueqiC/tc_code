@@ -2670,9 +2670,46 @@ def train_condition(
         static_order = np.argsort(
             -cur_scores if cur_mode == "demand" else cur_scores
         )
+    # E3_ABSORB_FOCUS=1 (hypothesis H1): the final epoch retrains ONLY
+    # rows of atoms still carrying loss (late > 50% early from the
+    # curves so far), repeated to the same step count — reallocating
+    # tail compute to unabsorbed skills instead of uniform passes.
+    absorb_focus = os.environ.get("E3_ABSORB_FOCUS") == "1"
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
-        if static_order is not None:
+        focus_rows = None
+        if (
+            absorb_focus and absorb_curves
+            and _epoch == train_cfg["epochs"] - 1
+        ):
+            lag_atoms = set()
+            for atom_id, points in absorb_curves.items():
+                losses = [p[1] for p in points]
+                third = max(1, len(losses) // 3)
+                if (
+                    len(losses) >= 6
+                    and np.mean(losses[-third:]) > 0.5 * np.mean(losses[:third])
+                ):
+                    lag_atoms.add(atom_id)
+            focus_rows = [
+                i for i, r in enumerate(rows)
+                if r.get("_atom_id") in lag_atoms
+            ]
+            print(
+                f"[{condition}][absorb-focus] final epoch on "
+                f"{len(focus_rows)}/{len(rows)} rows "
+                f"(lagging atoms={sorted(lag_atoms)})",
+                flush=True,
+            )
+            if not focus_rows:
+                focus_rows = None
+        if focus_rows is not None:
+            reps = max(1, round(len(rows) / len(focus_rows)))
+            order = np.array(
+                [i for _ in range(reps) for i in
+                 rng.permutation(focus_rows)][: len(rows)]
+            )
+        elif static_order is not None:
             order = static_order
         else:
             order = rng.permutation(len(rows))
