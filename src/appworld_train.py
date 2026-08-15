@@ -13,6 +13,7 @@ import gc
 import hashlib
 import json
 import math
+import os
 import random
 import re
 import tempfile
@@ -84,7 +85,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--selection",
         required=True,
-        choices=("full", "random", "embedding", "less_std", "smartad_std", "ours"),
+        choices=("full", "random", "embedding", "less_std", "smartad_std", "ours",
+                 "atoms"),
     )
     parser.add_argument(
         "--budget",
@@ -536,6 +538,83 @@ def select_rows(
         order = np.argsort(-scores, kind="stable")
         selected = take_ranked_prefix(rows, order, args.budget)
         details["less"] = less_details
+    elif args.selection == "atoms":
+        # v3 capability-atom acquisition, smoke-ported from e3_tier1:
+        # sparse dictionary on the support episodes' gradient features
+        # -> per-atom token quota (demand * budget) -> greedy purchase
+        # by quota-limited supply per token. Cached-pool smoke: response
+        # features are visible, so no prompt->response bridge needed.
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import features as _features
+        from sklearn.decomposition import MiniBatchDictionaryLearning
+        first_turn: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            key = str(row["task_id"])
+            if key not in first_turn or row["turn_index"] < first_turn[key]["turn_index"]:
+                first_turn[key] = row
+        spec_pool = sorted(first_turn.values(), key=lambda r: str(r["task_id"]))
+        rng = np.random.default_rng(args.seed)
+        rng.shuffle(spec_pool)
+        spec_rows = spec_pool[:45]
+        if len(spec_rows) < 20:
+            raise ValueError("atoms needs at least 20 distinct episodes")
+        combined = spec_rows + rows
+        grad = _features.extract_features(
+            args.student, combined, proj_dim=64,
+            max_prompt_tok=1024, max_resp_tok=512, device="cuda",
+        ).astype(np.float64)
+        spec_feat = grad[: len(spec_rows)]
+        pool_feat = grad[len(spec_rows):]
+        dict_a = MiniBatchDictionaryLearning(
+            n_components=int(min(64, max(8, len(spec_feat) // 2))),
+            alpha=0.05, transform_algorithm="lasso_lars",
+            transform_alpha=0.05, random_state=args.seed,
+            max_iter=100, batch_size=16,
+        )
+        dict_a.fit(spec_feat)
+        demand = np.abs(dict_a.transform(spec_feat)).mean(axis=0)
+        ledger = demand / max(demand.sum(), 1e-12) * args.budget
+        codes = np.abs(dict_a.transform(pool_feat))
+        tok = np.array([max(int(r["_response_token_count"]), 1) for r in rows])
+        expected = float(tok.mean())
+        gains = np.array([
+            np.minimum(ledger, c * expected).sum() / expected for c in codes
+        ])
+        selected = []
+        spent = 0
+        ledger_work = ledger.copy()
+        for i in np.argsort(-gains):
+            i = int(i)
+            gain_now = np.minimum(
+                ledger_work, codes[i] * expected
+            ).sum() / expected
+            if gain_now <= 1e-9:
+                continue
+            if spent + tok[i] > args.budget:
+                continue
+            ledger_work = np.maximum(ledger_work - codes[i] * tok[i], 0.0)
+            rows[i]["_selection_score"] = float(gain_now)
+            selected.append(rows[i])
+            spent += int(tok[i])
+        if spent < args.budget:
+            density = codes.sum(axis=1)
+            chosen = {id(r) for r in selected}
+            for i in np.argsort(-density):
+                i = int(i)
+                if id(rows[i]) in chosen or spent + tok[i] > args.budget:
+                    continue
+                rows[i]["_selection_score"] = float(density[i])
+                selected.append(rows[i])
+                spent += int(tok[i])
+                if spent >= args.budget:
+                    break
+        details["atoms"] = {
+            "n_atoms": int(dict_a.n_components),
+            "spec_episodes": len(spec_rows),
+            "spent_tokens": int(spent),
+            "unspent": int(args.budget - spent),
+        }
     elif args.selection == "ours":
         # boundary admission (conformal p-value gate learned from the task's
         # own calibration split) composed with the utility ranking; on a
@@ -851,6 +930,12 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     seed_everything(args.seed)
     rows = load_pool(POOL_PATH)
+    teacher_filter = os.environ.get("AW_TEACHER", "").strip()
+    if teacher_filter:
+        rows = [r for r in rows if r["teacher"] == teacher_filter]
+        if not rows:
+            raise ValueError(f"AW_TEACHER={teacher_filter!r} matches no rows")
+        print(f"[pool] teacher filter {teacher_filter}: {len(rows)} rows")
     tokenizer = load_tokenizer(args.student)
     attach_response_token_counts(tokenizer, rows)
     selected, details = select_rows(args, tokenizer, rows)
