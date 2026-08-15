@@ -576,7 +576,7 @@ def select_rows(
         demand = np.abs(dict_a.transform(spec_feat)).mean(axis=0)
         ledger = demand / max(demand.sum(), 1e-12) * args.budget
         codes = np.abs(dict_a.transform(pool_feat))
-        tok = np.array([max(int(r["_response_token_count"]), 1) for r in rows])
+        tok = np.array([max(int(r["_response_tokens"]), 1) for r in rows])
         expected = float(tok.mean())
         gains = np.array([
             np.minimum(ledger, c * expected).sum() / expected for c in codes
