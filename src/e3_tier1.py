@@ -2833,7 +2833,16 @@ def train_condition(
             break
     if behav_rows and best_state is not None:
         final = _behavioral_probe(model, tokenizer, behav_rows, config)
-        if final < best_behav:
+        # Uniform (budget-agnostic) restore rule: roll back to the best
+        # probe checkpoint only when it beats the final state by MORE
+        # than one probe question — a smaller gap is probe noise, and
+        # restoring on noise is what cost accuracy at large budgets.
+        # A genuine collapse (small-budget failure mode) exceeds the
+        # margin by far and still triggers the restore.
+        stop_margin = float(
+            os.environ.get("E3_STOP_MARGIN", str(1.0 / max(len(behav_rows), 1)))
+        )
+        if final < best_behav - stop_margin:
             with torch.no_grad():
                 for name, parameter in model.named_parameters():
                     if parameter.requires_grad and name in best_state:
