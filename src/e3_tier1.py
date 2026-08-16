@@ -915,9 +915,18 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             gate_subspace, spec_prompt_feat[boot_fit_n:]
         )
         gate_pool_scores = boundary.score(gate_subspace, prompt_feat)
+        # E3_GATE_SLACK=s widens admission below the least-typical
+        # calibration query by s standard deviations of the calibration
+        # scores: a coverage margin that wraps the task even when the
+        # boundary estimate from k queries is fuzzy. s=0 (default)
+        # reproduces the strict gate; the purity-performance frontier
+        # is traced by sweeping s.
+        gate_slack = float(os.environ.get("E3_GATE_SLACK", "0") or 0)
         _BOOT_STATE.clear()
         _BOOT_STATE.update({
-            "gate_thr": float(gate_cal.min()),
+            "gate_thr": float(
+                gate_cal.min() - gate_slack * gate_cal.std()
+            ),
             "gate_pool_scores": gate_pool_scores,
             "spec_feat": boot_feat[:spec_n],
             "pool_feat": boot_feat[spec_n:],
