@@ -2006,6 +2006,125 @@ def build_selections(config, tokenizer, pool):
                     if spent_e >= budget:
                         break
                 return bought_e
+            if name == "ourscorr" and int(
+                os.environ.get("E3_CORR_ROUNDS", "2") or 2
+            ) > 2:
+                # Interleaved distillation-acquisition (R>2 rounds):
+                # acquisition and training alternate, and from round 2
+                # onward the ranking direction is the residual deficit
+                # read from the CURRENT student's absorption curves —
+                # demand tracks the student as it learns instead of
+                # being fixed by the base model.
+                from sklearn.decomposition import (
+                    MiniBatchDictionaryLearning as _MBDLr,
+                )
+                corr_rounds = int(os.environ["E3_CORR_ROUNDS"])
+                spec_r_c = _BOOT_STATE["spec_feat"]
+                pool_r_c = _BOOT_STATE["pool_feat"]
+                pool_p_c = _BOOT_STATE["pool_prompt_feat"]
+                spec_p_c = _BOOT_STATE["spec_prompt_feat"]
+                bought_r, spent_r = [], 0
+                direction_r = None
+                for rnd in range(corr_rounds):
+                    dict_r = _MBDLr(
+                        n_components=int(
+                            min(64, max(8, (len(spec_r_c) + len(bought_r)) // 2))
+                        ),
+                        alpha=0.05, transform_algorithm="lasso_lars",
+                        transform_alpha=0.05, random_state=seed,
+                        max_iter=100, batch_size=16,
+                    )
+                    dict_r.fit(np.vstack(
+                        [spec_r_c] + [pool_r_c[i][None] for i in bought_r]
+                    ))
+                    spec_demand_r = np.abs(
+                        dict_r.transform(spec_r_c)
+                    ).mean(axis=0)
+                    if direction_r is None or direction_r.shape != \
+                            spec_demand_r.shape:
+                        direction_r = spec_demand_r
+                    pair_p_r = np.vstack(
+                        [spec_p_c] + [pool_p_c[i][None] for i in bought_r]
+                    )
+                    pair_r_r = np.vstack(
+                        [spec_r_c] + [pool_r_c[i][None] for i in bought_r]
+                    )
+                    gram_r = pair_p_r @ pair_p_r.T
+                    lam_r = 0.1 * np.trace(gram_r) / max(gram_r.shape[0], 1)
+                    dual_r = np.linalg.solve(
+                        gram_r + lam_r * np.eye(gram_r.shape[0]), pair_r_r
+                    )
+                    have_r = set(bought_r)
+                    rem_r = [i for i in cache_idx_m if i not in have_r]
+                    if not rem_r:
+                        break
+                    cand_r = np.vstack([pool_p_c[i][None] for i in rem_r])
+                    pred_r = np.abs(dict_r.transform(
+                        (cand_r @ pair_p_r.T) @ dual_r
+                    ))
+                    score_r = pred_r @ direction_r
+                    round_cap = (
+                        budget if rnd == corr_rounds - 1
+                        else spent_r + budget // corr_rounds
+                    )
+                    for pos in np.argsort(-score_r):
+                        i = rem_r[int(pos)]
+                        cost = max(pool[i]["_token_count"], 1)
+                        if spent_r + cost > round_cap:
+                            continue
+                        bought_r.append(i)
+                        spent_r += cost
+                        if spent_r >= round_cap:
+                            break
+                    print(
+                        f"[setup][ourscorr] round={rnd+1}/{corr_rounds} "
+                        f"total={len(bought_r)} tokens={spent_r}",
+                        flush=True,
+                    )
+                    if rnd < corr_rounds - 1:
+                        rows_r = []
+                        codes_r = np.abs(dict_r.transform(np.vstack(
+                            [pool_r_c[i][None] for i in bought_r]
+                        )))
+                        for i, atom_i in zip(
+                            bought_r, np.argmax(codes_r, axis=1)
+                        ):
+                            rows_r.append({
+                                **pool[i], "_is_refusal": False,
+                                "_atom_id": int(atom_i),
+                            })
+                        tm_r = {}
+                        temp_r = build_model(config, with_lora=True)
+                        train_condition(
+                            temp_r, tokenizer, rows_r, config,
+                            condition="ourscorr_seed",
+                            training_metrics=tm_r,
+                        )
+                        del temp_r
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        lag_r = [
+                            a for a, st in tm_r.get("absorption", {}).items()
+                            if st["late"] > 0.5 * st["early"]
+                            and st["n_rows_seen"] >= 6
+                        ]
+                        if lag_r:
+                            mask_r = np.zeros_like(spec_demand_r)
+                            valid_r = [a for a in lag_r
+                                       if a < len(mask_r)]
+                            mask_r[valid_r] = 1.0
+                            direction_r = spec_demand_r * mask_r
+                            if direction_r.sum() <= 1e-12:
+                                direction_r = spec_demand_r
+                        else:
+                            direction_r = spec_demand_r
+                        print(
+                            f"[setup][ourscorr] round={rnd+1} "
+                            f"lagging={lag_r}",
+                            flush=True,
+                        )
+                return bought_r
+
             if name == "ourscorr":
                 # Skill-resolved corrective acquisition (our distillation
                 # innovation): identical protocol to LLM2LLM except the
