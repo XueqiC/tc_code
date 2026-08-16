@@ -1,0 +1,2 @@
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=0 E3_EVAL_EXT=200 E3_CORR_ROUNDS=4 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_selfinst,F_atom_boot3,M_ourscorr_plain E3_TAG=_r4_s0
+E3_STUDENT=Qwen/Qwen3.5-2B E3_BUDGET=20000 E3_SEED=1 E3_EVAL_EXT=200 E3_CORR_ROUNDS=4 E3_EVOL_POOL=1 E3_EVOL_POOL_FILE=data/evol_pool_v1_frozen.jsonl E3_CONDITIONS=base,F_selfinst,F_atom_boot3,M_ourscorr_plain E3_TAG=_r4_s1
