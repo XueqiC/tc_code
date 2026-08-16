@@ -910,11 +910,40 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
         # at the min-calibration threshold. Response quality is judged
         # by the execution check, topic membership by this gate.
         boot_fit_n = config["task_boundary"]["fit_rows"]
-        gate_subspace = boundary.fit_subspace(spec_prompt_feat[:boot_fit_n])
-        gate_cal = boundary.score(
-            gate_subspace, spec_prompt_feat[boot_fit_n:]
-        )
-        gate_pool_scores = boundary.score(gate_subspace, prompt_feat)
+        # E3_GATE_MODE=dict scores membership by DICTIONARY
+        # RECONSTRUCTION ERROR instead of a PCA subspace residual: the
+        # task boundary becomes "what the task's skill vocabulary can
+        # express" — the same dictionary object that defines skills,
+        # demand, and supply also defines the boundary. Sparse-coding
+        # reconstruction error is an established novelty signal; the
+        # conformal calibration on top is unchanged.
+        if os.environ.get("E3_GATE_MODE", "svd") == "dict":
+            from sklearn.decomposition import (
+                MiniBatchDictionaryLearning as _GateDL,
+            )
+            gate_dict = _GateDL(
+                n_components=int(min(64, max(8, boot_fit_n // 2))),
+                alpha=0.05, transform_algorithm="lasso_lars",
+                transform_alpha=0.05, random_state=config["seed"],
+                max_iter=100, batch_size=16,
+            )
+            gate_dict.fit(spec_prompt_feat[:boot_fit_n])
+
+            def _gate_score(matrix):
+                codes_g = gate_dict.transform(matrix)
+                resid = matrix - codes_g @ gate_dict.components_
+                return -np.linalg.norm(resid, axis=1)
+
+            gate_cal = _gate_score(spec_prompt_feat[boot_fit_n:])
+            gate_pool_scores = _gate_score(prompt_feat)
+        else:
+            gate_subspace = boundary.fit_subspace(
+                spec_prompt_feat[:boot_fit_n]
+            )
+            gate_cal = boundary.score(
+                gate_subspace, spec_prompt_feat[boot_fit_n:]
+            )
+            gate_pool_scores = boundary.score(gate_subspace, prompt_feat)
         # E3_GATE_SLACK=s widens admission below the least-typical
         # calibration query by s standard deviations of the calibration
         # scores: a coverage margin that wraps the task even when the
@@ -1732,6 +1761,15 @@ def build_selections(config, tokenizer, pool):
                     ).sum() / expected_tokens
                     for code_row in rem_codes
                 ])
+                # E3_UDENS=eta folds the surplus phase into the scoring
+                # rule: u'(x) = u(x) + eta * on-vocabulary density per
+                # token. While quotas remain the eta term is a small
+                # tiebreaker; once quotas clear (u=0) it takes over and
+                # reproduces the surplus phase — one criterion, no
+                # phase switch.
+                udens = float(os.environ.get("E3_UDENS", "0") or 0)
+                if udens > 0:
+                    gains = gains + udens * rem_codes.sum(axis=1)
                 if use_diversity and bought_a:
                     # marginal-diversity discount: a candidate whose
                     # skill code duplicates an already-bought row
