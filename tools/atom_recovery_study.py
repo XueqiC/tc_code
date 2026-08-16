@@ -46,6 +46,11 @@ def main() -> int:
     parser.add_argument("--ks", default="10,25,50,100,200")
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--out", default="results/atom_recovery_study.json")
+    parser.add_argument("--reference", choices=("train", "pool"),
+                        default="train")
+    parser.add_argument("--grow", default="",
+                        help="comma list: also test 50 support + N random "
+                             "on-task rows (in-loop refit approximation)")
     args = parser.parse_args()
 
     import numpy as np
@@ -67,7 +72,25 @@ def main() -> int:
         all_rows, _, _ = e3.resolve_task_rows(cfg)
     except Exception:
         all_rows = load_support_rows(limit=None)
-    print(f"[study] full train rows: {len(all_rows)}", flush=True)
+    if args.reference == "pool":
+        # widest on-task reference: every gsm8k-code trace in the
+        # candidate pool (all teachers), deduplicated by prompt
+        full_cfg = {"task_boundary": {"domain": "gsm8k-code",
+                                      "filter": None}}
+        try:
+            pool_rows = e3.load_candidate_pool(cfg)
+        except TypeError:
+            pool_rows = e3.load_candidate_pool()
+        seen, merged = set(), []
+        for row in list(all_rows) + [r for r in pool_rows
+                                     if r.get("domain") == "gsm8k-code"]:
+            if row["prompt"] in seen:
+                continue
+            seen.add(row["prompt"])
+            merged.append({"prompt": row["prompt"],
+                           "response": row["response"]})
+        all_rows = merged
+    print(f"[study] reference rows: {len(all_rows)}", flush=True)
 
     feat = _features.extract_features(
         args.student, all_rows, proj_dim=64,
@@ -119,6 +142,27 @@ def main() -> int:
         print(f"[study] k={k}: demand-weighted recovery "
               f"{np.mean(recs):.3f}±{np.std(recs):.3f}, "
               f"demand L1 gap {np.mean(dls):.3f}", flush=True)
+
+    for n_extra in [int(x) for x in args.grow.split(",") if x]:
+        recs = []
+        for t in range(args.trials):
+            sup = rng.choice(len(all_rows), size=min(50, len(all_rows)),
+                             replace=False)
+            rest = np.setdiff1d(np.arange(len(all_rows)), sup)
+            extra = rng.choice(rest, size=min(n_extra, len(rest)),
+                               replace=False)
+            idx = np.concatenate([sup, extra])
+            dk = fit_dict(feat[idx], t)
+            dkc = dk.components_ / np.maximum(
+                np.linalg.norm(dk.components_, axis=1, keepdims=True), 1e-12)
+            best = np.abs(refc @ dkc.T).max(axis=1)
+            recs.append(float((best * ref_demand).sum()))
+        results["per_k"][f"50+{n_extra}"] = {
+            "recovery_mean": float(np.mean(recs)),
+            "recovery_std": float(np.std(recs)),
+        }
+        print(f"[study] 50 support + {n_extra} bought: recovery "
+              f"{np.mean(recs):.3f}±{np.std(recs):.3f}", flush=True)
 
     out = ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
