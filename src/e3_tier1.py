@@ -2877,6 +2877,13 @@ def train_condition(
         )
         if training_metrics is not None:
             training_metrics["absorption"] = summary_abs
+            # full per-atom loss trajectories (downsampled) for the
+            # appendix absorption-curve figure
+            training_metrics["absorption_curves"] = {
+                int(a): [(int(s_), round(l_, 4)) for s_, l_ in
+                         points[:: max(1, len(points) // 60)]]
+                for a, points in sorted(absorb_curves.items())
+            }
     if training_metrics is not None:
         training_metrics["stop_step"] = stop_step
     return optimizer_steps
