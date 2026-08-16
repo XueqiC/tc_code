@@ -2103,6 +2103,7 @@ def build_selections(config, tokenizer, pool):
                     del temp_model_c
                     gc.collect()
                     torch.cuda.empty_cache()
+                    selfamp_rows = []
                     for row_i, text in zip(seed_idx_c, gen_c):
                         gold = None
                         resp = pool[row_i]["response"]
@@ -2115,6 +2116,32 @@ def build_selections(config, tokenizer, pool):
                             pred = verifier.run_solution(text[p0:])
                         if not close_enough(pred, gold):
                             fail_c.append(row_i)
+                        elif (
+                            os.environ.get("E3_SELFAMP") == "1"
+                            and p0 >= 0
+                        ):
+                            # self-distillation amplification: the
+                            # intermediate student's own execution-
+                            # verified solutions are free extra
+                            # demonstrations (zero teacher cost) for
+                            # the questions already paid for.
+                            selfamp_rows.append({
+                                "prompt": pool[row_i]["prompt"],
+                                "response": text[p0:],
+                                "teacher": "self",
+                                "domain": pool[row_i].get("domain"),
+                                "_token_count": max(
+                                    len(text[p0:]) // 4, 1
+                                ),
+                                "_is_refusal": False,
+                            })
+                    if selfamp_rows:
+                        _BOOT_STATE["ourscorr_selfamp"] = selfamp_rows
+                        print(
+                            f"[setup][ourscorr] selfamp rows="
+                            f"{len(selfamp_rows)} (free)",
+                            flush=True,
+                        )
                     print(
                         f"[setup][ourscorr] failures={len(fail_c)}"
                         f"/{len(seed_idx_c)}",
@@ -2332,6 +2359,12 @@ def build_selections(config, tokenizer, pool):
                 acquired_cache[acq] = _acquire(acq)
             bought_m = acquired_cache[acq]
             rows_m = _curate(cur, bought_m)
+            if (
+                acq == "ourscorr"
+                and os.environ.get("E3_SELFAMP") == "1"
+                and _BOOT_STATE.get("ourscorr_selfamp")
+            ):
+                rows_m = rows_m + list(_BOOT_STATE["ourscorr_selfamp"])
             selections[cond] = rows_m
             print(
                 f"[setup][{cond}] bought={len(bought_m)} "
