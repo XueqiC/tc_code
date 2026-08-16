@@ -1,3 +1,37 @@
+
+\section{Full experimental details}\label{app:details}
+\paragraph{Controlled suite.} Five domains built from public datasets:
+GSM8K in two action spaces (execution-verified Python and original
+chain-of-thought, an identical-query hard pair), DS-1000 Pandas
+\citep{lai2023ds1000}, Spider text-to-SQL, and Alpaca instructions
+\citep{taori2023alpaca} as the out-of-domain pool (sha256-stable splits).
+Teacher trajectories carry execution-based quality gates (95--96\%
+verified on GSM8K-code). Secondary agent environments for breadth:
+BFCL~v4 function calling, $\tau^2$-bench \citep{yao2024taubench},
+ALFWorld \citep{shridhar2021alfworld}, and WebShop \citep{yao2022webshop},
+matching environments used by agent-distillation baselines
+\citep{liu2025structured, kang2025distilling}.
+\paragraph{Additional baselines.} Distillation-side: vanilla trajectory
+SFT, capacity-aligned selection \citep{tang2026smartad}, segment-weighted
+losses \citep{liu2025structured}. Boundary-side: query- and
+trajectory-embedding subspaces under the same conformal pipeline, and
+activation-probe rejection \citep{li2026scope}.
+\paragraph{Evaluation details.} Per-environment metrics follow each
+benchmark's convention (execution accuracy for GSM8K-style tasks, task
+success for AppWorld/ALFWorld, score for WebShop, tool-call accuracy for
+BFCL, pass\^{}k-style success for $\tau^2$-bench). Decoding is greedy
+(pass@1) with a 320-token cap. Behavioral leakage channels (action-space
+adoption, format bleed, refusal rates) accompany the residue numbers.
+Certificates follow conformal risk practice \citep{vovk2005algorithmic,
+gibbs2025conditional}.
+\paragraph{Optimization.} AdamW, batch size 1 with gradient accumulation
+8, size-scaled learning rates, epochs $=\min(8,\max(3,\lceil 3b/\text{
+acquired tokens}\rceil))$; behavioral probes every 8 optimizer steps with
+the one-probe-margin rollback rule of Section~\ref{sec:distill}.
+Conformal calibration uses the 15 held-out calibration queries.
+Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA B200
+accelerators.
+
 \section{Limitations and pre-registration}\label{app:limitations}
 Pilot-scale numbers are single-seed and use verified pseudo-trajectories or
 two teachers; sweep-scale results carry seeds and confidence intervals as
