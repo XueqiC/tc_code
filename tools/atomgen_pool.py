@@ -19,6 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "src"))
 
+import appworld_teacher as _teacher_mod  # noqa: E402
+
+# multi-problem generation with a reasoning teacher needs far more than
+# the 2048-token AppWorld cap: reasoning alone can eat that budget and
+# return empty content.
+_teacher_mod.MAX_COMPLETION_TOKENS = 8192
+
 from evol_extend_pool import (  # noqa: E402
     DOMAIN,
     TEACHER,
