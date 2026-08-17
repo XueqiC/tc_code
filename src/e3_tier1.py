@@ -2631,10 +2631,13 @@ def selection_stats(rows, budget, refusal_fraction=None):
         "budget": budget,
         "domain_mix": {key: int(value) for key, value in sorted(domain_mix.items())},
         "teacher_domain_mix": composition_rows(rows),
-        "mean_s": float(np.mean([row["_grad_score"] for row in rows])),
-        "mean_embedding_score": float(
-            np.mean([row["_emb_score"] for row in rows])
-        ),
+        # selfamp rows are student-generated and carry no pool scores
+        "mean_s": float(np.mean(
+            [row["_grad_score"] for row in rows if "_grad_score" in row]
+        )),
+        "mean_embedding_score": float(np.mean(
+            [row["_emb_score"] for row in rows if "_emb_score" in row]
+        )),
         "n_refusal": len(refusal_rows),
         "refusal_token_count": int(
             sum(row["_token_count"] for row in refusal_rows)
