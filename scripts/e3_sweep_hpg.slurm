@@ -21,7 +21,7 @@ cd "$SLURM_SUBMIT_DIR"
 if [ "${TC_USE_TMP:-0}" = "1" ]; then
   export HF_HOME="$TMPDIR/hf-cache"
 else
-  export HF_HOME=/blue/yd24f.fsu/xc25.fsu/hq/tools/hf-cache
+  export HF_HOME=/blue/fsu-compsci-dept/xc25.fsu/hq/tools/hf-cache
 fi
 mkdir -p "$HF_HOME" logs results
 source .venv/bin/activate

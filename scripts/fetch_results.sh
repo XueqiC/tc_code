@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pull results and logs back from HiPerGator into results/hpg/ and logs/hpg/.
 set -e
-HPG_BASE="/blue/yd24f/xc25.fsu/hq"
+HPG_BASE="/blue/fsu-compsci-dept/xc25.fsu/hq"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ="$(basename "$SRC")"
 mkdir -p "$SRC/results/hpg" "$SRC/logs/hpg"

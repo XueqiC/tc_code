@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Push this project's code to HiPerGator (excludes data/results/logs/envs).
 set -e
-HPG_BASE="/blue/yd24f.fsu/xc25.fsu/hq"
+HPG_BASE="/blue/fsu-compsci-dept/xc25.fsu/hq"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ="$(basename "$SRC")"
 ssh hpg "mkdir -p $HPG_BASE/$PROJ/logs"

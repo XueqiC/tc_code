@@ -187,3 +187,16 @@ W1-W6 执行计划,PI 已确认精彩)——新会话想快速恢复上下文先
 5. teacher 轨迹池 v0:双 teacher 各 ~1k 条(限速分批)
 - 时间线:ICLR 2027 投稿 ~9 月底,6 周计划见 method-design-v1 §8
 - 旧候选(动机实证 / IR renderer / length control)已被新问题表述取代或吸收
+
+## RUNNING JOBS (updated 2026-08-17 15:20 EDT)
+- hpg tc-samp3 39539084 array0-1 (B200): samp_s0/s1 三跑(E3_SELFAMP 自放大判定),~2h
+- hpg tc-upg 39539410 array0-11 (B200): 方法升级波 sk/pref/avg/bs × 3 seeds(2B×20k×ext200),~2-3h/job
+- rai avgsan pid 3836323 (GPU2): ckpt-avg smoke 收尾中(判定已通过:adopted 0.93)
+
+## INFRA NOTE (2026-08-17): hpg 工作区迁移
+- yd24f.fsu 组 /blue 配额被整组占满(8T/8T + 文件数到顶),所有写入失败(samp 两连败根因)。
+- 工作区已整体迁至 /blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment(部门空间,余 12T);
+  旧路径 /blue/yd24f.fsu/xc25.fsu/hq/tc-alignment 现为符号链接。旧结果在新位置的
+  results_ydfull/、logs_ydfull/(只读)。.venv 仍物理在旧空间(只读使用,符号链接接入);
+  envs/ 后台 rsync 补齐中。sync_to_hpg.sh / fetch_results.sh / *.slurm 已改指部门路径。
+- rai→hpg 大文件同步受 MTU 黑洞限制:用 gzip+600B 分块 base64 推送(push 模式),取回用 900B 分块。
