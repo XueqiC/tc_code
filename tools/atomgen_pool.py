@@ -57,8 +57,10 @@ SOLVE_PROMPT = """Solve this problem by writing a Python function.
 
 {problem}
 
-Write a complete Python function `def solution():` that returns the numeric \
-answer. Output only the code."""
+Write a complete Python function `def solution():` that computes the answer \
+STEP BY STEP with intermediate variables (one named variable per quantity in \
+the problem, with the arithmetic shown), and returns the numeric answer. \
+Do NOT just return a precomputed number. Output only the code."""
 
 
 def parse_numbered_list(reply: str) -> list[str]:
@@ -147,6 +149,14 @@ def main() -> int:
                     continue
                 code = extract_python_code(sol_reply)
                 if "def solution" not in code:
+                    continue
+                # reject degenerate one-liners (teacher reasoning hidden
+                # in its think block, emitting only `return N`): such
+                # rows teach the student to guess bare numbers.
+                body_lines = [ln for ln in code.splitlines()
+                              if ln.strip() and not ln.strip().startswith("#")]
+                has_arith = any(op in code for op in ("+", "-", "*", "/"))
+                if len(body_lines) < 4 or not has_arith:
                     continue
                 if verify_solution(code) is None:
                     continue
