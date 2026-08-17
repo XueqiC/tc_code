@@ -886,6 +886,56 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             [boundary.unit(matrix) for matrix in spec_prompt_matrices],
             axis=0,
         ))
+        pool_sketch_feat = None
+        spec_sketch_feat = None
+        if os.environ.get("E3_SKETCH") == "1":
+            # sketch view: the OPENING of a response (its plan) at
+            # ~E3_SKETCH_TOK tokens. A sketch is purchasable before the
+            # full response, so per-atom supply can be MEASURED on real
+            # teacher text instead of predicted through the ridge
+            # bridge (whose per-atom reliability is ~0.1).
+            sk_chars = int(os.environ.get("E3_SKETCH_TOK", "30")) * 4
+            sketch_rows = [
+                {"prompt": row["prompt"],
+                 "response": row["response"][:sk_chars]}
+                for row in pool
+            ]
+            spec_sketch_rows = [
+                {"prompt": row["prompt"],
+                 "response": row["response"][:sk_chars]}
+                for row in task_rows
+            ]
+            sk_mats = []
+            for tag, rows_sk in (
+                ("sketch", sketch_rows), ("spec_sketch", spec_sketch_rows)
+            ):
+                paths_sk = [
+                    cache_dir / f"{tag}{sk_chars}_features_epoch_{e}.npy"
+                    for e in range(1, LESS_WARMUP_EPOCHS + 1)
+                ]
+                mats = _load_valid_less_features(paths_sk, len(rows_sk))
+                if mats is None:
+                    warmup_seed = features.stable_seed(
+                        f"less-warmup-{config['model']}-"
+                        f"{manifest['pool_fingerprint']}"
+                    )
+                    _extract_less_features(
+                        config, tokenizer, rows_sk,
+                        checkpoint_paths, paths_sk, warmup_seed,
+                    )
+                    mats = _load_valid_less_features(paths_sk, len(rows_sk))
+                    if mats is None:
+                        raise RuntimeError(
+                            f"failed to cache {tag}-view features"
+                        )
+                sk_mats.append(boundary.unit(np.mean(
+                    [boundary.unit(m) for m in mats], axis=0
+                )))
+            pool_sketch_feat, spec_sketch_feat = sk_mats
+            print(
+                f"[setup][sketch] features ready chars={sk_chars}",
+                flush=True,
+            )
         emb_cfg = config["embedding_features"]
         from sentence_transformers import SentenceTransformer
         embedder = SentenceTransformer(
@@ -963,6 +1013,8 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             "spec_prompt_feat": spec_prompt_feat,
             "spec_prompt_emb": spec_prompt_emb,
             "pool_prompt_emb": pool_prompt_emb,
+            "pool_sketch_feat": pool_sketch_feat,
+            "spec_sketch_feat": spec_sketch_feat,
         })
         print(
             f"[setup][F_boot] prompt-view features ready pool={len(pool)}",
@@ -1541,6 +1593,16 @@ def build_selections(config, tokenizer, pool):
             rounds = 0
             ledger = None
             dict_boot = None
+            # E3_SKETCH=1: each round, buy cheap response OPENINGS
+            # (sketches) for the shortlist so their per-atom supply is
+            # measured on real teacher text rather than ridge-predicted.
+            sketch_mode = (
+                use_bridge and os.environ.get("E3_SKETCH") == "1"
+            )
+            sketched, sketch_spent = set(), 0
+            sketch_frac = float(os.environ.get("E3_SKETCH_FRAC", "0.05"))
+            sketch_top = int(os.environ.get("E3_SKETCH_TOP", "16"))
+            sketch_tok = int(os.environ.get("E3_SKETCH_TOK", "30"))
             if use_probe:
                 # probe-refined dictionary: the k queries are a small,
                 # possibly unlucky sample, so atoms they support weakly
@@ -1770,6 +1832,47 @@ def build_selections(config, tokenizer, pool):
                 udens = float(os.environ.get("E3_UDENS", "0") or 0)
                 if udens > 0:
                     gains = gains + udens * rem_codes.sum(axis=1)
+                if sketch_mode:
+                    pool_sk = _BOOT_STATE["pool_sketch_feat"]
+                    spec_sk = _BOOT_STATE["spec_sketch_feat"]
+                    sk_budget = sketch_frac * budget
+                    for order_pos in np.argsort(-gains)[:sketch_top]:
+                        if gains[int(order_pos)] <= 1e-9:
+                            break
+                        i = rem_list[int(order_pos)]
+                        if i in sketched:
+                            continue
+                        cost_sk = min(
+                            sketch_tok, max(pool[i]["_token_count"], 1)
+                        )
+                        if (sketch_spent + cost_sk > sk_budget
+                                or spent_a + cost_sk > budget):
+                            continue
+                        sketched.add(i)
+                        sketch_spent += cost_sk
+                        spent_a += cost_sk
+                    sk_rows = [
+                        p for p, i in enumerate(rem_list) if i in sketched
+                    ]
+                    if sk_rows:
+                        # sketch code mass lives on a shorter-text scale
+                        # than full responses: calibrate its exchange
+                        # rate on the support demos' own sketches.
+                        kappa_sk = max(float(np.abs(
+                            dict_boot.transform(spec_sk)
+                        ).sum(axis=1).mean()), 1e-9)
+                        sk_codes = np.abs(dict_boot.transform(
+                            np.vstack([
+                                pool_sk[rem_list[p]][None] for p in sk_rows
+                            ])
+                        )) / kappa_sk
+                        for p, code_row in zip(sk_rows, sk_codes):
+                            rem_codes[p] = code_row
+                            gains[p] = np.minimum(
+                                ledger, code_row * expected_tokens
+                            ).sum() / expected_tokens
+                            if udens > 0:
+                                gains[p] += udens * code_row.sum()
                 if use_diversity and bought_a:
                     # marginal-diversity discount: a candidate whose
                     # skill code duplicates an already-bought row
@@ -1889,6 +1992,7 @@ def build_selections(config, tokenizer, pool):
                 f"spent={spent_a} admitted={len(admitted_boot)} "
                 f"overhead={overhead_boot} rounds={rounds} "
                 f"unspent={budget - spent_a} "
+                f"sketches={len(sketched)}/{sketch_spent}tok "
                 f"demand_left={ledger.sum():.1f}",
                 flush=True,
             )
@@ -2223,6 +2327,7 @@ def build_selections(config, tokenizer, pool):
                     gc.collect()
                     torch.cuda.empty_cache()
                     selfamp_rows = []
+                    pref_pairs = []
                     for row_i, text in zip(seed_idx_c, gen_c):
                         gold = None
                         resp = pool[row_i]["response"]
@@ -2235,6 +2340,21 @@ def build_selections(config, tokenizer, pool):
                             pred = verifier.run_solution(text[p0:])
                         if not close_enough(pred, gold):
                             fail_c.append(row_i)
+                            if (
+                                os.environ.get("E3_PREF") == "1"
+                                and p0 >= 0 and text[p0:].strip()
+                            ):
+                                # free preference pair: the already-paid
+                                # teacher demonstration is the chosen
+                                # side, the student's own execution-
+                                # failed attempt the rejected side.
+                                pref_pairs.append({
+                                    "prompt": pool[row_i]["prompt"],
+                                    "chosen": (
+                                        resp[g0:] if g0 >= 0 else resp
+                                    ),
+                                    "rejected": text[p0:],
+                                })
                         elif (
                             os.environ.get("E3_SELFAMP") == "1"
                             and p0 >= 0
@@ -2259,6 +2379,13 @@ def build_selections(config, tokenizer, pool):
                         print(
                             f"[setup][ourscorr] selfamp rows="
                             f"{len(selfamp_rows)} (free)",
+                            flush=True,
+                        )
+                    if pref_pairs:
+                        _BOOT_STATE["ourscorr_prefpairs"] = pref_pairs
+                        print(
+                            f"[setup][ourscorr] preference pairs="
+                            f"{len(pref_pairs)} (free)",
                             flush=True,
                         )
                     print(
@@ -2895,6 +3022,18 @@ def train_condition(
     behav_rows = config.get("_behav_rows")
     best_behav = -1.0
     best_state = None
+    # E3_CKPT_AVG=1: average the near-best probe checkpoints with the
+    # final state (SWA-style). Motivation: seed-to-seed swings of ±.08
+    # dominate every in-task comparison; weight averaging is a free
+    # variance reducer that needs no extra data or probes.
+    ckpt_avg = os.environ.get("E3_CKPT_AVG") == "1"
+    avg_states = []
+    stop_margin = float(
+        os.environ.get(
+            "E3_STOP_MARGIN",
+            str(1.0 / max(len(behav_rows), 1)) if behav_rows else "0",
+        )
+    )
     # E3_CURRICULUM: order-only manipulation for the curriculum test.
     # "demand"/"anti" fix the epoch order by demand-alignment score
     # (descending/ascending); "shuffle" keeps random order. All three
@@ -3001,6 +3140,14 @@ def train_condition(
                         for name, parameter in model.named_parameters()
                         if parameter.requires_grad
                     }
+                if ckpt_avg and behav >= best_behav - stop_margin:
+                    avg_states.append({
+                        name: parameter.detach().clone()
+                        for name, parameter in model.named_parameters()
+                        if parameter.requires_grad
+                    })
+                    if len(avg_states) > 4:
+                        avg_states.pop(0)
             should_measure = optimizer_steps <= 12 or optimizer_steps % 4 == 0
             if absorption_monitor is not None and should_measure:
                 demand = absorption_demand(train_modules, absorption_monitor)
@@ -3023,15 +3170,51 @@ def train_condition(
             break
     if behav_rows and best_state is not None:
         final = _behavioral_probe(model, tokenizer, behav_rows, config)
+        if ckpt_avg and len(avg_states) >= 2:
+            final_state = {
+                name: parameter.detach().clone()
+                for name, parameter in model.named_parameters()
+                if parameter.requires_grad
+            }
+            with torch.no_grad():
+                for name, parameter in model.named_parameters():
+                    if parameter.requires_grad:
+                        stack = [
+                            s[name] for s in avg_states if name in s
+                        ] + [final_state[name]]
+                        parameter.copy_(
+                            torch.stack(stack).mean(dim=0)
+                        )
+            avg_behav = _behavioral_probe(
+                model, tokenizer, behav_rows, config
+            )
+            if avg_behav + stop_margin >= max(final, best_behav):
+                print(
+                    f"[{condition}][ckpt-avg] adopted mean of "
+                    f"{len(avg_states) + 1} checkpoints (runnable "
+                    f"{avg_behav:.2f} vs final {final:.2f} "
+                    f"best {best_behav:.2f})",
+                    flush=True,
+                )
+                final = avg_behav
+            else:
+                with torch.no_grad():
+                    for name, parameter in model.named_parameters():
+                        if (parameter.requires_grad
+                                and name in final_state):
+                            parameter.copy_(final_state[name])
+                print(
+                    f"[{condition}][ckpt-avg] rejected (runnable "
+                    f"{avg_behav:.2f} < final {final:.2f} / "
+                    f"best {best_behav:.2f})",
+                    flush=True,
+                )
         # Uniform (budget-agnostic) restore rule: roll back to the best
         # probe checkpoint only when it beats the final state by MORE
         # than one probe question — a smaller gap is probe noise, and
         # restoring on noise is what cost accuracy at large budgets.
         # A genuine collapse (small-budget failure mode) exceeds the
         # margin by far and still triggers the restore.
-        stop_margin = float(
-            os.environ.get("E3_STOP_MARGIN", str(1.0 / max(len(behav_rows), 1)))
-        )
         if final < best_behav - stop_margin:
             with torch.no_grad():
                 for name, parameter in model.named_parameters():
@@ -3077,6 +3260,94 @@ def train_condition(
     if training_metrics is not None:
         training_metrics["stop_step"] = stop_step
     return optimizer_steps
+
+
+def preference_stage(model, tokenizer, pairs, config, condition=None):
+    """ORPO-style preference pass on (teacher-correct, student-wrong)
+    pairs harvested for free from the corrective-round rollout. Every
+    prior Stage III intervention re-weighted or re-ordered the same SFT
+    tokens; this adds a signal those tokens do not carry — push down
+    the student's own failed solution modes — at zero extra teacher
+    cost (hard-label constraint intact: only text, no logprobs)."""
+    beta = float(os.environ.get("E3_PREF_BETA", "0.25"))
+    lr = float(os.environ.get("E3_PREF_LR", "5e-5"))
+    epochs = int(os.environ.get("E3_PREF_EPOCHS", "2"))
+    accumulation = min(4, len(pairs))
+    behav_rows = config.get("_behav_rows")
+    pre_behav = (
+        _behavioral_probe(model, tokenizer, behav_rows, config)
+        if behav_rows else None
+    )
+    pre_state = {
+        name: parameter.detach().clone()
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    }
+    model.train()
+    model.config.use_cache = False
+    optimizer = torch.optim.AdamW(
+        [p for p in model.parameters() if p.requires_grad], lr=lr
+    )
+    rng = np.random.default_rng(config["seed"] + 17)
+    steps = 0
+    optimizer.zero_grad(set_to_none=True)
+    for _epoch in range(epochs):
+        order = rng.permutation(len(pairs))
+        for start in range(0, len(order), accumulation):
+            chunk = order[start:start + accumulation]
+            for j in chunk:
+                pair = pairs[int(j)]
+                ids_c, lab_c = encode(
+                    tokenizer,
+                    {"prompt": pair["prompt"],
+                     "response": pair["chosen"]},
+                    config["device"],
+                )
+                ids_r, lab_r = encode(
+                    tokenizer,
+                    {"prompt": pair["prompt"],
+                     "response": pair["rejected"]},
+                    config["device"],
+                )
+                loss_c = model(input_ids=ids_c, labels=lab_c).loss
+                loss_r = model(input_ids=ids_r, labels=lab_r).loss
+                # mean-logprob odds ratio (reference-model-free):
+                # log odds(y) = logp(y) - log(1 - exp(logp(y)))
+                logp_c = -loss_c
+                logp_r = -loss_r
+                log1m_c = torch.log1p(
+                    -torch.exp(torch.clamp(logp_c, max=-1e-4))
+                )
+                log1m_r = torch.log1p(
+                    -torch.exp(torch.clamp(logp_r, max=-1e-4))
+                )
+                ratio = (logp_c - log1m_c) - (logp_r - log1m_r)
+                loss = (
+                    loss_c + beta * -F.logsigmoid(ratio)
+                ) / len(chunk)
+                loss.backward()
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+            steps += 1
+    model.config.use_cache = True
+    if pre_behav is not None:
+        post_behav = _behavioral_probe(model, tokenizer, behav_rows, config)
+        margin = 1.0 / max(len(behav_rows), 1)
+        print(
+            f"[{condition}][pref] pairs={len(pairs)} steps={steps} "
+            f"beta={beta} runnable {pre_behav:.2f}->{post_behav:.2f}",
+            flush=True,
+        )
+        if post_behav < pre_behav - margin:
+            with torch.no_grad():
+                for name, parameter in model.named_parameters():
+                    if parameter.requires_grad and name in pre_state:
+                        parameter.copy_(pre_state[name])
+            print(
+                f"[{condition}][pref] rolled back (probe drop)",
+                flush=True,
+            )
+    return steps
 
 
 def rescore_pool_residual(model, monitor, config, task_rows, pool, excluded):
@@ -3709,6 +3980,17 @@ def main():
             optimizer_steps = train_condition(
                 model, tokenizer, selected, boot_config, condition=condition
             )
+            if (
+                condition.startswith("M_")
+                and condition.split("_", 2)[1] == "ourscorr"
+                and os.environ.get("E3_PREF") == "1"
+                and _BOOT_STATE.get("ourscorr_prefpairs")
+            ):
+                optimizer_steps += preference_stage(
+                    model, tokenizer,
+                    _BOOT_STATE["ourscorr_prefpairs"],
+                    boot_config, condition=condition,
+                )
         elif (
             absorption_monitor is None
             or config["training"]["early_stop"] != 1
