@@ -13,10 +13,11 @@ dictionary-reconstruction membership test, reads the current student's
 skill deficits from its training dynamics, and closes them by targeted
 selection and --- when the candidate set cannot supply a deficient skill
 --- targeted generation. \textbf{Stage III}: compute-matched supervised
-fine-tuning on the union of teacher demonstrations and the student's own
-execution-verified solutions. The trained student can then be equipped
-with a conformal deployment gate carrying finite-sample two-sided
-certificates.}
+fine-tuning on the mixed-source corpus, followed by a preference pass
+over free (student attempt, teacher correction) pairs and stochastic
+weight averaging of near-best probe checkpoints. The trained student can
+then be equipped with a conformal deployment gate carrying finite-sample
+two-sided certificates.}
 \label{fig:pipeline}
 \end{figure}
 Figure~\ref{fig:pipeline} summarizes the learning pipeline. Because no
@@ -25,7 +26,14 @@ rank an existing pool; it must decide what to ask the teacher, one paid
 query at a time. We therefore cast few-shot distillation as \emph{active
 learning against a pay-per-token teacher} \citep{settles2009active},
 organized in three stages that share a single learned object --- the
-skill vocabulary. \textbf{Stage I} (skill extraction and budget
+skill vocabulary --- and a single acquisition principle: \emph{the
+student attempts first, a verifier grades for free, and teacher
+supervision is purchased only where the student's own policy fails}. A
+from-scratch demonstration is the degenerate case --- the repair of an
+empty attempt --- so as the student improves, purchases shift from full
+demonstrations toward corrections of the student's own solutions, and
+the whole pipeline is on-policy distillation under a metered black-box
+teacher \citep{ross2011dagger}. \textbf{Stage I} (skill extraction and budget
 allocation) computes a gradient feature per support example
 (Section~\ref{sec:fingerprints}), learns \emph{capability atoms} --- a
 task-local vocabulary of skills --- by sparse dictionary learning, and
@@ -38,9 +46,11 @@ the student's remaining skill deficits --- read directly from its
 training dynamics --- redirect the remaining budget, through targeted
 selection and, where the candidate set runs out, targeted generation
 (Section~\ref{sec:acquire}). \textbf{Stage III} (distillation training)
-performs compute-matched supervised fine-tuning on the union of teacher
-demonstrations and the student's own execution-verified solutions, with
-a budget-agnostic rollback rule (Section~\ref{sec:distill}). A conformal
+performs compute-matched supervised fine-tuning on the mixed-source
+corpus, then converts the student's failed attempts --- a free
+by-product of Stage II --- into a bounded preference pass, and
+stabilizes the result by averaging near-best probe checkpoints under a
+budget-agnostic rollback rule (Section~\ref{sec:distill}). A conformal
 deployment gate with two-sided certificates can then be attached to the
 trained student (Section~\ref{sec:behavior}); it is a deployment
 configuration, not part of learning. Every threshold is either a
@@ -185,19 +195,29 @@ calibration query --- the task boundary \emph{is} what the skill
 vocabulary can express, and an optional slack of $s$ standard deviations
 traces a purity--performance frontier. Filtered returns are paid for ---
 the budget is real --- but never train the student; the wasted fraction
-is reported. \textbf{Close the deficits.} After each training interlude
-(Stage III recipe), the student's remaining deficits are read from its
-per-atom training dynamics --- atoms whose loss has not come down ---
-without any rollouts; the next round's ranking direction becomes the
-demand restricted to those atoms. A rollout variant (execution checks on
-re-answered acquisition prompts) matches its accuracy at strictly higher
-cost and is reported as an ablation. Where the remaining candidates
-cannot supply a deficient skill, the teacher is asked to \emph{generate}:
-the support queries loading highest on that atom serve as exemplars, the
-teacher writes new problems and execution-verified solutions (all tokens
+is reported. \textbf{Close the deficits, attempt-first.} After each training
+interlude (Stage III recipe), the student's remaining deficits are read
+from its per-atom training dynamics --- atoms whose loss has not come
+down --- without any rollouts; the next round's ranking direction
+becomes the demand restricted to those atoms. Before any money is
+spent, the intermediate student \emph{attempts} the shortlisted
+candidates (three samples each): a candidate it solves consistently ---
+all samples execute and agree --- is self-solved, its own solution
+joins the corpus at zero teacher cost, and the freed budget moves down
+the ranking. Purchases are reserved for genuine failures and take two
+forms: a fresh demonstration, or --- for questions whose reference
+answer is already owned --- a \emph{correction}: the teacher minimally
+repairs the student's own wrong solution, yielding an on-policy
+demonstration whose edit is localized to the mistake. Either purchase
+pairs the student's failed attempt with the correct solution, supplying
+Stage III's preference pass for free. A rollout-free deficit variant
+matches accuracy at lower cost when attempts are disabled and is
+reported as an ablation. Where the remaining candidates cannot supply a
+deficient skill, the teacher is asked to \emph{generate}: the support
+queries loading highest on that atom serve as exemplars, the teacher
+writes new problems and execution-verified solutions (all tokens
 charged), and generated and selected candidates compete in the same
-ranking. Targeted generation lifts the ceiling that a fixed candidate
-set imposes at large budgets. Where \textsc{DAgger} \citep{ross2011dagger}
+ranking. Where \textsc{DAgger} \citep{ross2011dagger}
 forwards failure states and LLM2LLM \citep{lee2024llm2llm} augments near
 failure instances, deficits here live in skill space: correction spreads
 across a skill's support, buying measurably more distinct demonstrations
@@ -210,11 +230,10 @@ allocations give every token a named destination.
 
 \subsection{Stage III: distillation training}
 \label{sec:distill}
-The training set is the union of two sources: the acquired teacher
-demonstrations, and the student's \emph{own} execution-verified solutions
---- during Stage II's deficit reads with rollouts enabled, every solution
-the intermediate student produced that passed the execution check is kept
-as an extra demonstration at zero teacher cost, a budgeted analogue of
+The training set mixes three sources of decreasing teacher cost: the
+acquired demonstrations, the purchased corrections of the student's own
+failures, and the student's self-solved candidates from attempt-first
+acquisition --- the latter at zero teacher cost, a budgeted analogue of
 self-improvement bootstrapping \citep{zelikman2022star}. Training itself
 is compute-matched supervised fine-tuning: smaller corpora receive
 proportionally more epochs, and the loss is deliberately \emph{not}
@@ -233,15 +252,43 @@ curves are what Stage II's deficit reads consume, and they make the
 distillation process inspectable at the skill level
 (Appendix~figure).
 
-\textbf{Budget-agnostic rollback.} A probe every $8$ steps measures the
-fraction of held-out calibration queries yielding runnable solutions and
-records the best checkpoint. At the end of training the best checkpoint
-replaces the final one \emph{only if it wins by more than one probe
-question}: a genuine small-budget collapse exceeds this margin by far
-and is rescued, while at large budgets the best-vs-final difference is
-probe noise and the final checkpoint is kept. One rule for every budget;
-no regime split. Throughout, gradient geometry is never asked to judge
-success --- three pre-registered experiments show it cannot
+\textbf{Preference pass over free negatives.} Supervised fine-tuning
+repeats what the teacher did; it never tells the student what \emph{it
+itself} does wrong. Stage II's failed attempts carry exactly that
+information, and pairing each with its correction gives preference data
+at zero additional cost. Because the teacher exposes no
+log-probabilities, the pass uses a reference-model-free odds-ratio
+objective \citep{hong2024orpo} rather than \textsc{DPO}
+\citep{rafailov2023dpo}. Two principled safeguards make it robust
+without introducing tuned constants. First, an attempt and its
+correction share a long common prefix, and sequence-level preference
+pressure on shared tokens is precisely what drives \emph{likelihood
+displacement} --- near-identical pairs drag the preferred response down
+with the rejected one \citep{razin2025unintentional}; the objective is
+therefore computed only on tokens from the first point of divergence,
+removing the displacement pressure at its source. Second, every few
+steps the pass re-measures execution \emph{correctness} on the
+calibration queries (their gold answers are free --- executing the
+teacher's demonstrations yields them) and stops on the first drop
+exceeding one probe question; runnability alone is blind to
+accuracy collapse under preference pressure. In controlled comparisons
+the same rollout data helps as preference negatives yet adds nothing as
+extra positives: the marginal value of self-generated data lies in its
+failures.
+
+\textbf{Checkpoint averaging and budget-agnostic rollback.} A probe
+every $8$ steps measures the fraction of held-out calibration queries
+yielding runnable solutions and records near-best checkpoints. At the
+end of training their weights are averaged with the final state
+\citep{izmailov2018swa} and the average is adopted if the probe does
+not object --- across-seed variance is the dominant noise source at
+this scale, and weight averaging is a free variance reducer. The best
+recorded checkpoint replaces the result \emph{only if it wins by more
+than one probe question}: a genuine small-budget collapse exceeds this
+margin by far and is rescued, while at large budgets the difference is
+probe noise. One rule for every budget; no regime split. Throughout,
+gradient geometry is never asked to judge success --- three
+pre-registered experiments show it cannot
 (Section~\ref{sec:mechanism}); the atoms diagnose \emph{what to acquire
 and observe}, while behavior remains the sole judge of arrival.
 
