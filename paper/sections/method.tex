@@ -31,8 +31,12 @@ student, and finally certify how well the student matches the
 specification. The details of the proposed method are below.
 
 \subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
-Given a support set $S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$
-of example queries from an otherwise unknown task, a teacher agent
+Let a task $\mathcal{T}$ be defined by its query distribution
+$P_\mathcal{T}$, which is never observed directly. Given a support set
+$S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$ of example queries
+whose size $k$ is far smaller than any corpus that could train the
+student directly, which is what makes the setting few-shot, a teacher
+agent
 $\pi_T$ accessed as a black-box API that charges per emitted token, an
 open-weight student $\theta_0$, and a token budget $b$, the goal is
 \[
