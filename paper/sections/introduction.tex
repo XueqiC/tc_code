@@ -1,41 +1,46 @@
 \section{Introduction}
-%% Four-paragraph arc per PI 2026-08-12: need -> two requirements with SOTA
-%% weaknesses -> our method with figure anchors -> contributions.
+%% Four-paragraph arc: need -> two requirements with SOTA weaknesses ->
+%% our method with figure anchors -> contributions. House style: no em
+%% dashes, no prose parentheticals, one step of logic per sentence.
 
 Enterprises are moving language-model agents out of demonstrations and
 into production, where an agent typically holds one job: querying a
 database, operating a fixed set of tools, automating one workflow
-\citep{yao2023react, schick2023toolformer, trivedi2024appworld, yao2024taubench, zhou2024webarena, jimenez2024swebench, mialon2024gaia}. Yet serving a frontier model for a single narrow job is rarely
-economical, and so practice converges on
-distilling the teacher's behavior on that job into a small student
-\citep{hinton2015distilling, kim2016sequence, mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd, kang2025distilling, tang2026smartad}. The job itself, however, is almost never specified formally; what the
-deployer actually has is a few dozen
-example queries from the intended workload. The teacher, meanwhile, is in
-practice a closed commercial model reachable only through a metered API:
-its weights, logits, and internals are out of reach, and every
-demonstration token it emits is billed. Between those few examples, that
-black-box teacher, and a deployment someone is willing to trust lies the
-entire distance this paper sets out to close.
+\citep{yao2023react, schick2023toolformer, trivedi2024appworld,
+yao2024taubench, zhou2024webarena, jimenez2024swebench, mialon2024gaia}.
+Serving a frontier model for a single narrow job is rarely economical,
+so practice converges on distilling the teacher's behavior on that job
+into a small student \citep{hinton2015distilling, kim2016sequence,
+mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd,
+kang2025distilling, tang2026smartad}. The job itself is almost never
+specified formally. What the deployer actually has is a few dozen
+example queries from the intended workload. The teacher is in practice
+a closed commercial model behind a metered API: its weights and logits
+are out of reach, and every demonstration token it emits is billed.
+Between those few examples, that black-box teacher, and a deployment
+someone is willing to trust lies the distance this paper sets out to
+close.
 
-Doing so requires answering two questions: the task's boundary must be
-determined from the limited examples alone, and the agent built on the
-distilled student must possess capability that ends exactly at that
-boundary. Neither is trivial. For the first, existing methods draw the
-boundary wherever data is easiest to compare, by retrieval or
-out-of-distribution detection in text-embedding space
-\citep{hendrycks2017baseline, liu2020energy, geifman2017selective,
-li2026scope} or by gradient influence against a single mean target
-\citep{koh2017understanding, pruthi2020estimating, park2023trak,
-engstrom2024dsdm, xia2024less}, and so can say what resembles or helps the
-examples but never where the task ends; identical query texts solved in
-two styles already defeat every text-side boundary
-(Figure~\ref{fig:one}a). For the second, state-of-the-art agent
-distillation \citep{tang2026smartad, liu2025structured, kang2025distilling}
-refines how faithfully each trace is imitated, yet even given a perfect
-boundary it neither controls nor measures where the token budget goes:
-equally accurate students spend a large share of it acquiring capability
-the job never asked for, and that diverted spending, not the extra
-capability, is what the deployer pays for (Figure~\ref{fig:one}c).
+Closing that distance requires two things. The boundary of the task
+must be determined from the limited examples alone, and the student's
+capability must end exactly at that boundary. Neither is available
+today. On the boundary side, existing methods draw the line wherever
+data is easiest to compare: by retrieval or out-of-distribution
+detection in text-embedding space \citep{hendrycks2017baseline,
+liu2020energy, geifman2017selective, li2026scope}, or by gradient
+influence against a single mean target \citep{koh2017understanding,
+pruthi2020estimating, park2023trak, engstrom2024dsdm, xia2024less}.
+Such methods can say what resembles the examples or what helps them,
+but never where the task ends. Identical query texts solved in two
+different styles already defeat every text-side boundary, as
+Figure~\ref{fig:one}a shows. On the training side, state-of-the-art
+agent distillation \citep{tang2026smartad, liu2025structured,
+kang2025distilling} refines how faithfully each trace is imitated, yet
+even given a perfect boundary it neither controls nor measures where
+the token budget goes. Equally accurate students spend a large share
+of the budget acquiring capability the job never asked for, and the
+deployer pays for that diverted spending. Figure~\ref{fig:one}c shows
+the effect.
 
 \begin{figure}[t]
 \centering
@@ -50,57 +55,69 @@ budget.}
 \label{fig:one}
 \end{figure}
 
-Our starting point is a change of representation with a satisfying
-consequence: both questions turn out to share one answer. The gradient a
-teacher demonstration induces at the student's initialization records what
-this student would have to learn from it, and across a task these learning
-demands are not arbitrary; they are combinations of a small set of
-recurring directions, the way recipes are combinations of a small set of
-basic techniques. A sparse dictionary \citep{olshausen1996emergence} recovers them as \emph{capability atoms}, the learning-demand analogue of the sparse features that dictionary methods extract from network activations \citep{huben2024sparse, bricken2023monosemanticity, templeton2024scaling};
-sparsity is what makes the recovery meaningful, because a principal
-subspace is invariant to rotations of its basis and thus cannot attach
-identity to any direction, whereas rotation destroys code sparsity, so
-atoms lock onto self-contained recurring skills. Atoms resolve skills
-within a single domain at AUROC $0.906$ where dense subspaces reach
-$0.615$ (Figure~\ref{fig:one}b). In this vocabulary distillation becomes active learning against the
-teacher: the example queries fix a per-skill token quota, each round the
-method asks the teacher where the remaining quota is largest, and every
-verified answer is charged against the quota it fills. Budget therefore
-flows to skills with unmet demand and never to out-of-scope ones: the student reaches
-target in-task performance with less budget, and off-task capability stays
-at zero at every budget while the strongest baseline converts every
-surplus token into out-of-scope capability (Figure~\ref{fig:one}c,d).
-Finally, because gradient geometry proves reliable for selecting data but
-unreliable for judging competence, training keeps the checkpoint that
-behaves best on held-out specification queries, and the deployed agent
-ships with finite-sample Clopper--Pearson certificates on both sides of
-the boundary, behind a conformal gate that routes live requests.
+Our starting point is a change of representation, and it carries a
+satisfying consequence: both requirements turn out to share one answer.
+The gradient a teacher demonstration induces at the student's
+initialization records what this student would have to learn from it.
+Across a task these learning demands are not arbitrary. They combine a
+small set of recurring directions, the way recipes combine a small set
+of basic techniques, and sparse dictionary learning
+\citep{olshausen1996emergence} recovers those directions as capability
+atoms, the learning-demand analogue of the sparse features that
+dictionary methods extract from network activations
+\citep{huben2024sparse, bricken2023monosemanticity,
+templeton2024scaling}. Sparsity is what makes the recovery meaningful.
+A principal subspace is invariant to rotations of its basis, so it
+cannot attach identity to any single direction. Rotation destroys code
+sparsity, so atoms lock onto recurring, self-contained skills. Within a
+single domain, atoms resolve skills at AUROC $0.906$ where dense
+subspaces reach $0.615$, as Figure~\ref{fig:one}b shows. In this
+vocabulary, distillation becomes active learning against a metered
+teacher, run on one principle: the student attempts first, a verifier
+grades for free, and teacher supervision is bought only where the
+student's own policy fails. The example queries fix a token quota per
+skill. Each round, the method codes candidate questions in the skill
+vocabulary and buys where unmet quota is largest. Questions the student
+already solves are kept at no cost. Questions the student fails are
+bought as demonstrations, or as minimal corrections of the student's
+own wrong solution. Training then applies the same principle to the
+weights: verified self-solutions are preserved, purchased corrections
+push down the student's own failure modes through a preference term,
+and plain imitation remains only where the student had nothing to
+offer. Gradient geometry proves reliable for selecting data but
+unreliable for judging competence, so arrival is judged behaviorally.
+The final weights average the checkpoints that behave best on held-out
+specification queries, and the deployed agent ships with finite-sample
+Clopper--Pearson certificates on both sides of the boundary, behind a
+conformal gate that routes live requests.
 
 Our contributions are as follows.
 \begin{itemize}[left=0pt,itemsep=0pt]
 \item \textbf{Problem formulation.} We formalize
-\emph{distill-to-specification}: from a teacher agent and $k$ example
-queries, produce a boundary predictor with finite-sample coverage together
-with a student agent whose measured capability matches the specified
-domain on both sides, evaluated by budget-to-target curves and certified
-leakage under matched token budgets.
+\emph{distill-to-specification}: from a black-box teacher agent and $k$
+example queries, produce a boundary predictor with finite-sample
+coverage together with a student agent whose measured capability
+matches the specified domain on both sides, evaluated by
+budget-to-target curves and certified leakage under matched token
+budgets.
 \item \textbf{Key insight.} Task identity and task boundary live in the
-space of learning demands: gradients separate what text cannot, and their
-recurring structure is identifiable as capability atoms precisely because
-of sparsity, not subspace geometry. A separation principle with
-pre-registered evidence, geometry selects while behavior judges, dictates
-where each signal may be used.
-\item \textbf{Method.} Budgeted acquisition and distillation over
-capability atoms: per-skill token quotas, quota-directed teacher querying
-with a calibrated admission gate, demand-weighted supervised fine-tuning,
-and behaviorally timed training with certified two-sided deployment;
-every threshold is a statistical convention or estimated from the support
-set itself.
+space of learning demands. Gradients separate what text cannot, their
+recurring structure is identifiable as capability atoms precisely
+because of sparsity, and a two-view coupled dictionary makes the skill
+code of a question computable before its answer is ever bought. A
+separation principle with pre-registered evidence, geometry selects
+while behavior judges, dictates where each signal may be used.
+\item \textbf{Method.} A three-stage pipeline on one principle: the
+student attempts first and supervision is bought only where it fails.
+Acquisition greedily maximizes a budgeted submodular skill-coverage
+objective with a calibrated admission gate; training stratifies the
+signal by the student's own policy state and optimizes a single
+verifier-anchored preference objective; every threshold is a
+statistical convention or estimated from the support set itself.
 \item \textbf{Results.} On a controlled five-domain suite the method
-matches or beats the strongest influence-based selection in-task at every
-size and budget (all wins at the canonical budget across four student
-sizes), with 3 to 10 times lower variance, zero off-task residue where
-baselines leak $0.40$ to $0.77$, and target performance at a fraction of
-the budget on scoped tasks; the pipeline transfers unchanged to agent
-benchmarks.
+matches or beats the strongest influence-based selection in-task at
+every size and budget, with several times lower variance, zero off-task
+residue where baselines leak $0.40$ to $0.77$, and target performance
+at a fraction of the budget on scoped tasks; the pipeline transfers
+unchanged to agent benchmarks.
 \end{itemize}
