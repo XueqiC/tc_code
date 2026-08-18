@@ -1015,6 +1015,7 @@ def attach_less_std_scores(config, tokenizer, task_rows, pool):
             "pool_prompt_emb": pool_prompt_emb,
             "pool_sketch_feat": pool_sketch_feat,
             "spec_sketch_feat": spec_sketch_feat,
+            "task_rows": list(task_rows),
         })
         print(
             f"[setup][F_boot] prompt-view features ready pool={len(pool)}",
@@ -2323,6 +2324,32 @@ def build_selections(config, tokenizer, pool):
                     gen_c = generate_texts(
                         temp_model_c, tokenizer, seed_rows_c, config
                     )
+                    # E3_PREF_V2: mine preference pairs from the WHOLE
+                    # paid corpus plus the free support demos with
+                    # temperature sampling — the v1 pair supply (3-8
+                    # pairs from one greedy pass over seed rows) becomes
+                    # an order of magnitude larger at the same zero
+                    # teacher cost; only local rollout compute grows.
+                    pref_v2_samples = None
+                    pref_v2_rows = None
+                    if (
+                        os.environ.get("E3_PREF") == "1"
+                        and os.environ.get("E3_PREF_V2") == "1"
+                    ):
+                        n_samp = int(
+                            os.environ.get("E3_PREF_SAMPLES", "4")
+                        )
+                        pref_v2_rows = (
+                            [pool[i] for i in seed_idx_c]
+                            + list(_BOOT_STATE.get("task_rows") or [])
+                        )
+                        pref_v2_samples = []
+                        for s_i in range(n_samp):
+                            torch.manual_seed(seed * 1000 + s_i)
+                            pref_v2_samples.append(generate_texts(
+                                temp_model_c, tokenizer, pref_v2_rows,
+                                config, do_sample=True, temperature=0.8,
+                            ))
                     del temp_model_c
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -2381,6 +2408,107 @@ def build_selections(config, tokenizer, pool):
                             f"{len(selfamp_rows)} (free)",
                             flush=True,
                         )
+                    if pref_v2_samples is not None:
+                        # negative typing: a wrong NUMBER is a near-miss
+                        # (informative failure mode); a crash mostly
+                        # teaches format. Default keeps near-misses only.
+                        neg_mode = os.environ.get(
+                            "E3_PREF_NEG", "wrongnum"
+                        )
+                        max_total = int(
+                            os.environ.get("E3_PREF_MAX", "96")
+                        )
+                        golds_v2 = {}
+                        for row_v in pref_v2_rows:
+                            resp_v = row_v["response"]
+                            g0v = resp_v.find("def solution")
+                            golds_v2[row_v["prompt"]] = (
+                                verifier.run_solution(resp_v[g0v:])
+                                if g0v >= 0 else None,
+                                resp_v[g0v:] if g0v >= 0 else resp_v,
+                            )
+                        v2_buckets = {}
+                        n_wrong = n_crash = 0
+                        for sample_texts in pref_v2_samples:
+                            for row_v, text_v in zip(
+                                pref_v2_rows, sample_texts
+                            ):
+                                p0v = text_v.find("def solution")
+                                if p0v < 0:
+                                    continue
+                                gold_v, chosen_v = golds_v2[
+                                    row_v["prompt"]
+                                ]
+                                if gold_v is None:
+                                    continue
+                                pred_v = verifier.run_solution(
+                                    text_v[p0v:]
+                                )
+                                if close_enough(pred_v, gold_v):
+                                    continue
+                                if pred_v is None:
+                                    n_crash += 1
+                                    if neg_mode == "wrongnum":
+                                        continue
+                                else:
+                                    n_wrong += 1
+                                bucket = v2_buckets.setdefault(
+                                    row_v["prompt"], []
+                                )
+                                key_v = repr(pred_v)
+                                if (len(bucket) >= 2 or any(
+                                    k == key_v for k, _ in bucket
+                                )):
+                                    continue
+                                bucket.append((key_v, {
+                                    "prompt": row_v["prompt"],
+                                    "chosen": chosen_v,
+                                    "rejected": text_v[p0v:],
+                                }))
+                        flat_v2 = [
+                            p for b in v2_buckets.values() for _, p in b
+                        ][:max_total]
+                        if flat_v2:
+                            pref_pairs = flat_v2
+                        print(
+                            f"[setup][ourscorr] pref-v2 pairs="
+                            f"{len(flat_v2)} prompts={len(v2_buckets)} "
+                            f"wrongnum={n_wrong} crash={n_crash} "
+                            f"mode={neg_mode}",
+                            flush=True,
+                        )
+                        # atom coverage of mined negatives: links the
+                        # Stage II skill ledger to the Stage III
+                        # preference signal (diagnostics-side view)
+                        try:
+                            n_seed_v = len(seed_idx_c)
+                            feats_v = np.vstack(
+                                [pool_r_c[i][None] for i in seed_idx_c]
+                                + ([spec_r_c] if len(pref_v2_rows)
+                                   > n_seed_v else [])
+                            )
+                            atoms_v = np.argmax(np.abs(
+                                dict_c.transform(feats_v)
+                            ), axis=1)
+                            atom_of = {
+                                r["prompt"]: int(a) for r, a in
+                                zip(pref_v2_rows, atoms_v)
+                            }
+                            cov_v = Counter(
+                                atom_of.get(p["prompt"], -1)
+                                for p in flat_v2
+                            )
+                            print(
+                                f"[setup][ourscorr] pref-v2 atom "
+                                f"coverage={dict(cov_v)}",
+                                flush=True,
+                            )
+                        except Exception as exc_v:
+                            print(
+                                f"[setup][ourscorr] pref-v2 coverage "
+                                f"skipped: {exc_v}",
+                                flush=True,
+                            )
                     if pref_pairs:
                         _BOOT_STATE["ourscorr_prefpairs"] = pref_pairs
                         print(
@@ -3444,7 +3572,8 @@ def run_iterative_condition(
 
 
 @torch.inference_mode()
-def generate_texts(model, tokenizer, rows, config):
+def generate_texts(model, tokenizer, rows, config,
+                   do_sample=False, temperature=1.0):
     model.eval()
     prompts = [
         tokenizer.apply_chat_template(
@@ -3469,7 +3598,8 @@ def generate_texts(model, tokenizer, rows, config):
             generated = model.generate(
                 **batch,
                 max_new_tokens=config["generation"]["max_new_tokens"],
-                do_sample=False,
+                do_sample=do_sample,
+                **({"temperature": temperature} if do_sample else {}),
                 pad_token_id=tokenizer.eos_token_id,
             )
             continuation = generated[:, batch["input_ids"].shape[1]:]
