@@ -36,19 +36,16 @@ of example queries from an otherwise unknown task, a teacher agent
 $\pi_T$ accessed as a black-box API that charges per emitted token, an
 open-weight student $\theta_0$, and a token budget $b$, the goal is
 \[
-\hat{\theta} \;=\; \argmin_{\theta}\;
-\mathbb{E}_{q\sim P_\mathcal{T}}\big[\,\mathrm{err}(\theta;
+\hat{\theta} \;=\; \argmax_{\theta}\;
+\mathbb{E}_{q\sim P_\mathcal{T}}\big[\,\mathrm{success}(\theta;
 q)\,\big]
-\quad \text{s.t.} \quad
-\mathrm{Cap}_{\bar{\mathcal{T}}}(\theta) \,\le\,
-\mathrm{Cap}_{\bar{\mathcal{T}}}(\theta_0),
-\qquad \mathrm{Cost}(\theta) \,\le\, b,
+\quad \text{s.t.} \quad \mathrm{Cost}(\theta) \,\le\, b,
 \]
-where $\mathrm{err}(\theta; q)$ indicates that the verifier rejects
-the student's solution to $q$, $\mathrm{Cap}_{\bar{\mathcal{T}}}$
-measures capability outside the task so that the constraint forbids
-leakage beyond the base model, and $\mathrm{Cost}(\theta)$ counts
-every teacher token purchased while producing $\hat{\theta}$. There is no pre-existing corpus and the
+where $\mathrm{success}(\theta; q)$ indicates that the verifier
+accepts the student's solution to $q$, and $\mathrm{Cost}(\theta)$
+counts every teacher token purchased while producing $\hat{\theta}$:
+within the budget, the student should complete the task at the highest
+attainable level. There is no pre-existing corpus and the
 support set is never expanded, so every demonstration must be bought
 from $\pi_T$; the assumptions and the formal evaluation protocol are
 stated in Appendix~\ref{app:details}.
