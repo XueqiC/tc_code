@@ -32,6 +32,19 @@ Conformal calibration uses the 15 held-out calibration queries.
 Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA B200
 accelerators.
 
+\paragraph{Setting: assumptions and evaluation protocol.}
+Two assumptions underlie the pipeline: \textbf{A1} the student's
+gradients are accessible, and \textbf{A2} some check such as an
+executor, a unit test, or a judge decides success. Code-acting agents
+are the instantiation we evaluate, not a requirement. The metered
+black-box access rules out distribution-matching distillation
+\citep{gu2024minillm, agarwal2024gkd}: the teacher exposes neither
+weights nor logits. Evaluation is two-sided under matched
+$(S, \pi_T, b)$: coverage risk counts in-domain failures, leakage
+counts out-of-domain capability, $B^{*}(\tau)$ is the smallest budget
+reaching target performance $\tau$, and waste is the fraction of
+purchased tokens that never train the student.
+
 \paragraph{Method implementation constants.}
 All constants below are shared across every task and benchmark.
 Gradient features: LoRA rank $16$, four-epoch warmup on the first
