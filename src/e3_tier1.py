@@ -2350,9 +2350,14 @@ def build_selections(config, tokenizer, pool):
                                 temp_model_c, tokenizer, pref_v2_rows,
                                 config, do_sample=True, temperature=0.8,
                             ))
-                    del temp_model_c
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                    # E3_ATTEMPT=1 keeps the intermediate student alive
+                    # until after corrective scoring: candidates are
+                    # attempted BEFORE money is spent on them.
+                    attempt_mode = os.environ.get("E3_ATTEMPT") == "1"
+                    if not attempt_mode:
+                        del temp_model_c
+                        gc.collect()
+                        torch.cuda.empty_cache()
                     selfamp_rows = []
                     pref_pairs = []
                     fail_texts = {}
@@ -2661,15 +2666,114 @@ def build_selections(config, tokenizer, pool):
                     (cand_c @ pair_p_c.T) @ dual_c
                 ))
                 score_c = pred_codes_c @ deficit
+                attempt_texts = {}
+                if os.environ.get("E3_ATTEMPT") == "1" \
+                        and corr_mode != "absorb":
+                    # attempt-first acquisition: the student tries the
+                    # shortlist BEFORE any purchase. A candidate the
+                    # student already solves consistently (3/3 samples
+                    # agree and execute) is self-solved — its own
+                    # solution joins the corpus and the money stays in
+                    # the budget. Purchases are reserved for genuine
+                    # failures, whose demos also yield free
+                    # (attempt, demo) preference pairs.
+                    top_att = [
+                        rem_c[int(p)] for p in np.argsort(-score_c)[:80]
+                    ]
+                    att_rows = [pool[i] for i in top_att]
+                    att_samples = []
+                    for s_i in range(3):
+                        torch.manual_seed(seed * 7000 + s_i)
+                        att_samples.append(generate_texts(
+                            temp_model_c, tokenizer, att_rows,
+                            config, do_sample=True, temperature=0.7,
+                        ))
+                    del temp_model_c
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    self_solved = []
+                    for k_i, i in enumerate(top_att):
+                        answers, first_txt = [], None
+                        for s_i in range(3):
+                            txt = att_samples[s_i][k_i]
+                            p0a = txt.find("def solution")
+                            if p0a < 0:
+                                answers = []
+                                break
+                            pred_a = verifier.run_solution(txt[p0a:])
+                            if pred_a is None:
+                                answers = []
+                                break
+                            answers.append(pred_a)
+                            if first_txt is None:
+                                first_txt = txt[p0a:]
+                        if (
+                            len(answers) == 3
+                            and close_enough(answers[0], answers[1])
+                            and close_enough(answers[0], answers[2])
+                        ):
+                            self_solved.append(i)
+                            attempt_texts[i] = ("solved", first_txt)
+                        elif first_txt is not None:
+                            attempt_texts[i] = ("failed", first_txt)
+                    if self_solved:
+                        _BOOT_STATE["ourscorr_selfsolved"] = [
+                            {
+                                "prompt": pool[i]["prompt"],
+                                "response": attempt_texts[i][1],
+                                "teacher": "self",
+                                "domain": pool[i].get("domain"),
+                                "_token_count": max(
+                                    len(attempt_texts[i][1]) // 4, 1
+                                ),
+                                "_is_refusal": False,
+                            }
+                            for i in self_solved
+                        ]
+                    print(
+                        f"[setup][ourscorr] attempt-first: "
+                        f"self-solved={len(self_solved)}/{len(top_att)} "
+                        f"(saved "
+                        f"{sum(max(pool[i]['_token_count'],1) for i in self_solved)}"
+                        f"tok)",
+                        flush=True,
+                    )
+                    self_set = set(self_solved)
+                else:
+                    self_set = set()
+                att_pairs = []
                 for pos in np.argsort(-score_c):
                     i = rem_c[int(pos)]
+                    if i in self_set:
+                        continue
                     cost = max(pool[i]["_token_count"], 1)
                     if spent_c + cost > budget:
                         continue
                     seed_idx_c.append(i)
                     spent_c += cost
+                    tag_a = attempt_texts.get(i)
+                    if tag_a and tag_a[0] == "failed":
+                        # bought demo doubles as the chosen side of a
+                        # free on-policy preference pair
+                        resp_b = pool[i]["response"]
+                        g0b = resp_b.find("def solution")
+                        att_pairs.append({
+                            "prompt": pool[i]["prompt"],
+                            "chosen": resp_b[g0b:] if g0b >= 0 else resp_b,
+                            "rejected": tag_a[1],
+                        })
                     if spent_c >= budget:
                         break
+                if att_pairs:
+                    _BOOT_STATE["ourscorr_prefpairs"] = (
+                        list(_BOOT_STATE.get("ourscorr_prefpairs") or [])
+                        + att_pairs
+                    )
+                    print(
+                        f"[setup][ourscorr] attempt-first pref pairs "
+                        f"+{len(att_pairs)}",
+                        flush=True,
+                    )
                 print(
                     f"[setup][ourscorr] total={len(seed_idx_c)} "
                     f"tokens={spent_c}",
@@ -2854,6 +2958,11 @@ def build_selections(config, tokenizer, pool):
                 rows_m = rows_m + list(_BOOT_STATE["ourscorr_selfamp"])
             if acq == "ourscorr" and _BOOT_STATE.get("ourscorr_repairs"):
                 rows_m = rows_m + list(_BOOT_STATE["ourscorr_repairs"])
+            if (
+                acq == "ourscorr"
+                and _BOOT_STATE.get("ourscorr_selfsolved")
+            ):
+                rows_m = rows_m + list(_BOOT_STATE["ourscorr_selfsolved"])
             selections[cond] = rows_m
             print(
                 f"[setup][{cond}] bought={len(bought_m)} "
