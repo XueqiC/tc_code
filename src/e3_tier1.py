@@ -3461,6 +3461,32 @@ def preference_stage(model, tokenizer, pairs, config, condition=None):
                      "response": pair["rejected"]},
                     config["device"],
                 )
+                if os.environ.get("E3_PREF_MASK", "0") == "1":
+                    # divergence masking: chosen and rejected share a
+                    # long code prefix; sequence-level preference
+                    # pressure on shared tokens is what drives
+                    # likelihood displacement (Razin et al. 2024) —
+                    # near-identical pairs displace the chosen response
+                    # itself. Scoring only the tokens FROM the first
+                    # divergence onward removes that pressure at the
+                    # source instead of rationing it with dose caps.
+                    resp_c = lab_c[0][lab_c[0] != -100]
+                    resp_r = lab_r[0][lab_r[0] != -100]
+                    shared = 0
+                    for a_t, b_t in zip(
+                        resp_c.tolist(), resp_r.tolist()
+                    ):
+                        if a_t != b_t:
+                            break
+                        shared += 1
+                    if shared >= min(len(resp_c), len(resp_r)):
+                        continue
+                    if shared > 0:
+                        for lab in (lab_c, lab_r):
+                            pos = (
+                                lab[0] != -100
+                            ).nonzero().squeeze(-1)
+                            lab[0][pos[:shared]] = -100
                 loss_c = model(input_ids=ids_c, labels=lab_c).loss
                 loss_r = model(input_ids=ids_r, labels=lab_r).loss
                 # mean-logprob odds ratio (reference-model-free):
@@ -3481,10 +3507,27 @@ def preference_stage(model, tokenizer, pairs, config, condition=None):
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             steps += 1
+            if (
+                os.environ.get("E3_PREF_ADAPT") == "1"
+                and pre_behav is not None and steps % 4 == 0
+            ):
+                # safety net, not a tuning knob: same one-probe-question
+                # margin as the III-4 rollback rule
+                cur_acc = _acc_probe()
+                model.train()
+                if cur_acc < pre_behav - 1.0 / max(len(behav_rows), 1):
+                    print(
+                        f"[{condition}][pref] adaptive stop at "
+                        f"step {steps} (cal-acc {cur_acc:.2f} < "
+                        f"{pre_behav:.2f} - margin)",
+                        flush=True,
+                    )
+                    break
             if steps >= max_steps:
                 break
-        if steps >= max_steps:
-            break
+        else:
+            continue
+        break
     model.config.use_cache = True
     if pre_behav is not None:
         post_behav = _acc_probe()
