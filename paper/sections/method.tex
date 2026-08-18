@@ -30,11 +30,12 @@ policy fails}. A from-scratch demonstration is the degenerate case of
 this principle, the repair of an empty attempt, so as the student
 improves, purchases shift toward corrections of its own solutions and
 the pipeline becomes on-policy distillation under a metered black-box
-teacher \citep{ross2011dagger}. Stage I extracts a skill vocabulary
-from the student's own gradients and allocates the budget per skill.
-Stage II greedily maximizes a budgeted submodular skill-coverage
-objective. Stage III stratifies the training signal by the student's
-policy state and optimizes one verifier-anchored objective. Every
+teacher \citep{ross2011dagger}. Concretely, Stage I first extracts a
+skill vocabulary from the student's own gradients and allocates the
+budget per skill. Stage II then spends that budget by greedily
+maximizing a submodular skill-coverage objective. Finally, Stage III
+stratifies the training signal by the student's policy state and
+optimizes a single verifier-anchored objective. Every
 threshold is a statistical convention or is estimated from the support
 set; implementation constants are collected in
 Appendix~\ref{app:details}.
@@ -65,10 +66,10 @@ evaluation protocol are stated in Appendix~\ref{app:details}.
 \label{sec:atoms}
 Stage I answers one question: what should the budget buy? Its output is
 a vocabulary of skills, an estimate of how much of each skill the task
-demands, and a token quota per skill. The stage proceeds in three
-steps: represent examples by what they teach, factor those
-representations into skills, and convert the support set into per-skill
-quotas.
+demands, and a token quota per skill. To get there, the stage first
+represents every example by what it teaches, then factors those
+representations into a small set of skills, and finally converts the
+support set into per-skill quotas.
 
 \paragraph{Step 1: gradient features.}\label{sec:fingerprints}
 The first step needs a representation under which examples that teach
@@ -129,7 +130,8 @@ set first and refit as purchases accumulate, so the vocabulary sharpens
 with evidence.
 
 \paragraph{Step 3: task demand and quotas.}
-The third step reads off what the task wants.
+With the vocabulary in hand, the third step reads off how much of each
+skill the task actually wants.
 
 \begin{definition}[Task demand]\label{def:demand}
 Given a dictionary and the support set $S$, the \emph{task demand} is
@@ -149,11 +151,12 @@ on the original $k$ queries alone.
 
 \subsection{Stage II: budgeted data acquisition}
 \label{sec:acquire}
-Stage II spends the budget so that every requested skill is covered and
-nothing else is. Three design questions organize the stage: what
-objective to spend against, how to score a candidate whose answer is
-unseen, and when to stop trusting predictions and consult the student
-itself.
+Stage II spends the budget so that every requested skill is covered
+and nothing else is. Its design follows from three questions that any
+budgeted acquisition must answer: what objective the spending should
+maximize, how to score a candidate whose answer has not been seen, and
+when to stop trusting predictions and instead consult the student
+itself. We take the three in turn.
 
 \paragraph{The objective.} Coverage has a natural form: over a purchase
 set $A$,
@@ -175,8 +178,9 @@ near-optimality guarantees \citep{khuller1999budgeted, krause2005near}.
 The selection rule is not a heuristic; it is the standard algorithm for
 the coverage objective the task defines.
 
-\paragraph{The loop.} Acquisition alternates with training in rounds.
-Each round refits the coupled dictionary on everything known, codes the
+\paragraph{The loop.} With the objective fixed, the loop itself is
+simple: acquisition alternates with training in rounds. Each round
+refits the coupled dictionary on everything known, codes the
 candidates from their prompt view, and buys greedily by $u(x)$, with a
 working copy of $r$ decremented within a batch so near-duplicates do
 not double-count. Every return passes two filters before it may train
@@ -213,9 +217,10 @@ student's own policy state on it}. Questions the student solved
 contribute its own verified solution, preserving behavior at zero
 teacher cost in the spirit of self-improvement bootstrapping
 \citep{zelikman2022star}. Questions it attempted and failed contribute
-the purchased solution plus a preference term that pushes down the
-student's own attempt. Questions it could not attempt contribute plain
-behavior cloning, the degenerate stratum. All three strata are one
+the purchased solution together with a preference term that pushes down
+the student's own attempt. Questions it could not attempt at all, in
+turn, contribute plain behavior cloning, which is the degenerate
+stratum. All three strata are one
 objective,
 \[
 \mathcal{L}(x) \;=\; \mathrm{NLL}\big(y^{+}\,|\,x\big) \;+\;
