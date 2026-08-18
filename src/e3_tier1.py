@@ -2355,6 +2355,7 @@ def build_selections(config, tokenizer, pool):
                     torch.cuda.empty_cache()
                     selfamp_rows = []
                     pref_pairs = []
+                    fail_texts = {}
                     for row_i, text in zip(seed_idx_c, gen_c):
                         gold = None
                         resp = pool[row_i]["response"]
@@ -2367,6 +2368,8 @@ def build_selections(config, tokenizer, pool):
                             pred = verifier.run_solution(text[p0:])
                         if not close_enough(pred, gold):
                             fail_c.append(row_i)
+                            if p0 >= 0 and text[p0:].strip():
+                                fail_texts[row_i] = text[p0:]
                             if (
                                 os.environ.get("E3_PREF") == "1"
                                 and p0 >= 0 and text[p0:].strip()
@@ -2521,6 +2524,116 @@ def build_selections(config, tokenizer, pool):
                         f"/{len(seed_idx_c)}",
                         flush=True,
                     )
+                    if os.environ.get("E3_CORRFIX") == "1" and fail_c:
+                        # corrective purchases (black-box on-policy
+                        # distillation under a metered teacher): for the
+                        # student's MODAL failures, buy a minimal repair
+                        # of the student's own wrong solution instead of
+                        # another fresh demonstration. One purchase
+                        # yields both an on-policy SFT row (the repair)
+                        # and a minimal-edit preference pair (wrong vs
+                        # repaired) whose divergence is exactly the
+                        # mistake. Charged against the corrective-round
+                        # budget like any other acquisition.
+                        try:
+                            import sys as _sys
+                            _tools = str(
+                                Path(__file__).resolve().parents[1]
+                                / "tools"
+                            )
+                            if _tools not in _sys.path:
+                                _sys.path.insert(0, _tools)
+                            import appworld_teacher as _at_mod
+                            _at_mod.MAX_COMPLETION_TOKENS = 8192
+                            from evol_extend_pool import (
+                                extract_python_code as _expc,
+                                make_teacher_call as _mk_call,
+                            )
+                            fix_frac = float(os.environ.get(
+                                "E3_CORRFIX_FRAC", "0.05"
+                            ))
+                            fix_budget = int(fix_frac * budget)
+                            fix_spent = 0
+                            repairs, repair_pairs = [], []
+                            call_fix = _mk_call()
+                            repair_tpl = (
+                                "Here is a problem and a student's "
+                                "INCORRECT Python solution.\n\n"
+                                "Problem: {problem}\n\n"
+                                "Incorrect solution:\n{attempt}\n\n"
+                                "Fix this solution with the MINIMAL "
+                                "change needed to make it correct. "
+                                "Keep the same structure and variable "
+                                "names wherever possible. Output only "
+                                "the corrected `def solution():` code."
+                            )
+                            for row_i in fail_c:
+                                wrong_f = fail_texts.get(row_i)
+                                if not wrong_f or fix_spent >= fix_budget:
+                                    continue
+                                resp0 = pool[row_i]["response"]
+                                g0f = resp0.find("def solution")
+                                gold_f = (
+                                    verifier.run_solution(resp0[g0f:])
+                                    if g0f >= 0 else None
+                                )
+                                if gold_f is None:
+                                    continue
+                                try:
+                                    reply_f = call_fix(repair_tpl.format(
+                                        problem=pool[row_i]["prompt"],
+                                        attempt=wrong_f,
+                                    ))
+                                except Exception as exc_f:
+                                    print(
+                                        f"[setup][ourscorr] repair call "
+                                        f"failed: {exc_f}",
+                                        flush=True,
+                                    )
+                                    continue
+                                code_f = _expc(reply_f)
+                                d0f = code_f.find("def solution")
+                                if d0f < 0:
+                                    continue
+                                fixed_f = code_f[d0f:]
+                                cost_f = max(len(fixed_f) // 4, 1)
+                                fix_spent += cost_f
+                                if not close_enough(
+                                    verifier.run_solution(fixed_f),
+                                    gold_f,
+                                ):
+                                    continue
+                                repairs.append({
+                                    "prompt": pool[row_i]["prompt"],
+                                    "response": fixed_f,
+                                    "teacher": pool[row_i].get("teacher"),
+                                    "domain": pool[row_i].get("domain"),
+                                    "_token_count": cost_f,
+                                    "_is_refusal": False,
+                                })
+                                repair_pairs.append({
+                                    "prompt": pool[row_i]["prompt"],
+                                    "chosen": fixed_f,
+                                    "rejected": wrong_f,
+                                })
+                            spent_c += fix_spent
+                            if repairs:
+                                _BOOT_STATE["ourscorr_repairs"] = repairs
+                                _BOOT_STATE["ourscorr_repair_pairs"] = (
+                                    repair_pairs
+                                )
+                            print(
+                                f"[setup][ourscorr] corrfix repairs="
+                                f"{len(repairs)} spent={fix_spent}tok "
+                                f"(cap {fix_budget})",
+                                flush=True,
+                            )
+                        except Exception as exc_cf:
+                            print(
+                                f"[setup][ourscorr] corrfix skipped: "
+                                f"{exc_cf}",
+                                flush=True,
+                            )
                     if fail_c:
                         deficit = np.abs(dict_c.transform(
                             np.vstack([pool_r_c[i][None] for i in fail_c])
@@ -2739,6 +2852,8 @@ def build_selections(config, tokenizer, pool):
                 and _BOOT_STATE.get("ourscorr_selfamp")
             ):
                 rows_m = rows_m + list(_BOOT_STATE["ourscorr_selfamp"])
+            if acq == "ourscorr" and _BOOT_STATE.get("ourscorr_repairs"):
+                rows_m = rows_m + list(_BOOT_STATE["ourscorr_repairs"])
             selections[cond] = rows_m
             print(
                 f"[setup][{cond}] bought={len(bought_m)} "
@@ -4181,15 +4296,18 @@ def main():
             optimizer_steps = train_condition(
                 model, tokenizer, selected, boot_config, condition=condition
             )
+            pref_all = (
+                list(_BOOT_STATE.get("ourscorr_prefpairs") or [])
+                + list(_BOOT_STATE.get("ourscorr_repair_pairs") or [])
+            )
             if (
                 condition.startswith("M_")
                 and condition.split("_", 2)[1] == "ourscorr"
                 and os.environ.get("E3_PREF") == "1"
-                and _BOOT_STATE.get("ourscorr_prefpairs")
+                and pref_all
             ):
                 optimizer_steps += preference_stage(
-                    model, tokenizer,
-                    _BOOT_STATE["ourscorr_prefpairs"],
+                    model, tokenizer, pref_all,
                     boot_config, condition=condition,
                 )
         elif (
