@@ -31,28 +31,18 @@ student, and finally certify how well the student matches the
 specification. The details of the proposed method are below.
 
 \subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
-A deployed agent never comes with a formal task definition; what a
-deployer actually holds is a handful of example queries, a billed API
-to a closed teacher, and a token budget, so our setting hands a method
-exactly these resources and nothing more. Following the classical
-few-shot learning setup, the task is a distribution $P_\mathcal{T}$
-over queries revealed only through a support set
-$S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$, and beyond $S$ every
-method receives the same three resources: a teacher agent $\pi_T$
-accessed as a black-box API that returns sampled trajectories and
-charges per emitted token, an open-weight student $\theta_0$, and a
-token budget $b$ that caps all teacher tokens purchased over the run,
-with no pre-existing corpus and no expansion of the support set.
-Specifically, given $(S, \pi_T, \theta_0, b)$, the goal is a student
-$\hat{\theta}$ that minimizes the capability gap to the task under
-the budget: on queries from $P_\mathcal{T}$ the student should succeed
-as the teacher does, while off $P_\mathcal{T}$ its capability should
+Given a support set $S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$
+of example queries from an otherwise unknown task, a teacher agent
+$\pi_T$ accessed as a black-box API that charges per emitted token, an
+open-weight student $\theta_0$, and a token budget $b$, the goal is a
+student $\hat{\theta}$ that minimizes the capability gap to the task
+under the budget: on queries from $P_\mathcal{T}$ the student should
+succeed as the teacher does, off $P_\mathcal{T}$ its capability should
 remain at the base model's level, and all teacher tokens consumed along
-the way must fit in $b$. Because $P_\mathcal{T}$ is seen only through
-$S$, reaching this goal forces the method to estimate where the task
-ends, and that estimate returns at the end as a certificate on the
-delivered student; the assumptions and the formal evaluation protocol
-are stated in Appendix~\ref{app:details}.
+the way must fit in $b$. There is no pre-existing corpus and the
+support set is never expanded, so every demonstration must be bought
+from $\pi_T$; the assumptions and the formal evaluation protocol are
+stated in Appendix~\ref{app:details}.
 
 \subsection{Stage I: determining the task from its examples}
 \label{sec:atoms}
