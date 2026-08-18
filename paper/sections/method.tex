@@ -2,40 +2,43 @@
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.pdf}
-\caption{The learning pipeline in three stages. \textbf{Stage I}: one
-backward pass turns each support example into a gradient feature; a
-two-view coupled dictionary yields capability atoms
-(Definition~\ref{def:atom}), the support set becomes a task demand
-(Definition~\ref{def:demand}), and the budget is allocated per skill.
-\textbf{Stage II}: an acquisition loop buys where unmet demand is
-largest, filters every return through an execution check and a
-membership test, and lets the student attempt candidates before money
-is spent. \textbf{Stage III}: on-policy distillation; the training
-signal is stratified by the student's own policy state and optimized as
-one verifier-anchored objective, finished with weight averaging of
-near-best probe checkpoints. The trained student can be equipped with a
-conformal deployment gate carrying finite-sample two-sided
-certificates.}
+\caption{The pipeline in four stages. \textbf{Stage I} determines
+the task from its few examples: one backward pass turns each support
+example into a gradient feature, and a two-view coupled dictionary
+yields capability atoms (Definition~\ref{def:atom}), a task demand
+(Definition~\ref{def:demand}) with per-skill token quotas, and the
+task boundary as what this vocabulary can express. \textbf{Stage II}
+acquires the data the specification asks for: a loop buys where unmet
+quota is largest, filters every return through an execution check and
+the membership test, and lets the student attempt candidates before
+money is spent. \textbf{Stage III} distills the student on-policy: the
+training signal is stratified by the student's own policy state and
+optimized as one verifier-anchored objective, finished with weight
+averaging of near-best probe checkpoints. \textbf{Stage IV} certifies
+the result: a conformal gate with finite-sample two-sided certificates
+routes live requests.}
 \label{fig:pipeline}
 \end{figure}
 
-Figure~\ref{fig:pipeline} summarizes the pipeline. No training corpus
-is given in our setting, so the method cannot rank an existing pool; it
-must decide what to ask a metered teacher, one paid query at a time. We
-therefore cast few-shot distillation as active learning against a
-pay-per-token teacher \citep{settles2009active}, built on one
-principle: \emph{the student attempts first, a verifier grades for
-free, and teacher supervision is bought only where the student's own
-policy fails}. A from-scratch demonstration is the degenerate case of
-this principle, the repair of an empty attempt, so as the student
-improves, purchases shift toward corrections of its own solutions and
-the pipeline becomes on-policy distillation under a metered black-box
-teacher \citep{ross2011dagger}. Concretely, Stage I first extracts a
-skill vocabulary from the student's own gradients and allocates the
-budget per skill. Stage II then spends that budget by greedily
-maximizing a submodular skill-coverage objective. Finally, Stage III
-stratifies the training signal by the student's policy state and
-optimizes a single verifier-anchored objective. Every
+Figure~\ref{fig:pipeline} summarizes the pipeline. Its logic follows
+from the goal. The deliverable is a student whose capability matches
+the task, but the task is visible only through $k$ examples, so the
+method must first determine what the task is before it can decide what
+to teach. Stage I therefore estimates the task from its examples: a
+vocabulary of the skills the task exercises, a demand profile over that
+vocabulary, and the task boundary as what the vocabulary can express.
+Stage II then acquires the data this specification asks for, and
+because there is no corpus to rank, acquisition means deciding what to
+ask a metered teacher, one paid query at a time. Stage III distills the
+acquired evidence into the student. Stage IV certifies how well the
+student matches the specification and gates deployment. Acquisition and
+distillation share one principle: \emph{the student attempts first, a
+verifier grades for free, and teacher supervision is bought only where
+the student's own policy fails}. A from-scratch demonstration is the
+degenerate case of this principle, namely the repair of an empty
+attempt, so as the student improves, purchases shift toward corrections
+of its own solutions and the pipeline becomes on-policy distillation
+under a metered black-box teacher \citep{ross2011dagger}. Every
 threshold is a statistical convention or is estimated from the support
 set; implementation constants are collected in
 Appendix~\ref{app:details}.
@@ -53,23 +56,26 @@ accessed as a black-box API that returns sampled trajectories and
 charges per emitted token, an open-weight student $\theta_0$, and a
 token budget $b$ that caps all teacher tokens purchased over the run,
 with no pre-existing corpus and no expansion of the support set.
-Specifically, given $(S, \pi_T, \theta_0, b)$, our goal is to produce
-a boundary predictor $\hat{B}$ with distribution-free coverage
-$\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=\text{in}] \ge 1-\alpha$,
-together with a student whose measured capability matches the task on
-both sides of that boundary, evaluated under matched resources by
-in-task coverage, out-of-task leakage, the budget-to-target level, and
-the wasted fraction of the budget; the assumptions and the formal
-evaluation protocol are stated in Appendix~\ref{app:details}.
+Specifically, given $(S, \pi_T, \theta_0, b)$, the goal is a student
+$\hat{\theta}$ that minimizes the capability gap to the task under
+the budget: on queries from $P_\mathcal{T}$ the student should succeed
+as the teacher does, while off $P_\mathcal{T}$ its capability should
+remain at the base model's level, and all teacher tokens consumed along
+the way must fit in $b$. Because $P_\mathcal{T}$ is seen only through
+$S$, reaching this goal forces the method to estimate where the task
+ends, and that estimate returns at the end as a certificate on the
+delivered student; the assumptions and the formal evaluation protocol
+are stated in Appendix~\ref{app:details}.
 
-\subsection{Stage I: from examples to skills and budgets}
+\subsection{Stage I: determining the task from its examples}
 \label{sec:atoms}
-Stage I answers one question: what should the budget buy? Its output is
-a vocabulary of skills, an estimate of how much of each skill the task
-demands, and a token quota per skill. To get there, the stage first
+Stage I turns $k$ examples into a working definition of the task: a
+vocabulary of the skills the task exercises, a demand profile saying
+how much of each skill it needs, and a boundary separating what belongs
+to the task from what does not. To get there, the stage first
 represents every example by what it teaches, then factors those
 representations into a small set of skills, and finally converts the
-support set into per-skill quotas.
+support set into per-skill quotas together with a membership test.
 
 \paragraph{Step 1: gradient features.}\label{sec:fingerprints}
 The first step needs a representation under which examples that teach
@@ -147,12 +153,18 @@ carry little weight in $w$, are skills the task requires
 \emph{implicitly}, and their demand is filled in from the demonstration
 side before further budget is spent. This completion touches only the
 budget allocation; the boundary and all certificates remain calibrated
-on the original $k$ queries alone.
+on the original $k$ queries alone. The same vocabulary also defines
+where the task ends. A query belongs to the task exactly when the skill
+vocabulary can express it, so the reconstruction residual of a prompt
+under the $D_p$ block, thresholded at the least typical calibration
+query, is the boundary; Stage II uses it to filter purchases and Stage
+IV calibrates it into a certificate.
 
 \subsection{Stage II: budgeted data acquisition}
 \label{sec:acquire}
-Stage II spends the budget so that every requested skill is covered
-and nothing else is. Its design follows from three questions that any
+With the specification in hand, Stage II acquires the data it asks
+for: the budget should end up covering every requested skill and
+nothing else. Its design follows from three questions that any
 budgeted acquisition must answer: what objective the spending should
 maximize, how to score a candidate whose answer has not been seen, and
 when to stop trusting predictions and instead consult the student
@@ -209,9 +221,10 @@ When the candidate set cannot supply a deficient skill at all, the
 teacher is asked to generate new problems from the support queries that
 load highest on that skill, with all generated tokens charged.
 
-\subsection{Stage III: on-policy distillation}
+\subsection{Stage III: distilling the student}
 \label{sec:distill}
-Stage III turns the acquired evidence into weights, on one rule:
+Stage III turns the acquired evidence into the delivered student, on
+one rule:
 \emph{the training signal an example contributes is determined by the
 student's own policy state on it}. Questions the student solved
 contribute its own verified solution, preserving behavior at zero
@@ -262,16 +275,16 @@ regime split. Per-example losses, tagged by dominant atom, additionally
 aggregate into per-skill absorption curves at no extra cost; they are
 what the deficit reads of Stage II consume.
 
-\subsection{Certified deployment (a configuration, not a stage)}
+\subsection{Stage IV: certification and deployment}
 \label{sec:behavior}
-The learning pipeline ends with Stage III; the trained student can
-additionally ship as a deliverable: student, boundary predictor, and
-two-sided certificates. A deployment-time request carries no response,
-so the boundary predictor lives in prompt-feature space and reuses
-Stage II's membership machinery: the reconstruction residual under the
-$D_p$ block is the nonconformity score, and a conformal threshold from
-a disjoint calibration split gives distribution-free coverage
-$\ge 1-\alpha$ \citep{angelopoulos2023conformal}. The student is then
+Stage IV states, with finite-sample guarantees, how well the delivered
+student matches the specification, and then holds the student to it at
+deployment. A deployment-time request carries no response, so the
+boundary predictor lives in prompt-feature space and reuses the same
+membership machinery estimated in Stage I: the reconstruction residual
+under the $D_p$ block is the nonconformity score, and a conformal
+threshold from a disjoint calibration split gives distribution-free
+coverage $\ge 1-\alpha$ \citep{angelopoulos2023conformal}. The student is then
 evaluated behaviorally on both sides of the boundary and the capability
 match is stated as finite-sample Clopper--Pearson bounds: a certified
 lower bound on in-task coverage and a certified upper bound on off-task
