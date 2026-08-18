@@ -26,13 +26,13 @@ boundary over surface representations of the query or over a
 pre-existing model pool, and all of them leave the boundary decoupled
 from how the served model was trained. Both choices fail structurally
 in our setting. Two tasks can share identical query text while
-demanding different skills, as Section~\ref{sec:boundary} shows, and a
+demanding different capabilities, as Section~\ref{sec:boundary} shows, and a
 serving-time gate cannot make the student's competence stop where the
 boundary stops.
 
 \paragraph{Distilling LLM agents.}
 Agent distillation transfers tool-use trajectories from a large teacher
-to a small student: with retrieval and code tools
+to a small student, whether with retrieval and code tools
 \citep{tunstall2023zephyr, mukherjee2023orca, gu2024minillm,
 agarwal2024gkd, kang2025distilling}, with segment-specific losses over
 reasoning and action spans \citep{liu2025structured}, or with
@@ -42,7 +42,7 @@ given and maximize aggregate benchmark scores. None takes a task
 specification as input, none reports what the student can or cannot do
 relative to an intended domain, and capacity alignment concerns what
 the student can absorb rather than what the deployment requires. The
-two lines therefore never meet: boundary methods do not shape training,
+two lines therefore never meet, since boundary methods do not shape training
 and distillation methods do not know their boundary. The raw material
 for a bridge exists in gradient-based analysis, where sketched
 gradients select influential data \citep{koh2017understanding,
@@ -50,7 +50,7 @@ pruthi2020estimating, xia2024less, hu2022lora}, predict per-example
 behavior \citep{park2023trak}, and expose behavior clusters through
 sparse decomposition \citep{rosser2026gradient}. These tools have so
 far been used to diagnose models or to serve fixed validation sets. We
-use the same geometry as the specification itself: a conformally
+use the same geometry as the specification itself, building a conformally
 calibrated task region estimated from $k$ examples that defines the
 boundary, selects the distillation data, and predicts the student's
 capability, so that the guarantee and the student are trained into

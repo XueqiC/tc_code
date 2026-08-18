@@ -1,20 +1,20 @@
 Language-model agents are deployed for narrow jobs that are specified, in
 practice, by nothing more than a few dozen example queries, while the
 strongest teachers sit behind APIs that charge for every token. We study
-few-shot agent distillation under exactly these terms: given only a
+few-shot agent distillation under exactly these terms, where given only a
 support set of $k$ queries, a black-box pay-per-token teacher, and a token
 budget, produce a small agent whose capability provably ends where the
 task ends. Our key observation is that the whole problem can be read from
 one object. The gradients that examples induce on the student decompose,
-under sparse dictionary learning, into \emph{capability atoms}: recurring,
-nameable skills that principal subspaces provably cannot identify. The
-support set then fixes a per-skill token quota, and distillation becomes
-active learning against the teacher: query where the quota is unmet,
+under sparse dictionary learning, into \emph{capability atoms}, recurring,
+nameable capabilities that principal subspaces provably cannot identify. The
+support set then fixes a per-atom token quota, and distillation becomes
+active learning against the teacher, which queries where the quota is unmet,
 verify what returns, weight each demonstration by the demand it serves,
 and stop when the quotas are filled --- spending less than the budget when
-the task allows it. The result is a certified agent: behaviorally timed
+the task allows it. The result is a certified agent, behaviorally timed
 training, finite-sample bounds on both sides of the task boundary, and a
-conformal gate at deployment. Across a five-domain suite, skill-directed
+conformal gate at deployment. Across a five-domain suite, capability-directed
 acquisition matches the strongest influence-based baseline in-task while
 spending no budget outside the specification; the baseline's off-task
 capability, up to $77\%$, is the visible receipt of the budget it

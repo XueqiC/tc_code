@@ -4,7 +4,7 @@
 %% dashes, no prose parentheticals, one step of logic per sentence.
 
 Enterprises are moving language-model agents out of demonstrations and
-into production, where an agent typically holds one job: querying a
+into production, where an agent typically holds one job, such as querying a
 database, operating a fixed set of tools, automating one workflow
 \citep{yao2023react, schick2023toolformer, trivedi2024appworld,
 yao2024taubench, zhou2024webarena, jimenez2024swebench, mialon2024gaia}.
@@ -15,7 +15,7 @@ mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd,
 kang2025distilling, tang2026smartad}. The job itself is almost never
 specified formally. What the deployer actually has is a few dozen
 example queries from the intended workload. The teacher is in practice
-a closed commercial model behind a metered API: its weights and logits
+a closed commercial model behind a metered API, whose weights and logits
 are out of reach, and every demonstration token it emits is billed.
 Between those few examples, that black-box teacher, and a deployment
 someone is willing to trust lies the distance this paper sets out to
@@ -25,7 +25,7 @@ Closing that distance requires two things. The boundary of the task
 must be determined from the limited examples alone, and the student's
 capability must end exactly at that boundary. Neither is available
 today. On the boundary side, existing methods draw the line wherever
-data is easiest to compare: by retrieval or out-of-distribution
+data is easiest to compare, whether by retrieval or out-of-distribution
 detection in text-embedding space \citep{hendrycks2017baseline,
 liu2020energy, geifman2017selective, li2026scope}, or by gradient
 influence against a single mean target \citep{koh2017understanding,
@@ -47,16 +47,16 @@ the effect.
 \includegraphics[width=\linewidth]{figs/fig1_story.pdf}
 \caption{(a)~Identical query texts, solved in two styles, are
 inseparable to any function of the text but separate perfectly in gradient
-space. (b)~Sparse capability atoms resolve skills that dense gradient
+space. (b)~Sparse capability atoms resolve capabilities that dense gradient
 subspaces cannot. (c)~With the specification
-in hand, surplus budget stops leaking: the strongest baseline converts it
+in hand, surplus budget stops leaking; the strongest baseline converts it
 into out-of-scope capability while ours stays at $0.000$ at every
 budget.}
 \label{fig:one}
 \end{figure}
 
 Our starting point is a change of representation, and it carries a
-satisfying consequence: both requirements turn out to share one answer.
+satisfying consequence, which is that both requirements share one answer.
 The gradient a teacher demonstration induces at the student's
 initialization records what this student would have to learn from it.
 Across a task these learning demands are not arbitrary. They combine a
@@ -69,19 +69,19 @@ dictionary methods extract from network activations
 templeton2024scaling}. Sparsity is what makes the recovery meaningful.
 A principal subspace is invariant to rotations of its basis, so it
 cannot attach identity to any single direction. Rotation destroys code
-sparsity, so atoms lock onto recurring, self-contained skills. Within a
-single domain, atoms resolve skills at AUROC $0.906$ where dense
+sparsity, so atoms lock onto recurring, self-contained capabilities. Within a
+single domain, atoms resolve capabilities at AUROC $0.906$ where dense
 subspaces reach $0.615$, as Figure~\ref{fig:one}b shows. In this
 vocabulary, distillation becomes active learning against a metered
-teacher, run on one principle: the student attempts first, a verifier
+teacher, run on one principle. The student attempts first, a verifier
 grades for free, and teacher supervision is bought only where the
 student's own policy fails. The example queries fix a token quota per
-skill. Each round, the method codes candidate questions in the skill
+capability atom. Each round, the method codes candidate questions in the capability
 vocabulary and buys where unmet quota is largest. Questions the student
 already solves are kept at no cost, while questions it fails are bought
 as demonstrations or, better, as minimal corrections of the student's
 own wrong solution. Training then applies the same principle to the
-weights: verified self-solutions are preserved, purchased corrections
+weights. Verified self-solutions are preserved, purchased corrections
 push down the student's own failure modes through a preference term,
 and plain imitation remains only where the student had nothing to
 offer. Gradient geometry proves reliable for selecting data but
@@ -94,7 +94,7 @@ conformal gate that routes live requests.
 Our contributions are as follows.
 \begin{itemize}[left=0pt,itemsep=0pt]
 \item \textbf{Problem formulation.} We formalize
-\emph{distill-to-specification}: from a black-box teacher agent and $k$
+\emph{distill-to-specification}, which asks, from a black-box teacher agent and $k$
 example queries, produce a boundary predictor with finite-sample
 coverage together with a student agent whose measured capability
 matches the specified domain on both sides, evaluated by
@@ -103,13 +103,13 @@ budgets.
 \item \textbf{Key insight.} Task identity and task boundary live in the
 space of learning demands. Gradients separate what text cannot, their
 recurring structure is identifiable as capability atoms precisely
-because of sparsity, and a two-view coupled dictionary makes the skill
+because of sparsity, and a two-view coupled dictionary makes the capability
 code of a question computable before its answer is ever bought. A
 separation principle with pre-registered evidence, geometry selects
 while behavior judges, dictates where each signal may be used.
-\item \textbf{Method.} A three-stage pipeline on one principle: the
+\item \textbf{Method.} A four-stage pipeline on one principle, that the
 student attempts first and supervision is bought only where it fails.
-Acquisition greedily maximizes a budgeted submodular skill-coverage
+Acquisition greedily maximizes a budgeted submodular capability-coverage
 objective with a calibrated admission gate; training stratifies the
 signal by the student's own policy state and optimizes a single
 verifier-anchored preference objective; every threshold is a
