@@ -31,8 +31,10 @@ student, and finally certify how well the student matches the
 specification. The details of the proposed method are below.
 
 \subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
+
+We first need to identify the task 
 Let a task $\mathcal{T}$ be defined by its query distribution
-$P_\mathcal{T}$, which is never observed directly. Given a support set
+$P_\mathcal{T}$, given a support set
 $S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$ of example queries
 with $k \ll N_{\mathrm{train}}$, the corpus size that could train the
 student directly, a teacher agent
@@ -46,15 +48,11 @@ q)\,\big]
 \]
 where $\mathrm{Perf}(\theta; q)$ is the task performance of the
 student on query $q$, and $\mathrm{Cost}(\theta)$ counts every
-teacher token purchased while producing $\hat{\theta}$: within the
-budget, maximize the student's performance on queries drawn from the
-task. There is no pre-existing corpus and the
-support set is never expanded, so every demonstration must be bought
-from $\pi_T$; the assumptions and the formal evaluation protocol are
-stated in Appendix~\ref{app:details}.
+teacher token purchased while producing $\hat{\theta}$.
 
 \subsection{Stage I: determining the task from its examples}
 \label{sec:atoms}
+\xq{We first need to identify the task xx and the capability of the LLM to finish the task given the limited support set. Since xxxx intuition (citation), we first seek do xxx to get the gradient features, and identify the minimal sets of that a model takes to perform the task well. so the capability to finish a task can be decomposed by xxx. We further identify the boundary of task by xxx. }
 Stage I turns $k$ examples into a working definition of the task: a
 vocabulary of the skills the task exercises, a demand profile saying
 how much of each skill it needs, and a boundary separating what belongs
@@ -148,6 +146,8 @@ IV calibrates it into a certificate.
 
 \subsection{Stage II: budgeted data acquisition}
 \label{sec:acquire}
+
+\xq{After we have xxxx, we acquires the data to distill the student LLM that has the capability to finish the task. We first xx, then xx,}
 With the specification in hand, Stage II acquires the data it asks
 for: the budget should end up covering every requested skill and
 nothing else. Its design follows from three questions that any
