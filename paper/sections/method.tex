@@ -52,14 +52,18 @@ teacher token purchased while producing $\hat{\theta}$.
 
 \subsection{Stage I: determining the task from its examples}
 \label{sec:atoms}
-\xq{We first need to identify the task xx and the capability of the LLM to finish the task given the limited support set. Since xxxx intuition (citation), we first seek do xxx to get the gradient features, and identify the minimal sets of that a model takes to perform the task well. so the capability to finish a task can be decomposed by xxx. We further identify the boundary of task by xxx. }
-Stage I turns $k$ examples into a working definition of the task: a
-vocabulary of the skills the task exercises, a demand profile saying
-how much of each skill it needs, and a boundary separating what belongs
-to the task from what does not. To get there, the stage first
-represents every example by what it teaches, then factors those
-representations into a small set of skills, and finally converts the
-support set into per-skill quotas together with a membership test.
+Given only the support set, we first need to identify what the task is
+and what capability a model must hold to finish it. Our intuition is
+that the gradient an example induces on the student records exactly
+what the student would have to learn from it \citep{xia2024less}, so
+we first run one backward pass per support example to obtain gradient
+features, and then factor these features to identify the minimal set of
+skills a model needs to perform the task well: the capability to finish
+the task decomposes into a sparse combination of \emph{capability
+atoms} (Definition~\ref{def:atom}). The same decomposition then tells
+us how much of each skill the task demands
+(Definition~\ref{def:demand}), and it further identifies the boundary
+of the task as the set of queries this skill vocabulary can express.
 
 \paragraph{Step 1: gradient features.}\label{sec:fingerprints}
 The first step needs a representation under which examples that teach
@@ -147,14 +151,15 @@ IV calibrates it into a certificate.
 \subsection{Stage II: budgeted data acquisition}
 \label{sec:acquire}
 
-\xq{After we have xxxx, we acquires the data to distill the student LLM that has the capability to finish the task. We first xx, then xx,}
-With the specification in hand, Stage II acquires the data it asks
-for: the budget should end up covering every requested skill and
-nothing else. Its design follows from three questions that any
-budgeted acquisition must answer: what objective the spending should
-maximize, how to score a candidate whose answer has not been seen, and
-when to stop trusting predictions and instead consult the student
-itself. We take the three in turn.
+After Stage I has produced the specification, namely the skills, their
+token quotas, and the task boundary, we acquire the data from which the
+student will be distilled, so that the student ends up holding exactly
+the capability the task requires. We first cast acquisition as the
+maximization of a budgeted skill-coverage objective, then run a buying
+loop that scores each candidate by its marginal coverage per token and
+filters every return, and finally let the student attempt the
+shortlisted candidates so that money is spent only where the student
+fails. We describe the three parts in turn.
 
 \paragraph{The objective.} Coverage has a natural form: over a purchase
 set $A$,
