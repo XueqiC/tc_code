@@ -3402,13 +3402,34 @@ def preference_stage(model, tokenizer, pairs, config, condition=None):
     cost (hard-label constraint intact: only text, no logprobs)."""
     beta = float(os.environ.get("E3_PREF_BETA", "0.25"))
     lr = float(os.environ.get("E3_PREF_LR", "5e-5"))
-    epochs = int(os.environ.get("E3_PREF_EPOCHS", "2"))
+    epochs = int(os.environ.get("E3_PREF_EPOCHS", "1"))
+    # dose cap: the v1 gain came from ~4 optimizer steps; an
+    # uncapped pass over a large mined pair set (30 steps at 0.8B)
+    # kept the runnability probe at 1.00 while destroying answer
+    # accuracy (-.20 vs sibling arms) — preference pressure
+    # overdoses quietly, so the step budget is bounded.
+    max_steps = int(os.environ.get("E3_PREF_MAX_STEPS", "12"))
     accumulation = min(4, len(pairs))
     behav_rows = config.get("_behav_rows")
-    pre_behav = (
-        _behavioral_probe(model, tokenizer, behav_rows, config)
-        if behav_rows else None
-    )
+
+    def _acc_probe():
+        # correctness probe: cal rows carry teacher demos, so gold
+        # answers are free — the runnability probe alone is blind to
+        # accuracy collapse under preference pressure.
+        texts_p = generate_texts(model, tokenizer, behav_rows, config)
+        good = 0
+        for row_p, text_p in zip(behav_rows, texts_p):
+            g0p = row_p["response"].find("def solution")
+            gold_p = (verifier.run_solution(row_p["response"][g0p:])
+                      if g0p >= 0 else None)
+            p0p = text_p.find("def solution")
+            pred_p = (verifier.run_solution(text_p[p0p:])
+                      if p0p >= 0 else None)
+            if gold_p is not None and close_enough(pred_p, gold_p):
+                good += 1
+        return good / max(len(behav_rows), 1)
+
+    pre_behav = _acc_probe() if behav_rows else None
     pre_state = {
         name: parameter.detach().clone()
         for name, parameter in model.named_parameters()
@@ -3460,13 +3481,17 @@ def preference_stage(model, tokenizer, pairs, config, condition=None):
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             steps += 1
+            if steps >= max_steps:
+                break
+        if steps >= max_steps:
+            break
     model.config.use_cache = True
     if pre_behav is not None:
-        post_behav = _behavioral_probe(model, tokenizer, behav_rows, config)
+        post_behav = _acc_probe()
         margin = 1.0 / max(len(behav_rows), 1)
         print(
             f"[{condition}][pref] pairs={len(pairs)} steps={steps} "
-            f"beta={beta} runnable {pre_behav:.2f}->{post_behav:.2f}",
+            f"beta={beta} cal-acc {pre_behav:.2f}->{post_behav:.2f}",
             flush=True,
         )
         if post_behav < pre_behav - margin:
