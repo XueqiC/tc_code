@@ -3,350 +3,279 @@
 \centering
 \includegraphics[width=\linewidth]{figs/fig1_mechanism.pdf}
 \caption{The learning pipeline in three stages. \textbf{Stage I}: one
-backward pass turns each support example into a gradient feature; sparse
-dictionary learning yields capability atoms (Definition~\ref{def:atom}),
-the support set becomes a task demand (Definition~\ref{def:demand}), and
-the budget is allocated per skill. \textbf{Stage II}: an acquisition
-loop queries the pay-per-token teacher where unallocated demand is
-largest, filters returns through an execution check and a
-dictionary-reconstruction membership test, reads the current student's
-skill deficits from its training dynamics, and closes them by targeted
-selection, falling back to targeted generation when the candidate set
-cannot supply a deficient skill. \textbf{Stage III}: on-policy
-distillation. The training signal is stratified by the student's own
-policy state: self-solves are kept, own failures are pushed down
-against their corrections, and demonstrations are cloned only where no
-attempt exists; one verifier-anchored objective is optimized and
-finished with weight averaging of near-best probe checkpoints. The trained student can then be equipped
-with a conformal deployment gate carrying finite-sample two-sided
+backward pass turns each support example into a gradient feature; a
+two-view coupled dictionary yields capability atoms
+(Definition~\ref{def:atom}), the support set becomes a task demand
+(Definition~\ref{def:demand}), and the budget is allocated per skill.
+\textbf{Stage II}: an acquisition loop buys where unmet demand is
+largest, filters every return through an execution check and a
+membership test, and lets the student attempt candidates before money
+is spent. \textbf{Stage III}: on-policy distillation; the training
+signal is stratified by the student's own policy state and optimized as
+one verifier-anchored objective, finished with weight averaging of
+near-best probe checkpoints. The trained student can be equipped with a
+conformal deployment gate carrying finite-sample two-sided
 certificates.}
 \label{fig:pipeline}
 \end{figure}
-Figure~\ref{fig:pipeline} summarizes the learning pipeline. No training
-corpus is given in our setting, so the method cannot rank an existing
-pool; it must decide what to ask a metered teacher, one paid query at a
-time. We therefore cast few-shot distillation as active learning
-against a pay-per-token teacher \citep{settles2009active}, built from
-three stages that share one learned object, the skill vocabulary, and
-one principle: the student attempts first, a verifier grades for free,
-and teacher supervision is bought only where the student's own policy
-fails. A from-scratch demonstration is the degenerate case of this
-principle, the repair of an empty attempt, so as the student improves,
-purchases shift toward corrections of its own solutions, and the whole
-pipeline becomes on-policy distillation under a metered black-box
-teacher \citep{ross2011dagger}. Stage I extracts the skill vocabulary
+
+Figure~\ref{fig:pipeline} summarizes the pipeline. No training corpus
+is given in our setting, so the method cannot rank an existing pool; it
+must decide what to ask a metered teacher, one paid query at a time. We
+therefore cast few-shot distillation as active learning against a
+pay-per-token teacher \citep{settles2009active}, built on one
+principle: \emph{the student attempts first, a verifier grades for
+free, and teacher supervision is bought only where the student's own
+policy fails}. A from-scratch demonstration is the degenerate case of
+this principle, the repair of an empty attempt, so as the student
+improves, purchases shift toward corrections of its own solutions and
+the pipeline becomes on-policy distillation under a metered black-box
+teacher \citep{ross2011dagger}. Stage I extracts a skill vocabulary
 from the student's own gradients and allocates the budget per skill.
 Stage II greedily maximizes a budgeted submodular skill-coverage
-objective over a view-invariant sparse code. Stage III stratifies the
-training signal by the student's policy state and optimizes one
-verifier-anchored objective. Every threshold is either a statistical
-convention or estimated from the support set itself; no component is
-tuned per benchmark.
+objective. Stage III stratifies the training signal by the student's
+policy state and optimizes one verifier-anchored objective. Every
+threshold is a statistical convention or is estimated from the support
+set; implementation constants are collected in
+Appendix~\ref{app:details}.
 
 \subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
 A task is a distribution $P_\mathcal{T}$ over queries, revealed only
-through a \emph{support set} $S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$,
-which is the sole task-specific information any method receives. Every method
-additionally gets the same three resources: a teacher agent $\pi_T$,
-accessed strictly as a black-box API that returns sampled trajectories and
-charges per emitted token; an open-weight student $\theta_0$; and a
-token budget. This is the regime of closed commercial models, and it
-rules out distribution-matching distillation \citep{gu2024minillm,
-agarwal2024gkd}. The budget
-$b$ caps all teacher tokens purchased over the entire run. There is no
+through a \emph{support set} $S = \{q_1, \dots, q_k\} \sim
+P_\mathcal{T}$, which is the sole task-specific information any method
+receives. Every method additionally gets the same three resources: a
+teacher agent $\pi_T$, accessed strictly as a black-box API that
+returns sampled trajectories and charges per emitted token; an
+open-weight student $\theta_0$; and a token budget $b$ that caps all
+teacher tokens purchased over the entire run. This is the regime of
+closed commercial models, and it rules out distribution-matching
+distillation \citep{gu2024minillm, agarwal2024gkd}. There is no
 pre-existing corpus: every demonstration must be generated by querying
-$\pi_T$, every returned token is charged against $b$, and the support set
-is never expanded.
+$\pi_T$, every returned token is charged against $b$, and the support
+set is never expanded.
 
-From $(S, \pi_T, \theta_0, b)$ a method must produce a boundary predictor
-$\hat{B}$ with distribution-free coverage
+From $(S, \pi_T, \theta_0, b)$ a method must produce a boundary
+predictor $\hat{B}$ with distribution-free coverage
 $\Pr_{q\sim P_\mathcal{T}}[\hat{B}(q)=\text{in}] \ge 1-\alpha$, and a
 student evaluated two-sidedly: coverage risk, meaning in-domain
 failures, and leakage, meaning out-of-domain capability, under matched
-$(S, \pi_T, b)$,
-together with the budget-to-target level $B^{*}(\tau)$ and the wasted
-fraction of purchased tokens. Two assumptions: \textbf{A1} the student's
-gradients are accessible, and \textbf{A2} some check such as an
-executor, a unit test, or a judge decides success. Code-acting agents are the instantiation we
-evaluate, not a requirement.
+$(S, \pi_T, b)$, together with the budget-to-target level $B^{*}(\tau)$
+and the wasted fraction of purchased tokens. Two assumptions:
+\textbf{A1} the student's gradients are accessible, and \textbf{A2}
+some check such as an executor, a unit test, or a judge decides
+success. Code-acting agents are the instantiation we evaluate, not a
+requirement.
 
-\subsection{Gradient features: reading what an example teaches}
-\label{sec:fingerprints}
-Every example the method touches, each support query, and later each
-purchased demonstration, is represented by its \emph{gradient feature}
-\citep{xia2024less}: the Adam-preconditioned gradient that the example
-induces on the student, compressed by a fixed random projection. The
-representational point is that the gradient describes an example by what
-the student would have to \emph{learn} from it, not by which words appear
-in it. Identical query texts solved in two different styles are
-inseparable to any function of the text, yet their gradients separate
-perfectly: hard-pair AUROC is $1.000$ against $0.687$ for text
-embeddings in Section~\ref{sec:boundary}. Following
-\citet{xia2024less}, a brief low-rank warmup on the first purchased
-demonstrations accumulates the optimizer's second-moment statistics and absorbs
-surface formatting; each example then contributes one backward pass, and
-the adapter gradient is rescaled coordinate-wise by the inverse root of
-the second moments, so the feature measures the update step the optimizer
-would actually take. The random projection preserves the inner products
-that all downstream computation consumes, up to $(1\pm\varepsilon)$
-\citep{johnson1984extensions}. One distinction matters under the metered
-protocol: for a purchased demonstration the feature is computed on the
-teacher's response, whereas for a candidate prompt whose answer has not
-been bought yet, only the feature of the \emph{prompt text} is
-available. The acquisition step below is careful to plan with the
-latter and account with the former.
+\subsection{Stage I: from examples to skills and budgets}
+\label{sec:atoms}
+Stage I answers one question: what should the budget buy? Its output is
+a vocabulary of skills, an estimate of how much of each skill the task
+demands, and a token quota per skill. The stage proceeds in three
+steps: represent examples by what they teach, factor those
+representations into skills, and convert the support set into per-skill
+quotas.
 
-\subsection{Capability atoms and task demand}\label{sec:atoms}
-Gradient features of related examples are not arbitrary vectors: they
-reuse a small set of recurring directions, the way recipes reuse a small
-set of basic operations. Sparse dictionary learning
-\citep{olshausen1996emergence} recovers exactly this structure, and
-one design decision makes it serve planning under the metered protocol.
-Which skills an example exercises should not depend on which view of
-the example is visible: the prompt and the response are two projections
-of the same latent skill profile. We therefore learn a \emph{two-view
+\paragraph{Step 1: gradient features.}\label{sec:fingerprints}
+The first step needs a representation under which examples that teach
+the same thing look alike. Text cannot provide it: identical query
+texts solved in two different styles demand different learning, yet no
+function of the text can tell them apart. The gradient can. The
+gradient an example induces at the student's initialization records
+what this student would have to learn from it, so every example the
+method touches is represented by its \emph{gradient feature}
+\citep{xia2024less}: the Adam-preconditioned gradient of a low-rank
+adapter, compressed by a fixed random projection that preserves the
+inner products all downstream computation consumes
+\citep{johnson1984extensions}. Each example yields two views. The
+\emph{response view} is computed on a teacher solution and carries how
+the example is solved; it exists only after the solution is paid for.
+The \emph{prompt view} is computed on the question text alone and is
+available before any purchase. The stages below plan with the prompt
+view and account with the response view.
+
+\paragraph{Step 2: capability atoms.}
+The second step turns features into named skills. Gradient features of
+related examples reuse a small set of recurring directions, the way
+recipes reuse a small set of basic operations, and sparse dictionary
+learning \citep{olshausen1996emergence} recovers such structure.
+Sparsity is what makes the recovery meaningful: a principal subspace is
+invariant to rotations of its basis and cannot attach identity to any
+single direction, while rotation destroys code sparsity, so only
+recurring, self-contained gradient patterns survive the penalty. One
+further requirement comes from the metered protocol. Which skills a
+question exercises must be estimable before its answer is bought, so
+the skill code of an example should not depend on which view of it is
+visible. We therefore treat the prompt and the response as two
+projections of one latent skill profile and learn a \emph{two-view
 coupled dictionary} \citep{yang2010coupled}: writing the prompt-view
-and response-view feature matrices as $X_p, X_r$, we solve
+and response-view feature matrices as $X_p, X_r$,
 \[
 \min_{D_p, D_r, C}\ \lVert X_p - CD_p\rVert_2^2
 + \lVert X_r - CD_r\rVert_2^2 + \lambda\lVert C\rVert_1,
 \]
-so a \emph{single} sparse code per example must reconstruct both of its
-views, alternating a lasso step with a dictionary update.
+so a single sparse code per example must reconstruct both of its views.
 
 \begin{definition}[Capability atom]\label{def:atom}
 A \emph{capability atom} is one row $[d_p; d_r]$ of the learned coupled
 dictionary: a paired direction in prompt- and response-view
 gradient-feature space. The sparse code $c(x)$ of an example is its
 coefficient vector over the atoms; $|c(x)|_a$ measures how strongly
-example $x$ exercises atom $a$, and is computable from the prompt view
-alone, a lasso solve against the $D_p$ block, for candidates
-whose response has not been purchased.
+example $x$ exercises atom $a$, and for a candidate whose response has
+not been purchased it is computed from the prompt view alone, by a
+lasso solve against the $D_p$ block.
 \end{definition}
 
 The shared code is what removes the need for any learned bridge between
-views: support demonstrations are free and purchased examples
+views. Support demonstrations are free and purchased examples
 accumulate, so response information shapes the dictionary at fit time,
-and a
-candidate's prompt-only code inherits it. A post-hoc regression from
-prompt to response features is the ablated alternative; its per-atom
-predictions are unreliable precisely because response structure never
-enters its fitting objective.
+and a candidate's prompt-only code inherits it. Because no corpus is
+given, the dictionary cannot be pretrained: it is fit on the support
+set first and refit as purchases accumulate, so the vocabulary sharpens
+with evidence.
 
-The $\ell_1$ penalty is what makes atoms identifiable, and it is the
-design choice that separates this component from PCA or SVD: a subspace is
-invariant to rotations of its basis, so no individual principal direction
-can be identified with a skill, whereas rotating a dictionary destroys
-the sparsity of its codes. The only bases that survive the penalty are
-those aligned with recurring, self-contained gradient patterns, and
-those patterns behave like skills. Empirically, atom support separates
-fine-grained skills within one domain at AUROC $0.906$ where the dense
-subspace reaches $0.615$, and the behavioral change caused by
-distillation concentrates $85.5\%$ of its mass on $5$ of $128$ atoms
-(Section~\ref{sec:atoms-results}). Because no corpus is given, the
-dictionary cannot be pretrained: it is fit first on the support features
-alone and refit as purchased demonstrations accumulate, so the atom count
-grows with the evidence, and a demonstration the current dictionary
-reconstructs poorly signals, through its residual, that a new skill has
-appeared.
+\paragraph{Step 3: task demand and quotas.}
+The third step reads off what the task wants.
 
 \begin{definition}[Task demand]\label{def:demand}
-Given a dictionary $D$ and the support set $S$, the \emph{task demand} is
+Given a dictionary and the support set $S$, the \emph{task demand} is
 $w = \frac{1}{k}\sum_{q\in S} |c(q)|$, normalized to sum to one and
 restricted to the atoms carrying $90\%$ of its mass. Scaled by the
-budget, $w \cdot b$ assigns each atom a token quota: the number of
-training tokens the task asks the method to spend on that skill.
+budget, $w \cdot b$ assigns each atom a token quota.
 \end{definition}
 
 The support set is a small sample, so $w$ inherits its blind spots. The
 teacher's own solutions correct part of them: atoms that appear
 persistently in the codes of demonstrations for support queries, yet
 carry little weight in $w$, are skills the task requires
-\emph{implicitly}: the query said ``aggregate by month'' while every
-competent solution also plotted. Their demand is filled in from the
-demonstration side
-before further budget is spent. This completion touches only how the
-budget is allocated; the boundary and all certificates remain calibrated
+\emph{implicitly}, and their demand is filled in from the demonstration
+side before further budget is spent. This completion touches only the
+budget allocation; the boundary and all certificates remain calibrated
 on the original $k$ queries alone.
 
 \subsection{Stage II: budgeted data acquisition}
 \label{sec:acquire}
-Acquisition runs in rounds of a fixed, task-agnostic batch size of
-$B{=}8$ and alternates with training; the budget is split evenly across
-$R$ rounds, with $R{=}2$ unless stated. \textbf{Update
-residual demand.} At each round the dictionary is refit on the support
-features together with everything acquired so far, the vocabulary
-sharpens as evidence accumulates (Section~\ref{sec:experiments}
-quantifies this: a $k{=}50$ support set alone recovers $67\%$ of the
-full-corpus vocabulary; after one acquisition round the refit dictionary
-recovers $84\%$), and each acquired example's contribution,
-$|c(x)|_a \cdot t(x) / \kappa$ with $\kappa$ the mean code mass of
-verified in-task examples, is subtracted from the per-atom allocation.
-Code magnitudes are deliberately \emph{not} normalized per example: the
-lasso assigns small codes to unrelated examples, and that magnitude is
-itself the relevance signal. \textbf{Code the candidates.} A candidate
-prompt is coded against the $D_p$ block of the coupled dictionary
-(Definition~\ref{def:atom}); the shared-code constraint makes this
-prompt-only code the prediction $\hat{s}(x)$ of which atoms the unseen
-answer would exercise, no separate regression. \textbf{Select and
-query.} Acquisition is the budgeted maximization of a skill-coverage
-objective: over a purchase set $A$,
+Stage II spends the budget so that every requested skill is covered and
+nothing else is. Three design questions organize the stage: what
+objective to spend against, how to score a candidate whose answer is
+unseen, and when to stop trusting predictions and consult the student
+itself.
+
+\paragraph{The objective.} Coverage has a natural form: over a purchase
+set $A$,
 \[
 F(A) \;=\; \sum_a \min\!\Big(w_a b,\ \textstyle\sum_{x\in A}
 s_a(x)\Big),
 \]
-a monotone submodular function, since a modular supply passes through
-a concave truncation, so greedily buying
+where $s_a(x)$ is the supply example $x$ contributes to atom $a$.
+Supply beyond a skill's quota counts for nothing, which is exactly the
+concave truncation that makes $F$ monotone submodular. Greedily buying
 \[
 \argmax_x\; u(x) \;=\; \frac{\sum_a \min\!\big(r_a,\
-\hat{s}_a(x)\big)}{\hat{t}}
+\hat{s}_a(x)\big)}{\hat{t}},
 \]
-with $r_a$ the remaining allocation and $\hat{t}$ the running mean
-response length, is exactly cost-normalized greedy maximization of
-$F$ and inherits its near-optimality guarantees
-\citep{khuller1999budgeted, krause2005near}. Within a batch each
-selection immediately decrements a working copy of $r$, so
-near-duplicates do not double-count. \textbf{Filter.} Every
-return must pass the execution check of A2 and a membership test: the
-prompt feature's sparse-reconstruction residual under a dictionary fit
-to the support prompts must not exceed that of the least typical
-calibration query, the task boundary \emph{is} what the skill
-vocabulary can express, and an optional slack of $s$ standard deviations
-traces a purity--performance frontier. Filtered returns are still paid
-for, because the budget is real, but they never train the student; the
-wasted fraction is reported. \textbf{Close the deficits, attempt-first.} After each training
-interlude with the Stage III recipe, the student's remaining deficits
-are read
-from its per-atom training dynamics, atoms whose loss has not come
-down, without any rollouts; the next round's ranking direction
-becomes the demand restricted to those atoms. Before any money is
-spent, the intermediate student \emph{attempts} the shortlisted
-candidates, three samples each. A candidate it solves consistently,
-meaning all samples execute and agree, is self-solved: its own solution
-joins the corpus at zero teacher cost, and the freed budget moves down
-the ranking. Purchases are reserved for genuine failures and take two
-forms: a fresh demonstration, or, for questions whose reference
-answer is already owned, a \emph{correction}: the teacher minimally
-repairs the student's own wrong solution, yielding an on-policy
-demonstration whose edit is localized to the mistake. Either purchase
-pairs the student's failed attempt with the correct solution, supplying
-Stage III's preference pass for free. A rollout-free deficit variant
-matches accuracy at lower cost when attempts are disabled and is
-reported as an ablation. Where the remaining candidates cannot supply a
-deficient skill, the teacher is asked to \emph{generate}: the support
-queries loading highest on that atom serve as exemplars, the teacher
-writes new problems and execution-verified solutions, all tokens
-charged, and generated and selected candidates compete in the same
-ranking. Where \textsc{DAgger} \citep{ross2011dagger}
-forwards failure states and LLM2LLM \citep{lee2024llm2llm} augments near
-failure instances, deficits here live in skill space: correction spreads
-across a skill's support, buying measurably more distinct demonstrations
-per token at matched budget and halving across-seed variance
-(Section~\ref{sec:experiments}). The contrast with influence-based
-selection against a single mean target \citep{xia2024less} is
-structural: collapsing a multi-skill task onto one direction leaves
-surplus tokens nowhere to go but out of scope, whereas per-skill
-allocations give every token a named destination.
+with $r_a$ the remaining quota, $\hat{s}(x)$ the candidate's predicted
+supply, and $\hat{t}$ the running mean response length, is then
+cost-normalized greedy maximization of $F$, and inherits its
+near-optimality guarantees \citep{khuller1999budgeted, krause2005near}.
+The selection rule is not a heuristic; it is the standard algorithm for
+the coverage objective the task defines.
+
+\paragraph{The loop.} Acquisition alternates with training in rounds.
+Each round refits the coupled dictionary on everything known, codes the
+candidates from their prompt view, and buys greedily by $u(x)$, with a
+working copy of $r$ decremented within a batch so near-duplicates do
+not double-count. Every return passes two filters before it may train
+the student: the execution check of A2, and a membership test asking
+that the prompt's reconstruction residual under the dictionary not
+exceed that of the least typical calibration query. The residual test
+makes the task boundary identical with what the skill vocabulary can
+express, and the same residual, conformally calibrated, later serves as
+the deployment gate. Rejected returns are still paid for, because the
+budget is real; they are reported as waste.
+
+\paragraph{Attempt first, then buy.} Predictions from prompt codes are
+good enough to rank candidates, but the student itself is the ground
+truth about what it still lacks. After a training interlude on the
+purchases so far, per-atom training losses reveal which skills have not
+been absorbed, and the next round restricts its ranking direction to
+those atoms. Before money is spent, the intermediate student attempts
+the shortlisted candidates. A candidate it solves consistently is
+self-solved: its own solution joins the corpus and the freed budget
+moves down the ranking. A candidate it fails is bought, either as a
+fresh demonstration or, for questions whose reference answer is already
+owned, as a minimal \emph{correction} of the student's own wrong
+solution. Either way the failed attempt and its correct counterpart
+form a preference pair at no extra cost, which Stage III will consume.
+When the candidate set cannot supply a deficient skill at all, the
+teacher is asked to generate new problems from the support queries that
+load highest on that skill, with all generated tokens charged.
 
 \subsection{Stage III: on-policy distillation}
 \label{sec:distill}
-Stage III turns the acquired evidence into weights, and its
-organization follows one rule: \emph{the training signal an example
-contributes is determined by the student's own policy state on it}.
-Each acquired question falls into one of three strata. Questions the
-intermediate student solved consistently contribute its \emph{own}
-solution as a plain likelihood term, preserving verified behavior at
-zero teacher cost, a budgeted analogue of self-improvement
-bootstrapping \citep{zelikman2022star}. Questions the student attempted
-and failed contribute the purchased solution as the likelihood term
-\emph{plus} a preference term pushing down the student's own failed
-attempt. Questions the student could not attempt at all contribute pure
-behavior cloning, the degenerate stratum, mirroring Stage II's
-``a demonstration is the repair of an empty attempt.'' All three strata
-optimize a single objective,
+Stage III turns the acquired evidence into weights, on one rule:
+\emph{the training signal an example contributes is determined by the
+student's own policy state on it}. Questions the student solved
+contribute its own verified solution, preserving behavior at zero
+teacher cost in the spirit of self-improvement bootstrapping
+\citep{zelikman2022star}. Questions it attempted and failed contribute
+the purchased solution plus a preference term that pushes down the
+student's own attempt. Questions it could not attempt contribute plain
+behavior cloning, the degenerate stratum. All three strata are one
+objective,
 \[
-\mathcal{L}(x) \;=\; \underbrace{\mathrm{NLL}\big(y^{+}\,|\,x\big)}_{
-\text{teacher or self solution}} \;+\; \beta\,\mathbb{1}\big[y^{-}
-\text{ exists}\big]\cdot
+\mathcal{L}(x) \;=\; \mathrm{NLL}\big(y^{+}\,|\,x\big) \;+\;
+\beta\,\mathbb{1}\big[y^{-} \text{ exists}\big]\cdot
 \ell_{\mathrm{OR}}\big(y^{+}\!\succ y^{-}\,|\,x\big),
 \]
-in one compute-matched pass: smaller corpora receive proportionally
-more epochs, and the loss is deliberately \emph{not} reweighted by
-demand, controlled comparisons show that on execution-verified,
-in-task corpora, neither demand weighting nor demand-ordered curricula
-improve over uniformly shuffled training, and a misordered curriculum
-reliably hurts (Section~\ref{sec:experiments}); both are reported as
-ablations. As the student improves, the first stratum grows and the
-third shrinks, so training becomes progressively more on-policy for
-free.
+optimized in a single compute-matched pass; as the student improves,
+the first stratum grows and the third shrinks, so training becomes more
+on-policy for free.
 
-\textbf{Skill-resolved observability.} Every acquired demonstration
-carries its dominant-atom label, so per-example training losses
-aggregate, at no extra cost, into per-atom absorption curves: the
-loss trajectory of each individual skill. Most atoms' losses collapse
-within the first epochs while a small, seed-dependent set lags; the
-curves are what Stage II's deficit reads consume, and they make the
-distillation process inspectable at the skill level
-; the appendix plots them.
-
-\textbf{The preference term.} Supervised fine-tuning repeats what the
-teacher did; it never tells the student what \emph{it itself} does
-wrong. The failed attempts carry exactly that information, and the
-teacher exposes no log-probabilities, so $\ell_{\mathrm{OR}}$ is a
+\paragraph{Why the preference term is shaped this way.} The teacher
+exposes no log-probabilities, so $\ell_{\mathrm{OR}}$ is a
 reference-model-free odds-ratio objective \citep{hong2024orpo} rather
-than \textsc{DPO} \citep{rafailov2023dpo}. Three properties make the
-term robust without tuned constants. First, an attempt and its
+than \textsc{DPO} \citep{rafailov2023dpo}. An attempt and its
 correction share a long common prefix, and sequence-level preference
-pressure on shared tokens is precisely what drives \emph{likelihood
-displacement}, near-identical pairs drag the preferred response down
-with the rejected one \citep{razin2025unintentional}; the term is
-therefore computed only on tokens from the first point of divergence,
-removing the displacement pressure at its source. Second, embedding the
-term in the same pass as the likelihood objective anchors it: an
-isolated preference phase run on the same pairs collapses answer
-accuracy within a handful of steps, while co-training remains stable
-; each step's supervised gradient is the anchor that a bolt-on phase
-lacks. Third, a safety net with no new constants: every few steps,
-execution \emph{correctness} is re-measured on the calibration queries
-whose gold answers come free from executing the teacher's own
-demonstrations, and the term is halted on the first drop exceeding one
-probe question; runnability alone is blind to accuracy collapse under
-preference pressure. In controlled comparisons the same rollout data
-helps as preference negatives yet adds nothing as extra positives: the
-marginal value of self-generated data lies in its failures.
+pressure on shared tokens is what drives likelihood displacement:
+near-identical pairs drag the preferred response down with the rejected
+one \citep{razin2025unintentional}. The term is therefore computed only
+from the first token of divergence, which removes the displacement
+pressure at its source rather than rationing it with a dose schedule.
+Embedding the term inside the same pass as the likelihood objective is
+the second safeguard: every step's supervised gradient anchors the
+policy, which an isolated preference phase lacks. The last safeguard
+introduces no new constants: training periodically re-measures
+execution correctness on the calibration queries, whose gold answers
+come free from executing the teacher's demonstrations, and halts the
+preference term on the first drop exceeding one probe question.
 
-\textbf{Checkpoint averaging and budget-agnostic rollback.} A probe
-every $8$ steps measures the fraction of held-out calibration queries
-yielding runnable solutions and records near-best checkpoints. At the
-end of training their weights are averaged with the final state
-\citep{izmailov2018swa} and the average is adopted if the probe does
-not object, across-seed variance is the dominant noise source at
-this scale, and weight averaging is a free variance reducer. The best
-recorded checkpoint replaces the result \emph{only if it wins by more
-than one probe question}: a genuine small-budget collapse exceeds this
-margin by far and is rescued, while at large budgets the difference is
-probe noise. One rule for every budget; no regime split. Throughout,
-gradient geometry is never asked to judge success, because three
-pre-registered experiments in Section~\ref{sec:mechanism} show it
-cannot; the atoms diagnose \emph{what to acquire
-and observe}, while behavior remains the sole judge of arrival.
+\paragraph{Arrival is judged behaviorally.} Gradient geometry selects
+data; it is never asked to judge competence, and behavior is the sole
+judge of arrival. A periodic probe on held-out calibration queries
+records near-best checkpoints; at the end of training their weights
+are averaged with the final state \citep{izmailov2018swa} and the
+average is adopted if the probe does not object. The best recorded
+checkpoint replaces the result only if it wins by more than one probe
+question: a genuine collapse exceeds that margin and is rescued, while
+a smaller difference is probe noise. One rule for every budget, with no
+regime split. Per-example losses, tagged by dominant atom, additionally
+aggregate into per-skill absorption curves at no extra cost; they are
+what the deficit reads of Stage II consume.
 
 \subsection{Certified deployment (a configuration, not a stage)}
 \label{sec:behavior}
 The learning pipeline ends with Stage III; the trained student can
 additionally ship as a deliverable: student, boundary predictor, and
-two-sided certificates. Because a deployment-time request carries no
-response, the boundary predictor lives in prompt-feature space and
-reuses Stage II's membership machinery: the sparse-reconstruction
-residual under the support-prompt dictionary is the nonconformity
-score, and a conformal threshold from a disjoint calibration split
-gives distribution-free coverage $\ge 1-\alpha$
-\citep{angelopoulos2023conformal}; the earlier subspace-residual score
-is kept as an ablation. The student is
-then evaluated behaviorally on both sides of the boundary and the
-capability match is stated as finite-sample Clopper--Pearson bounds: a
-certified lower bound on in-task coverage and a certified upper bound on
-off-task leakage, a bounded claim, not a score. At deployment the same
+two-sided certificates. A deployment-time request carries no response,
+so the boundary predictor lives in prompt-feature space and reuses
+Stage II's membership machinery: the reconstruction residual under the
+$D_p$ block is the nonconformity score, and a conformal threshold from
+a disjoint calibration split gives distribution-free coverage
+$\ge 1-\alpha$ \citep{angelopoulos2023conformal}. The student is then
+evaluated behaviorally on both sides of the boundary and the capability
+match is stated as finite-sample Clopper--Pearson bounds: a certified
+lower bound on in-task coverage and a certified upper bound on off-task
+leakage, a bounded claim rather than a score. At deployment the same
 machinery gates live requests: in-specification queries route to the
 student, the rest are refused or escalated to the teacher, so the
 certificates describe exactly the traffic the student will see.
