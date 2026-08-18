@@ -1733,11 +1733,43 @@ def build_selections(config, tokenizer, pool):
                         f"low_rel={low_rel}",
                         flush=True,
                     )
+            # E3_TVDICT=1: two-view coupled dictionary. A single sparse
+            # code per example must reconstruct BOTH its prompt-view and
+            # response-view feature (skill profiles are view-invariant);
+            # candidates are coded against the prompt block alone, so
+            # the shared-code constraint replaces the ridge bridge, and
+            # response information enters the fit itself instead of a
+            # post-hoc regression (coupled dictionaries, Yang et al.
+            # 2010).
+            tvdict = use_bridge and os.environ.get("E3_TVDICT") == "1"
+            if tvdict:
+                from sklearn.decomposition import sparse_encode
+                d_half = spec_pfeat.shape[1]
+                spec_tv = np.hstack([spec_pfeat, spec_feat])
+
+                def _tv_rows(idx_list):
+                    return np.hstack([
+                        np.vstack([pool_pfeat[i][None] for i in idx_list]),
+                        np.vstack([pool_feat[i][None] for i in idx_list]),
+                    ])
+
+                def _tv_pcode(matrix_p):
+                    return np.abs(sparse_encode(
+                        matrix_p,
+                        dict_boot.components_[:, :d_half],
+                        algorithm="lasso_lars", alpha=0.05,
+                    ))
             while remaining_a and spent_a < budget:
                 rounds += 1
-                corpus = np.vstack(
-                    [spec_feat] + [pool_feat[i][None] for i in bought_a]
-                )
+                if tvdict:
+                    corpus = (
+                        np.vstack([spec_tv, _tv_rows(bought_a)])
+                        if bought_a else spec_tv
+                    )
+                else:
+                    corpus = np.vstack(
+                        [spec_feat] + [pool_feat[i][None] for i in bought_a]
+                    )
                 n_atoms = int(min(64, max(8, corpus.shape[0] // 2)))
                 dict_boot = MiniBatchDictionaryLearning(
                     n_components=n_atoms, alpha=0.05,
@@ -1745,7 +1777,9 @@ def build_selections(config, tokenizer, pool):
                     random_state=seed, max_iter=100, batch_size=16,
                 )
                 dict_boot.fit(corpus)
-                spec_codes_b = np.abs(dict_boot.transform(spec_feat))
+                spec_codes_b = np.abs(dict_boot.transform(
+                    spec_tv if tvdict else spec_feat
+                ))
                 demand_b = spec_codes_b.mean(axis=0)
                 if use_validate and rel_p is not None:
                     # carry per-atom reliability from the probe-time
@@ -1778,22 +1812,43 @@ def build_selections(config, tokenizer, pool):
                 # its gradient does not lie in demanded directions.
                 round_kappa = 1.0
                 if use_bridge:
-                    known_resp = np.vstack(
-                        [spec_feat] + [pool_feat[i][None] for i in bought_a]
-                    )
+                    if tvdict:
+                        known_resp = (
+                            np.vstack([spec_tv, _tv_rows(bought_a)])
+                            if bought_a else spec_tv
+                        )
+                    else:
+                        known_resp = np.vstack(
+                            [spec_feat]
+                            + [pool_feat[i][None] for i in bought_a]
+                        )
                     known_mass = np.abs(
                         dict_boot.transform(known_resp)
                     ).sum(axis=1)
                     round_kappa = max(float(known_mass.mean()), 1e-9)
                 if bought_a:
                     bought_codes = np.abs(dict_boot.transform(
+                        _tv_rows(bought_a) if tvdict else
                         np.vstack([pool_feat[i][None] for i in bought_a])
                     )) / round_kappa
                     for code_row, i in zip(bought_codes, bought_a):
                         supply = code_row * max(pool[i]["_token_count"], 1)
                         ledger = np.maximum(ledger - supply, 0.0)
                 rem_list = sorted(remaining_a)
-                if use_bridge:
+                if tvdict:
+                    # candidates: lasso against the prompt block only;
+                    # the shared code IS the predicted skill supply.
+                    known_p = np.vstack(
+                        [spec_pfeat]
+                        + [pool_pfeat[i][None] for i in bought_a]
+                    )
+                    kappa_p = max(float(
+                        _tv_pcode(known_p).sum(axis=1).mean()
+                    ), 1e-9)
+                    rem_codes = _tv_pcode(np.vstack(
+                        [pool_pfeat[i][None] for i in rem_list]
+                    )) / kappa_p
+                elif use_bridge:
                     # ridge bridge in dual form: pairs are the spec
                     # examples plus everything bought so far
                     pair_p = np.vstack(
@@ -1833,7 +1888,7 @@ def build_selections(config, tokenizer, pool):
                 udens = float(os.environ.get("E3_UDENS", "0") or 0)
                 if udens > 0:
                     gains = gains + udens * rem_codes.sum(axis=1)
-                if sketch_mode:
+                if sketch_mode and not tvdict:
                     pool_sk = _BOOT_STATE["pool_sketch_feat"]
                     spec_sk = _BOOT_STATE["spec_sketch_feat"]
                     sk_budget = sketch_frac * budget
@@ -1931,9 +1986,13 @@ def build_selections(config, tokenizer, pool):
                 # planning signal) with the highest on-vocabulary supply
                 # density, instead of returning the money.
                 surplus_list = sorted(remaining_a)
-                surplus_codes = np.abs(dict_boot.transform(
-                    np.vstack([pool_pfeat[i][None] for i in surplus_list])
-                ))
+                surplus_mat = np.vstack(
+                    [pool_pfeat[i][None] for i in surplus_list]
+                )
+                surplus_codes = (
+                    _tv_pcode(surplus_mat) if tvdict
+                    else np.abs(dict_boot.transform(surplus_mat))
+                )
                 density = surplus_codes.sum(axis=1)
                 for order_pos in np.argsort(-density):
                     i = surplus_list[int(order_pos)]
@@ -1962,12 +2021,15 @@ def build_selections(config, tokenizer, pool):
             if use_implicit and selected_boot and dict_boot is not None:
                 demand_dir = ledger / max(ledger.sum(), 1e-12)
                 sel_codes = np.abs(dict_boot.transform(
+                    _tv_rows(admitted_boot) if tvdict else
                     np.vstack([pool_feat[i][None] for i in admitted_boot])
                 ))
                 sel_codes = sel_codes / np.maximum(
                     sel_codes.sum(axis=1, keepdims=True), 1e-12
                 )
-                spec_dir = np.abs(dict_boot.transform(spec_feat)).mean(axis=0)
+                spec_dir = np.abs(dict_boot.transform(
+                    spec_tv if tvdict else spec_feat
+                )).mean(axis=0)
                 spec_dir = spec_dir / max(spec_dir.sum(), 1e-12)
                 raw_w = sel_codes @ spec_dir
                 raw_w = raw_w / max(raw_w.mean(), 1e-12)
