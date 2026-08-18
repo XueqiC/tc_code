@@ -20,28 +20,15 @@ routes live requests.}
 \label{fig:pipeline}
 \end{figure}
 
-Figure~\ref{fig:pipeline} summarizes the pipeline. Its logic follows
-from the goal. The deliverable is a student whose capability matches
-the task, but the task is visible only through $k$ examples, so the
-method must first determine what the task is before it can decide what
-to teach. Stage I therefore estimates the task from its examples: a
-vocabulary of the skills the task exercises, a demand profile over that
-vocabulary, and the task boundary as what the vocabulary can express.
-Stage II then acquires the data this specification asks for, and
-because there is no corpus to rank, acquisition means deciding what to
-ask a metered teacher, one paid query at a time. Stage III distills the
-acquired evidence into the student. Stage IV certifies how well the
-student matches the specification and gates deployment. Acquisition and
-distillation share one principle: \emph{the student attempts first, a
-verifier grades for free, and teacher supervision is bought only where
-the student's own policy fails}. A from-scratch demonstration is the
-degenerate case of this principle, namely the repair of an empty
-attempt, so as the student improves, purchases shift toward corrections
-of its own solutions and the pipeline becomes on-policy distillation
-under a metered black-box teacher \citep{ross2011dagger}. Every
-threshold is a statistical convention or is estimated from the support
-set; implementation constants are collected in
-Appendix~\ref{app:details}.
+In this section we first formulate the problem: producing a student
+whose capability gap to a task revealed by only $k$ examples is
+minimized under a token budget. We then propose \methodname{}, a
+four-stage pipeline for this problem. As shown in
+Figure~\ref{fig:pipeline}, we first determine what the task is from
+its few examples, then acquire the data this specification asks for
+from the metered teacher, then distill the acquired evidence into the
+student, and finally certify how well the student matches the
+specification. The details of the proposed method are below.
 
 \subsection{Problem setting: few-shot agent distillation}\label{sec:setting}
 A deployed agent never comes with a formal task definition; what a
