@@ -340,13 +340,14 @@ label(11.72, 3.18, 1.6, 0.36, "waste 2–4%", size=14.5, color=DARK,
 bars(7.60, 4.25, [0.60, 0.40, 0.25], [BLUED, IN2, IN3])
 arrow(8.85, 4.00, 9.35, 4.00)
 bars(9.50, 4.25, [0.15, 0.10, 0.06], [BLUED, IN2, IN3])
-ital(10.35, 3.72, 2.9, "deficit read from student's", size=13.5)
-ital(10.35, 3.94, 2.9, "loss curves → next round;", size=13.5)
-ital(10.35, 4.16, 2.9, "starved skills → generate", size=13.5)
+ital(10.35, 3.58, 2.9, "student attempts shortlist first:", size=13)
+ital(10.35, 3.79, 2.9, "self-solved → keep, free;", size=13)
+ital(10.35, 4.00, 2.9, "failures → buy demo / correction;", size=13)
+ital(10.35, 4.21, 2.9, "deficit read → next round", size=13)
 
 # ============== RIGHT BOTTOM: distill + certify ==============
 stagenum(6.75, 4.56, 3)
-ital(7.38, 4.64, 3.1, "Stage III — mixed-source SFT", size=17,
+ital(7.38, 4.64, 3.4, "Stage III — SFT + pref + averaging", size=14.5,
      align=PP_ALIGN.LEFT)
 stagenum(10.42, 4.56, 4)
 ital(11.00, 4.64, 2.25, "Deploy (optional gate)", size=15,
@@ -359,7 +360,7 @@ for i, (wh, yy) in enumerate(((0.50, 5.15), (0.26, 5.70), (0.42, 6.25))):
         shape=MSO_SHAPE.RECTANGLE)
     box(7.92, yy + 0.42 - wh, 0.22, wh, ORAN, RGBColor(0x44,0x44,0x44),
         lw=1.1, radius=None, shape=MSO_SHAPE.RECTANGLE)
-ital(6.60, 6.88, 2.9, "teacher demos ∪ self-verified", size=12)
+ital(6.60, 6.88, 2.9, "demos ∪ corrections ∪ self-solved", size=11.5)
 arrow(8.30, 5.85, 8.72, 5.85)
 chip(9.45, 5.85, 1.35, 1.18, BLUED, "Student", size=15)
 
@@ -371,7 +372,7 @@ for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
     conn(xa, ya, xb, yb, BLUED, w=2.6, arrow=False)
 box(8.27, 6.48, 0.17, 0.17, GRND, WHITE, lw=1.2, shape=MSO_SHAPE.OVAL,
     radius=None)
-ital(7.00, 7.12, 2.8, "rollback only past 1-probe margin", size=11)
+ital(6.60, 7.10, 3.4, "masked pref (attempt, fix) · avg ckpts · 1-probe rollback", size=9.5)
 
 # certificate + gate
 box(10.55, 5.05, 2.45, 1.10, RGBColor(0xEC,0xF6,0xEB), GRND, lw=2.2,
