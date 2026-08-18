@@ -37,15 +37,15 @@ $\pi_T$ accessed as a black-box API that charges per emitted token, an
 open-weight student $\theta_0$, and a token budget $b$, the goal is
 \[
 \hat{\theta} \;=\; \argmax_{\theta}\;
-\mathbb{E}_{q\sim P_\mathcal{T}}\big[\,\mathrm{success}(\theta;
+\mathbb{E}_{q\sim P_\mathcal{T}}\big[\,\mathrm{Perf}(\theta;
 q)\,\big]
 \quad \text{s.t.} \quad \mathrm{Cost}(\theta) \,\le\, b,
 \]
-where $\mathrm{success}(\theta; q)$ indicates that the verifier
-accepts the student's solution to $q$, and $\mathrm{Cost}(\theta)$
-counts every teacher token purchased while producing $\hat{\theta}$:
-within the budget, the student should complete the task at the highest
-attainable level. There is no pre-existing corpus and the
+where $\mathrm{Perf}(\theta; q)$ is the task performance of the
+student on query $q$, and $\mathrm{Cost}(\theta)$ counts every
+teacher token purchased while producing $\hat{\theta}$: within the
+budget, maximize the student's performance on queries drawn from the
+task. There is no pre-existing corpus and the
 support set is never expanded, so every demonstration must be bought
 from $\pi_T$; the assumptions and the formal evaluation protocol are
 stated in Appendix~\ref{app:details}.
