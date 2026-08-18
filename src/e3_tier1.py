@@ -3025,6 +3025,26 @@ def build_selections(config, tokenizer, pool):
                 and _BOOT_STATE.get("ourscorr_selfsolved")
             ):
                 rows_m = rows_m + list(_BOOT_STATE["ourscorr_selfsolved"])
+            if acq == "ourscorr" and os.environ.get("E3_UNIORPO") == "1":
+                rej_map = {}
+                for pair_u in (
+                    list(_BOOT_STATE.get("ourscorr_prefpairs") or [])
+                    + list(_BOOT_STATE.get("ourscorr_repair_pairs") or [])
+                ):
+                    rej_map.setdefault(
+                        pair_u["prompt"], pair_u["rejected"]
+                    )
+                n_att = 0
+                for row_u in rows_m:
+                    rej_u = rej_map.get(row_u["prompt"])
+                    if rej_u and "_rejected" not in row_u:
+                        row_u["_rejected"] = rej_u
+                        n_att += 1
+                print(
+                    f"[setup][{cond}] uniorpo negatives "
+                    f"attached={n_att}/{len(rows_m)}",
+                    flush=True,
+                )
             selections[cond] = rows_m
             print(
                 f"[setup][{cond}] bought={len(bought_m)} "
@@ -3471,6 +3491,14 @@ def train_condition(
     # curves so far), repeated to the same step count — reallocating
     # tail compute to unabsorbed skills instead of uniform passes.
     absorb_focus = os.environ.get("E3_ABSORB_FOCUS") == "1"
+    # E3_UNIORPO=1: unified objective — rows that carry a paired
+    # student failure (_rejected) contribute a divergence-masked
+    # odds-ratio term IN the same loop; rows without one are plain SFT.
+    # SFT becomes the no-negative degenerate case of preference
+    # learning, mirroring Stage II's "a demonstration is the repair of
+    # an empty attempt". No separate preference phase, no dose knob.
+    uniorpo = os.environ.get("E3_UNIORPO") == "1"
+    uni_beta = float(os.environ.get("E3_PREF_BETA", "0.25"))
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
         focus_rows = None
@@ -3539,6 +3567,53 @@ def train_condition(
                         train_cfg.get("weight_warm_epoch") and _epoch == 0
                     ):
                         loss = loss * float(row_weight)
+                if uniorpo and rows[int(row_index)].get("_rejected"):
+                    row_u = rows[int(row_index)]
+                    ids_c2, lab_c2 = encode(
+                        tokenizer,
+                        {"prompt": row_u["prompt"],
+                         "response": row_u["response"]},
+                        config["device"],
+                    )
+                    ids_r2, lab_r2 = encode(
+                        tokenizer,
+                        {"prompt": row_u["prompt"],
+                         "response": row_u["_rejected"]},
+                        config["device"],
+                    )
+                    resp_c2 = lab_c2[0][lab_c2[0] != -100]
+                    resp_r2 = lab_r2[0][lab_r2[0] != -100]
+                    shared_u = 0
+                    for a_t, b_t in zip(
+                        resp_c2.tolist(), resp_r2.tolist()
+                    ):
+                        if a_t != b_t:
+                            break
+                        shared_u += 1
+                    if shared_u < min(len(resp_c2), len(resp_r2)):
+                        if shared_u > 0:
+                            for lab_u in (lab_c2, lab_r2):
+                                pos_u = (
+                                    lab_u[0] != -100
+                                ).nonzero().squeeze(-1)
+                                lab_u[0][pos_u[:shared_u]] = -100
+                        lc_u = model(
+                            input_ids=ids_c2, labels=lab_c2
+                        ).loss
+                        lr_u = model(
+                            input_ids=ids_r2, labels=lab_r2
+                        ).loss
+                        logp_cu, logp_ru = -lc_u, -lr_u
+                        l1c_u = torch.log1p(-torch.exp(
+                            torch.clamp(logp_cu, max=-1e-4)
+                        ))
+                        l1r_u = torch.log1p(-torch.exp(
+                            torch.clamp(logp_ru, max=-1e-4)
+                        ))
+                        ratio_u = (logp_cu - l1c_u) - (logp_ru - l1r_u)
+                        loss = loss + uni_beta * (
+                            -F.logsigmoid(ratio_u)
+                        ) / len(chunk)
                 loss.backward()
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
@@ -4475,6 +4550,7 @@ def main():
                 condition.startswith("M_")
                 and condition.split("_", 2)[1] == "ourscorr"
                 and os.environ.get("E3_PREF") == "1"
+                and os.environ.get("E3_UNIORPO") != "1"
                 and pref_all
             ):
                 optimizer_steps += preference_stage(
