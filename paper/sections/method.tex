@@ -52,7 +52,7 @@ teacher token purchased while producing $\hat{\theta}$.
 
 \subsection{Determining the task from its examples}
 \label{sec:atoms}
-Given only the support set, we first need to identify what the task is
+We first need to identify what the task is
 and what capability a model must hold to finish it. Our intuition is
 that the gradient an example induces on the student records exactly
 what the student would have to learn from it \citep{xia2024less}, so
@@ -151,9 +151,8 @@ IV calibrates it into a certificate.
 \subsection{Budgeted data acquisition}
 \label{sec:acquire}
 
-After Stage I has produced the specification, namely the capability atoms, their
-token quotas, and the task boundary, we acquire the data from which the
-student will be distilled, so that the student ends up holding exactly
+After Stage I, we can now acquire the data from which the
+student will be distilled to ensure the student ends up holding exactly
 the capability the task requires. We first cast acquisition as the
 maximization of a budgeted capability-coverage objective, then run a buying
 loop that scores each candidate by its marginal coverage per token and
