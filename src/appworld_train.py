@@ -795,7 +795,36 @@ def train_student(
                 for row_index in chunk:
                     row = rows[int(row_index)]
                     input_ids, labels = encode(tokenizer, row)
-                    if smartad:
+                    if os.environ.get("AW_TOKSEL") == "1":
+                        # Token-selective loss against the base model
+                        # (Rho-1 flavored, zero extra models: disabling
+                        # the adapter recovers the initialization).
+                        # Style and format tokens are the ones the base
+                        # already predicts, so they get no training
+                        # signal and the student keeps its own agentic
+                        # style; supervision lands only on the tokens
+                        # that carry new content. Threshold is the row
+                        # median base loss, so no tuned constant.
+                        with torch.no_grad(), model.disable_adapter():
+                            base_logits = model(input_ids=input_ids).logits
+                        shift_logits = base_logits[0, :-1]
+                        shift_labels = labels[0, 1:]
+                        keep = shift_labels != -100
+                        tok_loss = torch.nn.functional.cross_entropy(
+                            shift_logits[keep], shift_labels[keep],
+                            reduction="none",
+                        )
+                        thresh = tok_loss.median()
+                        sel = tok_loss >= thresh
+                        idx = keep.nonzero().squeeze(-1)[~sel]
+                        new_labels = labels.clone()
+                        new_labels[0, 1:][idx] = -100
+                        if (new_labels != -100).sum() == 0:
+                            new_labels = labels
+                        loss = model(
+                            input_ids=input_ids, labels=new_labels
+                        ).loss / len(chunk)
+                    elif smartad:
                         token_weights = smartad_token_weights(tokenizer, row, labels)
                         loss = smartad_weighted_loss(
                             model, input_ids, labels, token_weights
