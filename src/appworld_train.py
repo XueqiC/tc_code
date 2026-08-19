@@ -9,6 +9,7 @@ tokenizer.  LESS and SmartAD follow the standard baselines used by
 from __future__ import annotations
 
 import argparse
+import os
 import gc
 import hashlib
 import json
@@ -30,7 +31,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 ROOT = Path(__file__).resolve().parents[1]
-POOL_PATH = ROOT / "data" / "appworld_sft" / "pool.jsonl"
+POOL_PATH = Path(
+    os.environ.get(
+        "AW_POOL_PATH", str(ROOT / "data" / "appworld_sft" / "pool.jsonl")
+    )
+)
 OUTPUT_ROOT = ROOT / "results" / "appworld_students"
 
 DEVICE = "cuda"
