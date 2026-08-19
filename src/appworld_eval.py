@@ -244,6 +244,21 @@ def generate_reply(
         generation_args["temperature"] = temperature
     if tokenizer.pad_token_id is not None:
         generation_args["pad_token_id"] = tokenizer.pad_token_id
+    # Merged fine-tuned checkpoints can ship without an eos list in
+    # their generation_config, in which case generation runs through
+    # the turn boundary and the model hallucinates the following
+    # user/execution turns into its own reply. Pin the stop tokens
+    # explicitly so every model stops where the chat template ends a
+    # turn.
+    eos_ids = set()
+    if tokenizer.eos_token_id is not None:
+        eos_ids.add(int(tokenizer.eos_token_id))
+    for token in ("<|im_end|>", "<|endoftext|>"):
+        tid = tokenizer.convert_tokens_to_ids(token)
+        if isinstance(tid, int) and tid >= 0:
+            eos_ids.add(tid)
+    if eos_ids:
+        generation_args["eos_token_id"] = sorted(eos_ids)
 
     with torch.inference_mode():
         generated = model.generate(**inputs, **generation_args)
