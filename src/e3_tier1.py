@@ -3499,6 +3499,15 @@ def train_condition(
     # an empty attempt". No separate preference phase, no dose knob.
     uniorpo = os.environ.get("E3_UNIORPO") == "1"
     uni_beta = float(os.environ.get("E3_PREF_BETA", "0.25"))
+    # NLL gate for the odds term (E3_UNIGATE=1, default on with
+    # uniorpo): the term activates on a row only once that row's chosen
+    # NLL falls below the running mean over all rows — learn the right
+    # answer first, then separate it from your own wrong one. Early
+    # preference pressure on a policy that has not yet learned the
+    # chosen response is where likelihood displacement bites hardest;
+    # the gate removes it without stages or dose constants.
+    uni_gate = uniorpo and os.environ.get("E3_UNIGATE", "1") == "1"
+    nll_ema = None
     optimizer.zero_grad(set_to_none=True)
     for _epoch in range(train_cfg["epochs"]):
         focus_rows = None
@@ -3559,6 +3568,12 @@ def train_condition(
                     absorb_curves.setdefault(atom_tag, []).append(
                         (optimizer_steps, float(loss.item()) * len(chunk))
                     )
+                if uniorpo:
+                    raw_nll = float(loss.item()) * len(chunk)
+                    nll_ema = (
+                        raw_nll if nll_ema is None
+                        else 0.99 * nll_ema + 0.01 * raw_nll
+                    )
                 row_weight = rows[int(row_index)].get("_v3_weight")
                 if row_weight is not None and not cur_mode:
                     # first epoch trains uniformly for coverage; weights
@@ -3567,7 +3582,13 @@ def train_condition(
                         train_cfg.get("weight_warm_epoch") and _epoch == 0
                     ):
                         loss = loss * float(row_weight)
-                if uniorpo and rows[int(row_index)].get("_rejected"):
+                if (
+                    uniorpo and rows[int(row_index)].get("_rejected")
+                    and not (
+                        uni_gate and nll_ema is not None
+                        and raw_nll > nll_ema
+                    )
+                ):
                     row_u = rows[int(row_index)]
                     ids_c2, lab_c2 = encode(
                         tokenizer,
