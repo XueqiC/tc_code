@@ -50,12 +50,15 @@ def main() -> int:
         for i, m in enumerate(msgs):
             if m.get("role") != "assistant":
                 continue
+            prompt_txt = "\n".join(
+                f"<|{x['role']}|>\n{x['content']}" for x in msgs[:i]
+            ) + "\n<|assistant|>\n"
             self_rows.append({
                 "task_id": t["task_id"],
                 "teacher": "self",
                 "turn_index": i,
                 "messages": msgs[:i],
-                "prompt": "",
+                "prompt": prompt_txt,
                 "response": m["content"],
                 "token_hint": max(len(m["content"]) // 4, 1),
             })
