@@ -188,6 +188,11 @@ W1-W6 执行计划,PI 已确认精彩)——新会话想快速恢复上下文先
 - 时间线:ICLR 2027 投稿 ~9 月底,6 周计划见 method-design-v1 §8
 - 旧候选(动机实证 / IR renderer / length control)已被新问题表述取代或吸收
 
+## GOAL (2026-08-19 定稿,主次分明)
+- **主目标**:同预算下 in-task 准确率最大化(argmax Perf s.t. Cost ≤ b)。
+- **辅目标**:off-task 最低——作为"预算被高效转化为任务能力"的证据,
+  不是独立约束。门若对 in-task 无代价则保留(零泄漏免费的故事最硬)。
+
 ## RUNNING JOBS (updated 2026-08-17 15:20 EDT)
 - hpg tc-samp3 39539084 array0-1 (B200): samp_s0/s1 三跑(E3_SELFAMP 自放大判定),~2h
 - hpg tc-upg 39539410 array0-11 (B200): 方法升级波 sk/pref/avg/bs × 3 seeds(2B×20k×ext200),~2-3h/job
