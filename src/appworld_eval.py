@@ -161,7 +161,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, help="HuggingFace model ID or local path")
     parser.add_argument("--adapter", help="Optional PEFT LoRA adapter directory")
-    parser.add_argument("--split", choices=("train", "dev"), default="train")
+    parser.add_argument("--split", choices=("train", "dev", "test_normal", "test_challenge"), default="train")
     parser.add_argument("--max-tasks", type=_positive_int, default=10)
     parser.add_argument("--max-steps", type=_positive_int, default=12)
     parser.add_argument("--max-new-tokens", type=_positive_int, default=512)
@@ -500,9 +500,24 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     n_tasks = len(records)
     n_successes = sum(int(record["success"]) for record in records)
+    # Official AppWorld aggregates: TGC is the per-task pass rate under
+    # the official evaluator, and SGC counts a scenario as passed only
+    # when every one of its task variants passes (scenario = the task-id
+    # prefix before the underscore).
+    scenario_tasks: dict[str, list[bool]] = {}
+    for record in records:
+        scen = str(record["task_id"]).rsplit("_", 1)[0]
+        scenario_tasks.setdefault(scen, []).append(bool(record["success"]))
+    n_scen = len(scenario_tasks)
     metrics = {
         "n_tasks": n_tasks,
         "success_rate": n_successes / n_tasks if n_tasks else 0.0,
+        "tgc": n_successes / n_tasks if n_tasks else 0.0,
+        "sgc": (
+            sum(all(v) for v in scenario_tasks.values()) / n_scen
+            if n_scen else 0.0
+        ),
+        "n_scenarios": n_scen,
         "mean_steps": (
             sum(int(record["steps_used"]) for record in records) / n_tasks if n_tasks else 0.0
         ),
