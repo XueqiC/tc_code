@@ -389,6 +389,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 task_started = True
                 task_id = str(task["task_id"])
+                # APPWORLD_TASK_FILTER=prefix1,prefix2 evaluates only
+                # matching tasks (trajectory dissection reruns).
+                _flt = os.environ.get("APPWORLD_TASK_FILTER")
+                if _flt and not any(
+                    task_id.startswith(p)
+                    for p in _flt.split(",") if p
+                ):
+                    try:
+                        bridge.request("stop")
+                    except Exception:
+                        pass
+                    continue
             except BridgeRemoteError as exc:
                 if exc.response.get("error_code") == "end_of_split":
                     break
