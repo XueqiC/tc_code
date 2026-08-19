@@ -3561,6 +3561,32 @@ def train_condition(
                     loss = smartad_weighted_loss(
                         model, input_ids, labels, token_weights
                     ) / len(chunk)
+                elif os.environ.get("E3_TOKSEL") == "1":
+                    # Token-selective loss against the base model
+                    # (adapter disabled = the initialization, free):
+                    # tokens the base already predicts carry no signal
+                    # worth buying gradient for; supervision lands only
+                    # on tokens above the row-median base loss. The
+                    # token-level instance of "supervise only where the
+                    # student's own policy is deficient".
+                    with torch.no_grad(), model.disable_adapter():
+                        base_logits = model(input_ids=input_ids).logits
+                    shift_logits = base_logits[0, :-1]
+                    shift_labels = labels[0, 1:]
+                    keep = shift_labels != -100
+                    tok_loss = F.cross_entropy(
+                        shift_logits[keep], shift_labels[keep],
+                        reduction="none",
+                    )
+                    sel = tok_loss >= tok_loss.median()
+                    drop_idx = keep.nonzero().squeeze(-1)[~sel]
+                    new_labels = labels.clone()
+                    new_labels[0, 1:][drop_idx] = -100
+                    if (new_labels != -100).sum() == 0:
+                        new_labels = labels
+                    loss = model(
+                        input_ids=input_ids, labels=new_labels
+                    ).loss / len(chunk)
                 else:
                     loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                 atom_tag = rows[int(row_index)].get("_atom_id")
