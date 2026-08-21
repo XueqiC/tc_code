@@ -3052,6 +3052,28 @@ def build_selections(config, tokenizer, pool):
                 flush=True,
             )
 
+    # E3_ANCHOR_COT=N: interference probe. Destructive coupling destroys
+    # the cot style (base any_acc .5 -> 0 after code training); the
+    # anchoring principle predicts a handful of cot demonstrations in
+    # the mix preserves it. Diagnostic arm: anchor tokens are charged on
+    # top of the budget, so it is a mechanism probe, not a budget-
+    # matched comparison.
+    anchor_n = int(os.environ.get("E3_ANCHOR_COT", "0") or 0)
+    if anchor_n and "F_atom_boot3" in selections:
+        from distill_pilot import split as _split_pilot
+        cot_train, _ = _split_pilot("gsm8k-cot")
+        for r in cot_train[:anchor_n]:
+            selections["F_atom_boot3"].append({
+                **r,
+                "domain": "gsm8k-cot",
+                "_is_refusal": False,
+                "_token_count": max(len(r["response"]) // 4, 1),
+            })
+        print(
+            f"[setup][anchor-cot] appended {min(anchor_n, len(cot_train))} "
+            f"cot demos to F_atom_boot3",
+            flush=True,
+        )
     selections["F_refusal"] = original + refusals
     return selections
 
