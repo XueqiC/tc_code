@@ -3065,6 +3065,7 @@ def build_selections(config, tokenizer, pool):
         for r in cot_train[:anchor_n]:
             selections["F_atom_boot3"].append({
                 **r,
+                "teacher": "anchor",
                 "domain": "gsm8k-cot",
                 "_is_refusal": False,
                 "_token_count": max(len(r["response"]) // 4, 1),
