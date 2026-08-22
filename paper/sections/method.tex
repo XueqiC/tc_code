@@ -25,10 +25,13 @@ whose capability gap to a task revealed by only $k$ examples is
 minimized under a token budget. We then propose \methodname{}, a
 four-stage pipeline for this problem. As shown in
 Figure~\ref{fig:pipeline}, we first determine what the task is from
-its few examples, then acquire the data this specification asks for
-from the metered teacher, then distill the acquired evidence into the
-student, and finally certify how well the student matches the
-specification. The details of the proposed method are below.
+its few examples by fitting one dictionary whose readings supply every
+later coordinate, then acquire training data by a single marginal-value
+rule that weighs gain on unmet demand against displacement of what the
+student already has, then distill by one objective that executes the
+labels acquisition wrote, and finally certify how well the student
+matches the specification. The details of the proposed method are
+below.
 
 \subsection{Problem formulation}\label{sec:setting}
 
@@ -62,8 +65,12 @@ capabilities a model needs to perform the task well. In this way, the
 capability to finish the task decomposes into a sparse combination of
 \emph{capability atoms} (Definition~\ref{def:atom}). The same decomposition then tells
 us how much of each capability the task demands
-(Definition~\ref{def:demand}), and it further identifies the boundary
-of the task as the set of queries this capability vocabulary can express.
+(Definition~\ref{def:demand}), it identifies the boundary of the task
+as the set of queries this capability vocabulary can express, and it
+forecasts how training on this task will affect any reference off-task,
+since the two views of the dictionary measure prompt confusability and
+response interference separately. One fitted object thus supplies every
+coordinate the later stages consume, and nothing else is learned.
 
 \paragraph{Gradient features.}\label{sec:fingerprints}
 The first step needs a representation under which examples that teach
@@ -151,117 +158,81 @@ IV calibrates it into a certificate.
 \subsection{Budgeted data acquisition}
 \label{sec:acquire}
 
-After Stage I, we can now acquire the data from which the
-student will be distilled to ensure the student ends up holding exactly
-the capability the task requires. We first cast acquisition as the
-maximization of a budgeted capability-coverage objective, then run a buying
-loop that scores each candidate by its marginal coverage per token and
-filters every return, and finally let the student attempt the
-shortlisted candidates so that money is spent only where the student
-fails. We describe the three parts in turn.
-
-\paragraph{The objective.} Coverage has a natural form. Over a purchase
-set $A$, define
+After Stage I, we can now acquire the data from which the student will
+be distilled, and the entire stage is one decision rule. For each
+candidate supervision action $a$, whether buying a demonstration,
+buying a minimal correction of a failed attempt, keeping a self-solved
+trajectory, or stopping, the dictionary readings estimate a marginal
+net value
 \[
-F(A) \;=\; \sum_a \min\!\Big(w_a b,\ \textstyle\sum_{x\in A}
-s_a(x)\Big),
+v(a) \;=\; \underbrace{\frac{\sum_{c} \min\big(r_c,\
+\hat{s}_c(a)\big)}{\hat{t}(a)}}_{\text{gain on unmet demand}}
+\;-\;
+\underbrace{\lambda_{\mathrm{anc}}\,\Delta_{\mathrm{anchor}}(a)
+\;+\; \sum_{c\in\mathrm{shared}} \hat{s}_c(a)\,
+\kappa^{r}_{c}}_{\text{displacement cost}},
 \]
-where $s_a(x)$ is the supply example $x$ contributes to atom $a$.
-Supply beyond an atom's quota counts for nothing, which is exactly the
-concave truncation that makes $F$ monotone submodular. Greedily buying
-\[
-\argmax_x\; u(x) \;=\; \frac{\sum_a \min\!\big(r_a,\
-\hat{s}_a(x)\big)}{\hat{t}},
-\]
-with $r_a$ the remaining quota, $\hat{s}(x)$ the candidate's predicted
-supply, and $\hat{t}$ the running mean response length, is then
-cost-normalized greedy maximization of $F$, and inherits its
-near-optimality guarantees \citep{khuller1999budgeted, krause2005near}.
-The selection rule is not a heuristic; it is the standard algorithm for
-the coverage objective the task defines.
+where $r_c$ is the remaining allocation of atom $c$, $\hat{s}(a)$ is
+the prompt-view code of the candidate, $\hat{t}(a)$ its expected token
+cost, $\Delta_{\mathrm{anchor}}$ the dilution of the student's own
+verified rows in the training mix, and $\kappa^{r}$ the response-view
+coupling of shared atoms. Acquisition simply executes
+$\argmax_a v(a)$ each round and stops spending once every action has
+$v(a) \le 0$.
 
-\paragraph{The loop.} With the objective fixed, the loop itself is
-simple, since acquisition merely alternates with training in rounds. Each round
-refits the coupled dictionary on everything known, codes the
-candidates from their prompt view, and buys greedily by $u(x)$, with a
-working copy of $r$ decremented within a batch so near-duplicates do
-not double-count. Every return passes two filters before it may train the student,
-namely the execution check of A2 and a membership test asking
-that the prompt's reconstruction residual under the dictionary not
-exceed that of the least typical calibration query. The residual test
-makes the task boundary identical with what the capability vocabulary can
-express, and the same residual, conformally calibrated, later serves as
-the deployment gate. Rejected returns are still paid for, because the
-budget is real; they are reported as waste.
-
-\paragraph{Attempt first, then buy.} Predictions from prompt codes are
-good enough to rank candidates, but the student itself is the ground
-truth about what it still lacks. After a training interlude on the
-purchases so far, per-atom training losses reveal which capability atoms have not
-been absorbed, and the next round restricts its ranking direction to
-those atoms. Before money is spent, the intermediate student attempts
-the shortlisted candidates. A candidate it solves consistently is
-self-solved, so its own solution joins the corpus and the freed budget
-moves down the ranking. A candidate it fails is bought, either as a
-fresh demonstration or, for questions whose reference answer is already
-owned, as a minimal \emph{correction} of the student's own wrong
-solution. Either way the failed attempt and its correct counterpart
-form a preference pair at no extra cost, which Stage III will consume.
-When the candidate set cannot supply a deficient capability atom at all, the
-teacher is asked to generate new problems from the support queries that
-load highest on that atom, with all generated tokens charged.
+Every component of earlier pipelines becomes a consequence of this one
+rule rather than a module of its own. A self-solved trajectory costs
+nothing, so its value per token dominates and the student is always
+attempted first. The $\min(r, \cdot)$ truncation is exactly the
+concave cap that makes the implicit coverage objective monotone
+submodular, so greedy selection inherits the classical
+near-optimality guarantee \citep{khuller1999budgeted, krause2005near}.
+The membership gate stops being a module at all and becomes a
+proposition. An out-of-task prompt receives near-zero code mass on the
+demanded atoms, because sparse coding assigns magnitude only where the
+vocabulary can reduce reconstruction error, so its gain term vanishes
+and the rule never selects it; the execution check remains only to
+verify delivered goods, and rejected purchases are reported as waste.
+Corrective rounds, the shift from demonstrations toward corrections,
+and the eventual halt all emerge as the student's state evolves,
+because unmet demand decays, failures concentrate, and the
+displacement cost of further cloning rises. The rule has no round
+structure, no dose constants, and no phase boundaries.
 
 \subsection{Distilling the student}
 \label{sec:distill}
-Stage III turns the acquired evidence into the delivered student, and
-it follows one rule, that \emph{the training signal an example
-contributes is determined by the student's own policy state on it}. Questions the student solved
-contribute its own verified solution, preserving behavior at zero
-teacher cost in the spirit of self-improvement bootstrapping
-\citep{zelikman2022star}. Questions it attempted and failed contribute
-the purchased solution together with a preference term that pushes down
-the student's own attempt. Questions it could not attempt at all, in
-turn, contribute plain behavior cloning, which is the degenerate
-stratum. All three strata combine into one objective,
+Stage III makes no decisions of its own; it executes the ledger that
+acquisition already wrote. Every training row arrives labeled by whose
+behavior it records, and a single objective reads those labels,
 \[
 \mathcal{L}(x) \;=\; \mathrm{NLL}\big(y^{+}\,|\,x\big) \;+\;
 \beta\,\mathbb{1}\big[y^{-} \text{ exists}\big]\cdot
-\ell_{\mathrm{OR}}\big(y^{+}\!\succ y^{-}\,|\,x\big),
+\ell_{\mathrm{OR}}\big(y^{+}\!\succ y^{-}\,|\,x\big).
 \]
-optimized in a single compute-matched pass; as the student improves,
-the first stratum grows and the third shrinks, so training becomes more
-on-policy for free.
-
-\paragraph{Why the preference term is shaped this way.} The teacher
-exposes no log-probabilities, so $\ell_{\mathrm{OR}}$ is a
-reference-model-free odds-ratio objective \citep{hong2024orpo} rather
-than \textsc{DPO} \citep{rafailov2023dpo}. An attempt and its
-correction share a long common prefix, and sequence-level preference
-pressure on shared tokens is what drives likelihood displacement,
-whereby near-identical pairs drag the preferred response down with the
-rejected one \citep{razin2025unintentional}. The term is therefore computed only
-from the first token of divergence, which removes the displacement
-pressure at its source rather than rationing it with a dose schedule.
-Embedding the term inside the same pass as the likelihood objective is
-the second safeguard, because every step's supervised gradient anchors the
-policy, which an isolated preference phase lacks. The last safeguard
-introduces no new constants. Training periodically re-measures
-execution correctness on the calibration queries, whose gold answers
-come free from executing the teacher's demonstrations, and halts the
-preference term on the first drop exceeding one probe question.
-
-\paragraph{Arrival is judged behaviorally.} Gradient geometry selects
-data; it is never asked to judge competence, and behavior is the sole
-judge of arrival. A periodic probe on held-out calibration queries
-records near-best checkpoints; at the end of training their weights
-are averaged with the final state \citep{izmailov2018swa} and the
-average is adopted if the probe does not object. The best recorded
-checkpoint replaces the result only if it wins by more than one probe
-question, since a genuine collapse exceeds that margin and is rescued,
-while a smaller difference is probe noise. One rule for every budget, with no
-regime split. Per-example losses, tagged by dominant atom, additionally
-aggregate into per-capability absorption curves at no extra cost; they are
-what the deficit reads of Stage II consume.
+Rows holding the student's own verified solutions are trained as plain
+likelihood, preserving the behavior being kept at zero teacher cost in
+the spirit of self-improvement bootstrapping \citep{zelikman2022star};
+they are the anchor of the mix, and their share was already protected
+by the displacement term at purchase time, so training needs no
+protective patches. Rows carrying a paired failure add the preference
+term $\ell_{\mathrm{OR}}$, a reference-model-free odds ratio
+\citep{hong2024orpo} since the teacher exposes no log-probabilities.
+The pair is admissible only when its two sides diverge on the
+\emph{success axis}, meaning the verifier scores them differently;
+pairs that diverge merely in style are refused, because pushing down a
+stylistic variant of correct behavior trains exactly the drift the
+anchor exists to prevent. The term activates on a row only after that
+row's positive solution has been learned, gated by the running mean
+likelihood, and it is computed only from the first token of divergence,
+which removes likelihood-displacement pressure at its source
+\citep{razin2025unintentional}. All remaining rows are plain behavior
+cloning, the degenerate repair of an empty attempt. Training ends with
+weight averaging of near-best probe checkpoints \citep{izmailov2018swa}
+and a rollback that fires only past a one-probe-question margin; the
+probe measures execution correctness, whose gold answers come free
+from executing the teacher's demonstrations. Per-example losses,
+tagged by dominant atom, aggregate into per-atom absorption curves at
+no extra cost and feed the deficit reads of Stage II.
 
 \subsection{Certification and deployment}
 \label{sec:behavior}
