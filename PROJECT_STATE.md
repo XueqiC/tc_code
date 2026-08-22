@@ -196,6 +196,13 @@ in-task 与 off-task 能力在蒸馏中如何 decouple / 是什么耦合关系?
 数据(budget-residue 曲线、门开关对照、atoms 重叠度)、文献(任务
 算术/task vectors、灾难性遗忘、能力纠缠、cross-task transfer)。
 
+
+## 主表 benchmark 定稿(2026-08-22)
+AppWorld(agent 锚点,TGC/SGC)+ τ-bench(客服 agent,pass^k,teacher 兼任 user-sim 计入预算)
++ BIRD/Spider2 text-to-SQL(执行准确率;按 DB 域天然划分 → 边界/耦合上主台)
++ DS-1000(数据科学代码,执行验证,单轮对照)。
+洞见形成以这四台为主要土壤;gsm 受控套件仅作机制解剖。
+
 ## 大故事线(2026-08-21 定稿,一切服从它)
 **Budget 被尽可能地用来提升 in-task performance。**
 **重要修正(同日)**:方法**不刻意压制 off-task**——off-task 低不是
