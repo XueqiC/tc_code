@@ -1,4 +1,7 @@
 \section{Experiments}\label{sec:experiments}
+\definecolor{rowours}{RGB}{232,240,251}
+\definecolor{rowhead}{RGB}{242,241,236}
+
 
 To establish that the method delivers on its goal, we organize the
 evaluation around five research questions.
@@ -12,6 +15,37 @@ whether each component of the method adds measurable value on its own.
 \textbf{RQ5} asks how efficiently the budget is converted into in-task
 capability and how off-task behavior follows from that conversion. The
 following subsections answer these questions in turn.
+
+\begin{table}[t]
+\centering
+\caption{Main comparison with distillation baselines. All methods spend
+the same token budget from the same teacher (DeepSeek-V4-Pro, Qwen3.5-4B
+student, three seeds, mean$\pm$std). Each benchmark uses its official
+metric. $\Delta$ is the change over the untrained base student, averaged
+over available columns. AppWorld entries use the development protocol
+and move to official test\_normal at freeze.}
+\label{tab:main}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l ccccc r@{}}
+\toprule
+\textbf{Method} & \makecell{App-\\World} & \makecell{BFCL\\v4}
+& \makecell{$\tau^2$-\\bench} & \makecell{ALF-\\World}
+& \textbf{Macro} & $\Delta$\\
+\midrule
+Base student & $0.248_{\pm.035}$ & -- & -- & -- & -- & --\\
+\midrule
+Vanilla SFT \citep{mukherjee2023orca} & $0.215_{\pm.031}$ & -- & -- & -- & -- & --\\
+Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & --\\
+SmartAD \citep{tang2026smartad} & $0.200_{\pm.006}$ & -- & -- & -- & -- & --\\
+BB on-policy \citep{ye2025bbopd} & -- & -- & -- & -- & -- & --\\
+dDPO \citep{tunstall2023zephyr} & -- & -- & -- & -- & -- & --\\
+STaR \citep{zelikman2022star} & -- & -- & -- & -- & -- & --\\
+\midrule
+\rowcolor{rowours}\textbf{Ours} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & -- & -- & --\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{RQ1, comparison with distillation baselines}
 \label{sec:rq1}
@@ -29,6 +63,35 @@ signal keeps the student's own verified behavior and adds the
 teacher's on top, and ours is the only method that ends up above the
 base student across the panel.
 
+\begin{table}[t]
+\centering
+\caption{Acquisition comparison with our distillation held fixed
+(controlled suite by external execution accuracy, AppWorld and BFCL by
+their official metrics; three seeds). Waste is the fraction of
+purchased tokens that never train the student.}
+\label{tab:cross}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l cccc@{}}
+\toprule
+\textbf{Acquisition} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
+& \makecell{BFCL\\v4} & Waste $\downarrow$\\
+\midrule
+Random subset & -- & -- & -- & --\\
+Embedding retrieval & -- & -- & -- & --\\
+LESS \citep{xia2024less} & -- & -- & -- & --\\
+GIST \citep{gist2026} & -- & -- & -- & --\\
+TRIM \citep{trim2025} & -- & -- & -- & --\\
+ICONS \citep{icons2025} & -- & -- & -- & --\\
+Self-Instruct \citep{wang2023selfinstruct} & -- & -- & -- & --\\
+Evol-Instruct \citep{xu2024wizardlm} & -- & -- & -- & --\\
+LLM2LLM \citep{lee2024llm2llm} & -- & -- & -- & --\\
+\midrule
+\rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & $\mathbf{0.03}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{RQ2, value of the acquisition component}
 \label{sec:rq2}
 Table~\ref{tab:cross} fixes our distillation and varies only how the
@@ -40,9 +103,35 @@ improves the result further and cuts wasted budget roughly in half,
 because purchases stop at the quotas the support set demands and
 never go to out-of-task candidates.
 
+\begin{table}[t]
+\centering
+\caption{Distillation comparison on identical acquired data. Every row
+trains on the same corpus purchased by our acquisition; the rows are
+the same methods as Table~\ref{tab:main}, so any difference comes from
+the training procedure alone.}
+\label{tab:distill}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l ccc@{}}
+\toprule
+\textbf{Distillation} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
+& \makecell{BFCL\\v4}\\
+\midrule
+Vanilla SFT & -- & $0.215_{\pm.031}$ & --\\
+Structured AD & -- & -- & --\\
+SmartAD (training part) & -- & -- & --\\
+BB on-policy & -- & -- & --\\
+dDPO & -- & -- & --\\
+STaR & -- & -- & --\\
+\midrule
+\rowcolor{rowours}\textbf{Ours (anchored objective)} & -- & $\mathbf{0.284}_{\pm.037}$ & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{RQ3, value of the distillation component}
 \label{sec:rq3}
-Table~\ref{tab:best} feeds the identical acquired dataset to every
+Table~\ref{tab:distill} feeds the identical acquired dataset to every
 distillation baseline from Table~\ref{tab:main} and to ours. Whatever difference remains can only come from the training procedure.
 \todo{fill; existing AppWorld evidence pre-populates most rows: plain
 cloning of the same corpus scores 0.197--0.215, an isolated preference
@@ -54,6 +143,27 @@ clone everything, or that apply preference pressure without that
 anchor, lose the base model's competence before they finish absorbing
 the teacher's.
 
+\begin{table}[t]
+\centering
+\caption{Component ablation. Each row adds one component to the
+previous one; $\Delta$ is the change from the row above (AppWorld,
+three seeds).}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l cc@{}}
+\toprule
+\textbf{Configuration} & AppWorld & $\Delta$\\
+\midrule
+Cloning baseline & $0.215_{\pm.031}$ & --\\
++ self-anchor (provenance rule) & $0.284_{\pm.037}$ & $+0.069$\\
++ gated preference (success axis) & -- & --\\
++ checkpoint averaging & -- & --\\
++ marginal acquisition (full method) & -- & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{RQ4, component ablation}
 \label{sec:rq4}
 Table~\ref{tab:ablation} builds the method one component at a time,
@@ -64,6 +174,17 @@ finally marginal acquisition with the displacement cost.
 suite; each step is already measured individually.} Each addition either raises the mean or tightens the variance, and no
 step introduces a tuned constant. The full method is a stack of
 individually verified decisions, not a jointly tuned pipeline.
+
+\begin{figure}[t]
+\centering
+\todo{figure panel: (a) budget-to-target curves $B^{*}(\tau)$ per
+method; (b) wasted-fraction bars; (c) coupling case study, cot loss
+change $+.38 \to -.40$ with ten anchor rows.}
+\caption{Where the budget goes. (a)~Budget needed to reach target
+performance. (b)~Wasted fraction of purchased tokens. (c)~The two-view
+coupling forecast and the anchor neutralization case study.}
+\label{fig:budget}
+\end{figure}
 
 \subsection{RQ5, budget conversion and off-task behavior}
 \label{sec:rq5}
