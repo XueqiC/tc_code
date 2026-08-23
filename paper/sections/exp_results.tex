@@ -34,12 +34,17 @@ and move to official test\_normal at freeze.}
 & \textbf{Macro} & $\Delta$\\
 \midrule
 Base student & $0.248_{\pm.035}$ & -- & -- & -- & -- & --\\
-\midrule
+\addlinespace[2pt]
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Trajectory cloning}}\\
 Vanilla SFT \citep{mukherjee2023orca} & $0.215_{\pm.031}$ & -- & -- & -- & -- & --\\
 Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Capacity-aware}}\\
 SmartAD \citep{tang2026smartad} & $0.200_{\pm.006}$ & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{On-policy}}\\
 BB on-policy \citep{ye2025bbopd} & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Preference}}\\
 dDPO \citep{tunstall2023zephyr} & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Self-improvement}}\\
 STaR \citep{zelikman2022star} & -- & -- & -- & -- & -- & --\\
 \midrule
 \rowcolor{rowours}\textbf{Ours} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & -- & -- & --\\
@@ -77,12 +82,14 @@ purchased tokens that never train the student.}
 \textbf{Acquisition} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
 & \makecell{BFCL\\v4} & Waste $\downarrow$\\
 \midrule
+\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Selection}}\\
 Random subset & -- & -- & -- & --\\
 Embedding retrieval & -- & -- & -- & --\\
 LESS \citep{xia2024less} & -- & -- & -- & --\\
 GIST \citep{gist2026} & -- & -- & -- & --\\
 TRIM \citep{trim2025} & -- & -- & -- & --\\
 ICONS \citep{icons2025} & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Generation}}\\
 Self-Instruct \citep{wang2023selfinstruct} & -- & -- & -- & --\\
 Evol-Instruct \citep{xu2024wizardlm} & -- & -- & -- & --\\
 LLM2LLM \citep{lee2024llm2llm} & -- & -- & -- & --\\
@@ -200,7 +207,7 @@ tasks share response-view atoms, training one side moves the other,
 and the two-view coupling forecast predicts the direction before any
 money is spent. A case study
 \todo{cot neutralization figure: destructive coupling turned from a
-loss increase of +.38 into a decrease of −.40 by ten anchor
+loss increase of $+.38$ into a decrease of $-.40$ by ten anchor
 demonstrations} shows that a handful of anchor rows is enough to neutralize the
 destructive case, which ties the coupling geometry directly to the
 training rule.
