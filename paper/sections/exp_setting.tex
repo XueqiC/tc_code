@@ -29,12 +29,11 @@ sequence-level distillation on teacher demonstrations, we take
 \emph{Vanilla SFT} \citep{mukherjee2023orca} and \emph{Structured
 Agent Distillation} \citep{liu2025structured}, which refines it with
 segment-specific losses over reasoning and action spans, together with
-the agent-domain representative of \citet{kang2025distilling}. From the
-curation branch we take \emph{SmartAD} \citep{tang2026smartad},
-which selects trajectories aligned with student capacity before
-training. From the feedback branch we take \emph{dDPO}
+the agent-domain representative of \citet{kang2025distilling}. From the feedback branch we take \emph{dDPO}
 \citep{tunstall2023zephyr}, where the teacher ranks student samples
-and the ranking trains a preference objective. From the
+and the ranking trains a preference objective, and \emph{PBSD}
+\citep{pbsd2026}, its current successor that pairs teacher positives
+with on-policy student negatives. From the
 self-knowledge branch we take \emph{STaR} \citep{zelikman2022star},
 which retrains on the student's own verified samples. From the
 on-policy branch we take \emph{Black-Box On-Policy Distillation}
@@ -43,6 +42,7 @@ student's own rollouts. Component studies additionally
 use selection baselines spanning classical and current families, namely
 random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
 \citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025},
+SmartAD's capacity-aligned selection \citep{tang2026smartad},
 Self-Instruct \citep{wang2023selfinstruct}, Evol-Instruct
 \citep{xu2024wizardlm}, and LLM2LLM \citep{lee2024llm2llm}.
 
