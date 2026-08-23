@@ -60,8 +60,9 @@ other student scales appear in Appendix~\ref{app:details}. Students
 train with LoRA adapters (rank 16) under compute-matched schedules;
 every threshold in the method is a statistical convention or is
 estimated from the support set, and full constants are listed in
-Appendix~\ref{app:details}. Experiments run on a local server with
-five mixed NVIDIA GPUs (48--96GB) for simulator-bound evaluation and
-on a university cluster with NVIDIA B200 nodes for training sweeps; a
-full run of one method on one benchmark takes two to five GPU hours at
-4B.
+Appendix~\ref{app:details}. The teacher is accessed through the
+Ollama API, which serves hard-label text completions only, matching
+the no-logits constraint of the setting. Experiments run on a local
+server with five mixed NVIDIA GPUs (48--96GB) for simulator-bound
+evaluation and on NVIDIA B200 nodes for training sweeps; a full run of
+one method on one benchmark takes two to five GPU hours at 4B.
