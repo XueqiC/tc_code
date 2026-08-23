@@ -1,40 +1,59 @@
 \section{Experimental setup}\label{sec:expsetting}
-%% Main-experiment setup only; full details in Appendix~\ref{app:details}.
 
-\paragraph{Tasks and protocol.}
-Main experiments instantiate the setting of Section~\ref{sec:setting} on
-a controlled suite built from public datasets (GSM8K code-acting
-\citep{cobbe2021gsm8k} as the primary task; Spider text-to-SQL
-\citep{yu2018spider} scoped to a subtopic for boundary stress tests) and
-on AppWorld \citep{trivedi2024appworld} as the agent environment. Every
-method receives the same support set ($k{=}50$), the same single
-pay-per-token teacher, and the same budget $b$; no method sees a
-pre-existing corpus, and every demonstration token is charged. In-task
-accuracy is execution-verified on the official GSM8K test split (200
-held-out questions, disjoint from all training material); boundary
-control is measured as off-task residue on the scoped-subtopic task.
+\paragraph{Benchmarks.}
+We evaluate on four agent benchmarks under their official protocols.
+\textbf{AppWorld} \citep{trivedi2024appworld} tasks an agent with
+day-to-day objectives across nine simulated applications; we report the
+official task goal completion (TGC) and scenario goal completion (SGC)
+on the test\_normal split. \textbf{BFCL~v4} evaluates function calling
+across single-turn, parallel, and multi-turn categories; we report the
+official overall tool-call accuracy. \textbf{$\tau^2$-bench}
+\citep{yao2024taubench} places the agent in customer-service
+conversations with database-backed tools and a simulated user; we
+report pass\textsuperscript{1} under the official evaluator, with the
+user simulator served by the same metered teacher so its tokens are
+charged against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
+tests embodied household instruction following in a text environment;
+we report task success rate on the unseen split. In every benchmark the
+task is revealed to each method only through $k{=}50$ support queries,
+and all teacher supervision is purchased from the same API under a
+matched token budget.
 
 \paragraph{Baselines.}
-Published acquisition baselines re-implemented faithfully under the
-metered protocol: Self-Instruct \citep{wang2023selfinstruct},
-Evol-Instruct \citep{xu2024wizardlm}, LLM2LLM \citep{lee2024llm2llm},
-and AlpaGasus \citep{chen2024alpagasus}; selection baselines LESS
-\citep{xia2024less} and embedding retrieval under matched budgets. All
-baselines share students, budgets, support sets, and verifiers with our
-method.
+The main comparison covers distillation methods for base models, all
+consuming the same budget from the same teacher. \emph{Vanilla SFT}
+clones the full set of purchased demonstrations
+\citep{mukherjee2023orca}. \emph{Structured Agent Distillation}
+\citep{liu2025structured} applies segment-specific losses over
+reasoning and action spans. \emph{SmartAD} \citep{tang2026smartad}
+selects trajectories aligned with student capacity before cloning.
+\emph{On-policy distillation} rolls out the student and purchases
+teacher relabels of its trajectories, the realizable black-box form of
+the on-policy family \citep{ross2011dagger}. \emph{Self-improvement}
+retrains on the student's own verified samples without further teacher
+supervision \citep{zelikman2022star}. Component studies additionally
+use selection baselines, namely random subsets, embedding retrieval,
+LESS \citep{xia2024less}, Self-Instruct \citep{wang2023selfinstruct},
+Evol-Instruct \citep{xu2024wizardlm}, and LLM2LLM \citep{lee2024llm2llm}.
 
 \paragraph{Evaluation.}
-The primary metrics are execution-verified in-task accuracy, off-task
-residue, wasted-budget fraction, and budget-to-target $B^{*}(\tau)$;
-point estimates carry mean$\pm$std over three seeds. Deployment results
-add distribution-free certificates (Clopper--Pearson bounds at
-$\delta{=}0.1$; conformal coverage at $\alpha{=}0.1$).
+The primary metric is in-task performance under each benchmark's
+official convention, reported as mean$\pm$std over three seeds, with
+the change relative to the untrained base student made explicit.
+Budget efficiency is measured by the wasted fraction of purchased
+tokens and by the budget-to-target level $B^{*}(\tau)$, the smallest
+budget at which a method reaches target performance $\tau$. Off-task
+behavior is reported as residue on scoped reference tasks and is read
+as evidence of where the budget went rather than as an objective.
 
 \paragraph{Implementation.}
-Students are Qwen3.5 (2B main; 0.8B--9B for scale analysis) trained with
-LoRA (r{=}16) under compute-matched SFT; gradient features use
-per-module Johnson--Lindenstrauss projections \citep{johnson1984extensions};
-dictionaries use mini-batch sparse coding ($\alpha{=}0.05$). Budgets span
-2k--40k response tokens. All runs are configuration-driven with logged
-manifests; hyperparameters, environment details, secondary benchmarks,
-and teacher-pool statistics appear in Appendix~\ref{app:details}.
+All main-text experiments use one fixed pair, a metered black-box
+teacher (DeepSeek-V4-Pro via API, no logits) and a Qwen3.5-4B student;
+other student scales appear in Appendix~\ref{app:details}. Students
+train with LoRA adapters (rank 16) under compute-matched schedules;
+every threshold in the method is a statistical convention or is
+estimated from the support set, and full constants are listed in
+Appendix~\ref{app:details}. Experiments run on a local server with
+five mixed NVIDIA GPUs (48--96GB) for simulator-bound evaluation and
+on HiPerGator B200 nodes for training sweeps; a full run of one method
+on one benchmark takes two to five GPU hours at 4B.

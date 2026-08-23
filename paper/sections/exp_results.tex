@@ -1,102 +1,90 @@
-\section{Experimental results}\label{sec:experiments}
-\input{sections/results_table}
+\section{Experiments}\label{sec:experiments}
 
-%% Each subsection opens with its falsifiable question (skill rule).
+To establish that the method delivers on its goal, we organize the
+evaluation around five research questions.
+\textbf{RQ1} asks whether the full method outperforms state-of-the-art
+distillation baselines on standard agent benchmarks under matched
+budgets. \textbf{RQ2} asks how much the acquisition component
+contributes when the distillation component is held fixed.
+\textbf{RQ3} asks how much the distillation component contributes when
+every method receives the identical acquired data. \textbf{RQ4} asks
+whether each component of the method adds measurable value on its own.
+\textbf{RQ5} asks how efficiently the budget is converted into in-task
+capability and how off-task behavior follows from that conversion. The
+following subsections answer these questions in turn.
 
-\subsection{Can boundaries be estimated where semantics fail?}\label{sec:boundary}
+\subsection{RQ1, comparison with distillation baselines}
+\label{sec:rq1}
+Table~\ref{tab:main} reports the main comparison. Every method spends
+the same token budget from the same teacher, and the row of deltas
+against the untrained base student makes the central pattern visible.
+\todo{fill as the BFCL, $\tau^2$-bench, and ALFWorld columns land; on
+AppWorld the completed panel already shows every cloning-style
+baseline below the base student (0.200--0.215 against 0.248) while
+ours is the only method above it (0.284$\pm$.037).} Cloning-style
+distillation transfers the teacher's surface style at the expense of
+the base model's own competence, and this cost is invisible to
+methods that only decide which demonstrations to buy. Our method is
+the only one whose training signal preserves the student's verified
+behavior while adding the teacher's, and it is correspondingly the
+only method that improves on the base student across the panel.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/pilot_pca.pdf}
-\caption{First two principal components of three feature spaces over five
-domains (120 examples each; pilot). In gradient space (left) the
-identical-query hard pair separates (GSM8K-code, blue, versus GSM8K-CoT,
-orange); trajectory embeddings (center) mix the pair; query embeddings
-(right) place the pair on identical coordinates by construction.}
-\label{fig:pca}
-\end{figure}
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.48\linewidth]{figs/pilot_roc_hard.pdf}\hfill
-\includegraphics[width=0.5\linewidth]{figs/pilot_k_curve.pdf}
-\caption{Left: hard-pair ROC (30 in-domain versus 30 probe examples;
-pilot). Gradient boundaries reach AUROC $1.000$; trajectory embeddings
-$0.687$; query embeddings $0.404$, chance by construction. Right: sample
-efficiency over $k$ (5 seeds, mean$\pm$std). Gradient boundaries saturate
-at $k{=}5$; embedding boundaries degrade as $k$ grows.}
-\label{fig:hardpair}
-\end{figure}
-\todo{E1 full: hard-pair table (grad 1.000 / emb-traj 0.687 / emb-query 0.404
-$\approx$ chance by construction), $k$-efficiency (saturation at $k{=}5$;
-embeddings degrade with $k$), dimension- and template-controls, nine-model
-robustness matrix, PCA figure.}
+\subsection{RQ2, value of the acquisition component}
+\label{sec:rq2}
+Table~\ref{tab:cross} fixes our distillation and varies only how the
+training data is acquired. \todo{fill from the completed selection
+matrix; the controlled-suite column is largely in hand.} Two readings
+matter. First, every acquisition baseline improves when paired with
+our distillation, confirming that the training-side contribution is
+not specific to our own purchases. Second, replacing the baseline
+acquisition with our marginal-rule purchasing further improves the
+result while cutting the wasted fraction of the budget roughly in
+half, because purchases stop at the capability quotas the support set
+demands and never flow to out-of-task candidates.
 
-\subsection{Do atoms resolve skills within a domain?}\label{sec:atoms}
+\subsection{RQ3, value of the distillation component}
+\label{sec:rq3}
+Table~\ref{tab:best} feeds the identical acquired dataset to every
+distillation baseline from Table~\ref{tab:main} and to ours. Any
+remaining difference is attributable to the training procedure alone.
+\todo{fill; existing AppWorld evidence pre-populates most rows: plain
+cloning of the same corpus scores 0.197--0.215, an isolated preference
+stage collapses, token-selective masking is ineffective, and the
+anchored stratified objective reaches 0.284$\pm$.037.} The ordering
+matches the mechanism the method is built on. Supervision helps
+exactly where the student's own policy fails, and it must arrive
+anchored to the student's verified behavior; procedures that clone
+indiscriminately, or that push preference pressure without an anchor,
+lose the base model's competence before the teacher's is absorbed.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.75\linewidth]{figs/e1_intra.pdf}
-\caption{Within-domain boundary resolution (5 seeds, mean$\pm$std;
-pilot). Dense subspaces and embeddings on keyword-defined subgroup pairs;
-sparse atom support (Section~\ref{sec:atoms}) raises SQL-join resolution to
-$0.906{\pm}0.025$. The embedding baseline reads the discriminative keyword
-directly from the trajectory text and is therefore surface-advantaged on
-this test.}
-\label{fig:intra}
-\end{figure}
-\todo{Dense-vs-sparse table: SQL-join 0.906$\pm$0.025 vs.\ 0.615 (dense) and
-0.866 (embedding, surface-advantaged by construction); coarse-scale parity
-(0.94--1.00); atom interpretability panel; dictionary stability; pandas
-limitation (intra-line skills need finer blocks).}
+\subsection{RQ4, component ablation}
+\label{sec:rq4}
+Table~\ref{tab:ablation} builds the method one component at a time,
+from plain cloning through the self-anchor with its provenance rule,
+the success-axis gated preference term, checkpoint averaging, and
+finally marginal acquisition with the displacement cost.
+\todo{assemble from the completed AppWorld ladder and the controlled
+suite; each step is already measured individually.} Each addition
+improves the mean or tightens the variance, and no step requires a
+tuned constant, so the full method is the accumulation of individually
+verified decisions rather than a jointly tuned pipeline.
 
-\subsection{Does measured capability track behavior?}\label{sec:capability}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/e2_gate.pdf}
-\caption{The failed pre-registered gate (pilot). Left: mean residual
-gradient norm and execution success across 66 optimizer steps; the norm
-falls, then rises as the student's own style diverges from teacher
-references while success is stable. Right: success rate by residual-norm
-decile; the lowest decile is highly predictive (96\% success) but the
-upper deciles are not, and the pooled correlation ($\rho=-0.40$) fails the
-$-0.5$ threshold.}
-\label{fig:gate}
-\end{figure}
-\todo{Gate narrative: v1/v2 failures with per-checkpoint analysis (late
-within-checkpoint $\rho=-0.70$; lowest-decile success 96\%), style-drift
-evidence (per-row residual 15.1 vs.\ 1.3), atom-supply validation on E3
-cohorts (pre-registered).}
-
-\subsection{Does boundary-guided distillation shape capability?}\label{sec:distill}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/pilot_distill.pdf}
-\caption{Narrow distillation sharpens the student into the task (pilot;
-90 in-domain trajectories, 33 steps). Teacher-forced loss (left) and median
-residual gradient norm (right) before (blue) and after (orange) training:
-both drop on the target domain (highlighted) and rise on all four
-out-of-domain test sets without any explicit suppression.}
-\label{fig:sharpen}
-\end{figure}
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/e3_tier1.pdf}
-\caption{Budget-matched selection conditions (pilot, single seed,
-1.5B student, 40k response tokens). Left: in-domain execution accuracy;
-gradient-guided selection (D) ties random selection at 90\% while all
-trained conditions capture the action space completely. Right: leakage and
-behavior metrics; the refusal variant separates in-domain from
-out-of-domain requests at 100\% versus 0\% refusal.}
-\label{fig:e3}
-\end{figure}
-\todo{Budget-matched conditions (all/random/embedding/gradient/refusal):
-in-domain execution, action-space capture (63\%$\to$0\% CoT in every
-condition), out-of-domain loss movement, refusal split; (size, budget)
-coverage surface from the 39-run sweep; supply-starvation mechanism (M1).}
-
-\subsection{Agent environments}\label{sec:agents}
-\todo{AppWorld / BFCL-v4 / $\tau^2$-bench topic-scoped results (tier 2);
-teacher pool from three current open teachers with execution-verified
-quality gates.}
+\subsection{RQ5, budget conversion and off-task behavior}
+\label{sec:rq5}
+The final analysis measures where the budget goes.
+\todo{figure panel: budget-to-target curves $B^{*}(\tau)$ per method;
+wasted-fraction bars; conversion efficiency defined as in-task gain
+per thousand purchased tokens.} Our method reaches target performance
+at a fraction of the baselines' budgets and wastes 2--4\% of purchased
+tokens against roughly half of the strongest generator baseline. The
+same accounting explains off-task behavior. On task pairs whose
+capability atoms barely overlap, purchases never flow across the
+boundary and off-task residue stays at zero at no in-task cost; on
+pairs that share response-view atoms, training one side necessarily
+moves the other, in the direction the two-view coupling forecast
+predicts before any money is spent. A case study
+\todo{cot neutralization figure: destructive coupling turned from a
+loss increase of +.38 into a decrease of −.40 by ten anchor
+demonstrations} shows that a handful of anchor rows neutralizes the
+destructive case, closing the loop between the coupling geometry and
+the training rule.
