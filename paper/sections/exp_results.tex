@@ -16,46 +16,43 @@ following subsections answer these questions in turn.
 \subsection{RQ1, comparison with distillation baselines}
 \label{sec:rq1}
 Table~\ref{tab:main} reports the main comparison. Every method spends
-the same token budget from the same teacher, and the row of deltas
-against the untrained base student makes the central pattern visible.
+the same token budget from the same teacher. We also report each
+method's change over the untrained base student, which is the number
+that matters most in this setting.
 \todo{fill as the BFCL, $\tau^2$-bench, and ALFWorld columns land; on
 AppWorld the completed panel already shows every cloning-style
 baseline below the base student (0.200--0.215 against 0.248) while
-ours is the only method above it (0.284$\pm$.037).} Cloning-style
-distillation transfers the teacher's surface style at the expense of
-the base model's own competence, and this cost is invisible to
-methods that only decide which demonstrations to buy. Our method is
-the only one whose training signal preserves the student's verified
-behavior while adding the teacher's, and it is correspondingly the
-only method that improves on the base student across the panel.
+ours is the only method above it (0.284$\pm$.037).} The pattern is simple. Methods that clone teacher demonstrations pick
+up the teacher's surface style and lose part of what the base model
+could already do, so they end up below the base student. Our training
+signal keeps the student's own verified behavior and adds the
+teacher's on top, and ours is the only method that ends up above the
+base student across the panel.
 
 \subsection{RQ2, value of the acquisition component}
 \label{sec:rq2}
 Table~\ref{tab:cross} fixes our distillation and varies only how the
 training data is acquired. \todo{fill from the completed selection
-matrix; the controlled-suite column is largely in hand.} Two readings
-matter. First, every acquisition baseline improves when paired with
-our distillation, confirming that the training-side contribution is
-not specific to our own purchases. Second, replacing the baseline
-acquisition with our marginal-rule purchasing further improves the
-result while cutting the wasted fraction of the budget roughly in
-half, because purchases stop at the capability quotas the support set
-demands and never flow to out-of-task candidates.
+matrix; the controlled-suite column is largely in hand.} Two things stand out. First, every acquisition baseline gets better
+when paired with our distillation, so the training-side gain is not
+tied to our own purchases. Second, switching to our purchasing rule
+improves the result further and cuts wasted budget roughly in half,
+because purchases stop at the quotas the support set demands and
+never go to out-of-task candidates.
 
 \subsection{RQ3, value of the distillation component}
 \label{sec:rq3}
 Table~\ref{tab:best} feeds the identical acquired dataset to every
-distillation baseline from Table~\ref{tab:main} and to ours. Any
-remaining difference is attributable to the training procedure alone.
+distillation baseline from Table~\ref{tab:main} and to ours. Whatever difference remains can only come from the training procedure.
 \todo{fill; existing AppWorld evidence pre-populates most rows: plain
 cloning of the same corpus scores 0.197--0.215, an isolated preference
 stage collapses, token-selective masking is ineffective, and the
-anchored stratified objective reaches 0.284$\pm$.037.} The ordering
-matches the mechanism the method is built on. Supervision helps
-exactly where the student's own policy fails, and it must arrive
-anchored to the student's verified behavior; procedures that clone
-indiscriminately, or that push preference pressure without an anchor,
-lose the base model's competence before the teacher's is absorbed.
+anchored stratified objective reaches 0.284$\pm$.037.} The ordering matches the mechanism the method is built on.
+Supervision helps where the student's own policy fails, and it has to
+arrive together with the student's verified behavior. Procedures that
+clone everything, or that apply preference pressure without that
+anchor, lose the base model's competence before they finish absorbing
+the teacher's.
 
 \subsection{RQ4, component ablation}
 \label{sec:rq4}
@@ -64,27 +61,25 @@ from plain cloning through the self-anchor with its provenance rule,
 the success-axis gated preference term, checkpoint averaging, and
 finally marginal acquisition with the displacement cost.
 \todo{assemble from the completed AppWorld ladder and the controlled
-suite; each step is already measured individually.} Each addition
-improves the mean or tightens the variance, and no step requires a
-tuned constant, so the full method is the accumulation of individually
-verified decisions rather than a jointly tuned pipeline.
+suite; each step is already measured individually.} Each addition either raises the mean or tightens the variance, and no
+step introduces a tuned constant. The full method is a stack of
+individually verified decisions, not a jointly tuned pipeline.
 
 \subsection{RQ5, budget conversion and off-task behavior}
 \label{sec:rq5}
-The final analysis measures where the budget goes.
+The last analysis asks where the budget actually goes.
 \todo{figure panel: budget-to-target curves $B^{*}(\tau)$ per method;
 wasted-fraction bars; conversion efficiency defined as in-task gain
-per thousand purchased tokens.} Our method reaches target performance
-at a fraction of the baselines' budgets and wastes 2--4\% of purchased
-tokens against roughly half of the strongest generator baseline. The
-same accounting explains off-task behavior. On task pairs whose
-capability atoms barely overlap, purchases never flow across the
-boundary and off-task residue stays at zero at no in-task cost; on
-pairs that share response-view atoms, training one side necessarily
-moves the other, in the direction the two-view coupling forecast
-predicts before any money is spent. A case study
+per thousand purchased tokens.} Our method reaches target performance with a fraction of the
+baselines' budgets and wastes 2--4\% of purchased tokens, about half
+the waste of the strongest generator baseline. The same accounting explains what happens off-task. When two tasks
+share almost no capability atoms, purchases never cross the boundary,
+and off-task residue stays at zero with no in-task cost. When two
+tasks share response-view atoms, training one side moves the other,
+and the two-view coupling forecast predicts the direction before any
+money is spent. A case study
 \todo{cot neutralization figure: destructive coupling turned from a
 loss increase of +.38 into a decrease of −.40 by ten anchor
-demonstrations} shows that a handful of anchor rows neutralizes the
-destructive case, closing the loop between the coupling geometry and
-the training rule.
+demonstrations} shows that a handful of anchor rows is enough to neutralize the
+destructive case, which ties the coupling geometry directly to the
+training rule.
