@@ -1888,6 +1888,34 @@ def build_selections(config, tokenizer, pool):
                 udens = float(os.environ.get("E3_UDENS", "0") or 0)
                 if udens > 0:
                     gains = gains + udens * rem_codes.sum(axis=1)
+                if os.environ.get("E3_VDISP") == "1":
+                    # Explicit displacement cost (v2.0 rule): each
+                    # atom's response-view coupling to OFF-task data is
+                    # the mass fraction its supply draws from off-task
+                    # pool rows; a candidate pays, per token, for the
+                    # supply it lands on those shared atoms. Same units
+                    # as the gain term, so the tradeoff has no weight
+                    # constant to tune.
+                    task_dom = os.environ.get("E3_TASK", "gsm8k-code")
+                    off_idx = [i for i, row in enumerate(pool)
+                               if row["domain"] != task_dom]
+                    if off_idx:
+                        off_codes = np.abs(dict_boot.transform(
+                            np.vstack([pool_feat[i][None]
+                                       for i in off_idx])
+                        )).sum(axis=0)
+                        all_codes = np.abs(dict_boot.transform(
+                            pool_feat)).sum(axis=0)
+                        kappa_r = off_codes / np.maximum(
+                            all_codes, 1e-12)
+                        disp = (rem_codes * kappa_r[None, :]).sum(axis=1)
+                        gains = gains - disp
+                        print(
+                            f"[setup][{boot_name}][vdisp] "
+                            f"kappa_mean={kappa_r.mean():.3f} "
+                            f"disp_mean={disp.mean():.3f}",
+                            flush=True,
+                        )
                 if sketch_mode and not tvdict:
                     pool_sk = _BOOT_STATE["pool_sketch_feat"]
                     spec_sk = _BOOT_STATE["spec_sketch_feat"]
