@@ -66,17 +66,17 @@ base student across the panel.
 \begin{table}[t]
 \centering
 \caption{Acquisition comparison with our distillation held fixed
-(official metrics, three seeds). Waste is the fraction of purchased
-tokens that never train the student.}
+(official metrics, three seeds). $\Delta$ is the change over the
+untrained base student, averaged over available columns.}
 \label{tab:cross}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc cc@{}}
 \toprule
 \textbf{Acquisition} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
-& Waste $\downarrow$\\
+& \textbf{Macro} & $\Delta$\\
 \midrule
-\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Selection}}\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Selection}}\\
 Random subset & -- & -- & -- & --\\
 Embedding retrieval & -- & -- & -- & --\\
 LESS & -- & -- & -- & --\\
@@ -84,12 +84,12 @@ GIST & -- & -- & -- & --\\
 TRIM & -- & -- & -- & --\\
 ICONS & -- & -- & -- & --\\
 SmartAD & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Generation}}\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Generation}}\\
 Self-Instruct & -- & -- & -- & --\\
 Evol-Instruct & -- & -- & -- & --\\
 LLM2LLM & -- & -- & -- & --\\
 \midrule
-\rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & -- & $\mathbf{0.03}$\\
+\rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & -- & -- & --\\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -100,10 +100,9 @@ Table~\ref{tab:cross} fixes our distillation and varies only how the
 training data is acquired. \todo{fill from the completed selection
 matrix; the controlled-suite column is largely in hand.} Two things stand out. First, every acquisition baseline gets better
 when paired with our distillation, so the training-side gain is not
-tied to our own purchases. Second, switching to our purchasing rule
-improves the result further and cuts wasted budget roughly in half,
-because purchases stop at the quotas the support set demands and
-never go to out-of-task candidates.
+tied to our own purchases. Second, switching to our purchasing rule improves the result further;
+its budget-efficiency side, including the wasted fraction, is measured
+separately in Section~\ref{sec:rq5}.
 
 \begin{table}[t]
 \centering
@@ -114,11 +113,12 @@ the training procedure alone.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc cc@{}}
 \toprule
-\textbf{Distillation} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld\\
+\textbf{Distillation} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
+& \textbf{Macro} & $\Delta$\\
 \midrule
-Vanilla SFT & $0.215_{\pm.031}$ & -- & -- & --\\
+Vanilla SFT & $0.215_{\pm.031}$ & -- & -- & -- & -- & --\\
 Structured AD & -- & -- & --\\
 Agent distillation & -- & -- & --\\
 BB on-policy & -- & -- & --\\
@@ -126,7 +126,7 @@ dDPO & -- & -- & --\\
 PBSD & -- & -- & --\\
 STaR & -- & -- & --\\
 \midrule
-\rowcolor{rowours}\textbf{Ours (anchored objective)} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & --\\
+\rowcolor{rowours}\textbf{Ours (anchored objective)} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & -- & -- & --\\
 \bottomrule
 \end{tabular*}
 \end{table}
