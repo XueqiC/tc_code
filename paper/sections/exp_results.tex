@@ -29,8 +29,7 @@ and move to official test\_normal at freeze.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccc r@{}}
 \toprule
-\textbf{Method} & \makecell{App-\\World} & \makecell{BFCL\\v4}
-& \makecell{$\tau^2$-\\bench} & \makecell{ALF-\\World}
+\textbf{Method} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
 & \textbf{Macro} & $\Delta$\\
 \midrule
 \rowcolor{rowhead}Base student & $0.248_{\pm.035}$ & -- & -- & -- & -- & --\\
@@ -67,18 +66,17 @@ base student across the panel.
 \begin{table}[t]
 \centering
 \caption{Acquisition comparison with our distillation held fixed
-(controlled suite by external execution accuracy, AppWorld and BFCL by
-their official metrics; three seeds). Waste is the fraction of
-purchased tokens that never train the student.}
+(official metrics, three seeds). Waste is the fraction of purchased
+tokens that never train the student.}
 \label{tab:cross}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccc@{}}
 \toprule
-\textbf{Acquisition} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
-& \makecell{BFCL\\v4} & Waste $\downarrow$\\
+\textbf{Acquisition} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
+& Waste $\downarrow$\\
 \midrule
-\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Selection}}\\
+\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Selection}}\\
 Random subset & -- & -- & -- & --\\
 Embedding retrieval & -- & -- & -- & --\\
 LESS & -- & -- & -- & --\\
@@ -86,12 +84,12 @@ GIST & -- & -- & -- & --\\
 TRIM & -- & -- & -- & --\\
 ICONS & -- & -- & -- & --\\
 SmartAD & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Generation}}\\
+\rowcolor{rowhead}\multicolumn{6}{@{}l}{\emph{Generation}}\\
 Self-Instruct & -- & -- & -- & --\\
 Evol-Instruct & -- & -- & -- & --\\
 LLM2LLM & -- & -- & -- & --\\
 \midrule
-\rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & $\mathbf{0.03}$\\
+\rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & -- & $\mathbf{0.03}$\\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -116,12 +114,11 @@ the training procedure alone.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc@{}}
 \toprule
-\textbf{Distillation} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
-& \makecell{BFCL\\v4}\\
+\textbf{Distillation} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld\\
 \midrule
-Vanilla SFT & -- & $0.215_{\pm.031}$ & --\\
+Vanilla SFT & $0.215_{\pm.031}$ & -- & -- & --\\
 Structured AD & -- & -- & --\\
 Agent distillation & -- & -- & --\\
 BB on-policy & -- & -- & --\\
@@ -129,7 +126,7 @@ dDPO & -- & -- & --\\
 PBSD & -- & -- & --\\
 STaR & -- & -- & --\\
 \midrule
-\rowcolor{rowours}\textbf{Ours (anchored objective)} & -- & $\mathbf{0.284}_{\pm.037}$ & --\\
+\rowcolor{rowours}\textbf{Ours (anchored objective)} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & --\\
 \bottomrule
 \end{tabular*}
 \end{table}
