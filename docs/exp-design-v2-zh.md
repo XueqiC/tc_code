@@ -36,7 +36,10 @@ distillation 两个部件各用一张对照表单独证明。
 差异);GAIA(无干净 verifier 进训练环);WebShop(旧且信号弱于
 ALFWorld);BIRD/DS-1000(非 agent,移作 Table 2/3 的开发台与
 appendix 广度)。
-学生:4B 主列 + 9B(AppWorld/BFCL 两台展示规模趋势)。
+**模型固定(正文全程唯一配置)**:teacher = deepseek-v4-pro(唯一
+计费 teacher),student = **Qwen3.5-4B**——正文所有表格(1-5)只用
+这一对;2B / 9B / 0.8B 的全部结果(规模趋势、9B 的 .321 等)移入
+appendix 作规模研究,正文不混用。
 
 ## Table 2 · Data selection 对照(蒸馏部件固定为 Ours)
 
@@ -47,13 +50,14 @@ Evol-Instruct / LLM2LLM / **Ours(边际规则采购)**;
 主张:任何 selection 配我们的蒸馏都不掉,换成我们的 selection 再升
 (尤其浪费/覆盖两个效率指标列入)。
 
-## Table 3 · Distillation 对照(selection 固定为 Ours)
+## Table 3 · Distillation 对照(selection 固定为 Ours,行与 Table 1 对齐)
 
-行 = plain SFT / token 选择性损失(Rho-1 式)/ 分段损失(SAD 式)/
-孤立偏好阶段(DPO/ORPO 后置)/ **Ours(锚定分层 + NLL 门控统一
-目标 + 权重平均)**;列同 Table 2。
-主张:同一批数据,训练方式decides 生死——克隆掉、孤立偏好崩、
-我们的统一目标稳升(现有 AppWorld/gsm 证据已可预填大半)。
+行 = **与 Table 1 完全相同的 SOTA 蒸馏家族**(Vanilla SFT 克隆 /
+Structured AD / SmartAD 蒸馏部件 / 黑盒 on-policy / STaR)+ **Ours**,
+但全部喂**同一批我们采购的数据**;列同 Table 2。
+主张(与 Table 1 呼应,杀伤力最大):即便给这些 SOTA 蒸馏方法喂上
+与我们完全相同的数据,表现仍不如我们的蒸馏——Table 1 输可能怪数据,
+Table 3 把数据变量钉死,输的只能是蒸馏本身。
 
 ## Table 4 · Ablation(逐步累加)
 
