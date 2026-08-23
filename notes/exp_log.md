@@ -59,3 +59,5 @@ e9g_2b | final-gate atom rerun, 2B, 12 cells | hpg 39338655 | b2k atom2 .76; b10
 e9t_08b | boot3 final-protocol, 0.8B, b{2k,10k}, 3 seeds | rai | b2k boot3 .433±.07 (uni .522 emb .400); b10k boot3 .544±.07 (uni .644 emb .678) | 0.8B fingerprint SNR limits in-task; purity/waste still ours; scaling scope statement
 e9t_2b rescue COMPLETE (rai) | final protocol, 2B, 3 seeds | b20k: boot3 .889±.07 emb .944 uni .856; sqljoin PURITY 3/3: residue ours 0.000x3 vs uni .867±.03 emb .833±.03 (sql all 1.000) | results/e3_tier1_e9t_2b_*
 fam_b0_rai | 2B x 20k seed0 duel | rai | LLM2LLM plain .900 / ours-cur .833; ourscorr plain .900 / ours-cur .733 — in-task dead heat at plain; skill-level vs instance-level correction tie on seed0, verdict to purity/efficiency + more seeds
+awb2_star s0/s1/s2 | STaR (19 self rows, 0 teacher tok) | rai GPU2 | pooled partial .234/.229/.277 = .246±.026, TGC 1/120 | results/appworld/awb2_star_s*_eval
+awb2_bbopd s0 | BB-OPD (teacher relabel on-policy ctx, 20k tok) | rai GPU3 | pooled partial .197, TGC 0/40 | results/appworld/awb2_bbopd_s0_eval
