@@ -6,18 +6,17 @@ distillation 两个部件各用一张对照表单独证明。
 
 ## Table 1 · 主表:蒸馏方法对决
 
-**行(SOTA 蒸馏 baseline,全部同预算同 teacher)**:
-1. Base student(零样本下界)
-2. Vanilla SFT / 行为克隆(Orca、AgentTuning 风格:teacher 示范全量
-   SFT——蒸馏领域的标准做法)
-3. Structured Agent Distillation(liu2025structured,推理/动作分段
-   损失)
-4. SmartAD(tang2026smartad,容量对齐轨迹选择蒸馏)
-5. On-policy 蒸馏(黑盒 hard-label 版:学生 rollout + teacher 重标注,
-   DAgger 风格——代表 OPD 家族在无 logits 约束下的可实现形态)
-6. Self-improvement(STaR 风格:自采样 + 验证过滤再训——无 teacher
-   增益的对照)
-7. **Ours(v2.0 全法)**
+**行(按蒸馏分支组织,每支 1-2 个最新 SOTA,全部同预算同 teacher)**:
+- 分支 A 轨迹克隆/SFT 蒸馏:Vanilla SFT(参照)+ **Structured Agent
+  Distillation(2025,分段损失,分支 SOTA)**
+- 分支 B 容量/选择感知蒸馏:**SmartAD(2026)**
+- 分支 C on-policy 蒸馏:**Black-Box On-Policy Distillation(Ye &
+  Dong 2025,黑盒可实现,分支最新)**
+- 分支 D 偏好蒸馏:**dDPO/Zephyr 式(teacher 对学生采样排序 → 偏好
+  训练;hard-label 兼容)**(若核实到 25-26 更新代表则替换)
+- 分支 E 自提升:STaR(参照,无 teacher 增益对照)
+- **Ours(v2.0 全法)**
+共 7 行 + base 行;Table 3 用完全相同的行喂相同数据。
 每格 3 种子 mean±std;粗体列最优;附 Δ vs base 行(正/负一目了然——
 我们的核心卖点"唯一稳定为正"直接可见)。
 

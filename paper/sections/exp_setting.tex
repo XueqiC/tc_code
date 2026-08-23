@@ -20,18 +20,23 @@ and all teacher supervision is purchased from the same API under a
 matched token budget.
 
 \paragraph{Baselines.}
-The main comparison covers distillation methods for base models, all
-consuming the same budget from the same teacher. \emph{Vanilla SFT}
-clones the full set of purchased demonstrations
-\citep{mukherjee2023orca}. \emph{Structured Agent Distillation}
-\citep{liu2025structured} applies segment-specific losses over
-reasoning and action spans. \emph{SmartAD} \citep{tang2026smartad}
-selects trajectories aligned with student capacity before cloning.
-\emph{On-policy distillation} rolls out the student and purchases
-teacher relabels of its trajectories, the realizable black-box form of
-the on-policy family \citep{ross2011dagger}. \emph{Self-improvement}
-retrains on the student's own verified samples without further teacher
-supervision \citep{zelikman2022star}. Component studies additionally
+The main comparison covers the principal branches of base-model
+distillation, with one or two current representatives per branch, all
+consuming the same budget from the same teacher. Trajectory cloning is
+represented by \emph{Vanilla SFT} \citep{mukherjee2023orca} and by
+\emph{Structured Agent Distillation} \citep{liu2025structured}, which
+applies segment-specific losses over reasoning and action spans.
+Capacity-aware distillation is represented by \emph{SmartAD}
+\citep{tang2026smartad}, which selects trajectories aligned with
+student capacity before cloning. The on-policy branch is represented
+by \emph{Black-Box On-Policy Distillation} \citep{ye2025bbopd},
+which purchases teacher supervision on the student's own rollouts.
+Preference distillation is represented by a dDPO-style pipeline
+\citep{tunstall2023zephyr} in which the teacher ranks student samples
+and the ranking trains a preference objective. Self-improvement is
+represented by \emph{STaR} \citep{zelikman2022star}, which retrains
+on the student's own verified samples without further teacher
+supervision. Component studies additionally
 use selection baselines spanning classical and current families, namely
 random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
 \citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025},
