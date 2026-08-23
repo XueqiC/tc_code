@@ -28,7 +28,8 @@ teacher logits and fall outside the setting. From the labeling branch,
 sequence-level distillation on teacher demonstrations, we take
 \emph{Vanilla SFT} \citep{mukherjee2023orca} and \emph{Structured
 Agent Distillation} \citep{liu2025structured}, which refines it with
-segment-specific losses over reasoning and action spans. From the
+segment-specific losses over reasoning and action spans, together with
+the agent-domain representative of \citet{kang2025distilling}. From the
 curation branch we take \emph{SmartAD} \citep{tang2026smartad},
 which selects trajectories aligned with student capacity before
 training. From the feedback branch we take \emph{dDPO}
