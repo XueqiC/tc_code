@@ -27,7 +27,7 @@ and move to official test\_normal at freeze.}
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}l ccccc r@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccc r@{}}
 \toprule
 \textbf{Method} & \makecell{App-\\World} & \makecell{BFCL\\v4}
 & \makecell{$\tau^2$-\\bench} & \makecell{ALF-\\World}
@@ -45,7 +45,7 @@ STaR & -- & -- & -- & -- & -- & --\\
 \midrule
 \rowcolor{rowours}\textbf{Ours} & $\mathbf{0.284}_{\pm.037}$ & -- & -- & -- & -- & --\\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 \subsection{RQ1, comparison with distillation baselines}
@@ -73,7 +73,7 @@ purchased tokens that never train the student.}
 \label{tab:cross}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}l cccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc@{}}
 \toprule
 \textbf{Acquisition} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
 & \makecell{BFCL\\v4} & Waste $\downarrow$\\
@@ -93,7 +93,7 @@ LLM2LLM & -- & -- & -- & --\\
 \midrule
 \rowcolor{rowours}\textbf{Ours (marginal rule)} & -- & -- & -- & $\mathbf{0.03}$\\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 \subsection{RQ2, value of the acquisition component}
@@ -116,7 +116,7 @@ the training procedure alone.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}l ccc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc@{}}
 \toprule
 \textbf{Distillation} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
 & \makecell{BFCL\\v4}\\
@@ -131,7 +131,7 @@ STaR & -- & -- & --\\
 \midrule
 \rowcolor{rowours}\textbf{Ours (anchored objective)} & -- & $\mathbf{0.284}_{\pm.037}$ & --\\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 \subsection{RQ3, value of the distillation component}
@@ -156,7 +156,7 @@ three seeds).}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}l cc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cc@{}}
 \toprule
 \textbf{Configuration} & AppWorld & $\Delta$\\
 \midrule
@@ -166,7 +166,7 @@ Cloning baseline & $0.215_{\pm.031}$ & --\\
 + checkpoint averaging & -- & --\\
 + marginal acquisition (full method) & -- & --\\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 \subsection{RQ4, component ablation}
