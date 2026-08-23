@@ -32,9 +32,11 @@ teacher relabels of its trajectories, the realizable black-box form of
 the on-policy family \citep{ross2011dagger}. \emph{Self-improvement}
 retrains on the student's own verified samples without further teacher
 supervision \citep{zelikman2022star}. Component studies additionally
-use selection baselines, namely random subsets, embedding retrieval,
-LESS \citep{xia2024less}, Self-Instruct \citep{wang2023selfinstruct},
-Evol-Instruct \citep{xu2024wizardlm}, and LLM2LLM \citep{lee2024llm2llm}.
+use selection baselines spanning classical and current families, namely
+random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
+\citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025},
+Self-Instruct \citep{wang2023selfinstruct}, Evol-Instruct
+\citep{xu2024wizardlm}, and LLM2LLM \citep{lee2024llm2llm}.
 
 \paragraph{Evaluation.}
 The primary metric is in-task performance under each benchmark's
@@ -55,5 +57,6 @@ every threshold in the method is a statistical convention or is
 estimated from the support set, and full constants are listed in
 Appendix~\ref{app:details}. Experiments run on a local server with
 five mixed NVIDIA GPUs (48--96GB) for simulator-bound evaluation and
-on HiPerGator B200 nodes for training sweeps; a full run of one method
-on one benchmark takes two to five GPU hours at 4B.
+on a university cluster with NVIDIA B200 nodes for training sweeps; a
+full run of one method on one benchmark takes two to five GPU hours at
+4B.

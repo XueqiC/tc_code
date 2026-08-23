@@ -43,7 +43,9 @@ appendix 作规模研究,正文不混用。
 
 ## Table 2 · Data selection 对照(蒸馏部件固定为 Ours)
 
-行 = random / embedding 检索 / LESS / SmartAD-选择 / Self-Instruct /
+行 = random / embedding 检索 / LESS(2024 经典)/ **GIST(2026,
+耦合优化几何定向选择)/ TRIM(2025,token 级注意力显著度)/ ICONS
+(2025,梯度影响共识)**(三个 25-26 SOTA,忠实复现)/ Self-Instruct /
 Evol-Instruct / LLM2LLM / **Ours(边际规则采购)**;
 列 = 受控套件(外部 200 题)+ AppWorld + BFCL(轻量二台);
 全部 + 我们的蒸馏(锚定分层 + 门控目标)。
