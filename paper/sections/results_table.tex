@@ -12,9 +12,9 @@
 \caption{Main comparison across the full benchmark panel (student 2B unless
 noted; matched token budgets; 3 seeds, mean$\pm$std). Controlled suite
 reports execution accuracy on the five-domain mechanistic suite; std as subscript; agent
-environments report each benchmark's convention (success rate for AppWorld
-and ALFWorld, tool-call accuracy for BFCL~v4, task success for
-$\tau^2$-bench, score for WebShop). Macro = average over available columns.
+environments report each benchmark's convention (success rate for
+AppWorld, pass rate for $\tau$-bench, execution accuracy for BIRD and
+DS-1000). Macro = average over available columns.
 Dashes mark runs pending the frozen protocol. AppWorld entries are the
 development protocol (4B student, dev split, 40 tasks at 24 steps,
 per-test partial credit, three seeds for trained arms and three
@@ -24,25 +24,25 @@ on test\_normal replaces them at freeze.
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{3.6pt}
-\begin{tabular}{@{}l cccccc c@{}}
+\begin{tabular}{@{}l ccccc c@{}}
 \toprule
 \textbf{Method} & \makecell{Ctrl.\\suite} & \makecell{App-\\World}
-& \makecell{BFCL\\v4} & \makecell{$\tau^2$-\\bench} & \makecell{ALF-\\World}
-& \makecell{Web-\\Shop} & \textbf{Macro}\\
+& \makecell{$\tau$-\\bench} & \makecell{BIRD} & \makecell{DS-\\1000}
+& \textbf{Macro}\\
 \midrule
-\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{No selection}}\\
-Base student                & $0.000$ & $0.248_{\pm.035}$ & -- & -- & -- & -- & --\\
-Full pool SFT               & --      & $0.215_{\pm.031}$ & -- & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Selection baselines}}\\
-Random subset               & $0.878_{\pm.042}$ & $0.202_{\pm.009}$ & -- & -- & -- & -- & --\\
-Embedding retrieval         & $0.800_{\pm.027}$ & $0.204_{\pm.012}$ & -- & -- & -- & -- & --\\
-LESS \citep{xia2024less}    & $0.911_{\pm.041}$ & $0.207_{\pm.018}$ & -- & -- & -- & -- & --\\
-SmartAD \citep{tang2026smartad} & $0.822_{\pm.042}$ & $0.200_{\pm.006}$ & -- & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Distillation baselines}}\\
-Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & -- & --\\
-SOD (on-policy)             & -- & -- & -- & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{8}{@{}l}{\emph{Ours}}\\
-\rowcolor{rowours}SpecDistill (ours)         & $\mathbf{0.922}_{\pm.016}$ & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{No selection}}\\
+Base student                & $0.000$ & $0.248_{\pm.035}$ & -- & -- & -- & --\\
+Full pool SFT               & --      & $0.215_{\pm.031}$ & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Selection baselines}}\\
+Random subset               & $0.878_{\pm.042}$ & $0.202_{\pm.009}$ & -- & -- & -- & --\\
+Embedding retrieval         & $0.800_{\pm.027}$ & $0.204_{\pm.012}$ & -- & -- & -- & --\\
+LESS \citep{xia2024less}    & $0.911_{\pm.041}$ & $0.207_{\pm.018}$ & -- & -- & -- & --\\
+SmartAD \citep{tang2026smartad} & $0.822_{\pm.042}$ & $0.200_{\pm.006}$ & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Distillation baselines}}\\
+Structured AD \citep{liu2025structured} & -- & -- & -- & -- & -- & --\\
+SOD (on-policy)             & -- & -- & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Ours}}\\
+\rowcolor{rowours}SpecDistill (ours)         & $\mathbf{0.922}_{\pm.016}$ & -- & -- & -- & -- & --\\
 \bottomrule
 \end{tabular}
 \end{table}
