@@ -1900,12 +1900,18 @@ def build_selections(config, tokenizer, pool):
                     off_idx = [i for i, row in enumerate(pool)
                                if row["domain"] != task_dom]
                     if off_idx:
+                        if tvdict:
+                            pool_tv_all = np.hstack(
+                                [_BOOT_STATE["pool_prompt_feat"],
+                                 pool_feat]
+                            )
+                        else:
+                            pool_tv_all = pool_feat
                         off_codes = np.abs(dict_boot.transform(
-                            np.vstack([pool_feat[i][None]
-                                       for i in off_idx])
+                            pool_tv_all[off_idx]
                         )).sum(axis=0)
                         all_codes = np.abs(dict_boot.transform(
-                            pool_feat)).sum(axis=0)
+                            pool_tv_all)).sum(axis=0)
                         kappa_r = off_codes / np.maximum(
                             all_codes, 1e-12)
                         disp = (rem_codes * kappa_r[None, :]).sum(axis=1)
