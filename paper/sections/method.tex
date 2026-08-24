@@ -215,11 +215,17 @@ greedy selection inherits the classical near-optimality guarantee
 says the true cost of a candidate exceeds its token price whenever
 training on it would drag capabilities the student already holds. The
 $\kappa^{r}$ sum charges a candidate for the interference the
-dictionary predicts it will cause, moving the protection of existing
-capability from repair after training to avoidance before purchase,
-and the $\Delta_{\mathrm{anchor}}$ term does the same for the
+dictionary predicts it will cause, and the
+$\Delta_{\mathrm{anchor}}$ term does the same for the dilution of the
 student's own verified rows, whose share of the mix is what Stage III
-relies on.
+relies on. When the interference is carried by the task's own demanded
+atoms, no candidate is cheaper than another and the charge cannot
+steer selection; what it does instead is lower every price, so
+spending halts as soon as the marginal gain no longer covers the
+predicted harm. The displacement term is therefore a budget-efficiency
+mechanism, stopping purchases the moment they stop paying for
+themselves, while the protection of held capability is carried by the
+anchor in Stage III.
 
 The remaining machinery of earlier pipelines then follows as
 consequences rather than modules. A self-solved trajectory costs
