@@ -2,10 +2,11 @@
 # Sequentially score trained arms on BFCL v4: merge LoRA -> serve -> generate -> evaluate.
 # Usage: bash tools/bfcl_arm_campaign.sh <gpu> <tag1> [tag2 ...]
 set -u
-GPU=$1; shift
+GPU=$1; PORT=$2; shift 2
 PROJ=/home/xueqi/hq/projects/tc-alignment
 BFCL_DIR=$PROJ/envs/bfcl
-PORT=8901
+RES_SUB=result_p$PORT
+SCORE_SUB=score_p$PORT
 cd "$PROJ"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
@@ -56,14 +57,15 @@ PYEOF
   . .venv/bin/activate
   export LOCAL_SERVER_ENDPOINT=localhost LOCAL_SERVER_PORT=$PORT
   RESULT_ROOT=$BFCL_DIR/gorilla/berkeley-function-call-leaderboard
-  rm -rf "$RESULT_ROOT/result/Qwen_Qwen3.5-4B-FC"
   bfcl generate --model Qwen/Qwen3.5-4B-FC --test-category all --skip-server-setup --num-threads 8 \
+    --result-dir "$RES_SUB" \
     > "$PROJ/logs/bfcl_gen_${TAG}.log" 2>&1
-  bfcl evaluate --model Qwen/Qwen3.5-4B-FC > "$PROJ/logs/bfcl_eval_${TAG}.log" 2>&1
+  bfcl evaluate --model Qwen/Qwen3.5-4B-FC --result-dir "$RES_SUB" --score-dir "$SCORE_SUB" \
+    > "$PROJ/logs/bfcl_eval_${TAG}.log" 2>&1
   mkdir -p "$PROJ/results/bfcl/$TAG"
-  cp "$RESULT_ROOT/score/data_overall.csv" "$PROJ/results/bfcl/$TAG/" 2>/dev/null
-  cp -r "$RESULT_ROOT/score/Qwen_Qwen3.5-4B-FC" "$PROJ/results/bfcl/$TAG/scoredir" 2>/dev/null
-  rm -rf "$RESULT_ROOT/score/Qwen_Qwen3.5-4B-FC" "$RESULT_ROOT/result/Qwen_Qwen3.5-4B-FC"
+  cp "$RESULT_ROOT/$SCORE_SUB/data_overall.csv" "$PROJ/results/bfcl/$TAG/" 2>/dev/null
+  cp -r "$RESULT_ROOT/$SCORE_SUB/Qwen_Qwen3.5-4B-FC" "$PROJ/results/bfcl/$TAG/scoredir" 2>/dev/null
+  rm -rf "$RESULT_ROOT/$SCORE_SUB/Qwen_Qwen3.5-4B-FC" "$RESULT_ROOT/$RES_SUB/Qwen_Qwen3.5-4B-FC"
   deactivate
   cd "$PROJ"
   OV=$(python3 -c "import csv;print([r['Overall Acc'] for r in csv.DictReader(open('results/bfcl/$TAG/data_overall.csv'))][0])" 2>/dev/null)
