@@ -76,3 +76,5 @@ bfcl awb2_star_s1 | STaR BFCL v4 | rai GPU4 | 44.34% (above base 43.55) | result
 bfcl awb_full_s1 | Vanilla SFT BFCL v4 | rai GPU3 | 39.78% | results/bfcl/awb_full_s1
 bfcl awb2_star_s2 | STaR BFCL v4 | rai GPU4 | 45.81% | results/bfcl/awb2_star_s2
 bfcl awb_full FINAL | Vanilla SFT BFCL 3 seeds | rai | 0.380±.016 (36.63/39.78/37.71) | Table1
+bfcl awb2_bbopd_s0 | BB-OPD BFCL v4 | rai GPU4 | 43.13% (~base) | results/bfcl/awb2_bbopd_s0
+bfcl awb2_star FINAL | STaR BFCL 3 seeds | rai | 0.452±.008 (above base 0.436) | Table1
