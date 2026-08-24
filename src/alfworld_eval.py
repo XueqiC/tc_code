@@ -57,8 +57,9 @@ def main() -> int:
     config["env"]["type"] = "AlfredTWEnv"
 
     env_cls = environment.get_environment("AlfredTWEnv")
-    env = env_cls(config, train_eval="eval_out_of_distribution")
-    env = env.init_env(batch_size=1)
+    alf = env_cls(config, train_eval="eval_out_of_distribution")
+    total_games = getattr(alf, "num_games", args.num_games)
+    env = alf.init_env(batch_size=1)
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -72,7 +73,7 @@ def main() -> int:
     out_dir = Path("results/alfworld") / args.tag
     out_dir.mkdir(parents=True, exist_ok=True)
     records = []
-    n_games = min(args.num_games, env.num_games)
+    n_games = min(args.num_games, total_games)
     for game_i in range(n_games):
         obs, info = env.reset()
         obs0 = obs[0]
