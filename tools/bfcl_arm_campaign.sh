@@ -11,24 +11,12 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
 for TAG in "$@"; do
   ADAPTER=$PROJ/results/appworld_students/$TAG/adapter
-  MERGED=$PROJ/results/appworld_students/$TAG/merged
   MODEL_NAME="Qwen/Qwen3.5-4B"
   if [ ! -d "$ADAPTER" ]; then echo "[bfclarm] $TAG NO ADAPTER, skip"; continue; fi
-  if [ ! -d "$MERGED" ]; then
-    CUDA_VISIBLE_DEVICES=$GPU .venv/bin/python - "$ADAPTER" "$MERGED" << 'PYEOF'
-import sys, torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from peft import PeftModel
-adapter, out = sys.argv[1], sys.argv[2]
-base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3.5-4B", dtype=torch.bfloat16, device_map="cpu")
-m = PeftModel.from_pretrained(base, adapter)
-m = m.merge_and_unload()
-m.save_pretrained(out)
-AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B").save_pretrained(out)
-print("merged ->", out)
-PYEOF
-    [ -d "$MERGED" ] || { echo "[bfclarm] $TAG MERGE FAILED"; continue; }
+  if [ -f "$ADAPTER/adapter_config.json" ]; then
+    echo "[bfclarm] $TAG is a raw PEFT adapter, unsupported here"; continue
   fi
+  MERGED=$ADAPTER
   # stop any previous server on the port
   PREV=$(lsof -ti tcp:$PORT 2>/dev/null | head -1)
   if [ -n "${PREV:-}" ]; then kill $PREV; sleep 10; fi
