@@ -774,8 +774,10 @@ def distillation_config() -> dict[str, Any] | None:
     raw_mode = os.environ.get("AW_DISTILL", "").strip().lower()
     if not raw_mode:
         return None
-    if raw_mode not in {"sad", "ddpo"}:
-        raise ValueError("AW_DISTILL must be 'sad' or 'ddpo'")
+    if raw_mode not in {"sad", "ddpo", "pbsd", "agentkd"}:
+        raise ValueError(
+            "AW_DISTILL must be 'sad', 'ddpo', 'pbsd', or 'agentkd'"
+        )
 
     def env_float(name: str, default: float, *, strictly_positive: bool) -> float:
         raw_value = os.environ.get(name, str(default))
@@ -799,6 +801,15 @@ def distillation_config() -> dict[str, Any] | None:
                 "AW_SAD_WA", 1.0, strictly_positive=False
             ),
         }
+
+    if raw_mode == "pbsd":
+        return {
+            "mode": "pbsd",
+            "beta": env_float("AW_PBSD_BETA", 0.1, strictly_positive=True),
+        }
+
+    if raw_mode == "agentkd":
+        return {"mode": "agentkd"}
 
     raw_epochs = os.environ.get("AW_DDPO_EPOCHS", "1")
     try:
@@ -918,6 +929,39 @@ def rejected_row(row: dict[str, Any]) -> dict[str, Any]:
         "messages": row.get("messages"),
         "response": row["_rejected"],
     }
+
+
+_REASONING_START_RE = re.compile(
+    r"^\s*(?:<think(?:ing)?>|<reasoning>|<analysis>|"
+    r"(?:#{1,6}\s*)?(?:thought|reasoning)\s*:)",
+    flags=re.IGNORECASE,
+)
+
+
+def starts_with_reasoning_segment(response: str) -> bool:
+    """Whether an assistant response already opens with an explicit thought."""
+    if _REASONING_START_RE.match(response):
+        return True
+    # Qwen thinking responses can omit the opening tag while retaining the
+    # closing tag before the first action block.
+    stripped = response.lstrip()
+    thought_end = stripped.find("</think>")
+    action_start = stripped.find("```")
+    return thought_end >= 0 and (action_start < 0 or thought_end < action_start)
+
+
+def agentkd_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Return a row whose target has the optional first-thought prefix."""
+    thought = row.get("_thought")
+    if (
+        not isinstance(thought, str)
+        or not thought.strip()
+        or starts_with_reasoning_segment(row["response"])
+    ):
+        return row
+    training_row = dict(row)
+    training_row["response"] = thought + row["response"]
+    return training_row
 
 
 def completion_log_prob(
@@ -1068,6 +1112,7 @@ def train_student(
     rng = np.random.default_rng(seed)
     optimizer_steps = 0
     distill_mode = None if distillation is None else distillation["mode"]
+    pbsd_nll_ema: float | None = None
     try:
         optimizer.zero_grad(set_to_none=True)
         for epoch in range(EPOCHS):
@@ -1076,7 +1121,10 @@ def train_student(
                 chunk = order[start : start + GRADIENT_ACCUMULATION]
                 for row_index in chunk:
                     row = rows[int(row_index)]
-                    input_ids, labels = encode(tokenizer, row)
+                    training_row = (
+                        agentkd_row(row) if distill_mode == "agentkd" else row
+                    )
+                    input_ids, labels = encode(tokenizer, training_row)
                     if distill_mode == "sad":
                         reasoning_mask, action_mask = sad_token_masks(
                             tokenizer, row, labels
@@ -1092,6 +1140,42 @@ def train_student(
                         ) / len(chunk)
                     elif distill_mode == "ddpo":
                         # DDPO begins with the same vanilla SFT stage.
+                        loss = model(
+                            input_ids=input_ids, labels=labels
+                        ).loss / len(chunk)
+                    elif distill_mode == "pbsd":
+                        # PBSD jointly learns every teacher positive and the
+                        # currently learnable teacher/student preference pairs.
+                        chosen_nll = model(
+                            input_ids=input_ids, labels=labels
+                        ).loss
+                        raw_nll = float(chosen_nll.detach().item())
+                        pbsd_nll_ema = (
+                            raw_nll
+                            if pbsd_nll_ema is None
+                            else 0.99 * pbsd_nll_ema + 0.01 * raw_nll
+                        )
+                        loss = chosen_nll
+                        if (
+                            isinstance(row.get("_rejected"), str)
+                            and bool(row["_rejected"])
+                            and raw_nll <= pbsd_nll_ema
+                        ):
+                            rejected_ids, rejected_labels = encode(
+                                tokenizer, rejected_row(row)
+                            )
+                            policy_margin = completion_log_prob(
+                                model, input_ids, labels
+                            ) - completion_log_prob(
+                                model, rejected_ids, rejected_labels
+                            )
+                            preference_loss = -F.logsigmoid(policy_margin)
+                            loss = (
+                                loss
+                                + float(distillation["beta"]) * preference_loss
+                            )
+                        loss = loss / len(chunk)
+                    elif distill_mode == "agentkd":
                         loss = model(
                             input_ids=input_ids, labels=labels
                         ).loss / len(chunk)
