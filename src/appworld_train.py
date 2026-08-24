@@ -770,6 +770,283 @@ def smartad_weighted_loss(
     ).sum() / denominator
 
 
+def distillation_config() -> dict[str, Any] | None:
+    raw_mode = os.environ.get("AW_DISTILL", "").strip().lower()
+    if not raw_mode:
+        return None
+    if raw_mode not in {"sad", "ddpo"}:
+        raise ValueError("AW_DISTILL must be 'sad' or 'ddpo'")
+
+    def env_float(name: str, default: float, *, strictly_positive: bool) -> float:
+        raw_value = os.environ.get(name, str(default))
+        try:
+            value = float(raw_value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a number; got {raw_value!r}") from exc
+        lower_bound_violated = value <= 0 if strictly_positive else value < 0
+        if not math.isfinite(value) or lower_bound_violated:
+            qualifier = "positive" if strictly_positive else "non-negative"
+            raise ValueError(f"{name} must be a finite {qualifier} number")
+        return value
+
+    if raw_mode == "sad":
+        return {
+            "mode": "sad",
+            "reasoning_weight": env_float(
+                "AW_SAD_WR", 1.0, strictly_positive=False
+            ),
+            "action_weight": env_float(
+                "AW_SAD_WA", 1.0, strictly_positive=False
+            ),
+        }
+
+    raw_epochs = os.environ.get("AW_DDPO_EPOCHS", "1")
+    try:
+        epochs = int(raw_epochs)
+    except ValueError as exc:
+        raise ValueError(
+            f"AW_DDPO_EPOCHS must be a positive integer; got {raw_epochs!r}"
+        ) from exc
+    if epochs <= 0:
+        raise ValueError("AW_DDPO_EPOCHS must be a positive integer")
+    return {
+        "mode": "ddpo",
+        "epochs": epochs,
+        "learning_rate": env_float(
+            "AW_DDPO_LR", 5e-6, strictly_positive=True
+        ),
+        "beta": env_float("AW_DDPO_BETA", 0.1, strictly_positive=True),
+    }
+
+
+def action_spans(response: str) -> list[tuple[int, int]]:
+    """Return character spans for code inside paired triple-backtick fences."""
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    while True:
+        opening = response.find("```", cursor)
+        if opening < 0:
+            break
+        after_opening = opening + 3
+        newline = response.find("\n", after_opening)
+        closing = response.find("```", after_opening)
+        if closing < 0:
+            break
+        if newline < 0 or closing < newline:
+            action_start = after_opening
+        else:
+            # The opening fence's optional language tag is not executable code.
+            action_start = newline + 1
+            closing = response.find("```", action_start)
+            if closing < 0:
+                break
+        if action_start < closing:
+            spans.append((action_start, closing))
+        cursor = closing + 3
+    return spans
+
+
+def sad_token_masks(
+    tokenizer: Any, row: dict[str, Any], labels: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Align reasoning/action character spans with supervised label tokens."""
+    tokenized = tokenizer(
+        row["response"], add_special_tokens=False, return_offsets_mapping=True
+    )
+    offsets = tokenized["offset_mapping"]
+    label_positions = torch.nonzero(labels[0] != -100, as_tuple=False).flatten()
+    response_token_count = len(label_positions) - 1  # the last label is EOS
+    if response_token_count < 0 or len(offsets) < response_token_count:
+        raise RuntimeError("could not align SAD spans with response labels")
+
+    action_mask = torch.zeros_like(labels, dtype=torch.bool)
+    spans = action_spans(row["response"])
+    for token_index, (token_start, token_end) in enumerate(
+        offsets[:response_token_count]
+    ):
+        if token_end <= token_start:
+            continue
+        if any(
+            token_start < span_end and token_end > span_start
+            for span_start, span_end in spans
+        ):
+            action_mask[0, label_positions[token_index]] = True
+    reasoning_mask = (labels != -100) & ~action_mask
+    return reasoning_mask, action_mask
+
+
+def sad_loss(
+    model: Any,
+    input_ids: torch.Tensor,
+    labels: torch.Tensor,
+    reasoning_mask: torch.Tensor,
+    action_mask: torch.Tensor,
+    reasoning_weight: float,
+    action_weight: float,
+) -> torch.Tensor:
+    logits = model(input_ids=input_ids).logits
+    shift_logits = logits[:, :-1, :].contiguous()
+    shift_labels = labels[:, 1:].contiguous()
+    token_losses = F.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1),
+        reduction="none",
+        ignore_index=-100,
+    ).reshape_as(shift_labels).float()
+    shift_reasoning = reasoning_mask[:, 1:].contiguous()
+    shift_action = action_mask[:, 1:].contiguous()
+
+    # A response need not contain both span types.  The absent component is
+    # exactly zero; each present component is normalized only by its own count.
+    zero = token_losses.sum() * 0.0
+    reasoning_loss = (
+        token_losses.masked_select(shift_reasoning).mean()
+        if shift_reasoning.any()
+        else zero
+    )
+    action_loss = (
+        token_losses.masked_select(shift_action).mean()
+        if shift_action.any()
+        else zero
+    )
+    return reasoning_weight * reasoning_loss + action_weight * action_loss
+
+
+def rejected_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "prompt": row["prompt"],
+        "messages": row.get("messages"),
+        "response": row["_rejected"],
+    }
+
+
+def completion_log_prob(
+    model: Any, input_ids: torch.Tensor, labels: torch.Tensor
+) -> torch.Tensor:
+    """Return the summed response log-probability used by sequence-level DPO."""
+    logits = model(input_ids=input_ids).logits
+    shift_logits = logits[:, :-1, :].contiguous()
+    shift_labels = labels[:, 1:].contiguous()
+    token_nll = F.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1),
+        reduction="none",
+        ignore_index=-100,
+    ).reshape_as(shift_labels)
+    return -token_nll.float().sum()
+
+
+def ddpo_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if isinstance(row.get("_rejected"), str) and bool(row["_rejected"])
+    ]
+
+
+@torch.inference_mode()
+def cache_ddpo_reference_log_probs(
+    model: Any, tokenizer: Any, rows: list[dict[str, Any]]
+) -> int:
+    """Cache initial-policy log-probs before SFT changes the LoRA adapter."""
+    preference_rows = ddpo_rows(rows)
+    if not preference_rows:
+        print("[train][ddpo] reference_rows=0", flush=True)
+        return 0
+
+    was_training = model.training
+    was_use_cache = model.config.use_cache
+    model.config.use_cache = False
+    model.eval()
+    try:
+        with model.disable_adapter():
+            for row_number, row in enumerate(preference_rows, start=1):
+                chosen_ids, chosen_labels = encode(tokenizer, row)
+                rejected_ids, rejected_labels = encode(tokenizer, rejected_row(row))
+                row["_ddpo_ref_chosen_logp"] = float(
+                    completion_log_prob(model, chosen_ids, chosen_labels).item()
+                )
+                row["_ddpo_ref_rejected_logp"] = float(
+                    completion_log_prob(model, rejected_ids, rejected_labels).item()
+                )
+                if row_number % 100 == 0 or row_number == len(preference_rows):
+                    print(
+                        f"[train][ddpo] reference_rows={row_number}/"
+                        f"{len(preference_rows)}",
+                        flush=True,
+                    )
+    finally:
+        model.train(was_training)
+        model.config.use_cache = was_use_cache
+    return len(preference_rows)
+
+
+def train_ddpo(
+    model: Any,
+    tokenizer: Any,
+    rows: list[dict[str, Any]],
+    seed: int,
+    epochs: int,
+    learning_rate: float,
+    beta: float,
+) -> int:
+    """Run distilled DPO after SFT using the cached initial-policy reference."""
+    preference_rows = ddpo_rows(rows)
+    if not preference_rows:
+        print("[train][ddpo] skipped: no rows carry a non-empty _rejected", flush=True)
+        return 0
+    for row in preference_rows:
+        if (
+            "_ddpo_ref_chosen_logp" not in row
+            or "_ddpo_ref_rejected_logp" not in row
+        ):
+            raise RuntimeError("DDPO reference log-probabilities were not cached")
+
+    model.config.use_cache = False
+    model.train()
+    optimizer = torch.optim.AdamW(
+        [parameter for parameter in model.parameters() if parameter.requires_grad],
+        lr=learning_rate,
+    )
+    rng = np.random.default_rng(seed)
+    optimizer_steps = 0
+    try:
+        optimizer.zero_grad(set_to_none=True)
+        for epoch in range(epochs):
+            order = rng.permutation(len(preference_rows))
+            for start in range(0, len(order), GRADIENT_ACCUMULATION):
+                chunk = order[start : start + GRADIENT_ACCUMULATION]
+                for row_index in chunk:
+                    row = preference_rows[int(row_index)]
+                    chosen_ids, chosen_labels = encode(tokenizer, row)
+                    rejected_ids, rejected_labels = encode(
+                        tokenizer, rejected_row(row)
+                    )
+                    policy_margin = completion_log_prob(
+                        model, chosen_ids, chosen_labels
+                    ) - completion_log_prob(model, rejected_ids, rejected_labels)
+                    reference_margin = (
+                        float(row["_ddpo_ref_chosen_logp"])
+                        - float(row["_ddpo_ref_rejected_logp"])
+                    )
+                    loss = -F.logsigmoid(
+                        beta * (policy_margin - reference_margin)
+                    ) / len(chunk)
+                    loss.backward()
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                optimizer_steps += 1
+            print(
+                f"[train][ddpo] epoch={epoch + 1}/{epochs} "
+                f"optimizer_steps={optimizer_steps}",
+                flush=True,
+            )
+    finally:
+        del optimizer
+    model.config.use_cache = True
+    return optimizer_steps
+
+
 _AW_NLL_EMA = None
 
 
@@ -779,6 +1056,7 @@ def train_student(
     rows: list[dict[str, Any]],
     seed: int,
     smartad: bool,
+    distillation: dict[str, Any] | None = None,
 ) -> int:
     """Train for three epochs with true final-chunk gradient accumulation."""
     model.config.use_cache = False
@@ -789,6 +1067,7 @@ def train_student(
     )
     rng = np.random.default_rng(seed)
     optimizer_steps = 0
+    distill_mode = None if distillation is None else distillation["mode"]
     try:
         optimizer.zero_grad(set_to_none=True)
         for epoch in range(EPOCHS):
@@ -798,7 +1077,25 @@ def train_student(
                 for row_index in chunk:
                     row = rows[int(row_index)]
                     input_ids, labels = encode(tokenizer, row)
-                    if os.environ.get("AW_UNIORPO") == "1":
+                    if distill_mode == "sad":
+                        reasoning_mask, action_mask = sad_token_masks(
+                            tokenizer, row, labels
+                        )
+                        loss = sad_loss(
+                            model,
+                            input_ids,
+                            labels,
+                            reasoning_mask,
+                            action_mask,
+                            float(distillation["reasoning_weight"]),
+                            float(distillation["action_weight"]),
+                        ) / len(chunk)
+                    elif distill_mode == "ddpo":
+                        # DDPO begins with the same vanilla SFT stage.
+                        loss = model(
+                            input_ids=input_ids, labels=labels
+                        ).loss / len(chunk)
+                    elif os.environ.get("AW_UNIORPO") == "1":
                         loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                         raw_nll = float(loss.item()) * len(chunk)
                         global _AW_NLL_EMA
@@ -951,6 +1248,8 @@ def write_manifest(
     selected: list[dict[str, Any]],
     details: dict[str, Any],
     optimizer_steps: int | None = None,
+    distillation: dict[str, Any] | None = None,
+    ddpo_optimizer_steps: int | None = None,
 ) -> dict[str, Any]:
     stats = selection_stats(args, pool, selected, details)
     manifest: dict[str, Any] = {
@@ -971,7 +1270,9 @@ def write_manifest(
                 "bias": "none",
                 "target_modules": list(LORA_TARGET_MODULES),
             },
-            "smartad_segment_weighting": args.selection == "smartad_std",
+            "smartad_segment_weighting": (
+                args.selection == "smartad_std" and distillation is None
+            ),
         },
         "selection_stats": stats,
         "rows": [manifest_row(row) for row in selected],
@@ -980,6 +1281,12 @@ def write_manifest(
             "format": "merged_huggingface_model",
         },
     }
+    if distillation is not None:
+        manifest["training"]["distillation"] = dict(distillation)
+        if ddpo_optimizer_steps is not None:
+            manifest["training"]["distillation"]["optimizer_steps"] = (
+                ddpo_optimizer_steps
+            )
     if optimizer_steps is not None:
         manifest["training"]["optimizer_steps"] = optimizer_steps
     path.write_text(
@@ -998,6 +1305,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if not torch.cuda.is_bf16_supported():
         raise RuntimeError("the visible CUDA device does not support bfloat16")
 
+    distillation = distillation_config()
     seed_everything(args.seed)
     rows = load_pool(POOL_PATH)
     teacher_filter = os.environ.get("AW_TEACHER", "").strip()
@@ -1014,16 +1322,40 @@ def main(argv: Sequence[str] | None = None) -> None:
     adapter_dir = output_dir / "adapter"
     manifest_path = output_dir / "selection_manifest.json"
     output_dir.mkdir(parents=True, exist_ok=True)
-    write_manifest(manifest_path, args, rows, selected, details)
+    if distillation is not None and distillation["mode"] == "ddpo":
+        distillation["preference_rows"] = len(ddpo_rows(selected))
+    write_manifest(
+        manifest_path,
+        args,
+        rows,
+        selected,
+        details,
+        distillation=distillation,
+    )
 
     model = build_lora_model(args.student, args.seed)
-    optimizer_steps = train_student(
+    if distillation is not None and distillation["mode"] == "ddpo":
+        cache_ddpo_reference_log_probs(model, tokenizer, selected)
+    sft_optimizer_steps = train_student(
         model,
         tokenizer,
         selected,
         args.seed,
         smartad=args.selection == "smartad_std",
+        distillation=distillation,
     )
+    ddpo_optimizer_steps = 0
+    if distillation is not None and distillation["mode"] == "ddpo":
+        ddpo_optimizer_steps = train_ddpo(
+            model,
+            tokenizer,
+            selected,
+            args.seed,
+            epochs=int(distillation["epochs"]),
+            learning_rate=float(distillation["learning_rate"]),
+            beta=float(distillation["beta"]),
+        )
+    optimizer_steps = sft_optimizer_steps + ddpo_optimizer_steps
 
     # The requested adapter directory is self-contained: fold LoRA into the
     # student weights before saving so evaluation does not need a base model plus PEFT.
@@ -1038,6 +1370,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         selected,
         details,
         optimizer_steps=optimizer_steps,
+        distillation=distillation,
+        ddpo_optimizer_steps=(
+            ddpo_optimizer_steps
+            if distillation is not None and distillation["mode"] == "ddpo"
+            else None
+        ),
     )
 
     selected_tokens = manifest["selection_stats"]["selected_response_tokens"]
