@@ -62,3 +62,4 @@ fam_b0_rai | 2B x 20k seed0 duel | rai | LLM2LLM plain .900 / ours-cur .833; our
 awb2_star s0/s1/s2 | STaR (19 self rows, 0 teacher tok) | rai GPU2 | pooled partial .234/.229/.277 = .246±.026, TGC 1/120 | results/appworld/awb2_star_s*_eval
 awb2_bbopd s0 | BB-OPD (teacher relabel on-policy ctx, 20k tok) | rai GPU3 | pooled partial .197, TGC 0/40 | results/appworld/awb2_bbopd_s0_eval
 awb2_bbopd FINAL | BB-OPD 3 seeds | rai GPU3 | pooled partial 0.197±0.000, TGC 0/120 | Table1 row
+vd40k s0/s1 | vdisp displacement-cost @40k budget | hpg B200 | cot dL +.404/+.443 (no rescue), self-stop @20k/40k, in-task ext .66/.65 | results/e3_tier1_vd40k_s*
