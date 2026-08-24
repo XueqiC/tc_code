@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import appworld_teacher as at  # noqa: E402
 
-at.MAX_COMPLETION_TOKENS = 16
+at.MAX_COMPLETION_TOKENS = 512
 
 RANK_PROMPT = (
     "You are ranking candidate assistant turns for an agent task. Task "
@@ -75,10 +75,12 @@ def main() -> int:
             print(f"[ddpo] {task}: {exc}", flush=True)
             continue
         spent += max(len(reply) // 4, 1)
-        nums = re.findall(r"\d+", reply)
+        tail = re.sub(r"<think>.*?</think>", "", reply, flags=re.S)
+        nums = re.findall(r"\d+", tail)
         if len(nums) < 2:
+            print(f"[ddpo] unparsed {task}: {reply[-120:]!r}", flush=True)
             continue
-        best, worst = int(nums[0]) - 1, int(nums[1]) - 1
+        best, worst = int(nums[-2]) - 1, int(nums[-1]) - 1
         if not (0 <= best < len(uniq) and 0 <= worst < len(uniq)) or best == worst:
             continue
         ctx = uniq[best][1]
