@@ -16,7 +16,26 @@ for TAG in "$@"; do
   if [ -f "$ADAPTER/adapter_config.json" ]; then
     echo "[bfclarm] $TAG is a raw PEFT adapter, unsupported here"; continue
   fi
-  MERGED=$ADAPTER
+  MERGED=$PROJ/results/appworld_students/$TAG/export_vllm
+  if [ ! -f "$MERGED/model.safetensors" ]; then
+    .venv/bin/python - "$ADAPTER" "$MERGED" << 'PYEOF'
+import sys, shutil, os
+from safetensors.torch import safe_open, save_file
+src, dst = sys.argv[1], sys.argv[2]
+os.makedirs(dst, exist_ok=True)
+tensors = {}
+with safe_open(os.path.join(src, "model.safetensors"), "pt") as f:
+    for k in f.keys():
+        nk = k.replace("model.language_model.", "model.")
+        tensors[nk] = f.get_tensor(k)
+save_file(tensors, os.path.join(dst, "model.safetensors"), metadata={"format": "pt"})
+for name in os.listdir(src):
+    if name != "model.safetensors":
+        shutil.copy(os.path.join(src, name), os.path.join(dst, name))
+print("exported ->", dst)
+PYEOF
+    [ -f "$MERGED/model.safetensors" ] || { echo "[bfclarm] $TAG EXPORT FAILED"; continue; }
+  fi
   # stop any previous server on the port
   PREV=$(lsof -ti tcp:$PORT 2>/dev/null | head -1)
   if [ -n "${PREV:-}" ]; then kill $PREV; sleep 10; fi
