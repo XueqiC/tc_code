@@ -50,10 +50,18 @@ def main() -> int:
             if ft:
                 samples.setdefault(t["task_id"], []).append((ft, ctx))
 
-    rows = [json.loads(l) for l in (ROOT / "data/appworld_sft/pool.jsonl").open()]
+    out_p = ROOT / args.out
+    if out_p.exists():
+        rows = [json.loads(l) for l in out_p.open()]
+        done_tasks = {r["task_id"] for r in rows if r.get("teacher") == "student_sample"}
+    else:
+        rows = [json.loads(l) for l in (ROOT / "data/appworld_sft/pool.jsonl").open()]
+        done_tasks = set()
     spent = 0
     n_pairs = 0
     for task, cands in sorted(samples.items()):
+        if task in done_tasks:
+            continue
         uniq = []
         for ft, ctx in cands:
             if all(ft != u[0] for u in uniq):
