@@ -71,3 +71,8 @@ bfcl aw7_A_s0 | ours arm, BFCL v4 official overall | rai GPU3 | 40.88% (base 43.
 bfcl aw7_A_s1 | ours arm BFCL v4 | rai GPU3 | 42.14% | results/bfcl/aw7_A_s1
 bfcl aw7_A_s2 | ours arm BFCL v4 | rai GPU3 | 43.14%; OURS FINAL 0.421±.011 vs base 0.436 | results/bfcl/aw7_A_s2
 vd40k s2 FINAL | vdisp 3-seed verdict | hpg | cot dL +.554, stop 20117/40k, ext .635; 3/3 consistent | results/e3_tier1_vd40k_s2
+bfcl awb_full_s0 | Vanilla SFT BFCL v4 | rai GPU3 | 36.63% (base 43.55, ours mean 42.05) | results/bfcl/awb_full_s0
+bfcl awb2_star_s1 | STaR BFCL v4 | rai GPU4 | 44.34% (above base 43.55) | results/bfcl/awb2_star_s1
+bfcl awb_full_s1 | Vanilla SFT BFCL v4 | rai GPU3 | 39.78% | results/bfcl/awb_full_s1
+bfcl awb2_star_s2 | STaR BFCL v4 | rai GPU4 | 45.81% | results/bfcl/awb2_star_s2
+bfcl awb_full FINAL | Vanilla SFT BFCL 3 seeds | rai | 0.380±.016 (36.63/39.78/37.71) | Table1
