@@ -56,7 +56,8 @@ def main() -> int:
         config = yaml.safe_load(fh)
     config["env"]["type"] = "AlfredTWEnv"
 
-    env = environment.AlfredTWEnv(config, train_eval="eval_out_of_distribution")
+    env_cls = environment.get_environment("AlfredTWEnv")
+    env = env_cls(config, train_eval="eval_out_of_distribution")
     env = env.init_env(batch_size=1)
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
