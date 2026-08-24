@@ -70,3 +70,4 @@ bfcl_base4b | BFCL v4 official overall, Qwen3.5-4B-FC via vllm | rai GPU3 | 43.5
 bfcl aw7_A_s0 | ours arm, BFCL v4 official overall | rai GPU3 | 40.88% (base 43.55%) | results/bfcl/aw7_A_s0
 bfcl aw7_A_s1 | ours arm BFCL v4 | rai GPU3 | 42.14% | results/bfcl/aw7_A_s1
 bfcl aw7_A_s2 | ours arm BFCL v4 | rai GPU3 | 43.14%; OURS FINAL 0.421±.011 vs base 0.436 | results/bfcl/aw7_A_s2
+vd40k s2 FINAL | vdisp 3-seed verdict | hpg | cot dL +.554, stop 20117/40k, ext .635; 3/3 consistent | results/e3_tier1_vd40k_s2
