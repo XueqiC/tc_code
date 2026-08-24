@@ -55,20 +55,12 @@ fi
 # ALFWorld unseen split with the official config shipped in the package.
 export ALFWORLD_DATA=/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/envs/alfworld/data
 ALF_VENV=envs/alfworld/.venv
-ALF_CFG=$(ALFWORLD_DATA=$ALFWORLD_DATA $ALF_VENV/bin/python - << 'PY'
-import alfworld, os, glob
-base = os.path.dirname(alfworld.__file__)
-hits = glob.glob(os.path.join(base, "**", "base_config.yaml"), recursive=True)
-hits += glob.glob(os.path.join(os.environ["ALFWORLD_DATA"], "**", "base_config.yaml"), recursive=True)
-print(hits[0] if hits else "")
-PY
-)
+ALF_CFG=/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/envs/alfworld/base_config.yaml
 [ -n "$ALF_CFG" ] || { echo "no alfworld config found"; exit 1; }
-# The eval driver needs torch+transformers (train venv) AND alfworld (bench
-# venv). Run it in the train venv with the bench venv's site-packages added.
-ALF_SITE=$($ALF_VENV/bin/python -c "import site;print(site.getsitepackages()[0])")
+# The alfworld venv carries its own torch/transformers stack; run the
+# eval driver entirely inside it to avoid cross-venv imports.
 export ALFWORLD_CONFIG=$ALF_CFG
-PYTHONPATH="$ALF_SITE:${PYTHONPATH:-}" python src/alfworld_eval.py \
+$ALF_VENV/bin/python src/alfworld_eval.py \
   --model "$MODEL" --num-games 134 --max-steps 40 \
   --tag "${TAG}_alf" --seed 0
 echo "[basebench] $TAG DONE"
