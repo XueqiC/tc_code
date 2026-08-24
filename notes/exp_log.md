@@ -66,3 +66,4 @@ vd40k s0/s1 | vdisp displacement-cost @40k budget | hpg B200 | cot dL +.404/+.44
 xpd/xsql ALL | transfer arms | hpg | VOIDED (selfinst pool task-agnostic + gsm contam; proxy metrics saturated) | audit in failure-analysis doc
 anc25/anc50 s1 | anchor dose 25/50 rows | hpg B200 | cot dL -.466/-.515 (s0: -.455/-.508, monotone confirmed 2 seeds), ext .665/.675, behavior any_acc 0 | results/e3_tier1_anc*_s1
 awb2_oursv2 s0 | INVALID (style-pair pool, lane misconfig) | rai GPU2 | .197 floor, 3rd style-pair replication | not a v2.0 verdict
+bfcl_base4b | BFCL v4 official overall, Qwen3.5-4B-FC via vllm | rai GPU3 | 43.55% (nonlive 79.7 / live 76 / multiturn 45 / websearch 7 / memory 20-30) | envs/bfcl score/data_overall.csv
