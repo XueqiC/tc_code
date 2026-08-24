@@ -1,0 +1,16 @@
+ARM=base SEED=0
+ARM=vanilla SEED=0
+ARM=vanilla SEED=1
+ARM=vanilla SEED=2
+ARM=sad SEED=0
+ARM=sad SEED=1
+ARM=sad SEED=2
+ARM=agentkd SEED=0
+ARM=agentkd SEED=1
+ARM=agentkd SEED=2
+ARM=star SEED=0
+ARM=star SEED=1
+ARM=star SEED=2
+ARM=bbopd SEED=0
+ARM=bbopd SEED=1
+ARM=bbopd SEED=2
