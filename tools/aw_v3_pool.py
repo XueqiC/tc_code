@@ -2,7 +2,8 @@
 """v3.0 round-1 pool with behavior-policy likelihoods (method v3.0 §7-8).
 
 From the guided debug rollouts:
-- keep, per demand-split task, the shortest verified trajectory;
+- keep, per demand-split task, ALL verified trajectories (the positive
+  objective uses the actual sampled rollout distribution, A.9);
 - strip the guidance block from every training context;
 - for each assistant turn, compute and store the behavior-policy
   sum-NLL `_mu_nll_sum` and target token count `_mu_ntok`, evaluated
@@ -95,33 +96,37 @@ def main() -> int:
         if task not in demand:
             skipped_cal += 1
             continue
-        best = min(trajs, key=lambda m: len(assistant_turns(m)))
-        clean = strip_demo(best)
-        turn_ids = assistant_turns(best)
-        for i in turn_ids:
-            mu, ntok = sum_nll(model, tok, best[:i], best[i]["content"])
-            ctx = clean[:i]
-            rows.append({
-                "task_id": task, "teacher": "self", "turn_index": i,
-                "messages": ctx,
-                "prompt": "\n".join(f"<|{m['role']}|>\n{m['content']}"
-                                    for m in ctx) + "\n<|assistant|>\n",
-                "response": best[i]["content"],
-                "token_hint": max(len(best[i]["content"]) // 4, 1),
-                "_mu_nll_sum": round(mu, 4), "_mu_ntok": ntok,
-                "_traj": task,
-            })
-        # first-divergence preference pair against a failed trajectory
+        # all verified rollouts enter the positive objective (A.9)
+        for t_idx, traj in enumerate(trajs):
+            clean = strip_demo(traj)
+            turn_ids = assistant_turns(traj)
+            for i in turn_ids:
+                mu, ntok = sum_nll(model, tok, traj[:i], traj[i]["content"])
+                ctx = clean[:i]
+                rows.append({
+                    "task_id": task, "teacher": "self", "turn_index": i,
+                    "messages": ctx,
+                    "prompt": "\n".join(f"<|{m['role']}|>\n{m['content']}"
+                                        for m in ctx) + "\n<|assistant|>\n",
+                    "response": traj[i]["content"],
+                    "token_hint": max(len(traj[i]["content"]) // 4, 1),
+                    "_mu_nll_sum": round(mu, 4), "_mu_ntok": ntok,
+                    "_traj": f"{task}#{t_idx}",
+                })
+        # first-divergence preference pair against a failed trajectory,
+        # taken on the first verified rollout of the task
         if task in fail and fail[task]:
+            base_traj = trajs[0]
+            b_turns = assistant_turns(base_traj)
             ft = fail[task][0]
             f_turns = assistant_turns(ft)
-            b_turns = turn_ids
             for k in range(min(len(b_turns), len(f_turns))):
-                yb = best[b_turns[k]]["content"]
+                yb = base_traj[b_turns[k]]["content"]
                 yf = ft[f_turns[k]]["content"]
                 if yb != yf:
                     for r in rows:
-                        if r["task_id"] == task and r["turn_index"] == b_turns[k]:
+                        if (r["_traj"] == f"{task}#0"
+                                and r["turn_index"] == b_turns[k]):
                             r["_rejected"] = yf
                             n_pairs += 1
                     break
