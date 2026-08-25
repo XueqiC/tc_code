@@ -146,46 +146,26 @@ BFCL, pass\^{}k-style success for $\tau^2$-bench). Decoding is greedy
 adoption, format bleed, refusal rates) accompany the residue numbers.
 Certificates follow conformal risk practice \citep{vovk2005algorithmic,
 gibbs2025conditional}.
-\paragraph{Optimization.} AdamW, batch size 1 with gradient accumulation
-8, size-scaled learning rates, epochs $=\min(8,\max(3,\lceil 3b/\text{
-acquired tokens}\rceil))$; behavioral probes every 8 optimizer steps with
-the one-probe-margin rollback rule of Section~\ref{sec:distill}.
-Conformal calibration uses the 15 held-out calibration queries.
-Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA B200
-accelerators.
-
-\paragraph{Setting: assumptions and evaluation protocol.}
-Two assumptions underlie the pipeline: \textbf{A1} the student's
-gradients are accessible, and \textbf{A2} some check such as an
-executor, a unit test, or a judge decides success. Code-acting agents
-are the instantiation we evaluate, not a requirement. The metered
-black-box access rules out distribution-matching distillation
-\citep{gu2024minillm, agarwal2024gkd}: the teacher exposes neither
-weights nor logits. Evaluation is two-sided under matched
-$(S, \pi_T, b)$: coverage risk counts in-domain failures, leakage
-counts out-of-domain capability, $B^{*}(\tau)$ is the smallest budget
-reaching target performance $\tau$, and waste is the fraction of
-purchased tokens that never train the student.
-
-\paragraph{Method implementation constants.}
-All constants below are shared across every task and benchmark.
-Gradient features: LoRA rank $16$, four-epoch warmup on the first
-purchased demonstrations to accumulate Adam second moments, random
-projection to $64$ dimensions per module. Coupled dictionary:
-mini-batch sparse coding with $\lambda{=}0.05$, atom count
-$\min(64, n/2)$ for $n$ known examples, refit every acquisition round.
-Acquisition: batch size $B{=}8$ per round, budget split evenly across
-$R{=}2$ acquisition--training rounds, corrections capped at $5\%$ of
-the budget, attempt-first uses three temperature-$0.7$ samples and
-requires all three to execute and agree. Training: learning rate
-$2\times10^{-4}$, gradient accumulation $8$, compute-matched epochs
-$\min(8, \max(3, \mathrm{round}(3b/\text{acquired tokens})))$,
-preference weight $\beta{=}0.25$, behavioral probe every $8$ optimizer
-steps, correctness probe every $4$ steps while the preference term is
-active, rollback and halting margins both one probe question, weight
-averaging over the last four near-best probe checkpoints and the final
-state.
-
+\paragraph{Optimization and implementation constants.}
+AdamW, batch size 1 with gradient accumulation 8, learning rate
+$2\times10^{-4}$, three epochs per optimization phase, preference
+weight $\lambda_{\mathrm{pref}}=0.25$, importance-ratio clip $c=1$,
+EMA decay $0.99$ for the length-normalized learnability gate. Gradient
+features use LoRA rank 16 with a fixed random projection to 64
+dimensions per module; the Adam preconditioner for the probe gradients
+is accumulated on the support queries themselves before any purchase,
+so no feature depends on purchased data. The coupled dictionary uses
+mini-batch sparse coding with $\lambda_z=0.05$ and atom count
+$\min(64,n/2)$ for $n$ available examples, refit as purchases and
+verified trajectories accumulate. Collection uses $K=4$ unguided and
+$K_g=4$ guided rollouts per query at temperature $0.7$. Acquisition
+rounds are bounded by a maximum of $R=2$ in the current experiments;
+unused budget carries forward and need not be spent. Single-dose
+positive replay retains at most one verified anchor per query per
+collection stage, sampled uniformly among eligible successes.
+Conformal calibration uses the ten held-out calibration queries.
+Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA
+B200 accelerators.
 \section{Limitations and pre-registration}\label{app:limitations}
 Pilot-scale numbers are single-seed and use verified pseudo-trajectories or
 two teachers; sweep-scale results carry seeds and confidence intervals as

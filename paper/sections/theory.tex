@@ -60,11 +60,14 @@ measure.
 
 \paragraph{Geometry preservation under sketching.}
 The gradient features compose an adapter sketch with a
-Johnson--Lindenstrauss projection \citep{johnson1984extensions}, which
-preserves pairwise inner products among polynomially many gradients to
-$(1\pm\varepsilon)$ with logarithmic dimension dependence. Inner
-products are the only property that demand estimation, supply
-accounting, and the interference statistic consume.
+Johnson--Lindenstrauss projection \citep{johnson1984extensions}. The
+standard guarantee preserves norms and pairwise distances of a finite
+point set to multiplicative $(1\pm\varepsilon)$ with logarithmic
+dimension dependence, and by polarization the inner products the
+method consumes are preserved up to an additive distortion controlled
+by the same $\varepsilon$ and the vector norms. Inner products are
+the only property that demand estimation, supply accounting, and the
+interference statistic consume.
 
 \paragraph{First-order interference prediction.}
 For an update $\theta_{t+1}=\theta_t-\eta\sum_{x\in D}
