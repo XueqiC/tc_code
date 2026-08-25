@@ -1,14 +1,24 @@
 \section{Conclusion}\label{sec:conclusion}
-Distilling an agent for a deployment is, in current practice, an act of
-faith: the task domain is implicit, the boundary is guessed from surface
-text, and the student's competence is audited only by aggregate scores. We
-have argued that all three problems become tractable in one space. The
-gradient a trajectory induces at the student records what learning that task
-would change; sparse decomposition factors this record into capability
-atoms; and boundaries, capability predictions, and data selection are three
-operations on the same object, with conformal calibration supplying the
-statistical guarantee. Pilot evidence supports each component, including a
-pre-registered proxy failure that the final design absorbs rather than
-hides. Full-scale sweeps and agent-environment evaluations will determine
-how far the specification-first view of distillation carries.
-\todo{finalize once sweep and tier-2 results land.}
+Specializing a small agent from a strong teacher is, in current
+practice, an act of imitation, and we find that imitation is the wrong
+channel. Used as training targets, teacher trajectories move a small
+student toward the teacher's behavior distribution faster than toward
+the task, and every imitation-based baseline we evaluate ends below
+the student it started from. The same demonstrations, moved from the
+target into the context, unlock successful behavior the student then
+produces itself, and verifier-filtered self-generation converts that
+behavior into the only update whose systematic drift is the task
+success gradient. Around this channel we built a complete budgeted
+procedure, where a gradient-space demand representation prices each
+demonstration by the coverage it is expected to unlock, guidance is
+invoked only after unguided failure and disappears as queries
+graduate, guided discoveries are importance-corrected toward the
+deployment policy, failures teach only through outcome-localized
+contrasts, and a held-out conformal boundary certifies where the
+specialist may be trusted. Under matched budgets, this procedure is
+the only method in our comparison that improves on its base student.
+Beyond the specific system, the diagnostic view seems the durable
+contribution, since measuring the task-extraneous component of any
+supervision-induced update turns the choice among supervision formats
+from a convention into a prediction the data can test.
+\todo{finalize once the full benchmark panel and round-2 results land.}

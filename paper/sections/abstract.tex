@@ -1,21 +1,28 @@
-Language-model agents are deployed for narrow jobs that are specified, in
-practice, by nothing more than a few dozen example queries, while the
-strongest teachers sit behind APIs that charge for every token. We study
-few-shot agent distillation under exactly these terms, where given only a
-support set of $k$ queries, a black-box pay-per-token teacher, and a token
-budget, produce a small agent whose capability provably ends where the
-task ends. Our key observation is that the whole problem can be read from
-one object. The gradients that examples induce on the student decompose,
-under sparse dictionary learning, into \emph{capability atoms}, recurring,
-nameable capabilities that principal subspaces provably cannot identify. The
-support set then fixes a per-atom token quota, and distillation becomes
-active learning against the teacher, which queries where the quota is unmet,
-verify what returns, weight each demonstration by the demand it serves,
-and stop when the quotas are filled --- spending less than the budget when
-the task allows it. The result is a certified agent, behaviorally timed
-training, finite-sample bounds on both sides of the task boundary, and a
-conformal gate at deployment. Across a five-domain suite, capability-directed
-acquisition matches the strongest influence-based baseline in-task while
-spending no budget outside the specification; the baseline's off-task
-capability, up to $77\%$, is the visible receipt of the budget it
-diverts.
+Language-model agents are deployed for narrow jobs that are specified,
+in practice, by a few dozen example queries, a task-level success
+check, and metered access to a stronger teacher that charges for every
+token. We study few-shot agent specialization under exactly these
+terms. Our first finding is negative. Across seven current
+distillation baselines spanning the labeling, feedback,
+self-knowledge, and on-policy branches, every method that uses teacher
+tokens as training targets ends below the untrained student, because
+maximum-likelihood imitation descends the divergence between teacher
+and student behavior distributions and thereby conflates capability
+transfer with mere distribution shift, while eroding abilities the
+student already has. We therefore propose budgeted verifier-guided
+self-distillation with teacher context scaffolding. Purchased
+demonstrations enter only the student's context, where they raise the
+probability that the student discovers successful behavior by itself,
+by an order of magnitude in our experiments. The verifier selects
+which of the student's own trajectories become training data, guided
+trajectories are corrected toward the unguided deployment policy by
+clipped importance weighting, and failures contribute only through
+outcome-contrastive preference pairs masked before the first action
+divergence. A gradient-space representation of task demand prices
+each purchase by its expected unlocked coverage per teacher token, and
+spending stops endogenously when no candidate retains positive
+utility. After training, a held-out calibration split fixes a
+split-conformal task boundary that routes out-of-scope queries away
+from the specialist. Under matched budgets on agent benchmarks, our
+method is the only one that improves on its base student.
+\todo{finalize headline numbers at freeze.}
