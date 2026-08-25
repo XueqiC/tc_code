@@ -101,3 +101,4 @@ bfcl awb2_ddpo_s0 | dDPO BFCL v4 | rai GPU4 | 42.66% | results/bfcl/awb2_ddpo_s0
 awb5_v21_s0 | v2.1 round-1 (400 self rows, 21 pairs) | rai GPU3 | pooled partial 0.3511, TGC 0.075 | results/appworld/awb5_v21_s0_eval
 bfcl awb2_ddpo_s1 | dDPO BFCL v4 | rai GPU4 | 40.13% | results/bfcl/awb2_ddpo_s1
 awb5_v21_s1 | v2.1 round-1 | rai GPU3 | pooled partial 0.2819, TGC 0.125 | results/appworld/awb5_v21_s1_eval
+bfcl awb2_sad FINAL | SAD BFCL 3 seeds | rai | 0.346±0.028 | Table1
