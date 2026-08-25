@@ -90,3 +90,5 @@ awb2_agentkd_s0 | AppWorld | rai | pooled partial 0.1968 | results/appworld/awb2
 awb2_sad FINAL | SAD 3 seeds | rai | 0.215±.031 (same band as vanilla) | Table1
 awb2_ddpo_s1 | dDPO AppWorld | rai GPU4 | pooled partial 0.1968 | results/appworld/awb2_ddpo_s1_eval
 awb2_pbsd FINAL | PBSD 3 seeds | rai | 0.209±0.021 | Table1
+awb2_agentkd_s1 | AgentKD AppWorld | rai GPU4 | pooled partial 0.2021 | results/appworld/awb2_agentkd_s1_eval
+awb2_ddpo FINAL | dDPO 3 seeds | rai | 0.200±0.006 | Table1
