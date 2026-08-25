@@ -27,6 +27,8 @@ from pathlib import Path
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys as _sys
+_sys.path.insert(0, str(ROOT / "src"))
 DEMO_RE = re.compile(r"\n\nWorked example from an expert.*$", re.S)
 TAGS = [f"awb4_hint_t07_s{s}" for s in (20, 21, 22, 23)]
 
@@ -61,19 +63,25 @@ def strip_demo(msgs):
 
 
 def sum_nll(model, tok, context_msgs, response):
-    ids = tok.apply_chat_template(
-        context_msgs, add_generation_prompt=True, return_tensors="pt"
-    )
-    if hasattr(ids, "input_ids"):
-        ids = ids.input_ids
+    """Behavior-policy NLL under the SAME rendering the trainer uses.
+
+    The trainer serializes context with appworld_train.encode, so mu
+    must be computed under that serialization too; otherwise the
+    importance ratio absorbs a rendering mismatch instead of the
+    guidance effect.
+    """
+    import appworld_train as tr
+    row = {
+        "messages": context_msgs,
+        "prompt": "\n".join(f"<|{m['role']}|>\n{m['content']}"
+                            for m in context_msgs) + "\n<|assistant|>\n",
+        "response": response,
+    }
+    ids, labels = tr.encode(tok, row)
     ids = ids.to(model.device)
-    resp_ids = tok(response, add_special_tokens=False,
-                   return_tensors="pt").input_ids.to(model.device)
-    full = torch.cat([ids, resp_ids], dim=1)
-    labels = full.clone()
-    labels[0, : ids.shape[1]] = -100
+    labels = labels.to(model.device)
     with torch.inference_mode():
-        out = model(input_ids=full, labels=labels)
+        out = model(input_ids=ids, labels=labels)
     ntok = int((labels != -100).sum())
     return float(out.loss.item()) * ntok, ntok
 
