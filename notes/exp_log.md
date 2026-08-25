@@ -83,3 +83,8 @@ awb2_sad_s0 | SAD (segment-weighted) AppWorld | rai GPU2 | pooled partial .197, 
 awb2_pbsd_s0 | PBSD AppWorld | rai GPU3 | pooled partial 0.1968, TGC 0.0 | results/appworld/awb2_pbsd_s0_eval
 bfcl awb2_bbopd FINAL | BB-OPD BFCL 3 seeds | rai | 0.410±.025 | Table1
 awb2_sad_s1 | SAD AppWorld | rai GPU2 | pooled partial 0.25 | results/appworld/awb2_sad_s1_eval
+awb2_pbsd_s1 | PBSD AppWorld | rai GPU3 | pooled partial 0.234 | results/appworld/awb2_pbsd_s1_eval
+awb2_ddpo_s0 | dDPO AppWorld | rai GPU4 | pooled partial 0.2074, TGC 0.0 | results/appworld/awb2_ddpo_s0_eval
+awb2_sad_s2 | AppWorld | rai | pooled partial 0.1968 | results/appworld/awb2_sad_s2_eval
+awb2_agentkd_s0 | AppWorld | rai | pooled partial 0.1968 | results/appworld/awb2_agentkd_s0_eval
+awb2_sad FINAL | SAD 3 seeds | rai | 0.215±.031 (same band as vanilla) | Table1
