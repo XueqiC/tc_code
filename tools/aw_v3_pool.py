@@ -63,7 +63,10 @@ def strip_demo(msgs):
 def sum_nll(model, tok, context_msgs, response):
     ids = tok.apply_chat_template(
         context_msgs, add_generation_prompt=True, return_tensors="pt"
-    ).to(model.device)
+    )
+    if hasattr(ids, "input_ids"):
+        ids = ids.input_ids
+    ids = ids.to(model.device)
     resp_ids = tok(response, add_special_tokens=False,
                    return_tensors="pt").input_ids.to(model.device)
     full = torch.cat([ids, resp_ids], dim=1)
