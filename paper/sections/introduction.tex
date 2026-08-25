@@ -1,123 +1,84 @@
 \section{Introduction}
-%% Four-paragraph arc: need -> two requirements with SOTA weaknesses ->
-%% our method with figure anchors -> contributions. House style: no em
-%% dashes, no prose parentheticals, one step of logic per sentence.
+%% New storyline (v3.0): imitation conflates transfer with distribution
+%% shift; teacher as exploration scaffold; verifier-guided
+%% self-distillation. House style: no em dashes, no colons, no prose
+%% parentheticals, one step of logic per sentence.
 
-Enterprises are moving language-model agents out of demonstrations and
-into production, where an agent typically holds one job, such as querying a
-database, operating a fixed set of tools, automating one workflow
-\citep{yao2023react, schick2023toolformer, trivedi2024appworld,
-yao2024taubench, zhou2024webarena, jimenez2024swebench, mialon2024gaia}.
-Serving a frontier model for a single narrow job is rarely economical,
-so practice converges on distilling the teacher's behavior on that job
-into a small student \citep{hinton2015distilling, kim2016sequence,
-mukherjee2023orca, fu2023specializing, gu2024minillm, agarwal2024gkd,
-kang2025distilling, tang2026smartad}. The job itself is almost never
-specified formally. What the deployer actually has is a few dozen
-example queries from the intended workload. The teacher is in practice
-a closed commercial model behind a metered API, whose weights and logits
-are out of reach, and every demonstration token it emits is billed.
-Between those few examples, that black-box teacher, and a deployment
-someone is willing to trust lies the distance this paper sets out to
-close.
+Enterprises increasingly deploy language-model agents for narrow,
+recurring jobs, such as operating a fixed set of applications,
+handling customer requests over database-backed tools, or automating
+one workflow \citep{yao2023react, trivedi2024appworld, yao2024taubench,
+shridhar2021alfworld}. Serving a frontier model for a single narrow
+job is rarely economical, so practice converges on specializing a
+small student for that job. What the deployer actually has is a few
+dozen example queries from the intended workload, a task-level check
+of whether an attempt succeeded, and metered query access to a strong
+commercial teacher whose weights and logits are out of reach and whose
+every emitted token is billed. The question this paper studies is how
+to convert a limited teacher budget into the largest possible gain in
+task success for the small student.
 
-Closing that distance requires two things. The boundary of the task
-must be determined from the limited examples alone, and the student's
-capability must end exactly at that boundary. Neither is available
-today. On the boundary side, existing methods draw the line wherever
-data is easiest to compare, whether by retrieval or out-of-distribution
-detection in text-embedding space \citep{hendrycks2017baseline,
-liu2020energy, geifman2017selective, li2026scope}, or by gradient
-influence against a single mean target \citep{koh2017understanding,
-pruthi2020estimating, park2023trak, engstrom2024dsdm, xia2024less}.
-Such methods can say what resembles the examples or what helps them,
-but never where the task ends. Identical query texts solved in two
-different styles already defeat every text-side boundary, as
-Figure~\ref{fig:one}a shows. On the training side, state-of-the-art
-agent distillation \citep{tang2026smartad, liu2025structured,
-kang2025distilling} refines how faithfully each trace is imitated, yet
-even given a perfect boundary it neither controls nor measures where
-the token budget goes. Equally accurate students spend a large share
-of the budget acquiring capability the job never asked for, and the
-deployer pays for that diverted spending. Figure~\ref{fig:one}c shows
-the effect.
+The standard answer is imitation. One purchases teacher
+demonstrations and trains the student to reproduce them, a recipe that
+underlies sequence-level knowledge distillation and its agentic
+refinements \citep{kim2016sequence, mukherjee2023orca,
+liu2025structured, kang2025distilling}. We find that on a modern agent
+benchmark this recipe does not merely underperform, it moves the
+student backwards. Across seven current distillation baselines
+spanning the labeling, feedback, self-knowledge, and on-policy
+branches of the field's taxonomy \citep{xu2024kdsurvey}, every method
+that uses teacher tokens as training targets ends below the untrained
+student, and the effect is invariant to data selection, student
+scale, and data volume. The mechanism is visible in the update
+itself. Maximum-likelihood training on teacher trajectories descends
+the gradient of the divergence between teacher and student behavior
+distributions, so it conflates task-relevant capability transfer with
+changes that merely make the student write like the teacher, and for
+a small student the second effect dominates. The same training also
+erodes abilities the student already had, which we observe directly
+as a drop in generic function-calling accuracy on an unrelated
+benchmark.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/fig1_story.pdf}
-\caption{(a)~Identical query texts, solved in two styles, are
-inseparable to any function of the text but separate perfectly in gradient
-space. (b)~Sparse capability atoms resolve capabilities that dense gradient
-subspaces cannot. (c)~With the specification
-in hand, surplus budget stops leaking; the strongest baseline converts it
-into out-of-scope capability while ours stays at $0.000$ at every
-budget.}
-\label{fig:one}
-\end{figure}
+Two further observations point to the way out. The student trained on
+its own verified successes loses nothing, and the student shown a
+teacher demonstration in its context, rather than as a target, solves
+an order of magnitude more tasks than it can solve unaided. Together
+they suggest that teacher behavior is valuable as guidance and harmful
+as a target. We therefore propose budgeted verifier-guided
+self-distillation with teacher context scaffolding. Purchased
+demonstrations enter only the student's context, where they raise the
+probability that the student discovers successful behavior by itself.
+The verifier decides which of the student's own trajectories become
+training data, which turns otherwise zero-mean self-generation into a
+task-directed learning signal. Guided trajectories are corrected
+toward the unguided deployment policy by clipped importance weighting,
+and failures contribute only through outcome-contrastive preference
+pairs that are masked before the first action divergence and gated by
+the learnability of the verified alternative. A gradient-space
+representation of task demand decides which demonstrations are worth
+buying, an unlock-probability estimate prices each purchase, and
+spending stops endogenously once no candidate has positive marginal
+utility. As the student improves, queries graduate from guided to
+unguided collection, so the procedure approaches ordinary on-policy
+self-improvement and the teacher budget is treated as an upper bound
+rather than an amount to be spent. After training, a held-out split of
+the support set calibrates a conformal task boundary, and the
+specialist serves only queries inside it.
 
-Our starting point is a change of representation, and it carries a
-satisfying consequence, which is that both requirements share one answer.
-The gradient a teacher demonstration induces at the student's
-initialization records what this student would have to learn from it.
-Across a task these learning demands are not arbitrary. They combine a
-small set of recurring directions, the way recipes combine a small set
-of basic techniques, and sparse dictionary learning
-\citep{olshausen1996emergence} recovers those directions as capability
-atoms, the learning-demand analogue of the sparse features that
-dictionary methods extract from network activations
-\citep{huben2024sparse, bricken2023monosemanticity,
-templeton2024scaling}. Sparsity is what makes the recovery meaningful.
-A principal subspace is invariant to rotations of its basis, so it
-cannot attach identity to any single direction. Rotation destroys code
-sparsity, so atoms lock onto recurring, self-contained capabilities. Within a
-single domain, atoms resolve capabilities at AUROC $0.906$ where dense
-subspaces reach $0.615$, as Figure~\ref{fig:one}b shows. In this
-vocabulary, distillation becomes active learning against a metered
-teacher, run on one principle. The student attempts first, a verifier
-grades for free, and teacher supervision is bought only where the
-student's own policy fails. The example queries fix a token quota per
-capability atom. Each round, the method codes candidate questions in the capability
-vocabulary and buys where unmet quota is largest. Questions the student
-already solves are kept at no cost, while questions it fails are bought
-as demonstrations or, better, as minimal corrections of the student's
-own wrong solution. Training then applies the same principle to the
-weights. Verified self-solutions are preserved, purchased corrections
-push down the student's own failure modes through a preference term,
-and plain imitation remains only where the student had nothing to
-offer. Gradient geometry proves reliable for selecting data but
-unreliable for judging competence, so arrival is judged behaviorally.
-The final weights average the checkpoints that behave best on held-out
-specification queries, and the deployed agent ships with finite-sample
-Clopper--Pearson certificates on both sides of the boundary, behind a
-conformal gate that routes live requests.
-
-Our contributions are as follows.
-\begin{itemize}[left=0pt,itemsep=0pt]
-\item \textbf{Problem formulation.} We formalize
-\emph{distill-to-specification}, which asks, from a black-box teacher agent and $k$
-example queries, produce a boundary predictor with finite-sample
-coverage together with a student agent whose measured capability
-matches the specified domain on both sides, evaluated by
-budget-to-target curves and certified leakage under matched token
-budgets.
-\item \textbf{Key insight.} Task identity and task boundary live in the
-space of learning demands. Gradients separate what text cannot, their
-recurring structure is identifiable as capability atoms precisely
-because of sparsity, and a two-view coupled dictionary makes the capability
-code of a question computable before its answer is ever bought. A
-separation principle with pre-registered evidence, geometry selects
-while behavior judges, dictates where each signal may be used.
-\item \textbf{Method.} A four-stage pipeline on one principle, that the
-student attempts first and supervision is bought only where it fails.
-Acquisition greedily maximizes a budgeted submodular capability-coverage
-objective with a calibrated admission gate; training stratifies the
-signal by the student's own policy state and optimizes a single
-verifier-anchored preference objective; every threshold is a
-statistical convention or estimated from the support set itself.
-\item \textbf{Results.} On a controlled five-domain suite the method
-matches or beats the strongest influence-based selection in-task at
-every size and budget, with several times lower variance, zero off-task
-residue where baselines leak $0.40$ to $0.77$, and target performance
-at a fraction of the budget on scoped tasks; the pipeline transfers
-unchanged to agent benchmarks.
-\end{itemize}
+Our contributions are as follows. First, we document and analyze the
+systematic failure of imitation-based distillation for small agent
+students, tracing it to the conflation of capability transfer with
+distribution shift and introducing a projection diagnostic that
+measures the task-extraneous component of any supervision-induced
+update. Second, we develop a complete budgeted specialization
+framework in which the teacher is an exploration scaffold, the student
+is the sole source of training trajectories, and the verifier is the
+sole source of learning signal, with importance-corrected positive
+updates, localized negative updates, and endogenous stopping. Third,
+across four agent benchmarks under matched budgets, our method is the
+only one that improves on its base student while every
+imitation-based baseline degrades it, and guided self-generation
+raises the student's verified solution rate by an order of magnitude.
+\todo{finalize headline numbers at freeze.} Fourth, deployment is
+certified, with a split-conformal task boundary that routes
+out-of-scope queries away from the specialist.

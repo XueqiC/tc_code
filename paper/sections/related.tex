@@ -1,57 +1,64 @@
 \section{Related work}\label{sec:related}
-%% Two blocks: (1) how task boundaries are determined today, (2) how LLM
-%% agents are distilled today. The gap statement closes block two.
-%% House style: no em dashes, no prose parentheticals.
+%% Three blocks: distillation and its failure modes; self-improvement
+%% with verifiers; budgeted acquisition and certified deployment.
+%% House style: no em dashes, no colons, no prose parentheticals.
 
-\paragraph{Determining task boundaries.}
-When a served model must decide whether a request is in scope, current
-practice draws the boundary in input space. Conformal methods calibrate
-acceptance thresholds with finite-sample guarantees
-\citep{vovk2005algorithmic, gibbs2025conditional}, and SCOPE applies such
-gates to hidden activations to reject out-of-distribution requests at
-serving time \citep{li2026scope}. The learnware line attaches
-capability specifications to a pool of specialists so that tasks can be
-routed to a matching model \citep{tan2025learnware}. A parallel line
-selects instruction data by quality, diversity, or mixture weights
-\citep{zhou2023lima, chen2024alpagasus, liu2024deita, xie2023doremi,
-sorscher2022beyond}; these methods curate for aggregate quality and
-carry no notion of a task boundary. At serving time, routers and
-cascades \citep{chen2023frugalgpt, ong2024routellm} decide who answers
-a request but not what a distilled student was allowed to learn.
-Weight-space editing \citep{ilharco2023task, yadav2023ties} manipulates
-capabilities after training without a specification to match, and
-regularization against forgetting \citep{kirkpatrick2017overcoming}
-protects capability rather than bounding it. All of these define the
-boundary over surface representations of the query or over a
-pre-existing model pool, and all of them leave the boundary decoupled
-from how the served model was trained. Both choices fail structurally
-in our setting. Two tasks can share identical query text while
-demanding different capabilities, as Appendix~\ref{sec:boundary} shows, and a
-serving-time gate cannot make the student's competence stop where the
-boundary stops.
+\paragraph{Distilling black-box teachers.}
+Sequence-level knowledge distillation trains a student on teacher
+outputs \citep{kim2016sequence, mukherjee2023orca}, and its agentic
+descendants refine what is imitated, whether with segment-specific
+losses over reasoning and action spans \citep{liu2025structured},
+retrospective thought prefixes \citep{kang2025distilling},
+capacity-aligned trajectory selection \citep{tang2026smartad}, teacher
+feedback turned into preference objectives \citep{tunstall2023zephyr,
+pbsd2026}, or teacher relabeling of student-visited states
+\citep{ye2025bbopd}. The limits of imitation are documented. Small
+models imitating proprietary teachers acquire style rather than
+capability \citep{gudibande2023false}, fine-tuning erases previously
+held abilities \citep{luo2023empirical}, and agent-tuning pipelines
+mix general data into training precisely to limit that erosion
+\citep{zeng2023agenttuning}. These observations are treated as
+separate pathologies to be patched. We measure them jointly as the
+task-extraneous component of the supervision-induced update and remove
+them at the source by never using teacher tokens as targets.
 
-\paragraph{Distilling LLM agents.}
-Agent distillation transfers tool-use trajectories from a large teacher
-to a small student, whether with retrieval and code tools
-\citep{tunstall2023zephyr, mukherjee2023orca, gu2024minillm,
-agarwal2024gkd, kang2025distilling}, with segment-specific losses over
-reasoning and action spans \citep{liu2025structured}, or with
-trajectories selected for compatibility with student capacity
-\citep{tang2026smartad}. These methods take a fixed training set as
-given and maximize aggregate benchmark scores. None takes a task
-specification as input, none reports what the student can or cannot do
-relative to an intended domain, and capacity alignment concerns what
-the student can absorb rather than what the deployment requires. The
-two lines therefore never meet, since boundary methods do not shape training
-and distillation methods do not know their boundary. The raw material
-for a bridge exists in gradient-based analysis, where sketched
-gradients select influential data \citep{koh2017understanding,
-pruthi2020estimating, xia2024less, hu2022lora}, predict per-example
-behavior \citep{park2023trak}, and expose behavior clusters through
-sparse decomposition \citep{rosser2026gradient}. These tools have so
-far been used to diagnose models or to serve fixed validation sets. We
-use the same geometry as the specification itself, building a conformally
-calibrated task region estimated from $k$ examples that defines the
-boundary, selects the distillation data, and predicts the student's
-capability, so that the guarantee and the student are trained into
-agreement rather than assembled afterwards.
+\paragraph{Self-improvement with verifiers.}
+A complementary line trains models on their own verified outputs.
+STaR retrains on self-generated solutions that pass a checker
+\citep{zelikman2022star}, rejection-sampling fine-tuning and ReST
+generalize this into generate-filter-train loops
+\citep{yuan2023scaling, gulcehre2023rest, singh2023beyond}, self-play
+uses earlier checkpoints as opponents \citep{chen2024spin}, and online
+preference optimization shows that fresh negatives beat frozen ones
+\citep{guo2024direct}. Context distillation compresses in-context
+information into weights \citep{snell2022learning}, and
+self-distillation fine-tuning has the student rewrite training data in
+its own words to bridge distribution gaps \citep{yang2024self}. These
+methods either assume the model can already sample successes or take
+the data as given. Our setting has neither, since the cold student
+almost never succeeds unaided and every demonstration costs money. The
+scaffold is what connects the two lines, as purchased teacher context
+raises the student's success rate by an order of magnitude, and the
+verifier-filtered self-training then proceeds on the student's own
+trajectories with importance correction toward the deployment policy.
+
+\paragraph{Budgeted acquisition and certified deployment.}
+Gradient features locate influential or task-relevant data
+\citep{koh2017understanding, pruthi2020estimating, xia2024less,
+park2023trak}, and sparse decompositions of gradients expose reusable
+behavior directions \citep{olshausen1996emergence, rosser2026gradient}.
+Data-selection methods built on such signals curate a fixed corpus
+\citep{engstrom2024dsdm, gist2026, trim2025, icons2025}, whereas our
+acquisition prices each candidate purchase by its expected unlocked
+coverage of a task-demand subspace per teacher token and stops
+spending endogenously, with budgeted maximization grounded in
+submodular coverage \citep{khuller1999budgeted, krause2005near}.
+Active learning likewise selects queries to label under a budget
+\citep{settles2009active}, but its labels are targets, whereas our
+purchases are contexts. On the deployment side, split conformal
+prediction supplies distribution-free acceptance regions
+\citep{vovk2005algorithmic, angelopoulos2023conformal}, and serving
+gates apply related ideas to reject out-of-scope requests
+\citep{li2026scope}. We calibrate the boundary on a split that touches
+no training decision, so the certificate applies to the same student
+it routes.

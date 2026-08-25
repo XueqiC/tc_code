@@ -1,4 +1,126 @@
 
+\section{Additional methodology details}\label{app:method}
+
+This section provides implementation details omitted from
+Section~\ref{sec:method}, including the complete training procedure,
+gradient representation, acquisition estimators, reference-task
+interference measurement, guidance construction, importance weighting,
+preference-pair construction, and task-boundary calibration.
+
+\paragraph{Complete training algorithm.}
+The procedure begins by randomly partitioning
+$\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$ with
+$\mathcal{S}_d\cap\mathcal{S}_c=\emptyset$, reserving $\mathcal{S}_c$
+exclusively for final calibration, constructing the initial gradient
+representation and dictionary from admissible training-side data, and
+estimating the task-demand vector $r$ from $\mathcal{S}_d$. Each round
+then proceeds in four phases. Acquisition computes the remaining
+deficits $\delta_{r,j}=(r_j-s_{r,j})_+$, estimates coverage
+$C_r(x)$, unlock probability $\hat\rho_r(x)$, cost $\hat c(x)$, and
+interference $I_r(x)$ for each feasible candidate, and greedily
+acquires the highest-utility candidates while the budget lasts and
+$\max_x U_r(x)>0$; every delivered demonstration is verified and
+converted into a context $h(d_x)$. Collection samples $K$ unguided
+trajectories per query, records each trajectory, verifier outcome,
+provenance, and behavior-policy log-likelihood, and activates an
+acquired context only for queries whose unguided attempts all fail.
+Optimization computes clipped importance weights for guided
+trajectories, forms the verifier-weighted positive objective from all
+collected student trajectories, constructs outcome-contrastive
+preference pairs on shared prefixes with the first-divergence mask and
+the length-normalized EMA learnability gate, and updates the student
+with $\mathcal{L}=\mathcal{L}_{\mathrm{ver}}
++\lambda_{\mathrm{pref}}\mathcal{L}_{\mathrm{pref}}$. Re-estimation
+re-evaluates unguided capability, updates supply $s_{r+1}$, unlock and
+interference estimates, and acquisition utilities, and stops when the
+unguided convergence criterion holds, the budget is exhausted, or all
+remaining candidates have non-positive utility. Calibration then
+freezes the student and every component of the routing score before
+touching $\mathcal{S}_c$.
+
+\paragraph{Gradient features and coupled dictionary.}
+Gradient features are computed with respect to the same restricted
+parameter subset used for specialization; raw gradients are
+transformed by the Adam preconditioner before a fixed random
+projection $P\in\mathbb{R}^{p\times D}$ with $p\ll D$ is applied. When
+both prompt-side and outcome-side gradients are available, we fit a
+coupled sparse dictionary with shared latent coefficients; missing
+outcome views are handled through an explicit availability mask rather
+than zero imputation.
+
+\paragraph{Demand, supply, and saturation.}
+Per-atom demand aggregates query-level normalized activations over
+$\mathcal{S}_d$, so that a few high-magnitude queries cannot dominate
+the estimate. A verified student trajectory contributes supply
+according to its projected gradient representation, and the positive
+part $(r_j-s_{r,j})_+$ gives acquisition diminishing returns along
+already-covered directions.
+
+\paragraph{Estimating the unlock probability.}
+Before any guided observations exist, all candidates share a common
+prior, so initial acquisition is driven by demand coverage, predicted
+cost, and interference risk. Afterwards $\rho_r$ is updated from
+empirical guided success statistics with smoothing across nearby task
+representations. Teacher success is never used as an estimate of
+student success under guidance.
+
+\paragraph{Reference-task interference.}
+The penalty $I_r(x)$ is estimated from a fixed set of free
+reference-task gradients through the reference coupling statistic
+$\kappa^r(x)$, which distinguishes task-aligned transfer,
+approximately orthogonal interaction, and antagonistic coupling;
+$I_r(x)$ is a monotone function of the antagonistic component.
+Section~\ref{sec:rq5} evaluates whether these geometric regimes
+predict measured reference-task interference after specialization.
+
+\paragraph{Guidance construction.}
+A purchased demonstration is transformed into a context block and
+inserted into the student's generation context according to the
+environment interface. Teacher-generated actions are never copied into
+the optimization target, and the context is removed when computing the
+deployment-policy likelihood $\pi_\theta(\tau\mid x)$.
+
+\paragraph{Importance weighting and support.}
+Every collected trajectory stores its behavior-policy log-likelihood
+$\log\mu_r(\tau\mid x)$. The trajectory-level log ratio
+$\log w_\theta=\log\pi_\theta(\tau\mid x)-\log\mu_r(\tau\mid x)$ is
+computed in log space and clipped at $c$. The exact identity assumes
+absolute continuity, which contextual guidance does not guarantee,
+since a guidance context can make some unguided-reachable trajectories
+unreachable under the behavior policy; clipping controls variance on
+observed trajectories but cannot recover missing support. We report
+the empirical ratio distribution and compare no correction, unclipped
+correction where feasible, and clipped correction.
+
+\paragraph{Outcome-localized preference construction.}
+Success-failure pairs must share the environment state before their
+first action divergence $t^\star$; tokens before $t^\star$ receive no
+preference loss. The learnability score is the length-normalized NLL
+of the positive trajectory, tracked by an exponential moving average
+that defines the admission threshold; length normalization removes the
+systematic preference for shorter trajectories that raw sequence NLL
+induces.
+
+\paragraph{Single-dose positive replay.}
+The primary verifier objective is computed from the actual sampled
+rollout distribution and does not select trajectories by length. When
+persistent positive replay is used, at most one verified anchor per
+query per collection stage is retained, sampled uniformly from
+eligible successful trajectories.
+
+\paragraph{Task-boundary calibration.}
+After all training decisions are complete, the student, dictionary,
+and score construction are frozen. The deployment score is
+$R(x)=\|g_p(x)-D_p z(x)\|_2$; calibration residuals on
+$\mathcal{S}_c$ give the finite-sample corrected quantile
+$\gamma_\alpha=R_{(k)}$ with $k=\lceil(m{+}1)(1{-}\alpha)\rceil$, and
+the routing rule sends $R(x)\le\gamma_\alpha$ to the specialist and
+rejects or escalates otherwise. Because the score construction is
+frozen before $\mathcal{S}_c$ is accessed, the guarantee is the
+standard split-conformal marginal guarantee under exchangeability and
+should not be read as a conditional or out-of-distribution detection
+guarantee.
+
 \section{Full experimental details}\label{app:details}
 \paragraph{Controlled suite.} Five domains built from public datasets:
 GSM8K in two action spaces (execution-verified Python and original

@@ -1,321 +1,265 @@
-\section{Methodology}\label{sec:method}
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/fig1_mechanism.pdf}
-\caption{The pipeline in four stages. \textbf{Stage I} determines
-the task from its few examples, where one backward pass turns each support
-example into a gradient feature, and a two-view coupled dictionary
-yields capability atoms (Definition~\ref{def:atom}), a task demand
-(Definition~\ref{def:demand}) with per-capability token quotas, and the
-task boundary as what this vocabulary can express. \textbf{Stage II}
-acquires the data the specification asks for, running a loop that buys where unmet
-quota is largest, filters every return through an execution check and
-the membership test, and lets the student attempt candidates before
-money is spent. \textbf{Stage III} distills the student on-policy, where the
-training signal is stratified by the student's own policy state and
-optimized as one verifier-anchored objective, finished with weight
-averaging of near-best probe checkpoints. \textbf{Stage IV} certifies
-the result, attaching a conformal gate with finite-sample two-sided certificates that
-routes live requests.}
-\label{fig:pipeline}
-\end{figure}
-
-We first state the problem of producing a student whose gap to a task
-revealed by only $k$ examples is minimized under a token budget, and
-then present \methodname{}. The method is easiest to understand as one
-ledger of capabilities used at three granularities. Stage I builds the
-ledger, reading off from the $k$ examples which capabilities the task
-is made of, how much of each it needs, where the task ends, and how
-training on it will move neighboring tasks. Stage II spends the budget
-against the ledger, buying at each step the supervision that fills the
-largest unmet need per token while charging every candidate for the
-harm it would do to what the student already holds. Stage III writes
-the purchased supervision into the weights with one objective whose
-anchor, gate, and mask apply the same protection at the level of
-individual tokens. Stage IV states with finite-sample guarantees how
-well the result matches the specification. All three training stages
-share one motivation. Distillation from a black-box teacher fails not
-because the teacher's supervision is poor but because cloning it
-overwrites the student's own distribution, and each component below is
-a defense against that overwriting at a different granularity.
+\section{Method}\label{sec:method}
 
 \subsection{Problem formulation}\label{sec:setting}
 
-Let a task $\mathcal{T}$ be defined by its query distribution
-$P_\mathcal{T}$. Given a support set
-$S = \{q_1, \dots, q_k\} \sim P_\mathcal{T}$ of example queries
-with $k \ll N_{\mathrm{train}}$, the corpus size that could train the
-student directly, a teacher agent
-$\pi_T$ accessed as a black-box API that charges per emitted token, an
-open-weight student $\theta_0$, and a token budget $b$, the goal is
+We study few-shot task specialization of a language-model agent under
+a limited teacher budget. Let $\mathcal{T}$ denote a target task with
+query distribution $p_\mathcal{T}(x)$, and let
+$\mathcal{S}=\{x_i\}_{i=1}^{N}$ with $x_i\sim p_\mathcal{T}$ be a
+small support set that characterizes the task. An agent executes a
+trajectory $\tau=(a_1,o_1,\ldots,a_H,o_H)$, where $a_t$ denotes the
+model action at step $t$ and $o_t$ the corresponding environment
+observation. We assume access to a task verifier
+$V(x,\tau)\in\{0,1\}$ that evaluates whether a completed trajectory
+solves query $x$.
+
+Our starting point is a generic student policy $\pi_{\theta_0}$. We
+seek a specialized policy $\pi_{\theta^\star}$ that maximizes expected
+task success,
 \[
-\hat{\theta} \;=\; \argmax_{\theta}\;
-\mathbb{E}_{q\sim P_\mathcal{T}}\big[\,\mathrm{Perf}(\theta;
-q)\,\big]
-\quad \text{s.t.} \quad \mathrm{Cost}(\theta) \,\le\, b,
+J_\mathcal{T}(\theta)
+=\mathbb{E}_{x\sim p_\mathcal{T}}\,
+\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}\bigl[V(x,\tau)\bigr].
 \]
-where $\mathrm{Perf}(\theta; q)$ is the task performance of the
-student on query $q$, and $\mathrm{Cost}(\theta)$ counts every
-teacher token purchased while producing $\hat{\theta}$.
+In addition, we have query access to a stronger teacher policy
+$\pi_T$. A teacher call produces a demonstration $d$ at token cost
+$c(d)$, and the acquired demonstration set $\mathcal{A}$ must satisfy
+$\sum_{d\in\mathcal{A}}c(d)\le B$ for a total teacher budget $B$.
 
-\subsection{Determining the task from its examples}
-\label{sec:atoms}
-The first stage must answer four questions from the $k$ examples
-alone. It must find which capabilities the task is made of, how much
-of each the task needs, where the task ends, and what training on the
-task will do to anything nearby. Our central move is to answer all
-four with a single fitted object, so that every later decision reads a
-coordinate of the same representation rather than consulting a
-separate module.
-
-\paragraph{Gradient features.}\label{sec:fingerprints}
-The representation must make examples that teach the same thing look
-alike. Text cannot do this, because identical query texts solved in
-two different styles demand different learning, yet no function of the
-text can tell them apart. The gradient can, because the gradient an
-example induces at the student's initialization records exactly what
-this student would have to learn from it \citep{xia2024less}. Every
-example the method touches is therefore represented by its
-\emph{gradient feature}, the Adam-preconditioned gradient of a
-low-rank adapter, compressed by a fixed random projection that
-preserves the inner products all downstream computation consumes
-\citep{johnson1984extensions}. Each example yields two such views. The
-\emph{response view} is computed on a teacher solution and carries how
-the example is solved, so it exists only after the solution is paid
-for. The \emph{prompt view} is computed on the question text alone and
-is available before any purchase. The stages below plan with the
-prompt view and account with the response view.
-
-\paragraph{Capability atoms.}
-Gradient features of related examples reuse a small set of recurring
-directions, the way recipes reuse a small set of basic operations, and
-sparse dictionary learning \citep{olshausen1996emergence} recovers
-exactly such structure. Sparsity is what makes the recovery
-meaningful. A principal subspace is invariant to rotations of its
-basis and cannot attach identity to any single direction, while
-rotation destroys code sparsity, so only recurring, self-contained
-gradient patterns survive the penalty and each surviving direction
-names a reusable unit of skill rather than a memorized example. The
-metered protocol adds one further requirement. Which capabilities a
-question exercises must be estimable before its answer is bought, so
-the code of an example should not depend on which view of it is
-visible. We therefore treat the prompt and the response as two
-projections of one latent capability profile and learn a
-\emph{two-view coupled dictionary} \citep{yang2010coupled}. Writing
-the prompt-view and response-view feature matrices as $X_p$ and $X_r$,
-we solve
+The conventional approach uses $d\sim\pi_T(\cdot\mid x)$ directly as
+an imitation target. Such an update, however, moves the student toward
+the teacher distribution,
 \[
-\min_{D_p, D_r, C}\ \lVert X_p - CD_p\rVert_2^2
-+ \lVert X_r - CD_r\rVert_2^2 + \lambda\lVert C\rVert_1,
+\mathbb{E}_{d\sim\pi_T(\cdot\mid x)}
+\bigl[\nabla_\theta\log\pi_\theta(d\mid x)\bigr]
+=-\nabla_\theta\,
+D_{\mathrm{KL}}\bigl(\pi_T(\cdot\mid x)\,\|\,\pi_\theta(\cdot\mid x)\bigr).
 \]
-so a single sparse code per example must reconstruct both of its
-views.
+This update can mix task-relevant capability transfer with changes
+induced merely by differences between teacher and student behavior
+distributions. Our method instead uses the teacher only to facilitate
+exploration. A purchased demonstration $d$ is converted into a context
+$h(d)$, under which the student generates a new trajectory.
+Teacher-generated tokens are never used as optimization targets.
 
-\begin{definition}[Capability atom]\label{def:atom}
-A \emph{capability atom} is one row $[d_p; d_r]$ of the learned coupled
-dictionary, that is, a paired direction in prompt- and response-view
-gradient-feature space. The sparse code $c(x)$ of an example is its
-coefficient vector over the atoms; $|c(x)|_a$ measures how strongly
-example $x$ exercises atom $a$, and for a candidate whose response has
-not been purchased it is computed from the prompt view alone, by a
-lasso solve against the $D_p$ block.
-\end{definition}
+Accordingly, our problem is to jointly determine where to spend
+teacher tokens, when teacher context is needed for student
+exploration, and how to convert guided student trajectories into
+improvements of the unguided deployment policy. We refer to the
+resulting framework as budgeted verifier-guided self-distillation with
+teacher context scaffolding. We partition the support set before
+training into a demand set $\mathcal{S}_d$ and a calibration set
+$\mathcal{S}_c$. Only $\mathcal{S}_d$ is used for task
+characterization, teacher acquisition, and optimization, while
+$\mathcal{S}_c$ is reserved exclusively for post-training
+task-boundary calibration.
 
-The shared code is what removes the need for any learned bridge
-between views. Support demonstrations are free and purchased examples
-accumulate, so response information shapes the dictionary at fit time,
-and a candidate's prompt-only code inherits it. Because no corpus is
-given, the dictionary cannot be pretrained. It is fit on the support
-set first and refit as purchases accumulate, so the vocabulary
-sharpens with evidence.
-
-\paragraph{Reading the ledger.}
-Everything the later stages need is now a reading of this one
-dictionary. The first reading is how much of each capability the task
-wants.
-
-\begin{definition}[Task demand]\label{def:demand}
-Given a dictionary and the support set $S$, the \emph{task demand} is
-$w = \frac{1}{k}\sum_{q\in S} |c(q)|$, normalized to sum to one and
-restricted to the atoms carrying $90\%$ of its mass. Scaled by the
-budget, $w \cdot b$ assigns each atom a token quota.
-\end{definition}
-
-The quotas give the question of how much data to buy an internal
-answer. Supervision is worth buying for an atom until its quota is
-met, and worthless after, so the amount of training data is decided by
-the task itself rather than by a dataset-size constant. The support
-set is a small sample and $w$ inherits its blind spots, so the
-teacher's own solutions correct part of them. Atoms that appear
-persistently in the codes of demonstrations for support queries, yet
-carry little weight in $w$, are capabilities the task requires
-implicitly, and their demand is filled in from the demonstration side
-before further budget is spent. This completion touches only the
-budget allocation, while the boundary and all certificates remain
-calibrated on the original $k$ queries alone.
-
-The second reading is where the task ends. A query belongs to the task
-exactly when the capability vocabulary can express it, so the
-reconstruction residual of a prompt under the $D_p$ block, thresholded
-at the least typical calibration query, is the boundary. The mechanism
-matters more than the formula. Sparse coding assigns coefficient mass
-only where an atom reduces reconstruction error, so an out-of-task
-prompt receives near-zero code mass on the demanded atoms and its
-estimated value in Stage II vanishes on its own. The boundary is
-therefore not a filter with a tuned threshold sitting in front of the
-buyer. It is a property of the representation, which is why enforcing
-it costs nothing in-task and why nothing out-of-task leaks through.
-
-The third reading is what training on this task will do to anything
-nearby. Two tasks relate through the atoms they share, and the two
-views separate two different kinds of sharing. Overlap in prompt view
-measures confusability, whether a query of one task can be mistaken
-for the other. Overlap in response view, written $\kappa^{r}$,
-measures interference, whether the gradient of training one task moves
-the behavior of the other, because a training update travels along the
-response-view directions of the atoms it exercises, and any capability
-sitting on those same directions travels with it. Interference through
-shared atoms can be helpful when the shared directions agree and
-harmful when they oppose, and reading $\kappa^{r}$ off the dictionary
-predicts which, per neighbor, before any money is spent. Stage II
-prices this prediction into every purchase.
-
-\subsection{Budgeted data acquisition}
+\subsection{Task-aware teacher acquisition}\label{sec:atoms}
 \label{sec:acquire}
 
-The entire second stage is one decision rule. For each candidate
-supervision action $a$, whether buying a demonstration, buying a
-minimal correction of a failed attempt, keeping a self-solved
-trajectory, or stopping, the dictionary readings estimate a marginal
-net value
+Because teacher demonstrations are used as exploration scaffolds
+rather than training targets, their utility is determined by how
+effectively they unlock successful student behavior in regions that
+the current student has not yet mastered.
+
+\paragraph{Representing task demand.}
+We characterize the target task in the student's parameter space. For
+each support query $x\in\mathcal{S}_d$, we extract a projected
+gradient representation $g(x)\in\mathbb{R}^p$
+\citep{xia2024less, park2023trak}. We fit a sparse dictionary
+$D=[d_1,\ldots,d_M]\in\mathbb{R}^{p\times M}$
+\citep{olshausen1996emergence} and represent each query through sparse
+coefficients
 \[
-v(a) \;=\; \underbrace{\frac{\sum_{c} \min\big(r_c,\
-\hat{s}_c(a)\big)}{\hat{t}(a)}}_{\text{gain on unmet demand}}
-\;-\;
-\underbrace{\lambda_{\mathrm{anc}}\,\Delta_{\mathrm{anchor}}(a)
-\;+\; \sum_{c\in\mathrm{shared}} \hat{s}_c(a)\,
-\kappa^{r}_{c}}_{\text{displacement cost}},
+z(x)=\arg\min_z\ \|g(x)-Dz\|_2^2+\lambda_z\|z\|_1.
 \]
-where $r_c$ is the remaining allocation of atom $c$, $\hat{s}(a)$ is
-the prompt-view code of the candidate, $\hat{t}(a)$ its expected token
-cost, $\Delta_{\mathrm{anchor}}$ the dilution of the student's own
-verified rows in the training mix, and $\kappa^{r}$ the response-view
-coupling of shared atoms. Acquisition executes $\argmax_a v(a)$ each
-round and stops spending once every action has $v(a) \le 0$.
+Aggregating activations over $\mathcal{S}_d$ yields a demand vector
+$r=(r_1,\ldots,r_M)$, where $r_j$ quantifies the extent to which
+dictionary direction $d_j$ is required by the target task. The
+corresponding active directions span an estimated task-demand subspace
+$\mathcal{C}_\mathcal{T}$.
 
-The two terms implement the two halves of the method's motivation.
-The gain term says a candidate is worth what it contributes to unmet
-quota per token it costs. The $\min(r,\cdot)$ truncation makes supply
-beyond quota worthless, which builds diminishing returns into the rule
-and makes the halt endogenous, since once the ledger is full every
-price falls to zero. The truncation is also exactly the concave cap
-that makes the implicit coverage objective monotone submodular, so
-greedy selection inherits the classical near-optimality guarantee
-\citep{khuller1999budgeted, krause2005near}. The displacement term
-says the true cost of a candidate exceeds its token price whenever
-training on it would drag capabilities the student already holds. The
-$\kappa^{r}$ sum charges a candidate for the interference the
-dictionary predicts it will cause, and the
-$\Delta_{\mathrm{anchor}}$ term does the same for the dilution of the
-student's own verified rows, whose share of the mix is what Stage III
-relies on. When the interference is carried by the task's own demanded
-atoms, no candidate is cheaper than another and the charge cannot
-steer selection; what it does instead is lower every price, so
-spending halts as soon as the marginal gain no longer covers the
-predicted harm. The displacement term is therefore a budget-efficiency
-mechanism, stopping purchases the moment they stop paying for
-themselves, while the protection of held capability is carried by the
-anchor in Stage III.
-
-The remaining machinery of earlier pipelines then follows as
-consequences rather than modules. A self-solved trajectory costs
-nothing, so its value per token dominates and the student is always
-attempted before the teacher is paid. The membership gate is the
-proposition established in Stage I, since out-of-task candidates carry
-no code mass and never win the argmax, leaving the execution check
-only to verify delivered goods. Corrective rounds, the shift from
-demonstrations toward corrections, and the eventual halt all emerge as
-the student's state evolves, because unmet demand decays, failures
-concentrate, and the displacement cost of further cloning rises. The
-rule has no round structure, no dose constants, and no phase
-boundaries.
-
-\subsection{Distilling the student}
-\label{sec:distill}
-Stage III makes no decisions of its own. It executes the ledger that
-acquisition wrote, and its design follows from the specific way
-cloning fails. When a student is trained to imitate teacher outputs
-wholesale, the strongest and easiest gradient signal comes from the
-teacher's surface regularities of format and phrasing rather than from
-task competence, so the student absorbs style first, and absorbing it
-overwrites the student's own distribution together with competence the
-base model already had. This failure does not depend on which data was
-selected, on student scale, or on data volume, so it cannot be fixed
-on the data side. The objective below defends against it at three
-points. Every training row arrives labeled by whose behavior it
-records, and a single objective reads those labels,
+This representation also provides a diagnostic for supervision-induced
+drift. Given an expected update $u$, we decompose it by projection,
+$u=\Pi_{\mathcal{C}_\mathcal{T}}u+(I-\Pi_{\mathcal{C}_\mathcal{T}})u$,
+and measure the relative task-extraneous component as
 \[
-\mathcal{L}(x) \;=\; \mathrm{NLL}\big(y^{+}\,|\,x\big) \;+\;
-\beta\,\mathbb{1}\big[y^{-} \text{ exists}\big]\cdot
-\ell_{\mathrm{OR}}\big(y^{+}\!\succ y^{-}\,|\,x\big).
+R_{\mathrm{ext}}(u)
+=\frac{\bigl\|(I-\Pi_{\mathcal{C}_\mathcal{T}})u\bigr\|_2}
+       {\bigl\|\Pi_{\mathcal{C}_\mathcal{T}}u\bigr\|_2+\epsilon}.
 \]
+We use this quantity as an analysis tool rather than assuming that
+dictionary atoms intrinsically separate capability from distribution
+mismatch.
 
-The first defense is the anchor. Rows holding the student's own
-verified solutions are trained as plain likelihood, in the spirit of
-self-improvement bootstrapping \citep{zelikman2022star}. Their role is
-distributional rather than informational. As long as the training mix
-contains the student's own successful behavior, teacher supervision
-lands as filling of deficits instead of replacement of the student's
-distribution, which is why the anchor works at a token share far below
-the teacher rows' and why its share was already protected by the
-displacement term at purchase time.
+\paragraph{Valuing teacher context.}
+At round $r$, let $s_{r,j}$ denote the accumulated verified student
+capability associated with direction $d_j$. The remaining task deficit
+is $\delta_{r,j}=(r_j-s_{r,j})_+$. For a candidate teacher
+demonstration $d_x$ associated with query $x$, let $\hat s_j(d_x)$
+denote its predicted supply along direction $d_j$, giving the marginal
+task coverage
+\[
+C_r(x)=\sum_{j=1}^{M}\min\bigl\{\delta_{r,j},\,\hat s_j(d_x)\bigr\}.
+\]
+A demonstration is useful, however, only if conditioning on it enables
+the student to produce successful behavior. We therefore estimate its
+unlock probability
+\[
+\rho_r(x)=\Pr_{\tau\sim\pi_{\theta_r}(\cdot\mid x,h(d_x))}
+\bigl[V(x,\tau)=1\bigr],
+\]
+using a common prior before guided observations are available and
+updating the estimate from observed guided rollouts thereafter. We
+score each candidate by its expected unlocked task coverage per
+teacher token,
+\[
+U_r(x)=\frac{\hat\rho_r(x)\,C_r(x)}{\hat c(x)}-\lambda_I\,I_r(x),
+\]
+where $\hat c(x)$ is the predicted teacher-token cost and $I_r(x)$
+estimates potential interference with reference capabilities,
+estimated from held-out reference-task gradients as described in
+Appendix~\ref{app:method}. The capped coverage term introduces
+diminishing returns as task-demand directions become saturated. We
+greedily acquire feasible candidates with positive marginal utility
+until the budget is exhausted or $\max_x U_r(x)\le 0$. The teacher
+budget is thus an upper bound rather than a prescribed expenditure.
 
-The second defense is the gate. Rows carrying a paired failure add the
-preference term $\ell_{\mathrm{OR}}$, a reference-model-free odds
-ratio \citep{hong2024orpo} since the teacher exposes no
-log-probabilities. Preference pressure applied before the student can
-produce the positive has nowhere to move probability mass except
-downward, which degrades the whole distribution, so the term activates
-on a row only after that row's positive solution has been learned,
-gated by the running mean likelihood. The gate thereby recovers the
-ordering of a two-phase curriculum, likelihood first and preference
-second, inside a single continuous run and without a phase boundary.
+\subsection{Teacher-scaffolded student exploration}\label{sec:explore}
 
-The third defense is the choice of contrast. A preference pair is
-admissible only when its two sides diverge on the \emph{success axis},
-meaning the verifier scores them differently. The axis on which a pair
-differs is the direction the objective learns to discriminate, so
-pairs differing in style would train exactly the stylistic drift the
-anchor exists to prevent, while pairs differing in verified success
-train correctness. For the same reason the term is computed only from
-the first token of divergence, which removes likelihood-displacement
-pressure on the shared prefix at its source
-\citep{razin2025unintentional}. All remaining rows are plain behavior
-cloning, the degenerate repair of an empty attempt.
+The acquired demonstrations are not added to the training set. They
+are used only when the student cannot obtain verifier reward through
+its own unguided exploration. For each query $x$, we first draw $K$
+trajectories from the deployment policy
+$\pi_{\theta_r}(\cdot\mid x)$. If any trajectory succeeds, collection
+for that query remains unguided. If all $K$ trajectories fail and a
+teacher demonstration has been acquired, we expose the student to its
+context $h(d_x)$ and sample from the guided behavior policy
+\[
+\mu_r(\tau\mid x)=\pi_{\theta_r}\bigl(\tau\mid x,h(d_x)\bigr).
+\]
+The resulting trajectory is still generated entirely by the student.
+The teacher changes the student's exploration distribution but does
+not supply the trajectory on which the student is optimized.
 
-Training ends with weight averaging of near-best probe checkpoints
-\citep{izmailov2018swa} and a rollback that fires only past a
-one-probe-question margin, where the probe measures execution
-correctness and its gold answers come free from executing the
-teacher's demonstrations. Per-example losses, tagged by dominant atom,
-aggregate into per-atom absorption curves at no extra cost and feed
-the deficit reads of Stage II.
+This distinction follows from a simple property of self-generation.
+For an unguided student trajectory,
+$\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}
+[\nabla_\theta\log\pi_\theta(\tau\mid x)]=0$, so self-generated
+behavior has no intrinsic gradient toward an external source
+distribution. The verifier converts this otherwise zero-mean signal
+into a task-directed objective. Defining
+$J_x(\theta)=\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}[V(x,\tau)]$,
+we obtain
+\[
+\nabla_\theta J_x(\theta)
+=\mathbb{E}_{\tau\sim\pi_\theta}
+\bigl[V(x,\tau)\,\nabla_\theta\log\pi_\theta(\tau\mid x)\bigr].
+\]
+Teacher context is therefore needed only in the cold-start regime in
+which the student rarely samples trajectories with $V=1$. Because
+unguided exploration is always attempted first, guidance usage
+automatically tracks student competence. As successful guided
+behaviors are internalized, the same queries begin succeeding under
+$\pi_\theta(\cdot\mid x)$ and cease to invoke teacher context, so the
+collection process transitions from guided-heavy to increasingly
+unguided exploration without an externally specified teacher-annealing
+schedule.
 
-\subsection{Certification and deployment}
-\label{sec:behavior}
-Stage IV states, with finite-sample guarantees, how well the delivered
-student matches the specification, and then holds the student to it at
-deployment. A deployment-time request carries no response, so the
-boundary predictor lives in prompt-feature space and reuses the
-membership machinery estimated in Stage I. The reconstruction residual
-under the $D_p$ block is the nonconformity score, and a conformal
-threshold from a disjoint calibration split gives distribution-free
-coverage $\ge 1-\alpha$ \citep{angelopoulos2023conformal}. The student
-is then evaluated behaviorally on both sides of the boundary and the
-capability match is stated as finite-sample Clopper--Pearson bounds,
-giving a certified lower bound on in-task coverage and a certified
-upper bound on off-task leakage, which is a bounded claim rather than
-a score. At deployment the same machinery gates live requests, routing
-in-specification queries to the student and refusing or escalating the
-rest to the teacher, so the certificates describe exactly the traffic
-the student will see.
+\subsection{Learning from student-provenance trajectories}\label{sec:distill}
+
+We optimize the unguided deployment policy using only trajectories
+generated by the student.
+
+\paragraph{Positive verifier signal.}
+For unguided rollouts, the behavior policy coincides with the
+collection-time deployment policy. Guided trajectories are sampled
+from $\mu_r$, while the target policy is $\pi_\theta(\tau\mid x)$.
+Under the standard absolute-continuity condition, the
+deployment-policy reward gradient can be expressed by importance
+sampling,
+\[
+\nabla_\theta J_x(\theta)
+=\mathbb{E}_{\tau\sim\mu_r}
+\Bigl[w_\theta(\tau,x)\,V(x,\tau)\,
+\nabla_\theta\log\pi_\theta(\tau\mid x)\Bigr],
+\qquad
+w_\theta(\tau,x)=\frac{\pi_\theta(\tau\mid x)}{\mu_r(\tau\mid x)}.
+\]
+In principle, conditioning on teacher context can alter the support of
+the behavior policy, so this identity is interpreted as the idealized
+objective under support overlap. In practice we use the trajectories
+actually reachable under the behavior policy and clip the importance
+ratio, $\bar w_\theta(\tau,x)=\min\{w_\theta(\tau,x),c\}$, which
+stabilizes optimization at the cost of bias but does not itself
+restore missing support. The positive update is then estimated from
+the collected student trajectories $\mathcal{B}_r$,
+\[
+\hat g^{+}
+=\frac{1}{|\mathcal{B}_r|}
+\sum_{(x,\tau)\in\mathcal{B}_r}
+\bar w_\theta(\tau,x)\,V(x,\tau)\,
+\nabla_\theta\log\pi_\theta(\tau\mid x).
+\]
+Teacher-generated trajectories receive zero optimization weight.
+
+\paragraph{Localized negative signal.}
+Failed student trajectories provide complementary information when
+paired with successful trajectories for the same query. We avoid
+treating an entire failure as negative evidence because successful and
+unsuccessful trajectories may differ only at a small number of
+consequential decisions. Given a successful trajectory $\tau^+$ and a
+failed trajectory $\tau^-$ sharing the same environment history, let
+$t^\star=\min\{t:a_t^+\neq a_t^-\}$ denote their first action
+divergence. Preference supervision is applied only from $t^\star$
+onward. We additionally require the positive trajectory to be
+sufficiently learnable. We define its length-normalized negative
+log-likelihood
+$\ell^+(x)=-\tfrac{1}{|\tau^+|}\log\pi_\theta(\tau^+\mid x)$ and admit
+the preference pair only when $\ell^+(x)$ falls below an
+exponential-moving-average threshold, which prevents negative updates
+from dominating before the student can represent the verified
+alternative \citep{razin2025unintentional, hong2024orpo}. The final
+objective combines verifier-weighted positive learning with this
+localized preference term,
+\[
+\mathcal{L}(\theta)
+=\mathcal{L}_{\mathrm{ver}}(\theta)
++\lambda_{\mathrm{pref}}\,\mathcal{L}_{\mathrm{pref}}(\theta).
+\]
+After each update, we recompute the remaining task deficits and
+teacher utilities, so student improvement changes both whether
+existing guidance is invoked and whether additional guidance is worth
+purchasing.
+
+\subsection{Training and deployment}\label{sec:behavior}
+
+\paragraph{Training.}
+Starting from $\pi_{\theta_0}$, we alternate between teacher
+acquisition, student exploration, and student-provenance optimization.
+Each round first re-estimates the student's remaining task deficits
+and purchases only teacher contexts with positive expected utility.
+The student then attempts each query unguided and invokes an acquired
+context only after unguided failure. Verifier-evaluated student
+trajectories are used for optimization, after which acquisition
+utilities are recomputed under the updated student. Training
+terminates when the unguided student satisfies the convergence
+criterion, the teacher budget is exhausted, or no remaining teacher
+context has positive estimated utility. The complete procedure and
+implementation details appear in Appendix~\ref{app:method}.
+
+\paragraph{Deployment.}
+We use the specialized student only within the estimated task region.
+After training, all model and representation parameters are frozen,
+and the held-out calibration split $\mathcal{S}_c$ is used to
+calibrate a fixed nonconformity score $R(x)$ derived from the
+prompt-side task representation. Let $\gamma_\alpha$ denote the
+corresponding split-conformal quantile
+\citep{angelopoulos2023conformal}. Under the standard exchangeability
+assumption, this construction provides the usual finite-sample
+marginal coverage of split conformal calibration. At inference time,
+queries satisfying $R(x)\le\gamma_\alpha$ are routed to the unguided
+specialized policy $\pi_{\theta^\star}(\cdot\mid x)$, while queries
+outside the calibrated task region are rejected or escalated to a
+general-purpose model. Teacher context is never required at
+deployment.
