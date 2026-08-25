@@ -78,3 +78,7 @@ bfcl awb2_star_s2 | STaR BFCL v4 | rai GPU4 | 45.81% | results/bfcl/awb2_star_s2
 bfcl awb_full FINAL | Vanilla SFT BFCL 3 seeds | rai | 0.380±.016 (36.63/39.78/37.71) | Table1
 bfcl awb2_bbopd_s0 | BB-OPD BFCL v4 | rai GPU4 | 43.13% (~base) | results/bfcl/awb2_bbopd_s0
 bfcl awb2_star FINAL | STaR BFCL 3 seeds | rai | 0.452±.008 (above base 0.436) | Table1
+bfcl awb2_bbopd_s1 | BB-OPD BFCL v4 | rai GPU4 | 41.73% | results/bfcl/awb2_bbopd_s1
+awb2_sad_s0 | SAD (segment-weighted) AppWorld | rai GPU2 | pooled partial .197, TGC 0/40 | results/appworld/awb2_sad_s0_eval
+awb2_pbsd_s0 | PBSD AppWorld | rai GPU3 | pooled partial 0.1968, TGC 0.0 | results/appworld/awb2_pbsd_s0_eval
+bfcl awb2_bbopd FINAL | BB-OPD BFCL 3 seeds | rai | 0.410±.025 | Table1
