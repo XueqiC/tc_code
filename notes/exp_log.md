@@ -92,3 +92,6 @@ awb2_ddpo_s1 | dDPO AppWorld | rai GPU4 | pooled partial 0.1968 | results/appwor
 awb2_pbsd FINAL | PBSD 3 seeds | rai | 0.209±0.021 | Table1
 awb2_agentkd_s1 | AgentKD AppWorld | rai GPU4 | pooled partial 0.2021 | results/appworld/awb2_agentkd_s1_eval
 awb2_ddpo FINAL | dDPO 3 seeds | rai | 0.200±0.006 | Table1
+bfcl awb2_sad_s0 | SAD BFCL v4 | rai GPU2 | 31.35% | results/bfcl/awb2_sad_s0
+awb4 V1 FINAL | hinted self-authoring 4 seeds | rai GPU3 | 32.9%±2.8% per-seed, 31/60 distinct tasks | v2.1 premise CONFIRMED
+awb2_agentkd FINAL | AgentKD 3 seeds | rai | 0.199±0.003 | Table1 - AppWorld column COMPLETE for all baselines
