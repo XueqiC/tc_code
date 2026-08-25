@@ -82,3 +82,4 @@ bfcl awb2_bbopd_s1 | BB-OPD BFCL v4 | rai GPU4 | 41.73% | results/bfcl/awb2_bbop
 awb2_sad_s0 | SAD (segment-weighted) AppWorld | rai GPU2 | pooled partial .197, TGC 0/40 | results/appworld/awb2_sad_s0_eval
 awb2_pbsd_s0 | PBSD AppWorld | rai GPU3 | pooled partial 0.1968, TGC 0.0 | results/appworld/awb2_pbsd_s0_eval
 bfcl awb2_bbopd FINAL | BB-OPD BFCL 3 seeds | rai | 0.410±.025 | Table1
+awb2_sad_s1 | SAD AppWorld | rai GPU2 | pooled partial 0.25 | results/appworld/awb2_sad_s1_eval

@@ -31,15 +31,16 @@ over available columns.}
 \textbf{Method} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
 & \textbf{Macro} & $\Delta$\\
 \midrule
+\rowcolor{rowhead}Teacher & -- & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}Base student & $0.248_{\pm.035}$ & $0.436$ & -- & -- & -- & --\\
 \midrule
-Vanilla SFT & $0.215_{\pm.031}$ & $0.380_{\pm.016}$ & -- & -- & -- & --\\
+Vanilla SFT & $\underline{0.215}_{\pm.031}$ & $0.380_{\pm.016}$ & -- & -- & -- & --\\
 Structured AD & -- & -- & -- & -- & -- & --\\
 Agent distillation & -- & -- & -- & -- & -- & --\\
-BB on-policy & $0.197_{\pm.000}$ & $0.410_{\pm.025}$ & -- & -- & -- & --\\
+BB on-policy & $0.197_{\pm.000}$ & $\underline{0.410}_{\pm.025}$ & -- & -- & -- & --\\
 dDPO & -- & -- & -- & -- & -- & --\\
 PBSD & -- & -- & -- & -- & -- & --\\
-STaR & $0.246_{\pm.026}$ & $0.452_{\pm.008}$ & -- & -- & -- & --\\
+STaR & $\mathbf{0.246}_{\pm.026}$ & $\mathbf{0.452}_{\pm.008}$ & -- & -- & -- & --\\
 \midrule
 \rowcolor{rowours}\textbf{Ours} & \todo{} & -- & -- & -- & -- & --\\
 \bottomrule
@@ -66,7 +67,8 @@ base student across the panel.
 \centering
 \caption{Acquisition comparison with our distillation held fixed
 (official metrics, three seeds). $\Delta$ is the change over the
-untrained base student, averaged over available columns.}
+untrained base student, averaged over available columns. Bold marks
+the best and underline the second best.}
 \label{tab:cross}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -108,7 +110,8 @@ separately in Section~\ref{sec:rq5}.
 \caption{Distillation comparison on identical acquired data. Every row
 trains on the same corpus purchased by our acquisition; the rows are
 the same methods as Table~\ref{tab:main}, so any difference comes from
-the training procedure alone.}
+the training procedure alone. Bold marks the best and underline the
+second best.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
