@@ -172,6 +172,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def load_model(args: argparse.Namespace) -> tuple[Any, Any]:
+    if os.environ.get("AW_API_MODEL"):
+        return "__api__", None
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=False)
     if getattr(tokenizer, "chat_template", None) is None:
         tokenizer.chat_template = GENERIC_CHAT_TEMPLATE
@@ -200,6 +202,18 @@ def _model_input_device(model: Any) -> torch.device:
     raise RuntimeError("Model has no materialized parameters")
 
 
+_API_CONFIG = None
+
+
+def _api_reply(messages: list[dict[str, str]]) -> str:
+    global _API_CONFIG
+    import appworld_teacher as _at
+    if _API_CONFIG is None:
+        _at.MAX_COMPLETION_TOKENS = 1024
+        _API_CONFIG = _at.load_teacher_config(os.environ["AW_API_MODEL"])
+    return _at.generate_reply(_API_CONFIG, messages)
+
+
 def generate_reply(
     model: Any,
     tokenizer: Any,
@@ -207,6 +221,8 @@ def generate_reply(
     max_new_tokens: int,
     temperature: float,
 ) -> str:
+    if model == "__api__":
+        return _api_reply(messages)
     template_args = {
         "tokenize": True,
         "add_generation_prompt": True,
