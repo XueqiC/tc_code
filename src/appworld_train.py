@@ -1140,8 +1140,20 @@ def train_student(
                         if row.get("_mu_nll_sum") is not None:
                             import math as _math
                             clip_c = float(os.environ.get("AW_IS_CLIP", "1.0"))
+                            # Per-token geometric-mean ratio. The raw
+                            # trajectory-level ratio underflows because
+                            # guided likelihoods exceed unguided ones by
+                            # a near-constant per-token margin, which
+                            # collapses every positive weight to zero
+                            # and leaves the preference term unopposed.
+                            # Length normalization is the standard
+                            # practical variant; bias acknowledged in
+                            # the appendix.
+                            n_eff = max(min(row.get("_mu_ntok", ntok),
+                                            ntok), 1)
                             w = min(_math.exp(
-                                row["_mu_nll_sum"] - cur_nll_sum), clip_c)
+                                (row["_mu_nll_sum"] - cur_nll_sum)
+                                / n_eff), clip_c)
                         loss = w * loss_mean / len(chunk)
                         raw_nll = float(loss_mean.item())
                         _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
