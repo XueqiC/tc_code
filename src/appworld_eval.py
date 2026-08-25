@@ -340,10 +340,14 @@ def _demo_block(pool_path: str, task_id: str) -> str:
             by_task.setdefault(r["task_id"], []).append(
                 (r.get("turn_index", 0), r["response"])
             )
-        _DEMO_CACHE[pool_path] = {
-            t: "\n".join(x[1] for x in sorted(v)[:6])[:6000]
-            for t, v in by_task.items()
-        }
+        blocks = {}
+        for t, v in by_task.items():
+            turns: list[str] = []
+            for _, resp in sorted(v):
+                if not turns or turns[-1] != resp:
+                    turns.append(resp)
+            blocks[t] = "\n".join(turns[-6:])[-6000:]
+        _DEMO_CACHE[pool_path] = blocks
     return _DEMO_CACHE[pool_path].get(task_id, "")
 
 
