@@ -97,3 +97,5 @@ awb4 V1 FINAL | hinted self-authoring 4 seeds | rai GPU3 | 32.9%±2.8% per-seed,
 awb2_agentkd FINAL | AgentKD 3 seeds | rai | 0.199±0.003 | Table1 - AppWorld column COMPLETE for all baselines
 bfcl awb2_sad_s1 | SAD BFCL v4 | rai GPU2 | 35.82% | results/bfcl/awb2_sad_s1
 teacher_dev40 | teacher-as-agent dev40 | API | success 20/40, pooled partial .569, TGC 0.5 | Table1 teacher row AppWorld
+bfcl awb2_ddpo_s0 | dDPO BFCL v4 | rai GPU4 | 42.66% | results/bfcl/awb2_ddpo_s0
+awb5_v21_s0 | v2.1 round-1 (400 self rows, 21 pairs) | rai GPU3 | pooled partial 0.3511, TGC 0.075 | results/appworld/awb5_v21_s0_eval
