@@ -9,13 +9,13 @@ experiments must earn.
 
 \paragraph{What imitation optimizes.}
 Maximum-likelihood training on teacher trajectories follows
-$-\nabla_\theta D_{\mathrm{KL}}(\pi_T\|\pi_\theta)$ per query, so its
+$-\nabla_\theta D_{\mathrm{KL}}(\pi_\phi\|\pi_\theta)$ per query, so its
 expected update moves the student toward the teacher's behavior
 distribution as a whole. Nothing in this objective distinguishes the
 part of that movement required by the task from the part that merely
 reproduces source-specific regularities. We quantify the distinction
 with the projection diagnostic $R_{\mathrm{ext}}$ of
-Section~\ref{sec:atoms}, and Section~\ref{sec:rq1} tests whether it
+Section~\ref{sec:atoms}, and Section~\ref{sec:rq2} tests whether it
 predicts the observed degradation ordering across supervision formats.
 The diagnostic is a measurement, not an assumption, since the
 dictionary provides a common basis rather than an intrinsic separation
