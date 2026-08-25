@@ -3,9 +3,10 @@
 \paragraph{Benchmarks.}
 We evaluate on four agent benchmarks under their official protocols.
 \textbf{AppWorld} \citep{trivedi2024appworld} tasks an agent with
-day-to-day objectives across nine simulated applications; we report the
-official task goal completion (TGC) and scenario goal completion (SGC)
-on the test\_normal split. \textbf{BFCL~v4} evaluates function calling
+day-to-day objectives across nine simulated applications; the main-text AppWorld column reports the unit-test pass ratio under
+the official evaluator, with task and scenario goal completion (TGC
+and SGC) reported alongside at the test\_normal freeze.
+\todo{finalize the frozen AppWorld protocol numbers.} \textbf{BFCL~v4} evaluates function calling
 across single-turn, parallel, and multi-turn categories; we report the
 official overall tool-call accuracy. \textbf{$\tau^2$-bench}
 \citep{yao2024taubench} places the agent in customer-service
@@ -15,9 +16,16 @@ user simulator served by the same metered teacher so its tokens are
 charged against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
 tests embodied household instruction following in a text environment;
 we report task success rate on the unseen split. In every benchmark the
-task is revealed to each method only through $k{=}50$ support queries,
-and all teacher supervision is purchased from the same API under a
-matched token budget.
+task is revealed to each method only through $N{=}50$ support queries,
+split once into $|\mathcal{S}_d|{=}40$ for demand estimation,
+acquisition, and training and $|\mathcal{S}_c|{=}10$ for boundary
+calibration. The budget $B$ counts every teacher output token,
+including completions that fail verification and are discarded;
+retries are charged. On $\tau^2$-bench the user-simulator tokens are
+metered separately from the supervision budget so that rollout volume
+is not conflated with teacher supervision. Teacher-using methods are
+matched at the same $B$, while teacher-free baselines such as STaR
+follow their native zero-teacher protocol.
 
 \paragraph{Baselines.}
 Following the standard taxonomy of LLM distillation
@@ -63,9 +71,8 @@ other student scales appear in Appendix~\ref{app:details}. Students
 train with LoRA adapters (rank 16) under compute-matched schedules;
 every threshold in the method is a statistical convention or is
 estimated from the support set, and full constants are listed in
-Appendix~\ref{app:details}. The teacher is accessed through the
-Ollama API, which serves hard-label text completions only, matching
-the no-logits constraint of the setting. Experiments run on a local
+Appendix~\ref{app:details}. The teacher is accessed as a black-box completion-only API that
+exposes neither logits nor hidden states nor gradients. Experiments run on a local
 server with five mixed NVIDIA GPUs (48--96GB) for simulator-bound
 evaluation and on NVIDIA B200 nodes for training sweeps; a full run of
 one method on one benchmark takes two to five GPU hours at 4B.

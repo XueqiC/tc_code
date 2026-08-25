@@ -5,16 +5,15 @@
 
 To establish that the method delivers on its goal, we organize the
 evaluation around five research questions.
-\textbf{RQ1} asks whether the full method outperforms state-of-the-art
-distillation baselines on standard agent benchmarks under matched
-budgets. \textbf{RQ2} asks how much the acquisition component
-contributes when the distillation component is held fixed.
-\textbf{RQ3} asks how much the distillation component contributes when
-every method receives the identical acquired data. \textbf{RQ4} asks
-whether each component of the method adds measurable value on its own.
-\textbf{RQ5} asks how efficiently the budget is converted into in-task
-capability and how off-task behavior follows from that conversion. The
-following subsections answer these questions in turn.
+\textbf{RQ1} asks whether the full method improves few-shot agent
+specialization under matched teacher budgets. \textbf{RQ2} asks
+whether task-extraneous update geometry predicts when teacher-target
+distillation will hurt. \textbf{RQ3} asks how much task-aware
+acquisition contributes when training is held fixed. \textbf{RQ4}
+asks how much student-provenance distillation contributes on identical
+purchased data. \textbf{RQ5} asks which components are necessary and
+how efficiently the teacher budget is converted into task capability.
+The following subsections answer these questions in turn.
 
 \begin{table}[t]
 \centering
@@ -47,7 +46,7 @@ STaR & $\mathbf{0.246}_{\pm.026}$ & $\mathbf{0.452}_{\pm.008}$ & -- & -- & -- & 
 \end{tabular*}
 \end{table}
 
-\subsection{RQ1, comparison with distillation baselines}
+\subsection{RQ1, full-method comparison under matched budgets}
 \label{sec:rq1}
 Table~\ref{tab:main} reports the main comparison. Every method spends
 the same token budget from the same teacher. We also report each
@@ -62,6 +61,34 @@ could already do, so they end up below the base student. Our training
 signal keeps the student's own verified behavior and adds the
 teacher's on top, and ours is the only method that ends up above the
 base student across the panel.
+
+
+\begin{figure}[t]
+\centering
+\todo{mechanism figure: round-0 $R_{\mathrm{ext}}$ of each
+supervision format against its post-training change in task
+performance, across baselines, student scales, and data volumes.}
+\caption{Task-extraneous update geometry predicts distillation
+damage. Each point is one supervision format; the horizontal axis is
+the measured task-extraneous ratio of its expected update before any
+training, and the vertical axis is the resulting change over the base
+student.}
+\label{fig:rext}
+\end{figure}
+
+\subsection{RQ2, does update geometry predict degradation}
+\label{sec:rq2}
+The mechanism claim of Section~\ref{sec:atoms} is that damage from a
+supervision source is carried by the component of its expected update
+outside the estimated task-demand subspace. We measure
+$R_{\mathrm{ext}}$ for every supervision format at round zero and
+compare it against the observed change in task performance.
+\todo{fill once the T-series mechanism runs land; the qualitative
+ordering from the completed panel is that every teacher-target format
+sinks while the two student-provenance formats do not.} The
+diagnostic is falsifiable, since a supervision format with high
+measured $R_{\mathrm{ext}}$ that nonetheless improved the student
+would refute the mechanism.
 
 \begin{table}[t]
 \centering
@@ -95,8 +122,8 @@ LLM2LLM & -- & -- & -- & --\\
 \end{tabular*}
 \end{table}
 
-\subsection{RQ2, value of the acquisition component}
-\label{sec:rq2}
+\subsection{RQ3, value of task-aware acquisition}
+\label{sec:rq3}
 Table~\ref{tab:cross} fixes our distillation and varies only how the
 training data is acquired. \todo{fill from the completed selection
 matrix; the controlled-suite column is largely in hand.} Two things stand out. First, every acquisition baseline gets better
@@ -133,8 +160,8 @@ STaR & -- & -- & --\\
 \end{tabular*}
 \end{table}
 
-\subsection{RQ3, value of the distillation component}
-\label{sec:rq3}
+\subsection{RQ4, value of the training channel on identical data}
+\label{sec:rq4}
 Table~\ref{tab:distill} feeds the identical acquired dataset to every
 distillation baseline from Table~\ref{tab:main} and to ours. Whatever difference remains can only come from the training procedure.
 \todo{fill; existing AppWorld evidence pre-populates most rows: plain
@@ -167,8 +194,8 @@ Cloning baseline & $0.215_{\pm.031}$ & --\\
 \end{tabular*}
 \end{table}
 
-\subsection{RQ4, component ablation}
-\label{sec:rq4}
+\subsection{RQ5, components and budget conversion}
+\label{sec:rq5}
 Table~\ref{tab:ablation} builds the method one component at a time,
 from plain cloning through the self-anchor with its provenance rule,
 the success-axis gated preference term, checkpoint averaging, and
@@ -189,9 +216,7 @@ coupling forecast and the anchor neutralization case study.}
 \label{fig:budget}
 \end{figure}
 
-\subsection{RQ5, budget conversion and off-task behavior}
-\label{sec:rq5}
-The last analysis asks where the budget actually goes.
+The second half of this question asks where the budget actually goes.
 \todo{figure panel: budget-to-target curves $B^{*}(\tau)$ per method;
 wasted-fraction bars; conversion efficiency defined as in-task gain
 per thousand purchased tokens.} Our method reaches target performance with a fraction of the

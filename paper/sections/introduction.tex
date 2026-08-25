@@ -33,8 +33,9 @@ scale, and data volume. The mechanism is visible in the update
 itself. Maximum-likelihood training on teacher trajectories descends
 the gradient of the divergence between teacher and student behavior
 distributions, so it conflates task-relevant capability transfer with
-changes that merely make the student write like the teacher, and for
-a small student the second effect dominates. The same training also
+changes that merely make the student write like the teacher. The
+task-extraneous component of this update can offset useful transfer,
+and we find that its measured magnitude predicts the degradation. The same training also
 erodes abilities the student already had, which we observe directly
 as a drop in generic function-calling accuracy on an unrelated
 benchmark.
@@ -45,40 +46,32 @@ teacher demonstration in its context, rather than as a target, solves
 an order of magnitude more tasks than it can solve unaided. Together
 they suggest that teacher behavior is valuable as guidance and harmful
 as a target. We therefore propose budgeted verifier-guided
-self-distillation with teacher context scaffolding. Purchased
-demonstrations enter only the student's context, where they raise the
-probability that the student discovers successful behavior by itself.
-The verifier decides which of the student's own trajectories become
-training data, which turns otherwise zero-mean self-generation into a
-task-directed learning signal. Guided trajectories are corrected
-toward the unguided deployment policy by clipped importance weighting,
-and failures contribute only through outcome-contrastive preference
-pairs that are masked before the first action divergence and gated by
-the learnability of the verified alternative. A gradient-space
-representation of task demand decides which demonstrations are worth
-buying, an unlock-probability estimate prices each purchase, and
-spending stops endogenously once no candidate has positive marginal
-utility. As the student improves, queries graduate from guided to
-unguided collection, so the procedure approaches ordinary on-policy
-self-improvement and the teacher budget is treated as an upper bound
+self-distillation with teacher context scaffolding. The procedure is
+one loop. It estimates the student's remaining task deficit, buys
+teacher guidance only where that deficit is large and guidance is
+expected to unlock success, lets the student explore by itself and
+under the purchased guidance, verifies the student's own trajectories,
+updates the student on nothing but that verified self-generated
+behavior, and re-prices all remaining guidance under the improved
+student. As competence grows, queries stop invoking guidance and
+further purchases stop paying for themselves, so the loop approaches
+ordinary on-policy self-improvement and the budget is an upper bound
 rather than an amount to be spent. After training, a held-out split of
 the support set calibrates a conformal task boundary, and the
 specialist serves only queries inside it.
 
-Our contributions are as follows. First, we document and analyze the
-systematic failure of imitation-based distillation for small agent
-students, tracing it to the conflation of capability transfer with
-distribution shift and introducing a projection diagnostic that
-measures the task-extraneous component of any supervision-induced
-update. Second, we develop a complete budgeted specialization
-framework in which the teacher is an exploration scaffold, the student
-is the sole source of training trajectories, and the verifier is the
-sole source of learning signal, with importance-corrected positive
-updates, localized negative updates, and endogenous stopping. Third,
-across four agent benchmarks under matched budgets, our method is the
-only one that improves on its base student while every
-imitation-based baseline degrades it, and guided self-generation
-raises the student's verified solution rate by an order of magnitude.
-\todo{finalize headline numbers at freeze.} Fourth, deployment is
-certified, with a split-conformal task boundary that routes
-out-of-scope queries away from the specialist.
+Our contributions are as follows. First, a mechanism. Teacher-target
+maximum likelihood moves a small agent toward the teacher behavior
+distribution as a whole; we measure the task-extraneous component of
+this update with a projection diagnostic and test whether it predicts
+distillation degradation. Second, a method. Budgeted verifier-guided
+self-distillation purchases teacher tokens as exploration
+interventions according to the task-relevant self-supervision they are
+expected to unlock, and teacher outputs never become optimization
+targets. Third, evidence. Under matched budgets across agent
+benchmarks, with separate acquisition-controlled and
+training-controlled comparisons, the proposed supervision channel is
+the only one that improves the base student, guided self-generation
+raises the verified solution rate by an order of magnitude, and a
+calibrated task-scope boundary provides an additional deployment
+safeguard. \todo{finalize headline numbers at freeze.}

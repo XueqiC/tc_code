@@ -3,263 +3,232 @@
 \subsection{Problem formulation}\label{sec:setting}
 
 We study few-shot task specialization of a language-model agent under
-a limited teacher budget. Let $\mathcal{T}$ denote a target task with
-query distribution $p_\mathcal{T}(x)$, and let
-$\mathcal{S}=\{x_i\}_{i=1}^{N}$ with $x_i\sim p_\mathcal{T}$ be a
-small support set that characterizes the task. An agent executes a
-trajectory $\tau=(a_1,o_1,\ldots,a_H,o_H)$, where $a_t$ denotes the
-model action at step $t$ and $o_t$ the corresponding environment
-observation. We assume access to a task verifier
-$V(x,\tau)\in\{0,1\}$ that evaluates whether a completed trajectory
-solves query $x$.
+a limited teacher budget. Let $\mathcal{D}$ denote the target query
+distribution. A support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
+$x_i\sim\mathcal{D}$ is the deployer's finite observation of the
+task; $\mathcal{D}$ itself is accessed only through the held-out
+benchmark evaluation. An agent executes a trajectory
+$\tau=(a_1,o_1,\ldots,a_H,o_H)$, where $a_t$ is the model action at
+step $t$ and $o_t$ the environment observation, and a task verifier
+$V(x,\tau)\in\{0,1\}$ evaluates whether the trajectory solves $x$.
 
-Our starting point is a generic student policy $\pi_{\theta_0}$. We
-seek a specialized policy $\pi_{\theta^\star}$ that maximizes expected
-task success,
+Starting from a generic student policy $\pi_{\theta_0}$ and given
+query access to a stronger teacher policy $\pi_\phi$ whose calls are
+billed per emitted token, the problem is
 \[
-J_\mathcal{T}(\theta)
-=\mathbb{E}_{x\sim p_\mathcal{T}}\,
-\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}\bigl[V(x,\tau)\bigr].
+\max_{\theta}\;
+\mathbb{E}_{x\sim\mathcal{D}}\,
+\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}\bigl[V(x,\tau)\bigr]
+\qquad\text{subject to}\qquad
+\textstyle\sum_{d\in\mathcal{A}}c(d)\le B,
 \]
-In addition, we have query access to a stronger teacher policy
-$\pi_T$. A teacher call produces a demonstration $d$ at token cost
-$c(d)$, and the acquired demonstration set $\mathcal{A}$ must satisfy
-$\sum_{d\in\mathcal{A}}c(d)\le B$ for a total teacher budget $B$.
+where $\mathcal{A}$ is the set of teacher completions purchased during
+training and $c(d)$ their token cost. Every teacher call is charged,
+including completions that fail verification.
 
-The conventional approach uses $d\sim\pi_T(\cdot\mid x)$ directly as
-an imitation target. Such an update, however, moves the student toward
-the teacher distribution,
+The conventional approach uses a purchased demonstration
+$d\sim\pi_\phi(\cdot\mid x)$ directly as an imitation target. Such an
+update moves the student toward the teacher distribution, since
 \[
-\mathbb{E}_{d\sim\pi_T(\cdot\mid x)}
+\mathbb{E}_{d\sim\pi_\phi(\cdot\mid x)}
 \bigl[\nabla_\theta\log\pi_\theta(d\mid x)\bigr]
 =-\nabla_\theta\,
-D_{\mathrm{KL}}\bigl(\pi_T(\cdot\mid x)\,\|\,\pi_\theta(\cdot\mid x)\bigr).
+D_{\mathrm{KL}}\bigl(\pi_\phi(\cdot\mid x)\,\|\,\pi_\theta(\cdot\mid x)\bigr),
 \]
-This update can mix task-relevant capability transfer with changes
-induced merely by differences between teacher and student behavior
-distributions. Our method instead uses the teacher only to facilitate
-exploration. A purchased demonstration $d$ is converted into a context
-$h(d)$, under which the student generates a new trajectory.
-Teacher-generated tokens are never used as optimization targets.
-
-Accordingly, our problem is to jointly determine where to spend
-teacher tokens, when teacher context is needed for student
-exploration, and how to convert guided student trajectories into
-improvements of the unguided deployment policy. We refer to the
-resulting framework as budgeted verifier-guided self-distillation with
-teacher context scaffolding. We partition the support set before
-training into a demand set $\mathcal{S}_d$ and a calibration set
-$\mathcal{S}_c$. Only $\mathcal{S}_d$ is used for task
-characterization, teacher acquisition, and optimization, while
-$\mathcal{S}_c$ is reserved exclusively for post-training
-task-boundary calibration.
+and nothing in this objective separates task-relevant capability
+transfer from changes induced merely by the difference between
+teacher and student behavior distributions. Our method instead uses
+the teacher only to facilitate exploration. A purchased demonstration
+is converted into a context $h(d)$ under which the student generates
+new trajectories, and teacher tokens are never used as optimization
+targets. The problem is then to decide where to spend teacher tokens,
+when teacher context is needed for exploration, and how guided
+student trajectories improve the unguided deployment policy. We call
+the resulting framework budgeted verifier-guided self-distillation
+with teacher context scaffolding. Before training we partition
+$\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$ with
+$|\mathcal{S}_d|=40$ and $|\mathcal{S}_c|=10$; only $\mathcal{S}_d$
+enters task characterization, acquisition, and optimization, while
+$\mathcal{S}_c$ is reserved for post-training boundary calibration.
 
 \subsection{Task-aware teacher acquisition}\label{sec:atoms}
 \label{sec:acquire}
 
-Because teacher demonstrations are used as exploration scaffolds
-rather than training targets, their utility is determined by how
-effectively they unlock successful student behavior in regions that
-the current student has not yet mastered.
+Because demonstrations serve as exploration scaffolds rather than
+training targets, their value lies in unlocking successful student
+behavior in regions the current student has not mastered. Crucially,
+a candidate for purchase is a query, not a demonstration, since the
+teacher's completion is unknown until it is paid for.
 
 \paragraph{Representing task demand.}
-We characterize the target task in the student's parameter space. For
-each support query $x\in\mathcal{S}_d$, we extract a projected
-gradient representation $g(x)\in\mathbb{R}^p$
-\citep{xia2024less, park2023trak}. We fit a sparse dictionary
-$D=[d_1,\ldots,d_M]\in\mathbb{R}^{p\times M}$
-\citep{olshausen1996emergence} and represent each query through sparse
-coefficients
+We characterize the task in the student's parameter space. For each
+support query $x\in\mathcal{S}_d$ we extract a gradient feature
+$g(x)\in\mathbb{R}^p$, the Adam-preconditioned gradient of the causal
+language-modeling loss of the query text itself under the student's
+restricted parameter subset, compressed by a fixed random projection
+\citep{xia2024less, johnson1984extensions}; this probe objective
+requires no labels, and Appendix~\ref{app:method} gives details. We
+fit a sparse dictionary $D=[d_1,\ldots,d_M]$
+\citep{olshausen1996emergence} and code each query as
 \[
 z(x)=\arg\min_z\ \|g(x)-Dz\|_2^2+\lambda_z\|z\|_1.
 \]
 Aggregating activations over $\mathcal{S}_d$ yields a demand vector
-$r=(r_1,\ldots,r_M)$, where $r_j$ quantifies the extent to which
-dictionary direction $d_j$ is required by the target task. The
-corresponding active directions span an estimated task-demand subspace
-$\mathcal{C}_\mathcal{T}$.
-
-This representation also provides a diagnostic for supervision-induced
-drift. Given an expected update $u$, we decompose it by projection,
-$u=\Pi_{\mathcal{C}_\mathcal{T}}u+(I-\Pi_{\mathcal{C}_\mathcal{T}})u$,
-and measure the relative task-extraneous component as
+$r=(r_1,\ldots,r_M)$ whose active directions span an estimated
+task-demand subspace $\mathcal{C}_\mathcal{T}$. The same
+representation provides a diagnostic for supervision-induced drift.
+For an expected update $u$, we decompose
+$u=\Pi_{\mathcal{C}_\mathcal{T}}u+(I-\Pi_{\mathcal{C}_\mathcal{T}})u$
+and define
 \[
 R_{\mathrm{ext}}(u)
 =\frac{\bigl\|(I-\Pi_{\mathcal{C}_\mathcal{T}})u\bigr\|_2}
-       {\bigl\|\Pi_{\mathcal{C}_\mathcal{T}}u\bigr\|_2+\epsilon}.
+       {\bigl\|\Pi_{\mathcal{C}_\mathcal{T}}u\bigr\|_2+\epsilon},
 \]
-We use this quantity as an analysis tool rather than assuming that
-dictionary atoms intrinsically separate capability from distribution
-mismatch.
+an analysis tool that does not presume dictionary atoms intrinsically
+separate capability from mismatch; Section~\ref{sec:rq2} tests whether
+it predicts degradation.
 
-\paragraph{Valuing teacher context.}
-At round $r$, let $s_{r,j}$ denote the accumulated verified student
-capability associated with direction $d_j$. The remaining task deficit
-is $\delta_{r,j}=(r_j-s_{r,j})_+$. For a candidate teacher
-demonstration $d_x$ associated with query $x$, let $\hat s_j(d_x)$
-denote its predicted supply along direction $d_j$, giving the marginal
-task coverage
+\paragraph{Valuing a candidate query.}
+At round $r$, let $s_{r,j}$ be the verified student capability
+accumulated along direction $d_j$ and
+$\delta_{r,j}=(r_j-s_{r,j})_+$ the remaining deficit. For a candidate
+query $x$ we form pre-purchase estimates in expectation over the
+unknown completion,
 \[
-C_r(x)=\sum_{j=1}^{M}\min\bigl\{\delta_{r,j},\,\hat s_j(d_x)\bigr\}.
+\hat s_{r,j}(x)\approx
+\mathbb{E}_{d\sim\pi_\phi(\cdot\mid x)}\bigl[s_j(d)\bigr],
+\qquad
+\hat\rho_r(x)\approx
+\mathbb{E}_{d\sim\pi_\phi(\cdot\mid x)}
+\Bigl[\Pr_{\tau\sim\pi_{\theta_r}(\cdot\mid x,h(d))}
+\bigl[V(x,\tau)=1\bigr]\Bigr],
 \]
-A demonstration is useful, however, only if conditioning on it enables
-the student to produce successful behavior. We therefore estimate its
-unlock probability
-\[
-\rho_r(x)=\Pr_{\tau\sim\pi_{\theta_r}(\cdot\mid x,h(d_x))}
-\bigl[V(x,\tau)=1\bigr],
-\]
-using a common prior before guided observations are available and
-updating the estimate from observed guided rollouts thereafter. We
-score each candidate by its expected unlocked task coverage per
-teacher token,
+with a common prior before any guided observation and online updates
+from observed purchases and rollouts thereafter. The expected
+unlocked coverage is
+$C_r(x)=\sum_j\min\{\delta_{r,j},\hat s_{r,j}(x)\}$, and each
+candidate is scored per expected teacher token,
 \[
 U_r(x)=\frac{\hat\rho_r(x)\,C_r(x)}{\hat c(x)}-\lambda_I\,I_r(x),
 \]
-where $\hat c(x)$ is the predicted teacher-token cost and $I_r(x)$
-estimates potential interference with reference capabilities,
-estimated from held-out reference-task gradients as described in
-Appendix~\ref{app:method}. The capped coverage term introduces
-diminishing returns as task-demand directions become saturated. We
-greedily acquire feasible candidates with positive marginal utility
-until the budget is exhausted or $\max_x U_r(x)\le 0$. The teacher
-budget is thus an upper bound rather than a prescribed expenditure.
+where $\hat c(x)$ includes the expected cost of delivery failures,
+since unverified completions are still billed, and $I_r(x)$ estimates
+interference with reference capabilities from held-out reference-task
+gradients as detailed in Appendix~\ref{app:method}. The capped
+coverage term gives diminishing returns as directions saturate. We
+greedily purchase feasible candidates with positive marginal utility,
+update $\hat s$, $\hat\rho$, and the deficits with each observed
+completion, and stop acquiring when the budget is exhausted or
+$\max_x U_r(x)\le 0$. The budget is an upper bound, not a prescribed
+expenditure.
 
 \subsection{Teacher-scaffolded student exploration}\label{sec:explore}
 
-The acquired demonstrations are not added to the training set. They
-are used only when the student cannot obtain verifier reward through
-its own unguided exploration. For each query $x$, we first draw $K$
-trajectories from the deployment policy
-$\pi_{\theta_r}(\cdot\mid x)$. If any trajectory succeeds, collection
-for that query remains unguided. If all $K$ trajectories fail and a
-teacher demonstration has been acquired, we expose the student to its
-context $h(d_x)$ and sample from the guided behavior policy
-\[
-\mu_r(\tau\mid x)=\pi_{\theta_r}\bigl(\tau\mid x,h(d_x)\bigr).
-\]
-The resulting trajectory is still generated entirely by the student.
-The teacher changes the student's exploration distribution but does
-not supply the trajectory on which the student is optimized.
+Acquired demonstrations are not added to the training set. For each
+query $x$ we first draw $K$ trajectories from the unguided policy
+$\pi_{\theta_r}(\cdot\mid x)$. If any succeeds, collection for $x$
+remains unguided. If all $K$ fail and a context $h(d_x)$ has been
+acquired, we draw $K_g$ additional trajectories from the guided
+behavior policy $\pi_{\theta_r}(\cdot\mid x,h(d_x))$. Either way,
+every collected trajectory is generated by the student; the teacher
+changes the exploration distribution, never the optimization target.
 
-This distinction follows from a simple property of self-generation.
-For an unguided student trajectory,
+The rationale is a property of self-generation. Unguided samples
+satisfy
 $\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}
-[\nabla_\theta\log\pi_\theta(\tau\mid x)]=0$, so self-generated
-behavior has no intrinsic gradient toward an external source
-distribution. The verifier converts this otherwise zero-mean signal
-into a task-directed objective. Defining
-$J_x(\theta)=\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}[V(x,\tau)]$,
-we obtain
-\[
-\nabla_\theta J_x(\theta)
-=\mathbb{E}_{\tau\sim\pi_\theta}
-\bigl[V(x,\tau)\,\nabla_\theta\log\pi_\theta(\tau\mid x)\bigr].
-\]
-Teacher context is therefore needed only in the cold-start regime in
-which the student rarely samples trajectories with $V=1$. Because
-unguided exploration is always attempted first, guidance usage
-automatically tracks student competence. As successful guided
-behaviors are internalized, the same queries begin succeeding under
-$\pi_\theta(\cdot\mid x)$ and cease to invoke teacher context, so the
-collection process transitions from guided-heavy to increasingly
-unguided exploration without an externally specified teacher-annealing
+[\nabla_\theta\log\pi_\theta(\tau\mid x)]=0$, so they carry no
+systematic pull toward any external distribution, and weighting them
+by the verifier recovers the policy gradient of task success,
+$\nabla_\theta J_x(\theta)=\mathbb{E}_{\tau\sim\pi_\theta}
+[V(x,\tau)\nabla_\theta\log\pi_\theta(\tau\mid x)]$ for
+$J_x(\theta)=\mathbb{E}_{\tau\sim\pi_\theta(\cdot\mid x)}[V(x,\tau)]$.
+Teacher context is needed only in the cold-start regime where
+$V{=}1$ samples are vanishingly rare. Because unguided attempts come
+first, guidance usage adaptively tracks student competence up to
+sampling noise in the $K$ rollouts, and collection shifts from
+guided-heavy to unguided without an externally specified annealing
 schedule.
 
 \subsection{Learning from student-provenance trajectories}\label{sec:distill}
 
-We optimize the unguided deployment policy using only trajectories
-generated by the student.
+All collected trajectories are treated as off-policy samples from a
+single recorded behavior policy $\mu_r$, which equals
+$\pi_{\theta_r}(\cdot\mid x)$ for unguided collection and
+$\pi_{\theta_r}(\cdot\mid x,h(d_x))$ for guided collection. This
+uniform treatment matters because multi-step optimization moves
+$\pi_\theta$ away from the collection-time policy, so even unguided
+samples become off-policy after the first update; their importance
+ratio is exactly one at the first step and drifts thereafter.
 
-\paragraph{Positive verifier signal.}
-For unguided rollouts, the behavior policy coincides with the
-collection-time deployment policy. Guided trajectories are sampled
-from $\mu_r$, while the target policy is $\pi_\theta(\tau\mid x)$.
-Under the standard absolute-continuity condition, the
-deployment-policy reward gradient can be expressed by importance
-sampling,
+\paragraph{Positive verifier objective.}
+Under absolute continuity of $\pi_\theta(\cdot\mid x)$ with respect
+to $\mu_r(\cdot\mid x)$, importance sampling gives
+$\nabla_\theta J_x(\theta)=\mathbb{E}_{\tau\sim\mu_r}
+[w_\theta(\tau,x)V(x,\tau)\nabla_\theta\log\pi_\theta(\tau\mid x)]$
+with $w_\theta(\tau,x)=\pi_\theta(\tau\mid x)/\mu_r(\tau\mid x)$.
+Contextual guidance does not guarantee this condition, since a
+context can make some unguided-reachable trajectories unreachable, so
+we read the identity as the idealized objective on overlapping
+support, and we clip,
+$\bar w_\theta(\tau,x)=\min\{w_\theta(\tau,x),c\}$, trading bias for
+variance without restoring missing support. The trained loss is
+defined explicitly with a stop-gradient on the weight, so that
+automatic differentiation yields the intended estimator,
 \[
-\nabla_\theta J_x(\theta)
-=\mathbb{E}_{\tau\sim\mu_r}
-\Bigl[w_\theta(\tau,x)\,V(x,\tau)\,
-\nabla_\theta\log\pi_\theta(\tau\mid x)\Bigr],
-\qquad
-w_\theta(\tau,x)=\frac{\pi_\theta(\tau\mid x)}{\mu_r(\tau\mid x)}.
-\]
-In principle, conditioning on teacher context can alter the support of
-the behavior policy, so this identity is interpreted as the idealized
-objective under support overlap. In practice we use the trajectories
-actually reachable under the behavior policy and clip the importance
-ratio, $\bar w_\theta(\tau,x)=\min\{w_\theta(\tau,x),c\}$, which
-stabilizes optimization at the cost of bias but does not itself
-restore missing support. The positive update is then estimated from
-the collected student trajectories $\mathcal{B}_r$,
-\[
-\hat g^{+}
-=\frac{1}{|\mathcal{B}_r|}
+\mathcal{L}_{\mathrm{ver}}(\theta)
+=-\frac{1}{|\mathcal{B}_r|}
 \sum_{(x,\tau)\in\mathcal{B}_r}
-\bar w_\theta(\tau,x)\,V(x,\tau)\,
-\nabla_\theta\log\pi_\theta(\tau\mid x).
+\mathrm{sg}\bigl[\bar w_\theta(\tau,x)\,V(x,\tau)\bigr]\,
+\log\pi_\theta(\tau\mid x),
 \]
-Teacher-generated trajectories receive zero optimization weight.
+where $\mathcal{B}_r$ contains the collected student trajectories and
+teacher-generated text receives zero weight by construction.
 
 \paragraph{Localized negative signal.}
-Failed student trajectories provide complementary information when
-paired with successful trajectories for the same query. We avoid
-treating an entire failure as negative evidence because successful and
-unsuccessful trajectories may differ only at a small number of
-consequential decisions. Given a successful trajectory $\tau^+$ and a
-failed trajectory $\tau^-$ sharing the same environment history, let
-$t^\star=\min\{t:a_t^+\neq a_t^-\}$ denote their first action
-divergence. Preference supervision is applied only from $t^\star$
-onward. We additionally require the positive trajectory to be
-sufficiently learnable. We define its length-normalized negative
-log-likelihood
-$\ell^+(x)=-\tfrac{1}{|\tau^+|}\log\pi_\theta(\tau^+\mid x)$ and admit
-the preference pair only when $\ell^+(x)$ falls below an
-exponential-moving-average threshold, which prevents negative updates
-from dominating before the student can represent the verified
-alternative \citep{razin2025unintentional, hong2024orpo}. The final
-objective combines verifier-weighted positive learning with this
-localized preference term,
+Failures inform learning only through outcome-contrastive pairs. For
+a successful $\tau^+$ and failed $\tau^-$ sharing the environment
+history up to their first action divergence
+$t^\star=\min\{t:a_t^+\neq a_t^-\}$, preference supervision applies
+from $t^\star$ onward. Writing $y^+$ and $y^-$ for the post-divergence
+segments given the shared context $x_{<t^\star}$, the preference loss
+is the reference-free odds-ratio objective \citep{hong2024orpo},
 \[
-\mathcal{L}(\theta)
-=\mathcal{L}_{\mathrm{ver}}(\theta)
-+\lambda_{\mathrm{pref}}\,\mathcal{L}_{\mathrm{pref}}(\theta).
+\mathcal{L}_{\mathrm{pref}}(\theta)
+=-\log\sigma\!\Bigl(
+\log\tfrac{p_\theta(y^+\mid x_{<t^\star})}{1-p_\theta(y^+\mid x_{<t^\star})}
+-\log\tfrac{p_\theta(y^-\mid x_{<t^\star})}{1-p_\theta(y^-\mid x_{<t^\star})}
+\Bigr),
 \]
-After each update, we recompute the remaining task deficits and
-teacher utilities, so student improvement changes both whether
-existing guidance is invoked and whether additional guidance is worth
-purchasing.
+computed over admitted pairs only. A pair is admitted when the
+length-normalized negative log-likelihood of $\tau^+$, evaluated in
+the unguided deployment context even if $\tau^+$ was collected under
+guidance, falls below an exponential-moving-average threshold, which
+prevents negative pressure from dominating before the student can
+represent the verified alternative
+\citep{razin2025unintentional}. The full objective is
+$\mathcal{L}=\mathcal{L}_{\mathrm{ver}}
++\lambda_{\mathrm{pref}}\mathcal{L}_{\mathrm{pref}}$.
 
 \subsection{Training and deployment}\label{sec:behavior}
 
-\paragraph{Training.}
-Starting from $\pi_{\theta_0}$, we alternate between teacher
-acquisition, student exploration, and student-provenance optimization.
-Each round first re-estimates the student's remaining task deficits
-and purchases only teacher contexts with positive expected utility.
-The student then attempts each query unguided and invokes an acquired
-context only after unguided failure. Verifier-evaluated student
-trajectories are used for optimization, after which acquisition
-utilities are recomputed under the updated student. Training
-terminates when the unguided student satisfies the convergence
-criterion, the teacher budget is exhausted, or no remaining teacher
-context has positive estimated utility. The complete procedure and
-implementation details appear in Appendix~\ref{app:method}.
+\paragraph{Training loop and stopping.}
+Each round alternates acquisition, collection, and optimization, then
+re-estimates deficits, unlock probabilities, and utilities under the
+updated student. Acquisition stopping and training stopping are
+distinct. Acquisition stops when no candidate retains positive
+utility or the budget is exhausted, but training continues with the
+already-acquired contexts and with unguided self-improvement until
+the unguided convergence criterion is met. Exhausting the budget
+never terminates learning; it only ends new purchases.
 
 \paragraph{Deployment.}
-We use the specialized student only within the estimated task region.
-After training, all model and representation parameters are frozen,
-and the held-out calibration split $\mathcal{S}_c$ is used to
-calibrate a fixed nonconformity score $R(x)$ derived from the
-prompt-side task representation. Let $\gamma_\alpha$ denote the
-corresponding split-conformal quantile
-\citep{angelopoulos2023conformal}. Under the standard exchangeability
-assumption, this construction provides the usual finite-sample
-marginal coverage of split conformal calibration. At inference time,
-queries satisfying $R(x)\le\gamma_\alpha$ are routed to the unguided
-specialized policy $\pi_{\theta^\star}(\cdot\mid x)$, while queries
-outside the calibrated task region are rejected or escalated to a
-general-purpose model. Teacher context is never required at
-deployment.
+After training, all parameters defining the routing score are frozen,
+and $\mathcal{S}_c$ calibrates a split-conformal threshold
+$\gamma_\alpha$ on the prompt-side nonconformity score $R(x)$
+\citep{angelopoulos2023conformal}. Queries with
+$R(x)\le\gamma_\alpha$ are served by the unguided specialist
+$\pi_{\theta^\star}(\cdot\mid x)$ and the remainder are rejected or
+escalated. The construction is a calibrated in-task acceptance region
+under exchangeability, not an out-of-distribution detection
+guarantee. Teacher context is never required at deployment.

@@ -30,10 +30,7 @@ generalize this into generate-filter-train loops
 \citep{yuan2023scaling, gulcehre2023rest, singh2023beyond}, self-play
 uses earlier checkpoints as opponents \citep{chen2024spin}, and online
 preference optimization shows that fresh negatives beat frozen ones
-\citep{guo2024direct}. Context distillation compresses in-context
-information into weights \citep{snell2022learning}, and
-self-distillation fine-tuning has the student rewrite training data in
-its own words to bridge distribution gaps \citep{yang2024self}. These
+\citep{guo2024direct}. These
 methods either assume the model can already sample successes or take
 the data as given. Our setting has neither, since the cold student
 almost never succeeds unaided and every demonstration costs money. The
@@ -41,6 +38,24 @@ scaffold is what connects the two lines, as purchased teacher context
 raises the student's success rate by an order of magnitude, and the
 verifier-filtered self-training then proceeds on the student's own
 trajectories with importance correction toward the deployment policy.
+
+
+\paragraph{Privileged context and guided exploration.}
+A recent line uses privileged information at collection time that is
+absent at deployment. Context distillation compresses in-context
+content into weights \citep{snell2022learning}, self-distillation
+fine-tuning has the student rewrite training data in its own words
+\citep{yang2024self}, and in-context reinforcement learning and
+scaffolded exploration expose a policy to hints or expert traces
+during rollout collection. Our setting differs in both supervision and
+allocation. Teacher access is a metered external resource, so the
+method must decide which interventions are worth purchasing, and after
+purchase the teacher information influences only the behavior policy
+used for exploration, while learning is grounded in verifier outcomes
+on student-provenance trajectories and targets the unguided deployment
+policy through importance correction. The claimed novelty is this
+combination of supervision channel, adaptive budget allocation, and
+deployment-policy targeting rather than the use of guidance alone.
 
 \paragraph{Budgeted acquisition and certified deployment.}
 Gradient features locate influential or task-relevant data

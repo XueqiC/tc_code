@@ -5,24 +5,19 @@ token. We study few-shot agent specialization under exactly these
 terms. Our first finding is negative. Across seven current
 distillation baselines spanning the labeling, feedback,
 self-knowledge, and on-policy branches, every method that uses teacher
-tokens as training targets ends below the untrained student, because
-maximum-likelihood imitation descends the divergence between teacher
-and student behavior distributions and thereby conflates capability
-transfer with mere distribution shift, while eroding abilities the
-student already has. We therefore propose budgeted verifier-guided
-self-distillation with teacher context scaffolding. Purchased
-demonstrations enter only the student's context, where they raise the
-probability that the student discovers successful behavior by itself,
-by an order of magnitude in our experiments. The verifier selects
-which of the student's own trajectories become training data, guided
-trajectories are corrected toward the unguided deployment policy by
-clipped importance weighting, and failures contribute only through
-outcome-contrastive preference pairs masked before the first action
-divergence. A gradient-space representation of task demand prices
-each purchase by its expected unlocked coverage per teacher token, and
+tokens as training targets ends below the untrained student.
+Maximum-likelihood imitation provably descends the divergence between
+teacher and student behavior distributions, and we find empirically
+that the induced task-extraneous drift offsets useful transfer while
+eroding abilities the student already has. We therefore propose
+budgeted verifier-guided self-distillation. Purchased demonstrations
+enter only the student's context, where they raise the probability
+that the student discovers successful behavior by itself, by an order
+of magnitude in our experiments, and the verifier determines how the
+student's own trajectories contribute to learning. A gradient-space
+representation of task demand prices each candidate purchase by the
+self-supervision it is expected to unlock per teacher token, and
 spending stops endogenously when no candidate retains positive
-utility. After training, a held-out calibration split fixes a
-split-conformal task boundary that routes out-of-scope queries away
-from the specialist. Under matched budgets on agent benchmarks, our
-method is the only one that improves on its base student.
+utility. Under matched budgets on agent benchmarks, our method is the
+only one that consistently improves on its base student.
 \todo{finalize headline numbers at freeze.}
