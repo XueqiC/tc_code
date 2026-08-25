@@ -1103,6 +1103,7 @@ def train_student(
     distillation: dict[str, Any] | None = None,
 ) -> int:
     """Train for three epochs with true final-chunk gradient accumulation."""
+    global _AW_NLL_EMA
     model.config.use_cache = False
     model.train()
     optimizer = torch.optim.AdamW(
@@ -1125,7 +1126,54 @@ def train_student(
                         agentkd_row(row) if distill_mode == "agentkd" else row
                     )
                     input_ids, labels = encode(tokenizer, training_row)
-                    if distill_mode == "sad":
+                    if os.environ.get("AW_V3") == "1":
+                        # v3.0 update (method doc §7-8): clipped
+                        # importance-weighted verifier policy gradient
+                        # plus the gated, divergence-masked preference
+                        # term. The ratio corrects guided collection
+                        # toward the deployment context; both densities
+                        # are the student's own.
+                        loss_mean = model(input_ids=input_ids, labels=labels).loss
+                        ntok = int((labels != -100).sum())
+                        cur_nll_sum = float(loss_mean.item()) * ntok
+                        w = 1.0
+                        if row.get("_mu_nll_sum") is not None:
+                            import math as _math
+                            clip_c = float(os.environ.get("AW_IS_CLIP", "1.0"))
+                            w = min(_math.exp(
+                                row["_mu_nll_sum"] - cur_nll_sum), clip_c)
+                        loss = w * loss_mean / len(chunk)
+                        raw_nll = float(loss_mean.item())
+                        _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
+                                       else 0.99 * _AW_NLL_EMA + 0.01 * raw_nll)
+                        if (row.get("_rejected")
+                                and raw_nll <= _AW_NLL_EMA):
+                            rej_row = {"prompt": row["prompt"],
+                                       "messages": row.get("messages"),
+                                       "response": row["_rejected"]}
+                            ids_r, lab_r = encode(tokenizer, rej_row)
+                            resp_c = labels[0][labels[0] != -100]
+                            resp_r = lab_r[0][lab_r[0] != -100]
+                            shared = 0
+                            for a_t, b_t in zip(resp_c.tolist(), resp_r.tolist()):
+                                if a_t != b_t:
+                                    break
+                                shared += 1
+                            if shared < min(len(resp_c), len(resp_r)):
+                                lab_c2 = labels.clone()
+                                lab_r2 = lab_r.clone()
+                                for lab in (lab_c2, lab_r2):
+                                    pos = (lab[0] != -100).nonzero().squeeze(-1)
+                                    lab[0][pos[:shared]] = -100
+                                lc = model(input_ids=input_ids, labels=lab_c2).loss
+                                lr2 = model(input_ids=ids_r, labels=lab_r2).loss
+                                lpc, lpr = -lc, -lr2
+                                l1c = torch.log1p(-torch.exp(torch.clamp(lpc, max=-1e-4)))
+                                l1r = torch.log1p(-torch.exp(torch.clamp(lpr, max=-1e-4)))
+                                ratio = (lpc - l1c) - (lpr - l1r)
+                                import torch.nn.functional as _F
+                                loss = loss + 0.25 * (-_F.logsigmoid(ratio)) / len(chunk)
+                    elif distill_mode == "sad":
                         reasoning_mask, action_mask = sad_token_masks(
                             tokenizer, row, labels
                         )
@@ -1182,7 +1230,6 @@ def train_student(
                     elif os.environ.get("AW_UNIORPO") == "1":
                         loss = model(input_ids=input_ids, labels=labels).loss / len(chunk)
                         raw_nll = float(loss.item()) * len(chunk)
-                        global _AW_NLL_EMA
                         _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
                                        else 0.99 * _AW_NLL_EMA + 0.01 * raw_nll)
                         if (row.get("_rejected")
