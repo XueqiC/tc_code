@@ -310,6 +310,27 @@ def truncate_output(text: str, limit: int = 1500) -> str:
     return text[:left] + marker + text[-right:]
 
 
+_DEMO_CACHE: dict[str, dict[str, str]] = {}
+
+
+def _demo_block(pool_path: str, task_id: str) -> str:
+    if pool_path not in _DEMO_CACHE:
+        import json as _json
+        by_task: dict[str, list] = {}
+        for line in open(pool_path):
+            r = _json.loads(line)
+            if r.get("teacher") == "self":
+                continue
+            by_task.setdefault(r["task_id"], []).append(
+                (r.get("turn_index", 0), r["response"])
+            )
+        _DEMO_CACHE[pool_path] = {
+            t: "\n".join(x[1] for x in sorted(v)[:6])[:6000]
+            for t, v in by_task.items()
+        }
+    return _DEMO_CACHE[pool_path].get(task_id, "")
+
+
 def make_system_prompt(task: dict[str, Any]) -> str:
     supervisor = task.get("supervisor") or {}
     details = ", ".join(
@@ -426,8 +447,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 task = None
 
             if task is not None:
+                system_content = make_system_prompt(task)
+                demo_pool_path = os.environ.get("AW_DEMO_POOL")
+                if demo_pool_path:
+                    demo = _demo_block(demo_pool_path, task_id)
+                    if demo:
+                        system_content += (
+                            "\n\nWorked example from an expert on this "
+                            "task. Study the approach, then solve the task "
+                            "yourself step by step:\n" + demo
+                        )
                 messages = [
-                    {"role": "system", "content": make_system_prompt(task)},
+                    {"role": "system", "content": system_content},
                     {"role": "user", "content": "Begin by consulting the API documentation."},
                 ]
                 try:
