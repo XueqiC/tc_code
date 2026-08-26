@@ -33,15 +33,15 @@ over available columns.}
 \rowcolor{rowhead}Teacher & $0.569$ & -- & -- & -- & -- & --\\
 \rowcolor{rowhead}Base student & $0.248_{\pm.035}$ & $0.436$ & -- & -- & -- & --\\
 \midrule
-Vanilla SFT & $\underline{0.215}_{\pm.031}$ & $0.380_{\pm.016}$ & -- & -- & -- & --\\
+Vanilla SFT & $0.215_{\pm.031}$ & $0.380_{\pm.016}$ & -- & -- & -- & --\\
 Structured AD & $0.215_{\pm.031}$ & $0.346_{\pm.028}$ & -- & -- & -- & --\\
 Agent distillation & $0.199_{\pm.003}$ & $0.391_{\pm.026}$ & -- & -- & -- & --\\
 BB on-policy & $0.197_{\pm.000}$ & $\underline{0.410}_{\pm.025}$ & -- & -- & -- & --\\
 dDPO & $0.200_{\pm.006}$ & $0.402_{\pm.025}$ & -- & -- & -- & --\\
 PBSD & $0.209_{\pm.021}$ & -- & -- & -- & -- & --\\
-STaR & $\mathbf{0.246}_{\pm.026}$ & $\mathbf{0.452}_{\pm.008}$ & -- & -- & -- & --\\
+STaR & $\underline{0.246}_{\pm.026}$ & $\mathbf{0.452}_{\pm.008}$ & -- & -- & -- & --\\
 \midrule
-\rowcolor{rowours}\textbf{Ours} & \todo{} & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\textbf{Ours} & $\mathbf{0.330}_{\pm.054}$ & \todo{BFCL eval of the final method running} & -- & -- & -- & --\\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -55,7 +55,7 @@ that matters most in this setting.
 \todo{fill as the BFCL, $\tau^2$-bench, and ALFWorld columns land; on
 AppWorld the completed panel already shows every cloning-style
 baseline below the base student (0.200--0.215 against 0.248) while
-ours is the only method above it (0.284$\pm$.037).} The pattern is simple. Methods that clone teacher demonstrations pick
+ours is the only method above it (0.330$\pm$.054).} The pattern is simple. Methods that clone teacher demonstrations pick
 up the teacher's surface style and lose part of what the base model
 could already do, so they end up below the base student. Our training
 signal keeps the student's own verified behavior and adds the

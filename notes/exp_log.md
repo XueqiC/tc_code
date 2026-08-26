@@ -113,3 +113,14 @@ bfcl awb2_agentkd_s1 | AgentKD BFCL v4 | rai GPU4 | 41.44% | results/bfcl/awb2_a
 awb6_v3_s1 (corrected mu) | v3.0 | rai GPU3 | partial 0.3404, TGC 0.05, SGC 0.000 | results/appworld/awb6_v3_s1_eval
 awb2_agentkd_s2 | AgentKD BFCL seed2 | rai GPU4 | BFCL v4 overall 39.39% | results/bfcl/awb2_agentkd_s2
 awb2_agentkd 3-seed | AgentKD BFCL summary | rai | 0.391±0.026 (36.34/41.44/39.39) | Table1 BFCL cell filled
+awb6_v3_s2 | V3 (corrected mu) seed2 | rai GPU3 | pooled .223, TGC 1/40 | results/appworld/awb6_v3_s2_eval
+awb6_v3 3-seed | V3 final | rai | 0.305±0.071 (.351/.340/.223) vs V2 0.310±0.036; s2 clean logs, broad mild degradation (worse on 10/40, better 3/40, all-fail 6=6) | verdict: no mean gain over V2, variance worse
+awb6_v3np_s2 | V3 ablation: lambda_pref=0, seed2 | rai GPU4 | pooled .282, TGC 7/40 (orig s2 w/ pref: .223, TGC 1); w_mean~0.99 healthy | preference term implicated in seed variance AND TGC suppression
+bfcl awb2_pbsd_s0 | PBSD BFCL v4 | rai GPU3 | 40.78% | results/bfcl (campaign_D)
+awb6_v3np_s0 | V3 ablation: lambda_pref=0, seed0 | rai GPU4 | pooled .388 (project-best single seed), TGC 3/40 (orig s0 w/ pref: .351, TGC 3) | no-pref helps on BOTH tested seeds
+bfcl awb2_pbsd_s1 | PBSD BFCL v4 | rai GPU3 | 40.54% | results/bfcl (campaign_D)
+awb6_v3np_s1 | V3 ablation: lambda_pref=0, seed1 | rai GPU4 | pooled .319, TGC 5/40 (orig s1 w/ pref: .340, TGC 2) | only seed where mean slightly下降, TGC仍升
+awb6_v3np 3-seed | V3-nopref final | rai | 0.330±0.054 (.388/.319/.282), TGC 15/120 | beats V2 .310±.036 and V3-pref .305±.071 on mean & TGC; best config to date
+bfcl base_r2 | base student BFCL rerun 2 (clean) | rai GPU2 | 43.92% (r1 43.55) | results/bfcl/base_r2
+v3-pref机制分析 | 14 pairs内容审计 (CPU) | rai | 共享前缀5.3%(t*即turn开头,掩码无效); rejected后缀95.6%为跨任务高频方言token; 72%的被惩罚token同时出现在同一更新被推高的chosen turn里; EMA门每epoch放行13-14/14 | 结论: outcome级信号被ORPO均匀摊到~90 token, 其中仅个别真错, 其余是正负目标直接打架 → 方言/TGC抑制
+awb6_v3_s3 | V3 with-pref seed3 (ablation control) | rai GPU4 | pooled .330, TGC 5/40; with-pref 4-seed .311±.059 | results/appworld/awb6_v3_s3_eval
