@@ -105,3 +105,11 @@ bfcl awb2_sad FINAL | SAD BFCL 3 seeds | rai | 0.346±0.028 | Table1
 awb5_v21 FINAL | v2.1 round-1 3 seeds | rai GPU3 | 0.310±0.036, TGC 11/120 | vs v2.0 .284±.037 TGC~0
 bfcl awb2_ddpo FINAL | dDPO BFCL 3 seeds | rai | 0.402±0.025 | Table1
 awb6_v3_s0 VOIDED | trajectory-sum IS underflow -> preference-dominated collapse .197 | fixed to per-token ratio
+awb6_v3_s0 (2nd) VOIDED | OOM during lane collision | rerun chained after s2
+awb6_v3_s1 | v3.0 fixed per-token IS | rai GPU3 | partial 0.1968, TGC 0.0 | results/appworld/awb6_v3_s1_eval
+bfcl awb2_agentkd_s0 | AgentKD BFCL v4 | rai GPU4 | 36.34% | results/bfcl/awb2_agentkd_s0
+awb6_v3_s0 (3rd, corrected mu) | v3.0 full protocol | rai GPU3 | partial 0.3511, TGC 0.075 | results/appworld/awb6_v3_s0_eval
+bfcl awb2_agentkd_s1 | AgentKD BFCL v4 | rai GPU4 | 41.44% | results/bfcl/awb2_agentkd_s1
+awb6_v3_s1 (corrected mu) | v3.0 | rai GPU3 | partial 0.3404, TGC 0.05, SGC 0.000 | results/appworld/awb6_v3_s1_eval
+awb2_agentkd_s2 | AgentKD BFCL seed2 | rai GPU4 | BFCL v4 overall 39.39% | results/bfcl/awb2_agentkd_s2
+awb2_agentkd 3-seed | AgentKD BFCL summary | rai | 0.391±0.026 (36.34/41.44/39.39) | Table1 BFCL cell filled
