@@ -221,10 +221,15 @@ AppWorld(agent 锚点,TGC/SGC)+ τ-bench(客服 agent,pass^k,teacher 兼任 user
 - **辅目标**:off-task 最低——作为"预算被高效转化为任务能力"的证据,
   不是独立约束。门若对 in-task 无代价则保留(零泄漏免费的故事最硬)。
 
-## RUNNING JOBS (updated 2026-08-17 15:20 EDT)
-- hpg tc-samp3 39539084 array0-1 (B200): samp_s0/s1 三跑(E3_SELFAMP 自放大判定),~2h
-- hpg tc-upg 39539410 array0-11 (B200): 方法升级波 sk/pref/avg/bs × 3 seeds(2B×20k×ext200),~2-3h/job
-- rai avgsan pid 3836323 (GPU2): ckpt-avg smoke 收尾中(判定已通过:adopted 0.93)
+## RUNNING JOBS
+- rai tmux hq:v3diag (GPU4): V3 鲁棒性诊断 lane — np_s2(λ_pref=0) → s3 → s4 → np_s0;trainer 新增 v3stats(w_mean/pref 计数)
+- BLOCKED: Ollama API 配额满 → teacher BFCL 行 + teacher dev40 std 重跑暂停(监视 quota 恢复自动续)
+- rai tmux hq:baserun: BFCL base r3 生成中 (GPU2); r2 需重跑(旧目录污染已清)
+- rai tmux hq:pbsdrun: PBSD BFCL ×3 链已触发 (GPU3, port 8901, campaign_D)
+- hpg dept: basebench/ALFWorld 评测阵列 ×3 PENDING (QOSGrpCpuLimit)
+- hpg yd24f: tc-tau2 smoke PENDING; tc-v3 阵列已取消(旧pool bug)
+- V3-pref 三种子: 0.305±0.071 (.351/.340/.223);V3-nopref 三种子: 0.330±0.054 (.388/.319/.282), TGC 15/120 — 当前最佳配置(round-2 候选主配方)
+- GPU4 继续: s3/s4(带 pref 对照种子)
 
 ## INFRA NOTE (2026-08-17): hpg 工作区迁移
 - yd24f.fsu 组 /blue 配额被整组占满(8T/8T + 文件数到顶),所有写入失败(samp 两连败根因)。

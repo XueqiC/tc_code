@@ -99,7 +99,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=20_000,
         help="response-token budget; ignored by --selection full (default: 20000)",
     )
-    parser.add_argument("--seed", type=int, choices=(0, 1, 2), default=0)
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--student", default="Qwen/Qwen3.5-2B")
     parser.add_argument("--tag", required=True, type=tag_name)
     return parser.parse_args(argv)
@@ -1112,6 +1112,7 @@ def train_student(
     )
     rng = np.random.default_rng(seed)
     optimizer_steps = 0
+    _v3_stats = {"w_sum": 0.0, "w_n": 0, "pref_n": 0, "pref_loss": 0.0}
     distill_mode = None if distillation is None else distillation["mode"]
     pbsd_nll_ema: float | None = None
     try:
@@ -1158,7 +1159,14 @@ def train_student(
                         raw_nll = float(loss_mean.item())
                         _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
                                        else 0.99 * _AW_NLL_EMA + 0.01 * raw_nll)
-                        if (row.get("_rejected")
+                        _v3_stats["w_sum"] += w
+                        _v3_stats["w_n"] += 1
+                        # preference term removed from the method
+                        # (net harm, see exp_log 2026-08-26); enable
+                        # explicitly for ablation runs only
+                        lam_pref = float(os.environ.get("AW_LAMBDA_PREF",
+                                                        "0"))
+                        if (lam_pref > 0 and row.get("_rejected")
                                 and raw_nll <= _AW_NLL_EMA):
                             rej_row = {"prompt": row["prompt"],
                                        "messages": row.get("messages"),
@@ -1184,7 +1192,10 @@ def train_student(
                                 l1r = torch.log1p(-torch.exp(torch.clamp(lpr, max=-1e-4)))
                                 ratio = (lpc - l1c) - (lpr - l1r)
                                 import torch.nn.functional as _F
-                                loss = loss + 0.25 * (-_F.logsigmoid(ratio)) / len(chunk)
+                                loss = loss + lam_pref * (-_F.logsigmoid(ratio)) / len(chunk)
+                                _v3_stats["pref_n"] += 1
+                                _v3_stats["pref_loss"] += float(
+                                    (-_F.logsigmoid(ratio)).item())
                     elif distill_mode == "sad":
                         reasoning_mask, action_mask = sad_token_masks(
                             tokenizer, row, labels
@@ -1315,6 +1326,17 @@ def train_student(
                 f"[train] epoch={epoch + 1}/{EPOCHS} optimizer_steps={optimizer_steps}",
                 flush=True,
             )
+            if _v3_stats["w_n"]:
+                print(
+                    f"[train][v3stats] epoch={epoch + 1} "
+                    f"w_mean={_v3_stats['w_sum'] / _v3_stats['w_n']:.4f} "
+                    f"pref_updates={_v3_stats['pref_n']} "
+                    f"pref_loss_mean="
+                    f"{_v3_stats['pref_loss'] / max(_v3_stats['pref_n'], 1):.4f}",
+                    flush=True,
+                )
+                _v3_stats = {"w_sum": 0.0, "w_n": 0, "pref_n": 0,
+                             "pref_loss": 0.0}
     finally:
         del optimizer
     model.config.use_cache = True

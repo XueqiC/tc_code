@@ -5,7 +5,8 @@ This section provides implementation details omitted from
 Section~\ref{sec:method}, including the complete training procedure,
 gradient representation, acquisition estimators, reference-task
 interference measurement, guidance construction, importance weighting,
-preference-pair construction, and task-boundary calibration.
+the preference construction we tested and removed, and task-boundary
+calibration.
 
 \paragraph{Complete training algorithm.}
 The procedure begins by randomly partitioning
@@ -26,11 +27,9 @@ provenance, and behavior-policy log-likelihood, and activates an
 acquired context only for queries whose unguided attempts all fail.
 Optimization computes clipped importance weights for guided
 trajectories, forms the verifier-weighted positive objective from all
-collected student trajectories, constructs outcome-contrastive
-preference pairs on shared prefixes with the first-divergence mask and
-the length-normalized EMA learnability gate, and updates the student
-with $\mathcal{L}=\mathcal{L}_{\mathrm{ver}}
-+\lambda_{\mathrm{pref}}\mathcal{L}_{\mathrm{pref}}$. Re-estimation
+collected student trajectories, and updates the student with
+$\mathcal{L}=\mathcal{L}_{\mathrm{ver}}$; failed trajectories enter
+no loss term. Re-estimation
 re-evaluates unguided capability, updates supply $s_{r+1}$, unlock and
 interference estimates, and acquisition utilities, and stops when the
 unguided convergence criterion holds, the budget is exhausted, or all
@@ -92,14 +91,24 @@ observed trajectories but cannot recover missing support. We report
 the empirical ratio distribution and compare no correction, unclipped
 correction where feasible, and clipped correction.
 
-\paragraph{Outcome-localized preference construction.}
-Success-failure pairs must share the environment state before their
-first action divergence $t^\star$; tokens before $t^\star$ receive no
-preference loss. The learnability score is the length-normalized NLL
-of the positive trajectory, tracked by an exponential moving average
-that defines the admission threshold; length normalization removes the
-systematic preference for shorter trajectories that raw sequence NLL
-induces.
+\paragraph{Preference construction tested and removed.}
+An earlier version of the objective added a reference-free odds-ratio
+preference term \citep{hong2024orpo} on success-failure pairs sharing
+the environment state before their first action divergence $t^\star$,
+with tokens before $t^\star$ masked and pairs admitted through a
+length-normalized NLL gate tracked by an exponential moving average.
+Auditing the admitted pairs showed why this term degrades the method.
+Sampled trajectories diverge in surface form almost immediately, so
+the shared prefix averages five percent of the turn and the mask
+removes essentially nothing. The punished segment is then nearly the
+whole failed turn, of which ninety-six percent of tokens also occur
+in verified successful turns of other tasks and seventy-two percent
+occur in the paired chosen turn itself, so the negative gradient
+lands mostly on the shared task dialect that the positive objective
+is reinforcing. The admission gate passed almost every pair in every
+epoch, making the damage systematic rather than incidental. The final
+method therefore trains on $\mathcal{L}_{\mathrm{ver}}$ alone, and
+Section~\ref{sec:rq5} reports the paired comparison.
 
 \paragraph{Single-dose positive replay.}
 The primary verifier objective is computed from the actual sampled
@@ -148,9 +157,10 @@ Certificates follow conformal risk practice \citep{vovk2005algorithmic,
 gibbs2025conditional}.
 \paragraph{Optimization and implementation constants.}
 AdamW, batch size 1 with gradient accumulation 8, learning rate
-$2\times10^{-4}$, three epochs per optimization phase, preference
-weight $\lambda_{\mathrm{pref}}=0.25$, importance-ratio clip $c=1$,
-EMA decay $0.99$ for the length-normalized learnability gate. Gradient
+$2\times10^{-4}$, three epochs per optimization phase,
+importance-ratio clip $c=1$; the removed preference variant used
+weight $\lambda_{\mathrm{pref}}=0.25$ and EMA decay $0.99$ for its
+admission gate. Gradient
 features use LoRA rank 16 with a fixed random projection to 64
 dimensions per module; the Adam preconditioner for the probe gradients
 is accumulated on the support queries themselves before any purchase,
