@@ -186,24 +186,30 @@ previous one; $\Delta$ is the change from the row above.}
 \textbf{Configuration} & AppWorld & $\Delta$\\
 \midrule
 Cloning baseline & $0.215_{\pm.031}$ & --\\
-+ self-anchor (provenance rule) & \todo{} & \todo{}\\
-+ gated preference (success axis) & -- & --\\
-+ checkpoint averaging & -- & --\\
-+ marginal acquisition (full method) & -- & --\\
+Verified self-rollouts, clipped IS & \todo{} & \todo{}\\
+\quad with first-divergence preference & \todo{} & \todo{}\\
++ guided contexts after unguided failure & \todo{} & \todo{}\\
++ marginal acquisition (full method) & \todo{} & \todo{}\\
 \bottomrule
 \end{tabular*}
 \end{table}
 
 \subsection{RQ5, components and budget conversion}
 \label{sec:rq5}
-Table~\ref{tab:ablation} builds the method one component at a time,
-from plain cloning through the self-anchor with its provenance rule,
-the success-axis gated preference term, checkpoint averaging, and
-finally marginal acquisition with the displacement cost.
-\todo{assemble from the completed AppWorld ladder and the controlled
-suite; each step is already measured individually.} Each addition either raises the mean or tightens the variance, and no
-step introduces a tuned constant. The full method is a stack of
-individually verified decisions, not a jointly tuned pipeline.
+Table~\ref{tab:ablation} builds the method one component at a time
+and also reports the one component we tested and removed. The
+preference row is indented because it is not part of the final
+method; adding a first-divergence preference term to the verified
+self-rollout objective lowers both the mean and the number of fully
+completed tasks, for the mechanism reasons given in
+Section~\ref{sec:distill} and Appendix~\ref{app:method}.
+\todo{fill from the v3 ladder once the method freezes; measured so
+far: with-pref 0.305$\pm$.071 and 6/120 fully completed vs no-pref
+0.330$\pm$.054 and 15/120, both above the V2 predecessor 0.310 and
+the base 0.248.} Every retained addition either raises the mean or tightens the
+variance, and no step introduces a tuned constant. The full method is
+a stack of individually verified decisions, not a jointly tuned
+pipeline.
 
 \begin{figure}[t]
 \centering

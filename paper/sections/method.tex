@@ -185,30 +185,23 @@ automatic differentiation yields the intended estimator,
 where $\mathcal{B}_r$ contains the collected student trajectories and
 teacher-generated text receives zero weight by construction.
 
-\paragraph{Localized negative signal.}
-Failures inform learning only through outcome-contrastive pairs. For
-a successful $\tau^+$ and failed $\tau^-$ sharing the environment
-history up to their first action divergence
-$t^\star=\min\{t:a_t^+\neq a_t^-\}$, preference supervision applies
-from $t^\star$ onward. Writing $y^+$ and $y^-$ for the post-divergence
-segments given the shared context $x_{<t^\star}$, the preference loss
-is the reference-free odds-ratio objective \citep{hong2024orpo},
-\[
-\mathcal{L}_{\mathrm{pref}}(\theta)
-=-\log\sigma\!\Bigl(
-\log\tfrac{p_\theta(y^+\mid x_{<t^\star})}{1-p_\theta(y^+\mid x_{<t^\star})}
--\log\tfrac{p_\theta(y^-\mid x_{<t^\star})}{1-p_\theta(y^-\mid x_{<t^\star})}
-\Bigr),
-\]
-computed over admitted pairs only. A pair is admitted when the
-length-normalized negative log-likelihood of $\tau^+$, evaluated in
-the unguided deployment context even if $\tau^+$ was collected under
-guidance, falls below an exponential-moving-average threshold, which
-prevents negative pressure from dominating before the student can
-represent the verified alternative
-\citep{razin2025unintentional}. The full objective is
-$\mathcal{L}=\mathcal{L}_{\mathrm{ver}}
-+\lambda_{\mathrm{pref}}\mathcal{L}_{\mathrm{pref}}$.
+\paragraph{Failed rollouts are excluded from the objective.}
+The full training objective is $\mathcal{L}_{\mathrm{ver}}$ alone.
+Failed rollouts influence learning only through acquisition, where
+they lower $\hat\rho_r$ and thereby redirect purchases, and never
+through a gradient. This exclusion is a finding rather than an
+omission. An outcome label marks a whole trajectory, but a failed
+trajectory is wrong at only a few tokens, and any objective that
+applies trajectory-level blame at token granularity punishes mostly
+the shared task dialect that the positive objective is teaching. In
+our pairs the punished segments consist almost entirely of tokens
+that also appear in verified successful turns, so a preference term
+built on first-divergence pairs cancels the positive update on
+exactly the tokens that matter, degrading both the mean and the rate
+of fully completed tasks. Section~\ref{sec:rq5} quantifies this
+effect and Appendix~\ref{app:method} records the construction we
+tested, which future work may revive with span-level rather than
+trajectory-level blame \citep{razin2025unintentional}.
 
 \subsection{Training and deployment}\label{sec:behavior}
 
