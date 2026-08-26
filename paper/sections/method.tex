@@ -197,8 +197,9 @@ the shared task dialect that the positive objective is teaching. In
 our pairs the punished segments consist almost entirely of tokens
 that also appear in verified successful turns, so a preference term
 built on first-divergence pairs cancels the positive update on
-exactly the tokens that matter, degrading both the mean and the rate
-of fully completed tasks. Section~\ref{sec:rq5} quantifies this
+exactly the tokens that matter, halving the rate of fully completed
+tasks and widening seed variance without any gain in the mean
+score. Section~\ref{sec:rq5} quantifies this
 effect and Appendix~\ref{app:method} records the construction we
 tested, which future work may revive with span-level rather than
 trajectory-level blame \citep{razin2025unintentional}.

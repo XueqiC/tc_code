@@ -106,7 +106,9 @@ in verified successful turns of other tasks and seventy-two percent
 occur in the paired chosen turn itself, so the negative gradient
 lands mostly on the shared task dialect that the positive objective
 is reinforcing. The admission gate passed almost every pair in every
-epoch, making the damage systematic rather than incidental. The final
+epoch, making the damage systematic rather than incidental.
+Empirically the term halves the rate of fully completed tasks and
+widens seed variance while providing no mean improvement. The final
 method therefore trains on $\mathcal{L}_{\mathrm{ver}}$ alone, and
 Section~\ref{sec:rq5} reports the paired comparison.
 

@@ -30,6 +30,7 @@ CODE_TAG_RE = re.compile(r"<code(?:\s[^>]*)?>(.*?)</code>", re.IGNORECASE | re.D
 BRIDGE_RESPONSE_TIMEOUT_SECONDS = 300.0
 CHAT_COMPLETION_TIMEOUT_SECONDS = 180.0
 CHAT_COMPLETION_RETRIES = 3
+RATE_LIMIT_RETRIES = 7
 MAX_COMPLETION_TOKENS = 2048
 DEFAULT_SEED = 42
 
@@ -39,7 +40,14 @@ TEACHER_MODELS = {
     "deepseek-v4-pro": "deepseek-v4-pro",
     "kimi-k2.7-code": "kimi-k2.7-code",
     "qwen3.5:397b": "qwen3.5:397b",
+    "gpt-5.6-luna": "gpt-5.6-luna",
+    "gpt-5.4": "gpt-5.4",
+    "claude-sonnet-4-6": "claude-sonnet-4-6",
+    "claude-haiku-4-5": "claude-haiku-4-5",
 }
+AZURE_OPENAI_MODELS = {"gpt-5.6-luna", "gpt-5.4"}
+AZURE_ANTHROPIC_MODELS = {"claude-sonnet-4-6", "claude-haiku-4-5"}
+AZURE_OPENAI_API_VERSION = "2024-10-21"
 
 
 class BridgeError(RuntimeError):
@@ -64,6 +72,7 @@ class TeacherConfig:
     model: str
     endpoint: str
     api_key: str = field(repr=False)
+    backend: str = "openai"
 
 
 class AppWorldBridge:
@@ -189,8 +198,48 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _azure_credentials() -> tuple[str, str]:
+    endpoint = os.environ.get("AZURE_LLM_ENDPOINT", "").strip()
+    api_key = os.environ.get("AZURE_LLM_KEY", "")
+    if not endpoint or not api_key:
+        cred_path = Path.home() / ".azure_llm_api"
+        if cred_path.exists():
+            for line in cred_path.read_text().splitlines():
+                key, _, value = line.partition("=")
+                if key == "AZURE_LLM_ENDPOINT" and not endpoint:
+                    endpoint = value.strip()
+                elif key == "AZURE_LLM_KEY" and not api_key:
+                    api_key = value.strip()
+    if not endpoint or not api_key:
+        raise RuntimeError(
+            "Azure credentials not found in environment or ~/.azure_llm_api"
+        )
+    return endpoint.rstrip("/"), api_key
+
+
 def load_teacher_config(name: str) -> TeacherConfig:
     model = TEACHER_MODELS[name]
+    if name in AZURE_OPENAI_MODELS:
+        endpoint, api_key = _azure_credentials()
+        return TeacherConfig(
+            name=name,
+            model=model,
+            endpoint=(
+                f"{endpoint}/openai/deployments/{model}/chat/completions"
+                f"?api-version={AZURE_OPENAI_API_VERSION}"
+            ),
+            api_key=api_key,
+            backend="azure_openai",
+        )
+    if name in AZURE_ANTHROPIC_MODELS:
+        endpoint, api_key = _azure_credentials()
+        return TeacherConfig(
+            name=name,
+            model=model,
+            endpoint=f"{endpoint}/anthropic/v1/messages",
+            api_key=api_key,
+            backend="anthropic",
+        )
     base_url = os.environ.get("OLLAMA_BASE_URL", "").strip()
     api_key = os.environ.get("OLLAMA_API_KEY", "")
     if not base_url:
@@ -227,32 +276,79 @@ def _content_text(content: Any) -> str:
     raise TeacherAPIError("chat completion message content is not text")
 
 
+def _build_request_body(
+    config: TeacherConfig, messages: list[dict[str, str]]
+) -> dict[str, Any]:
+    temperature = float(os.environ.get("TEACHER_TEMP", "0.0"))
+    if config.backend == "azure_openai":
+        # The deployment is fixed by the URL; gpt-5.x deployments accept
+        # only max_completion_tokens and reject non-default temperature.
+        body: dict[str, Any] = {
+            "messages": messages,
+            "max_completion_tokens": MAX_COMPLETION_TOKENS,
+        }
+        if temperature > 0:
+            body["temperature"] = temperature
+        return body
+    if config.backend == "anthropic":
+        system_parts = [
+            m["content"] for m in messages if m.get("role") == "system"
+        ]
+        chat = [m for m in messages if m.get("role") != "system"]
+        body = {
+            "model": config.model,
+            "messages": chat,
+            "max_tokens": MAX_COMPLETION_TOKENS,
+            "temperature": temperature,
+        }
+        if system_parts:
+            body["system"] = "\n\n".join(system_parts)
+        return body
+    return {
+        "model": config.model,
+        "messages": messages,
+        "temperature": temperature,
+        **({"think": True} if os.environ.get("TEACHER_THINK") == "1" else {}),
+        "max_tokens": MAX_COMPLETION_TOKENS,
+        "stream": False,
+    }
+
+
+def _request_headers(config: TeacherConfig) -> dict[str, str]:
+    if config.backend == "azure_openai":
+        return {
+            "api-key": config.api_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+    if config.backend == "anthropic":
+        return {
+            "x-api-key": config.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+    return {
+        "Authorization": f"Bearer {config.api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
 def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str:
     payload = json.dumps(
-        {
-            "model": config.model,
-            "messages": messages,
-            "temperature": float(os.environ.get("TEACHER_TEMP", "0.0")),
-            **({"think": True} if os.environ.get("TEACHER_THINK") == "1"
-               else {}),
-            "max_tokens": MAX_COMPLETION_TOKENS,
-            "stream": False,
-        },
-        ensure_ascii=False,
+        _build_request_body(config, messages), ensure_ascii=False
     ).encode("utf-8")
     request = urllib.request.Request(
         config.endpoint,
         data=payload,
-        headers={
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
+        headers=_request_headers(config),
         method="POST",
     )
 
     total_attempts = CHAT_COMPLETION_RETRIES + 1
-    for request_attempt in range(1, total_attempts + 1):
+    rate_limit_attempts = RATE_LIMIT_RETRIES + 1
+    for request_attempt in range(1, max(total_attempts, rate_limit_attempts) + 1):
         try:
             with urllib.request.urlopen(
                 request, timeout=CHAT_COMPLETION_TIMEOUT_SECONDS
@@ -261,7 +357,20 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
             break
         except urllib.error.HTTPError as exc:
             status = exc.code
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
             exc.close()
+            if status == 429 and request_attempt < rate_limit_attempts:
+                try:
+                    delay = float(retry_after)
+                except (TypeError, ValueError):
+                    delay = min(5.0 * 2 ** (request_attempt - 1), 60.0)
+                time.sleep(delay)
+                continue
+            if status == 429:
+                raise TeacherAPIError(
+                    f"chat completion returned HTTP 429 after "
+                    f"{rate_limit_attempts} attempts"
+                ) from None
             if 500 <= status < 600 and request_attempt < total_attempts:
                 time.sleep(_retry_delay(request_attempt))
                 continue
@@ -297,6 +406,18 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
         raise TeacherAPIError("chat completion returned invalid JSON") from None
     if not isinstance(data, Mapping):
         raise TeacherAPIError("chat completion response is not an object")
+    if config.backend == "anthropic":
+        content = data.get("content")
+        if not isinstance(content, Sequence) or isinstance(content, (str, bytes)):
+            raise TeacherAPIError("anthropic response has no content list")
+        parts = [
+            part["text"]
+            for part in content
+            if isinstance(part, Mapping) and isinstance(part.get("text"), str)
+        ]
+        if not parts:
+            raise TeacherAPIError("anthropic response contains no text parts")
+        return "".join(parts).strip()
     choices = data.get("choices")
     if not isinstance(choices, Sequence) or isinstance(choices, (str, bytes)) or not choices:
         raise TeacherAPIError("chat completion response has no choices")

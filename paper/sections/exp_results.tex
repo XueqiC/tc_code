@@ -204,9 +204,11 @@ self-rollout objective lowers both the mean and the number of fully
 completed tasks, for the mechanism reasons given in
 Section~\ref{sec:distill} and Appendix~\ref{app:method}.
 \todo{fill from the v3 ladder once the method freezes; measured so
-far: with-pref 0.305$\pm$.071 and 6/120 fully completed vs no-pref
-0.330$\pm$.054 and 15/120, both above the V2 predecessor 0.310 and
-the base 0.248.} Every retained addition either raises the mean or tightens the
+far: with-pref 0.326$\pm$.062 over five seeds with 12/200 fully
+completed vs no-pref 0.330$\pm$.054 over three seeds with 15/120;
+means are statistically indistinguishable, the robust differences
+are the doubled full-completion rate and the tighter variance
+without the term.} Every retained addition either raises the mean or tightens the
 variance, and no step introduces a tuned constant. The full method is
 a stack of individually verified decisions, not a jointly tuned
 pipeline.
