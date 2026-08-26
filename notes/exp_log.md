@@ -128,3 +128,6 @@ bfcl awb2_pbsd 3-seed | PBSD BFCL summary | rai | 0.407±0.002 (40.78/40.54/40.9
 awb6_v3_s4 | V3 with-pref seed4 (ablation control) | rai GPU4 | pooled .388, TGC 1/40; with-pref 5-seed .326±.062, TGC 12/200 | mean gap vs nopref closes at 5 seeds; robust diff = TGC (6% vs 12.5%) + variance
 bfcl awb6_v3np_s0 | Ours(v3-nopref) BFCL v4 | rai GPU3 | 40.73% | results/bfcl (campaign_ours3)
 bfcl base_r3 | base BFCL rerun 3 (memory regen) | rai GPU2 | 44.26%; base 3-run 0.439±0.004 | results/bfcl/base_r3
+bfcl awb6_v3np_s1 | Ours(v3-nopref) BFCL v4 | rai GPU3 | 42.10% | results/bfcl (campaign_ours3)
+bfcl awb6_v3np_s2 | Ours(v3-nopref) BFCL v4 | rai GPU3 | 44.66% | results/bfcl (campaign_ours3)
+bfcl awb6_v3np 3-seed | Ours(v3-nopref) BFCL FINAL | rai | 0.425±0.020 (40.73/42.10/44.66) | vs base 0.439±.004: -1.4pt, near-full capability preservation; baselines lose up to 9pt

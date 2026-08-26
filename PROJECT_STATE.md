@@ -222,6 +222,7 @@ AppWorld(agent 锚点,TGC/SGC)+ τ-bench(客服 agent,pass^k,teacher 兼任 user
   不是独立约束。门若对 in-task 无代价则保留(零泄漏免费的故事最硬)。
 
 ## RUNNING JOBS
+- ⛔ 2026-08-26 17:50: Azure 网关 token 配额耗尽(403, 两 key 同池, GPT+Claude 同池)。luna/sonnet demo 收集已停(verified: luna 12, sonnet 9, 已落盘可续)。等用户向 ORD 问配额规则/提额。DeepSeek 侧 Ollama 周配额同样卡住。teacher 双渠道均阻塞。
 - ⚠️ 合规事件 2026-08-26: UF RC 禁止受关注外国(含中国)开发的 LLM(Fla. Stat. 288.860);管理员在 cancel Qwen job。tc 在 hpg 的全部 pending 作业已撤(ALFWorld×3, τ²)。hpg 上不得再提交 Qwen/DeepSeek 工作负载,待用户决定(FSU 侧待确认;备选:换 Llama/Gemma 学生 + 非中系 teacher API)。/blue 上仍有 Qwen 权重与 checkpoint,视执法情况需清理。
 - rai tmux hq:v3diag (GPU4): V3 鲁棒性诊断 lane — np_s2(λ_pref=0) → s3 → s4 → np_s0;trainer 新增 v3stats(w_mean/pref 计数)
 - BLOCKED: Ollama API 配额满 → teacher BFCL 行 + teacher dev40 std 重跑暂停(监视 quota 恢复自动续)
