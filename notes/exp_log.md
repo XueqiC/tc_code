@@ -124,3 +124,4 @@ awb6_v3np 3-seed | V3-nopref final | rai | 0.330±0.054 (.388/.319/.282), TGC 15
 bfcl base_r2 | base student BFCL rerun 2 (clean) | rai GPU2 | 43.92% (r1 43.55) | results/bfcl/base_r2
 v3-pref机制分析 | 14 pairs内容审计 (CPU) | rai | 共享前缀5.3%(t*即turn开头,掩码无效); rejected后缀95.6%为跨任务高频方言token; 72%的被惩罚token同时出现在同一更新被推高的chosen turn里; EMA门每epoch放行13-14/14 | 结论: outcome级信号被ORPO均匀摊到~90 token, 其中仅个别真错, 其余是正负目标直接打架 → 方言/TGC抑制
 awb6_v3_s3 | V3 with-pref seed3 (ablation control) | rai GPU4 | pooled .330, TGC 5/40; with-pref 4-seed .311±.059 | results/appworld/awb6_v3_s3_eval
+bfcl awb2_pbsd 3-seed | PBSD BFCL summary | rai | 0.407±0.002 (40.78/40.54/40.90) | Table1 BFCL cell
