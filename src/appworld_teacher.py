@@ -314,6 +314,19 @@ def _build_request_body(
     }
 
 
+_OLLAMA_KEY_IDX = 0
+
+
+def _ollama_keys(primary: str) -> list[str]:
+    keys = [primary]
+    alt = Path.home() / ".ollama_api_key2"
+    if alt.exists():
+        k = alt.read_text().strip()
+        if k and k != primary:
+            keys.append(k)
+    return keys
+
+
 def _request_headers(config: TeacherConfig) -> dict[str, str]:
     if config.backend == "azure_openai":
         return {
@@ -328,27 +341,29 @@ def _request_headers(config: TeacherConfig) -> dict[str, str]:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+    keys = _ollama_keys(config.api_key)
     return {
-        "Authorization": f"Bearer {config.api_key}",
+        "Authorization": f"Bearer {keys[_OLLAMA_KEY_IDX % len(keys)]}",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
 
 
 def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str:
+    global _OLLAMA_KEY_IDX
     payload = json.dumps(
         _build_request_body(config, messages), ensure_ascii=False
     ).encode("utf-8")
-    request = urllib.request.Request(
-        config.endpoint,
-        data=payload,
-        headers=_request_headers(config),
-        method="POST",
-    )
 
     total_attempts = CHAT_COMPLETION_RETRIES + 1
     rate_limit_attempts = RATE_LIMIT_RETRIES + 1
     for request_attempt in range(1, max(total_attempts, rate_limit_attempts) + 1):
+        request = urllib.request.Request(
+            config.endpoint,
+            data=payload,
+            headers=_request_headers(config),
+            method="POST",
+        )
         try:
             with urllib.request.urlopen(
                 request, timeout=CHAT_COMPLETION_TIMEOUT_SECONDS
@@ -360,6 +375,9 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
             retry_after = exc.headers.get("Retry-After") if exc.headers else None
             exc.close()
             if status == 429 and request_attempt < rate_limit_attempts:
+                if config.backend == "openai":
+                    # rotate between available Ollama keys before waiting
+                    _OLLAMA_KEY_IDX += 1
                 try:
                     delay = float(retry_after)
                 except (TypeError, ValueError):

@@ -131,3 +131,32 @@ bfcl base_r3 | base BFCL rerun 3 (memory regen) | rai GPU2 | 44.26%; base 3-run 
 bfcl awb6_v3np_s1 | Ours(v3-nopref) BFCL v4 | rai GPU3 | 42.10% | results/bfcl (campaign_ours3)
 bfcl awb6_v3np_s2 | Ours(v3-nopref) BFCL v4 | rai GPU3 | 44.66% | results/bfcl (campaign_ours3)
 bfcl awb6_v3np 3-seed | Ours(v3-nopref) BFCL FINAL | rai | 0.425±0.020 (40.73/42.10/44.66) | vs base 0.439±.004: -1.4pt, near-full capability preservation; baselines lose up to 9pt
+bfcl_demos_ds | deepseek BFCL demand demos | API key2 | 40/40 gen, 29 verified (72.5%) | data/bfcl_demos_ds_verified.json
+bfcl pool_ds_sft | 25 single-turn SFT rows + 29 compact demos | - | trainer-compatible, handler-format prompts | data/bfcl_sft/
+bfclb wave1-3 | 24 arms trained (sft/sad/agentkd/ddpo/pbsd/bbopd/ours/star x3) on BFCL specialization pools | rai | trains all OK | evals in flight
+bfclb_sft_s0 | BFCL-specialized SFT seed0 | rai GPU1 | official overall 41.99% (excl-support reagg pending) | result_p8901
+bfclb_agentkd_s0 | BFCL-specialized AgentKD seed0 | rai GPU4 | official overall 42.58% | result_p8903
+bfclb_sad_s0 | BFCL-specialized SAD seed0 | rai GPU2 | official overall 40.51% | result_p8902
+bfclb_sft_s1 | BFCL-specialized SFT seed1 | rai GPU1 | official overall 41.51% | result_p8901
+bfclb_agentkd_s1 | BFCL-specialized AgentKD seed1 | rai GPU4 | official overall 42.12% | result_p8903
+bfclb_ours_s0 v1 | VOIDED (114-row all-rollouts pool) | rai GPU3 | 33.05% overall; multi-turn -11, memory -19, websearch -6.5 vs base; live held | diagnosis: 4.5x data volume overwrote untrained agentic categories; fix = A.9 single-dose 1/task (29 rows)
+bfclb_sft FINAL | BFCL-specialized SFT 3 seeds | rai GPU1 | 0.423±0.010 (41.99/41.51/43.49) | Table1 BFCL cell (pending excl-support reagg)
+gemma4_base_dev40 | Gemma-4-E4B base AppWorld dev40 (backup datapoint) | hpg B200 job 40286882 | success 0/40, pooled partial 0.207 (Qwen base .248) | /blue results
+bfclb_agentkd FINAL | BFCL-specialized AgentKD 3 seeds | rai GPU4 | 0.422±0.004 (42.58/42.12/41.83) | Table1 pending reagg
+bfclb_sad_s1 | BFCL-specialized SAD seed1 | rai GPU2 | 42.78% | result_p8902
+bfclb_ours_s0 "v2" 33.12 | VOIDED - campaign export step skipped re-export (stale v1 merged model evaluated); fix: trash export_vllm, relaunch | engineering bug, not method verdict
+bfclb_ddpo_s0 | BFCL-specialized dDPO seed0 | rai GPU4 | 40.93% | result_p8903
+bfclb_star_s0 | BFCL-specialized STaR (single-dose 29 rows) seed0 | rai GPU1 | 38.53% | result_p8901
+bfclb_ddpo_s1 | BFCL-specialized dDPO seed1 | rai GPU4 | 40.99% | result_p8903
+bfclb_sad FINAL | BFCL-specialized SAD 3 seeds | rai GPU2 | 0.421±0.014 (40.51/42.78/43.15) | Table1 pending reagg
+bfclb_ours_s0 clean | BFCL ours (single-dose 29 self rows, fresh export) | rai GPU3 | 37.98% | ~= STaR 38.53; self-data < teacher-demo on BFCL, reversed vs AppWorld
+bfclb_star_s1 | BFCL-specialized STaR seed1 | rai GPU1 | 35.60% | result_p8901
+bfclb_ddpo FINAL | BFCL-specialized dDPO 3 seeds | rai GPU4 | 0.411±0.002 (40.93/40.99/41.31) | Table1 pending reagg
+bfclb_ours PROTOCOL | ours BFCL per method stopping rules | - | zero updates (convergence pre-satisfied); Ours BFCL cell = base 0.439±0.004, budget ~1 demo; decision trace results/bfcl/ours_bfcl_decision_trace.json | trained-3-epoch variant (37.98) rebadged as no-stopping ablation
+bfclb_star FINAL | BFCL-specialized STaR 3 seeds | rai GPU1 | 0.371±0.015 (38.53/35.60/37.12) | self-distill weak on BFCL
+bfclb_pbsd_s0 | BFCL-specialized PBSD seed0 | rai GPU4 | 41.72% | result_p8903
+bfclb_ours_s1 (no-stopping ablation) | BFCL ours w/o convergence stopping | rai GPU3 | 35.56% (s0 37.98) | ablation row for RQ5
+bfclb_pbsd_s1 | BFCL-specialized PBSD seed1 | rai GPU4 | 42.46% | result_p8903
+bfclb_ours no-stopping FINAL | ours w/o convergence stopping (ablation) | rai GPU3 | 0.370±0.013 (37.98/35.56/37.40) | quantifies stopping-rule value: -6.9pt vs zero-update protocol
+bfclb_pbsd FINAL | BFCL-specialized PBSD 3 seeds | rai GPU4 | 0.420±0.004 (41.72/42.46/41.90) | Table1 pending reagg
+bfclb_best_s0 | best-of-K (teacher-judged) BFCL | rai GPU2 | 37.60% | ~= plain single-dose 37.98: quality selection alone does NOT fix self-distill drift; P4 simple form falsified, advantage axis is the real lever

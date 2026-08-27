@@ -16,9 +16,15 @@ user simulator served by the same metered teacher so its tokens are
 charged against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
 tests embodied household instruction following in a text environment;
 we report task success rate on the unseen split. In every benchmark the
-task is revealed to each method only through $N{=}50$ support queries,
-split once into $|\mathcal{S}_d|{=}40$ for demand estimation,
-acquisition, and training and $|\mathcal{S}_c|{=}10$ for boundary
+task is revealed to each method only through $N$ support queries,
+where $N$ is five percent of the benchmark's task pool clipped to the
+range $[50, 250]$, matching the demonstration volumes used by agent
+distillation work \citep{kang2025distilling, liu2025structured}. This
+gives $N{=}235$ on BFCL, $N{=}178$ on ALFWorld, and the floor
+$N{=}50$ on AppWorld and $\tau^2$-bench, whose task pools are small.
+Each support set is split once, with eighty percent forming
+$\mathcal{S}_d$ for demand estimation, acquisition, and training and
+the remaining twenty percent forming $\mathcal{S}_c$ for boundary
 calibration. The budget $B$ counts every teacher output token,
 including completions that fail verification and are discarded;
 retries are charged. On $\tau^2$-bench the user-simulator tokens are

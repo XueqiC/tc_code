@@ -1155,7 +1155,16 @@ def train_student(
                             w = min(_math.exp(
                                 (row["_mu_nll_sum"] - cur_nll_sum)
                                 / n_eff), clip_c)
-                        loss = w * loss_mean / len(chunk)
+                        # advantage centering: rows carry the task's
+                        # empirical unguided success rate p-hat; the
+                        # positive weight (1 - p-hat) vanishes exactly
+                        # where the student is already reliable, so
+                        # converged tasks stop contributing without a
+                        # separate stopping rule
+                        advantage = 1.0
+                        if row.get("_task_phat") is not None:
+                            advantage = max(1.0 - float(row["_task_phat"]), 0.0)
+                        loss = advantage * w * loss_mean / len(chunk)
                         raw_nll = float(loss_mean.item())
                         _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
                                        else 0.99 * _AW_NLL_EMA + 0.01 * raw_nll)

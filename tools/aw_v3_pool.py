@@ -33,19 +33,30 @@ DEMO_RE = re.compile(r"\n\nWorked example from an expert.*$", re.S)
 TAGS = [f"awb4_hint_t07_s{s}" for s in (20, 21, 22, 23)]
 
 
-def load_trajectories():
+def load_trajectories(best_only: bool = False):
     succ: dict[str, list[list[dict]]] = {}
     fail: dict[str, list[list[dict]]] = {}
+    quality: dict[str, list[int]] = {}
     for tag in TAGS:
         rdir = ROOT / "results/appworld" / tag
         verdict = {}
+        passed = {}
         for line in (rdir / "records.jsonl").open():
             r = json.loads(line)
             verdict[r["task_id"]] = r["passed_tests"] > r["failed_tests"]
+            passed[r["task_id"]] = r["passed_tests"]
         for line in (rdir / "transcripts.jsonl").open():
             t = json.loads(line)
-            (succ if verdict.get(t["task_id"]) else fail).setdefault(
-                t["task_id"], []).append(t["messages"])
+            tid = t["task_id"]
+            if verdict.get(tid):
+                succ.setdefault(tid, []).append(t["messages"])
+                quality.setdefault(tid, []).append(passed.get(tid, 0))
+            else:
+                fail.setdefault(tid, []).append(t["messages"])
+    if best_only:
+        for tid in list(succ):
+            best = max(range(len(succ[tid])), key=lambda i: quality[tid][i])
+            succ[tid] = [succ[tid][best]]
     return succ, fail
 
 
@@ -90,6 +101,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--student", default="Qwen/Qwen3.5-4B")
     ap.add_argument("--out", default="data/appworld_sft/pool_v3_r1.jsonl")
+    ap.add_argument("--best-only", action="store_true",
+                    help="keep only the highest-quality verified "
+                         "trajectory per task (max passed_tests)")
     args = ap.parse_args()
 
     split = json.load((ROOT / "configs/support_split.json").open())
@@ -101,7 +115,7 @@ def main() -> int:
         args.student, dtype=torch.bfloat16, device_map="cuda")
     model.eval()
 
-    succ, fail = load_trajectories()
+    succ, fail = load_trajectories(best_only=args.best_only)
     rows, n_pairs, skipped_cal = [], 0, 0
     for task, trajs in sorted(succ.items()):
         if task not in demand:
