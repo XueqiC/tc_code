@@ -60,10 +60,11 @@ when teacher context is needed for exploration, and how guided
 student trajectories improve the unguided deployment policy. We call
 the resulting framework budgeted verifier-guided self-distillation
 with teacher context scaffolding. Before training we partition
-$\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$ with
-$|\mathcal{S}_d|=40$ and $|\mathcal{S}_c|=10$; only $\mathcal{S}_d$
-enters task characterization, acquisition, and optimization, while
-$\mathcal{S}_c$ is reserved for post-training boundary calibration.
+$\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$, with eighty percent of
+the support forming $\mathcal{S}_d$ and the rest $\mathcal{S}_c$;
+only $\mathcal{S}_d$ enters task characterization, acquisition, and
+optimization, while $\mathcal{S}_c$ is reserved for post-training
+boundary calibration.
 
 \subsection{Task-aware teacher acquisition}\label{sec:atoms}
 \label{sec:acquire}
