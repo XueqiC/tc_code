@@ -2,27 +2,26 @@
 
 \subsection{Problem formulation}\label{sec:setting}
 
-The problem is stated in one sentence. Given a few-shot description
-of an agent task and a supervision budget, obtain a small model that
-maximizes performance on the task. We call this setting budgeted
-few-shot agent specialization, and it keeps the classic few-shot
-learning premises \citep{vinyals2016matching, snell2017prototypical,
-finn2017maml, brown2020language}. A task is specified only through a
-small support set drawn from the task distribution, the support set
-is the sole task-specific supervision, and the single evaluation
-criterion is performance on held-out queries from the same
-distribution that never appear in the support set. One element is
-added on top of this premise. The learner may query a stronger
-black-box teacher billed per emitted token, and the total teacher
-spend is capped by the budget; this budget is the single constraint
-of the problem. Because the tasks are agentic, executing candidate
+We study few-shot learning in LLM-based agent systems. Under the
+classic few-shot setup \citep{vinyals2016matching,
+snell2017prototypical, finn2017maml, brown2020language}, a task is
+presented to the learner only through a support set of $N$ queries
+drawn from the task distribution, and the learner is evaluated on a
+disjoint query set drawn from the same distribution. In our setting
+the learner adapts by distillation. Starting from a small base
+model, it may query a stronger black-box teacher billed per emitted
+token, with total teacher spend capped by a budget; the budget is
+the single constraint, and the single criterion is the query-set
+performance of the agent built on the adapted small model. Executing
 trajectories in the task environment and reading its verifier are
-part of interacting with the task itself, exactly as predicting
-labels is in classic few-shot classification. Let $\mathcal{D}$ denote the target query
-distribution. A support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
-$x_i\sim\mathcal{D}$ is the deployer's finite observation of the
-task; $\mathcal{D}$ itself is accessed only through the held-out
-benchmark evaluation. An agent executes a trajectory
+how an agent interacts with a query, playing the role that label
+prediction plays in few-shot classification.
+
+Formally, let $\mathcal{D}$ denote the task's query distribution. The
+support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
+$x_i\sim\mathcal{D}$ is the learner's only observation of the task;
+the query set used for evaluation is drawn from $\mathcal{D}$ and is
+disjoint from $\mathcal{S}$. An agent executes a trajectory
 $\tau=(a_1,o_1,\ldots,a_H,o_H)$, where $a_t$ is the model action at
 step $t$ and $o_t$ the environment observation, and a task verifier
 $V(x,\tau)\in\{0,1\}$ evaluates whether the trajectory solves $x$.
