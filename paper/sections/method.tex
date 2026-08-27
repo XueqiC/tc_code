@@ -3,21 +3,22 @@
 \subsection{Problem formulation}\label{sec:setting}
 
 The problem is stated in one sentence. Given a few-shot description
-of a task, obtain a small model that meets the task requirement. We
-call this setting budgeted few-shot agent specialization, and it
-keeps the classic few-shot learning premises
-\citep{vinyals2016matching, snell2017prototypical, finn2017maml,
-brown2020language}. A task is specified only through a small support
-set drawn from the task distribution, the support set is the sole
-task-specific supervision, and evaluation uses held-out queries from
-the same distribution that never appear in the support set. Two
-elements are added on top of this premise because the tasks are
-agentic. The learner may execute trajectories in the task
-environment and read a verifier's judgment of them, and it may query
-a stronger black-box teacher billed per emitted token. The
-supervision budget and the preservation of the base model's general
-competence are the constraints; any training procedure that respects
-them is a candidate solution. Let $\mathcal{D}$ denote the target query
+of an agent task and a supervision budget, obtain a small model that
+maximizes performance on the task. We call this setting budgeted
+few-shot agent specialization, and it keeps the classic few-shot
+learning premises \citep{vinyals2016matching, snell2017prototypical,
+finn2017maml, brown2020language}. A task is specified only through a
+small support set drawn from the task distribution, the support set
+is the sole task-specific supervision, and the single evaluation
+criterion is performance on held-out queries from the same
+distribution that never appear in the support set. One element is
+added on top of this premise. The learner may query a stronger
+black-box teacher billed per emitted token, and the total teacher
+spend is capped by the budget; this budget is the single constraint
+of the problem. Because the tasks are agentic, executing candidate
+trajectories in the task environment and reading its verifier are
+part of interacting with the task itself, exactly as predicting
+labels is in classic few-shot classification. Let $\mathcal{D}$ denote the target query
 distribution. A support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
 $x_i\sim\mathcal{D}$ is the deployer's finite observation of the
 task; $\mathcal{D}$ itself is accessed only through the held-out

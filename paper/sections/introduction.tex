@@ -62,11 +62,10 @@ specialist serves only queries inside it.
 
 Our contributions are as follows. First, a new problem. Budgeted
 few-shot agent specialization asks, given only a few-shot description
-of a task, for a small model that meets the task requirement; the
-deployer may query a stronger black-box teacher billed per emitted
-token and an environment verifier, subject to a supervision budget
-and to preserving the base model's general competence. No prior work
-combines these constraints. Second, a new method built on a mechanism
+of an agent task and a budget on a per-token billed black-box
+teacher, for a small model that maximizes task performance. The
+budget is the single constraint and held-out task performance the
+single criterion; no prior work studies this combination. Second, a new method built on a mechanism
 we identify and measure. Teacher-target maximum likelihood moves a
 small agent toward the teacher behavior distribution as a whole, and
 we quantify the task-extraneous component of this update with a
