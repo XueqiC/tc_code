@@ -4,12 +4,20 @@
 
 The problem is stated in one sentence. Given a few-shot description
 of a task, obtain a small model that meets the task requirement. We
-call this setting budgeted few-shot agent specialization. The
-few-shot description is the only access to the task; a metered
-black-box teacher and an environment verifier are the available
-resources; the supervision budget and the preservation of the base
-model's general competence are the constraints; any training
-procedure is a candidate solution. Let $\mathcal{D}$ denote the target query
+call this setting budgeted few-shot agent specialization, and it
+keeps the classic few-shot learning premises
+\citep{vinyals2016matching, snell2017prototypical, finn2017maml,
+brown2020language}. A task is specified only through a small support
+set drawn from the task distribution, the support set is the sole
+task-specific supervision, and evaluation uses held-out queries from
+the same distribution that never appear in the support set. Two
+elements are added on top of this premise because the tasks are
+agentic. The learner may execute trajectories in the task
+environment and read a verifier's judgment of them, and it may query
+a stronger black-box teacher billed per emitted token. The
+supervision budget and the preservation of the base model's general
+competence are the constraints; any training procedure that respects
+them is a candidate solution. Let $\mathcal{D}$ denote the target query
 distribution. A support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
 $x_i\sim\mathcal{D}$ is the deployer's finite observation of the
 task; $\mathcal{D}$ itself is accessed only through the held-out
