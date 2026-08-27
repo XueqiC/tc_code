@@ -2,8 +2,14 @@
 
 \subsection{Problem formulation}\label{sec:setting}
 
-We study few-shot task specialization of a language-model agent under
-a limited teacher budget. Let $\mathcal{D}$ denote the target query
+The problem is stated in one sentence. Given a few-shot description
+of a task, obtain a small model that meets the task requirement. We
+call this setting budgeted few-shot agent specialization. The
+few-shot description is the only access to the task; a metered
+black-box teacher and an environment verifier are the available
+resources; the supervision budget and the preservation of the base
+model's general competence are the constraints; any training
+procedure is a candidate solution. Let $\mathcal{D}$ denote the target query
 distribution. A support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ with
 $x_i\sim\mathcal{D}$ is the deployer's finite observation of the
 task; $\mathcal{D}$ itself is accessed only through the held-out

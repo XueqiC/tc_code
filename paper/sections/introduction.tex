@@ -60,15 +60,25 @@ rather than an amount to be spent. After training, a held-out split of
 the support set calibrates a conformal task boundary, and the
 specialist serves only queries inside it.
 
-Our contributions are as follows. First, a mechanism. Teacher-target
-maximum likelihood moves a small agent toward the teacher behavior
-distribution as a whole; we measure the task-extraneous component of
-this update with a projection diagnostic and test whether it predicts
-distillation degradation. Second, a method. Budgeted verifier-guided
-self-distillation purchases teacher tokens as exploration
-interventions according to the task-relevant self-supervision they are
-expected to unlock, and teacher outputs never become optimization
-targets. Third, evidence. Under matched budgets across agent
+Our contributions are as follows. First, a problem setting. Budgeted
+few-shot agent specialization asks, given only a few-shot description
+of a task, for a small model that meets the task requirement; the
+deployer may query a stronger black-box teacher billed per emitted
+token and an environment verifier, subject to a supervision budget
+and to preserving the base model's general competence. No prior work
+combines these constraints, and we supply the complete protocol that
+makes the setting reproducible, including a support-sizing rule
+matched to demonstration volumes in the distillation literature,
+budget accounting that charges failed teacher calls, and
+per-benchmark specialization under official metrics. Second, a
+mechanism. Teacher-target maximum likelihood moves a small agent
+toward the teacher behavior distribution as a whole; we measure the
+task-extraneous component of this update with a projection diagnostic
+and test whether it predicts distillation degradation. Third, a
+method. Budgeted verifier-guided self-distillation purchases teacher
+tokens as exploration interventions according to the task-relevant
+self-supervision they are expected to unlock, and teacher outputs
+never become optimization targets. Fourth, evidence. Under matched budgets across agent
 benchmarks, with separate acquisition-controlled and
 training-controlled comparisons, the proposed supervision channel is
 the only one that improves the base student, guided self-generation
