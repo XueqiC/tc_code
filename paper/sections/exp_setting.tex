@@ -15,17 +15,31 @@ report pass\textsuperscript{1} under the official evaluator, with the
 user simulator served by the same metered teacher so its tokens are
 charged against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
 tests embodied household instruction following in a text environment;
-we report task success rate on the unseen split. In every benchmark the
-task is revealed to each method only through $N$ support queries,
-where $N$ is five percent of the benchmark's task pool clipped to the
-range $[50, 250]$, matching the demonstration volumes used by agent
-distillation work \citep{kang2025distilling, liu2025structured}. This
-gives $N{=}235$ on BFCL, $N{=}178$ on ALFWorld, and the floor
-$N{=}50$ on AppWorld and $\tau^2$-bench, whose task pools are small.
-Each support set is split once, with eighty percent forming
-$\mathcal{S}_d$ for demand estimation, acquisition, and training and
-the remaining twenty percent forming $\mathcal{S}_c$ for boundary
-calibration. The budget $B$ counts every teacher output token,
+we report task success rate on the unseen split. \paragraph{Few-shot instantiation.}
+Each benchmark instantiates the setting of
+Definition~\ref{def:setting} independently, following the standard
+support and query division of few-shot learning evaluation
+\citep{vinyals2016matching, snell2017prototypical}. The support set
+$\mathcal{S}$ is sampled once per benchmark with a fixed seed,
+stratified over the benchmark's task categories, and every method,
+including the base student rows, is evaluated on the query side
+only, meaning the official task set with the support queries
+removed. The support size $N$ is five percent of the benchmark's
+task pool clipped to the range $[50, 250]$, matching the
+demonstration volumes used by agent distillation work
+\citep{kang2025distilling, liu2025structured}. Concretely, BFCL~v4
+has 4{,}706 scored entries, giving $N{=}235$ with
+$|\mathcal{S}_d|{=}188$ and $|\mathcal{S}_c|{=}47$; ALFWorld has
+3{,}553 training games, giving $N{=}178$ with
+$|\mathcal{S}_d|{=}142$ and $|\mathcal{S}_c|{=}36$, and evaluation
+stays on the official unseen split so no removal is needed; AppWorld
+has 90 training tasks and $\tau^2$-bench a task pool of comparable
+size, so both take the floor $N{=}50$ with $|\mathcal{S}_d|{=}40$
+and $|\mathcal{S}_c|{=}10$, and AppWorld evaluation stays on its
+official dev and test splits, which are disjoint from the training
+tasks by construction. In every case $\mathcal{S}_d$ is the only
+data available for demand estimation, acquisition, and training, and
+$\mathcal{S}_c$ is reserved for boundary calibration. The budget $B$ counts every teacher output token,
 including completions that fail verification and are discarded;
 retries are charged. On $\tau^2$-bench the user-simulator tokens are
 metered separately from the supervision budget so that rollout volume
