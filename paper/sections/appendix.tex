@@ -204,6 +204,36 @@ Conformal calibration uses the ten held-out calibration queries.
 Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA
 B200 accelerators.
 
+
+\paragraph{Benchmark details and evaluation metrics.}
+\textbf{AppWorld} tasks an agent with day-to-day objectives across
+nine simulated applications; the main-text column reports the
+unit-test pass ratio under the official evaluator, with task and
+scenario goal completion (TGC and SGC) reported alongside at the
+test\_normal freeze. \textbf{BFCL~v4} evaluates function calling
+across single-turn, parallel, and multi-turn categories and is
+reported as the official overall accuracy. \textbf{$\tau^2$-bench}
+places the agent in customer-service conversations with
+database-backed tools and a simulated user, reported as
+pass\textsuperscript{1}; the user simulator is served by the same
+metered teacher, and its tokens are metered separately from the
+supervision budget so rollout volume is not conflated with teacher
+supervision. \textbf{ALFWorld} tests embodied household instruction
+following in a text environment, reported as success rate on the
+official unseen split. Budget efficiency is measured by the wasted
+fraction of purchased tokens and by the budget-to-target level
+$B^{*}(\tau)$, the smallest budget at which a method reaches target
+performance $\tau$; off-task behavior is reported as residue on
+scoped reference tasks and read as evidence of where the budget went
+rather than as an objective. The baseline branches follow the
+black-box taxonomy of \citet{xu2024kdsurvey}: the labeling branch
+distills teacher demonstrations, the feedback branch turns teacher
+rankings of student samples into preference objectives, the
+self-knowledge branch retrains on the student's own verified
+samples, and the on-policy branch purchases teacher supervision on
+student-visited states; feature-based white-box methods require
+teacher logits and fall outside the setting.
+
 \paragraph{Component-study selection and data-generation baselines.}
 Beyond the main-table branches, component studies compare against
 selection baselines spanning classical and current families, namely
