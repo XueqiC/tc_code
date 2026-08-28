@@ -27,19 +27,12 @@ only, meaning the official task set with the support queries
 removed. The support size $N$ is five percent of the benchmark's
 task pool clipped to the range $[50, 250]$, matching the
 demonstration volumes used by agent distillation work
-\citep{kang2025distilling, liu2025structured}. Concretely, BFCL~v4
-has 4{,}706 scored entries, giving $N{=}235$ with
-$|\mathcal{S}_d|{=}188$ and $|\mathcal{S}_c|{=}47$; ALFWorld has
-3{,}553 training games, giving $N{=}178$ with
-$|\mathcal{S}_d|{=}142$ and $|\mathcal{S}_c|{=}36$, and evaluation
-stays on the official unseen split so no removal is needed; AppWorld
-has 90 training tasks and $\tau^2$-bench a task pool of comparable
-size, so both take the floor $N{=}50$ with $|\mathcal{S}_d|{=}40$
-and $|\mathcal{S}_c|{=}10$, and AppWorld evaluation stays on its
-official dev and test splits, which are disjoint from the training
-tasks by construction. In every case $\mathcal{S}_d$ is the only
-data available for demand estimation, acquisition, and training, and
-$\mathcal{S}_c$ is reserved for boundary calibration. The budget $B$ counts every teacher output token,
+\citep{kang2025distilling, liu2025structured}; eighty percent of
+$\mathcal{S}$ forms $\mathcal{S}_d$, the only data available for
+demand estimation, acquisition, and training, and the rest forms
+$\mathcal{S}_c$, reserved for boundary calibration. The resulting
+sizes for every benchmark are listed in
+Table~\ref{tab:support-sizes} in the appendix. The budget $B$ counts every teacher output token,
 including completions that fail verification and are discarded;
 retries are charged. On $\tau^2$-bench the user-simulator tokens are
 metered separately from the supervision budget so that rollout volume

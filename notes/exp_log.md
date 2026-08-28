@@ -160,3 +160,4 @@ bfclb_pbsd_s1 | BFCL-specialized PBSD seed1 | rai GPU4 | 42.46% | result_p8903
 bfclb_ours no-stopping FINAL | ours w/o convergence stopping (ablation) | rai GPU3 | 0.370±0.013 (37.98/35.56/37.40) | quantifies stopping-rule value: -6.9pt vs zero-update protocol
 bfclb_pbsd FINAL | BFCL-specialized PBSD 3 seeds | rai GPU4 | 0.420±0.004 (41.72/42.46/41.90) | Table1 pending reagg
 bfclb_best_s0 | best-of-K (teacher-judged) BFCL | rai GPU2 | 37.60% | ~= plain single-dose 37.98: quality selection alone does NOT fix self-distill drift; P4 simple form falsified, advantage axis is the real lever
+awb7_v31 FINAL | AppWorld best-only pool (272 rows) 3 seeds | rai GPU1 | 0.270±0.057 (.335/.229/.245), TGC 1/120 | WORSE than all-verified .330±.054/TGC15: quality-selection axis falsified on both benchmarks; supports advantage-centering as the single rule

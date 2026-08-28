@@ -133,6 +133,28 @@ should not be read as a conditional or out-of-distribution detection
 guarantee.
 
 \section{Full experimental details}\label{app:details}
+
+\begin{table}[h]
+\centering
+\caption{Support-set instantiation per benchmark under the sizing
+rule $N=\mathrm{clip}(0.05\,|\text{pool}|,\,50,\,250)$. Evaluation
+always uses the query side only; where a benchmark ships an official
+evaluation split disjoint from the pool the support is drawn from,
+that split is used unchanged.}
+\label{tab:support-sizes}
+\small
+\begin{tabular}{lrrrrl}
+\toprule
+Benchmark & Task pool & $N$ & $|\mathcal{S}_d|$ & $|\mathcal{S}_c|$
+& Evaluation side\\
+\midrule
+BFCL~v4 & 4{,}706 & 235 & 188 & 47 & official set minus support\\
+ALFWorld & 3{,}553 & 178 & 142 & 36 & official unseen split\\
+AppWorld & 90 & 50 & 40 & 10 & official dev and test splits\\
+$\tau^2$-bench & 115 & 50 & 40 & 10 & official set minus support\\
+\bottomrule
+\end{tabular}
+\end{table}
 \paragraph{Controlled suite.} Five domains built from public datasets:
 GSM8K in two action spaces (execution-verified Python and original
 chain-of-thought, an identical-query hard pair), DS-1000 Pandas
