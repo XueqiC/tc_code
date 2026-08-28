@@ -1,94 +1,79 @@
 \section{Experimental setup}\label{sec:expsetting}
+%% Three blocks: benchmarks and evaluation; few-shot instantiation;
+%% baselines and implementation.
 
-\paragraph{Benchmarks.}
-We evaluate on four agent benchmarks under their official protocols.
-\textbf{AppWorld} \citep{trivedi2024appworld} tasks an agent with
-day-to-day objectives across nine simulated applications; the main-text AppWorld column reports the unit-test pass ratio under
-the official evaluator, with task and scenario goal completion (TGC
-and SGC) reported alongside at the test\_normal freeze.
-\todo{finalize the frozen AppWorld protocol numbers.} \textbf{BFCL~v4} evaluates function calling
-across single-turn, parallel, and multi-turn categories; we report the
-official overall tool-call accuracy. \textbf{$\tau^2$-bench}
-\citep{yao2024taubench} places the agent in customer-service
-conversations with database-backed tools and a simulated user; we
-report pass\textsuperscript{1} under the official evaluator, with the
-user simulator served by the same metered teacher so its tokens are
-charged against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
-tests embodied household instruction following in a text environment;
-we report task success rate on the unseen split. \paragraph{Few-shot instantiation.}
+\paragraph{Benchmarks and evaluation.}
+We evaluate on four agent benchmarks, each under its official harness
+and metric. \textbf{AppWorld} \citep{trivedi2024appworld} tasks an
+agent with day-to-day objectives across nine simulated applications;
+the main-text column reports the unit-test pass ratio under the
+official evaluator, with task and scenario goal completion (TGC and
+SGC) alongside at the test\_normal freeze.
+\todo{finalize the frozen AppWorld protocol numbers.}
+\textbf{BFCL~v4} evaluates function calling across single-turn,
+parallel, and multi-turn categories, reported as the official overall
+accuracy. \textbf{$\tau^2$-bench} \citep{yao2024taubench} places the
+agent in customer-service conversations with database-backed tools and
+a simulated user, reported as pass\textsuperscript{1}, with the user
+simulator served by the same metered teacher so its tokens are charged
+against the budget. \textbf{ALFWorld} \citep{shridhar2021alfworld}
+tests embodied household instruction following, reported as success
+rate on the unseen split. All numbers are mean$\pm$std over three
+seeds, with the change relative to the untrained base student made
+explicit. Budget efficiency is measured by the wasted fraction of
+purchased tokens and by the budget-to-target level $B^{*}(\tau)$, the
+smallest budget at which a method reaches target performance $\tau$;
+off-task behavior is reported as residue on scoped reference tasks and
+read as evidence of where the budget went rather than as an objective.
+
+\paragraph{Few-shot instantiation.}
 Each benchmark instantiates the setting of
 Definition~\ref{def:setting} independently, following the standard
 support and query division of few-shot learning evaluation
 \citep{vinyals2016matching, snell2017prototypical}. The support set
 $\mathcal{S}$ is sampled once per benchmark with a fixed seed,
 stratified over the benchmark's task categories, and every method,
-including the base student rows, is evaluated on the query side
-only, meaning the official task set with the support queries
-removed. The task pool from which the support set is drawn is the benchmark's
-official training split when one exists, and the full task set
-otherwise, in which case the support queries are removed from
-evaluation. The support size $N$ is five percent of this pool
-clipped to the range $[50, 250]$, matching the demonstration volumes
-used by agent distillation work
-\citep{kang2025distilling, liu2025structured}; eighty percent of
-$\mathcal{S}$ forms $\mathcal{S}_d$, the only data available for
-demand estimation, acquisition, and training, and the rest forms
-$\mathcal{S}_c$, reserved for boundary calibration. The resulting
-sizes for every benchmark are listed in
-Table~\ref{tab:support-sizes} in the appendix. The budget $B$ counts every teacher output token,
+including the base student rows, is evaluated on the query side only.
+The pool from which $\mathcal{S}$ is drawn is the benchmark's official
+training split when one exists, and the full task set otherwise, in
+which case the support queries are removed from evaluation. The
+support size $N$ is five percent of this pool clipped to the range
+$[50, 250]$, matching the demonstration volumes used by agent
+distillation work \citep{kang2025distilling, liu2025structured};
+eighty percent of $\mathcal{S}$ forms $\mathcal{S}_d$, the only data
+available for demand estimation, acquisition, and training, and the
+rest forms $\mathcal{S}_c$, reserved for boundary calibration.
+Per-benchmark sizes are listed in Table~\ref{tab:support-sizes} in
+the appendix. The budget $B$ counts every teacher output token,
 including completions that fail verification and are discarded;
-retries are charged. On $\tau^2$-bench the user-simulator tokens are
-metered separately from the supervision budget so that rollout volume
-is not conflated with teacher supervision. Teacher-using methods are
-matched at the same $B$, while teacher-free baselines such as STaR
-follow their native zero-teacher protocol.
+retries are charged, and on $\tau^2$-bench the user-simulator tokens
+are metered separately from the supervision budget. Teacher-using
+methods are matched at the same $B$, while teacher-free baselines
+such as STaR follow their native zero-teacher protocol.
 
-\paragraph{Baselines.}
+\paragraph{Baselines and implementation.}
 Following the standard taxonomy of LLM distillation
 \citep{xu2024kdsurvey}, the main comparison covers each black-box
-branch with one or two current representatives, all consuming the same
-budget from the same teacher; feature-based white-box methods require
-teacher logits and fall outside the setting. From the labeling branch,
-sequence-level distillation on teacher demonstrations, we take
-\emph{Vanilla SFT} \citep{mukherjee2023orca} and \emph{Structured
-Agent Distillation} \citep{liu2025structured}, which refines it with
-segment-specific losses over reasoning and action spans, together with
-the agent-domain representative of \citet{kang2025distilling}. From the feedback branch we take \emph{dDPO}
-\citep{tunstall2023zephyr}, where the teacher ranks student samples
-and the ranking trains a preference objective, and \emph{PBSD}
-\citep{pbsd2026}, its current successor that pairs teacher positives
-with on-policy student negatives. From the
-self-knowledge branch we take \emph{STaR} \citep{zelikman2022star},
-which retrains on the student's own verified samples. From the
-on-policy branch we take \emph{Black-Box On-Policy Distillation}
-\citep{ye2025bbopd}, which purchases teacher supervision on the
-student's own rollouts. Component studies additionally
-use selection baselines spanning classical and current families, namely
-random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
-\citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025},
-SmartAD's capacity-aligned selection \citep{tang2026smartad},
-Self-Instruct \citep{wang2023selfinstruct}, Evol-Instruct
-\citep{xu2024wizardlm}, and LLM2LLM \citep{lee2024llm2llm}.
-
-\paragraph{Evaluation.}
-The primary metric is in-task performance under each benchmark's
-official convention, reported as mean$\pm$std over three seeds, with
-the change relative to the untrained base student made explicit.
-Budget efficiency is measured by the wasted fraction of purchased
-tokens and by the budget-to-target level $B^{*}(\tau)$, the smallest
-budget at which a method reaches target performance $\tau$. Off-task
-behavior is reported as residue on scoped reference tasks and is read
-as evidence of where the budget went rather than as an objective.
-
-\paragraph{Implementation.}
-All main-text experiments use one fixed pair, a metered black-box
-teacher (DeepSeek-V4-Pro via API, no logits) and a Qwen3.5-4B student;
-other student scales appear in Appendix~\ref{app:details}. Students
-train with LoRA adapters (rank 16) under compute-matched schedules;
-every threshold in the method is a statistical convention or is
-estimated from the support set, and full constants are listed in
-Appendix~\ref{app:details}. The teacher is accessed as a black-box completion-only API that
-exposes neither logits nor hidden states nor gradients. Experiments run on a local
-server with five mixed NVIDIA GPUs (48--96GB) for simulator-bound
-evaluation and on NVIDIA B200 nodes for training sweeps; a full run of
-one method on one benchmark takes two to five GPU hours at 4B.
+branch with current representatives, all consuming the same budget
+from the same teacher; feature-based white-box methods require teacher
+logits and fall outside the setting. From the labeling branch we take
+\emph{Vanilla SFT} \citep{mukherjee2023orca}, \emph{Structured Agent
+Distillation} \citep{liu2025structured}, and the agent-domain
+representative of \citet{kang2025distilling}; from the feedback branch
+\emph{dDPO} \citep{tunstall2023zephyr} and \emph{PBSD}
+\citep{pbsd2026}; from the self-knowledge branch \emph{STaR}
+\citep{zelikman2022star}; and from the on-policy branch
+\emph{Black-Box On-Policy Distillation} \citep{ye2025bbopd}.
+Component studies additionally use selection and data-generation
+baselines spanning classical and current families, listed in
+Appendix~\ref{app:details}. All main-text experiments use one fixed
+pair, a metered black-box teacher (DeepSeek-V4-Pro via API, exposing
+neither logits nor hidden states nor gradients) and a Qwen3.5-4B
+student; other student scales appear in Appendix~\ref{app:details}.
+Students train with LoRA adapters (rank 16) under compute-matched
+schedules; every threshold in the method is a statistical convention
+or is estimated from the support set, with full constants in
+Appendix~\ref{app:details}. Experiments run on a local server with
+five mixed NVIDIA GPUs (48--96GB) for simulator-bound evaluation and
+on NVIDIA B200 nodes for training sweeps; a full run of one method on
+one benchmark takes two to five GPU hours at 4B.

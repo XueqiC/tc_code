@@ -203,6 +203,17 @@ collection stage, sampled uniformly among eligible successes.
 Conformal calibration uses the ten held-out calibration queries.
 Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA
 B200 accelerators.
+
+\paragraph{Component-study selection and data-generation baselines.}
+Beyond the main-table branches, component studies compare against
+selection baselines spanning classical and current families, namely
+random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
+\citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025}, and
+SmartAD's capacity-aligned selection \citep{tang2026smartad}, and
+against data-generation baselines Self-Instruct
+\citep{wang2023selfinstruct}, Evol-Instruct \citep{xu2024wizardlm},
+and LLM2LLM \citep{lee2024llm2llm}.
+
 \section{Limitations and pre-registration}\label{app:limitations}
 Pilot-scale numbers are single-seed and use verified pseudo-trajectories or
 two teachers; sweep-scale results carry seeds and confidence intervals as

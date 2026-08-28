@@ -1,11 +1,18 @@
-\section{Analysis}\label{sec:theory}
-%% One page. Two analyses only: (i) the mechanism, what each
-%% supervision channel optimizes and how the advantage weight allocates
-%% the budget; (ii) the deployment coverage guarantee. Everything else
-%% lives in Appendix~\ref{app:analysis}. No em dashes, no colons in
-%% prose, no magic numbers.
+\section{Theoretical analysis}\label{sec:theory}
+%% One page. Brief intro, then two subsections of comparable length:
+%% (i) the training mechanism; (ii) the deployment guarantee.
+%% Everything else lives in Appendix~\ref{app:analysis}.
 
-\paragraph{What each supervision channel optimizes.}
+We analyze the two components on which the method's claims rest. The
+first subsection characterizes the training mechanism, contrasting
+the expected drift of the two supervision channels and stating the
+allocation and safety properties of the advantage weight. The second
+subsection states the finite-sample guarantee of the deployment
+certificate and delimits exactly what it does and does not cover.
+Supporting analyses of the remaining components appear in
+Appendix~\ref{app:analysis}.
+
+\subsection{What the training mechanism optimizes}\label{sec:theory-mech}
 The two data channels of Section~\ref{sec:distill} induce updates with
 qualitatively different expected drift. Maximum-likelihood training on
 teacher trajectories follows
@@ -26,8 +33,7 @@ policy-gradient identity
 \end{equation}
 so the only systematic drift of the verifier-filtered channel is the
 ascent direction of task success. Both identities are standard; the
-proposition below states what the advantage weight adds on top of
-them.
+proposition states what the advantage weight adds on top of them.
 
 \begin{proposition}[Deficit-proportional allocation with a safe fixed
 point]\label{prop:advantage}
@@ -44,20 +50,33 @@ the update vanishes, and the returned policy is the base student; and
 unweighted verifier-filtered objective.
 \end{proposition}
 
-The proof is immediate from linearity of the objective in $a(x)$ and
-is given in Appendix~\ref{app:analysis}. Point (ii) is the property
-the experiments exercise most; on a benchmark where the base student
-already matches its attainable ceiling, the method's correct output is
-the base policy itself, and the pipeline emits a zero-update decision
-trace rather than a degraded checkpoint. Point (iii) states graceful
-degradation toward the pure self-improvement regime when the student
-fails everywhere, in which case guided collection supplies the
-verified trajectories that make the objective non-vacuous.
+The proof, immediate from linearity in $a(x)$, is in
+Appendix~\ref{app:analysis}. Point (ii) is the property the
+experiments exercise most; on a benchmark where the base student
+already matches its attainable ceiling, the method's correct output
+is the base policy itself, and the pipeline emits a zero-update
+decision trace rather than a degraded checkpoint. Point (iii) states
+graceful degradation toward the pure self-improvement regime when the
+student fails everywhere, in which case guided collection supplies
+the verified trajectories that make the objective non-vacuous.
 
-\paragraph{Deployment coverage.}
-For exchangeable in-task queries, the split-conformal threshold
-calibrated on $\mathcal{S}_c$ yields the standard finite-sample
-marginal coverage guarantee \citep{vovk2005algorithmic,
-angelopoulos2023conformal}. The guarantee concerns acceptance of
-in-task queries only; rejection power out of task is an empirical
-quantity, and we report it as such.
+\subsection{Deployment coverage guarantee}\label{sec:theory-cov}
+At deployment the certificate must decide, per query, whether the
+specialized student answers or the query falls back to the teacher,
+using only a black-box score of the student's output and the small
+calibration split $\mathcal{S}_c$. For exchangeable in-task queries,
+the split-conformal threshold calibrated on $\mathcal{S}_c$ yields the
+standard finite-sample marginal coverage guarantee
+\citep{vovk2005algorithmic, angelopoulos2023conformal}; no density
+estimation, parametric assumption, or asymptotic argument is
+involved, which is what makes the guarantee compatible with the
+few-shot premise. The guarantee degrades gracefully with calibration
+size, since with $|\mathcal{S}_c|=n$ the realized coverage
+concentrates around the nominal level following the known Beta law,
+so the certificate remains valid while honestly widening as $n$
+shrinks. Two delimitations matter. The guarantee is marginal over
+in-task queries, not conditional per query; and it concerns
+acceptance of in-task queries only, so rejection power out of task is
+an empirical quantity that we report as such. A fuller justification
+of the design choice against alternatives is given in
+Appendix~\ref{app:analysis}.
