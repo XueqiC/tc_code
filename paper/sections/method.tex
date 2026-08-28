@@ -7,17 +7,19 @@ Following the classical few-shot learning setup
 brown2020language}, where a task is presented only through a small
 support set and performance is measured on a disjoint query set, we
 formally introduce the problem of budgeted few-shot agent
-specialization. Specifically, given a support set
-$\mathcal{S}=\{x_i\}_{i=1}^{N}$ of queries drawn from a task
-distribution $\mathcal{D}$, a small student policy $\pi_{\theta_0}$,
-and query access to a stronger black-box teacher policy $\pi_\phi$
-billed per emitted token under a budget $B$, we aim to adapt the
-student so that the resulting agent maximizes task performance on a
-disjoint query set from $\mathcal{D}$. An agent executes a
-trajectory $\tau=(a_1,o_1,\ldots,a_H,o_H)$ of actions and
-environment observations, and a task verifier
-$V(x,\tau)\in\{0,1\}$ judges whether $\tau$ solves $x$. The problem
-is
+specialization. An agent executes a trajectory
+$\tau=(a_1,o_1,\ldots,a_H,o_H)$ of actions and environment
+observations, and a task verifier $V(x,\tau)\in\{0,1\}$ judges
+whether $\tau$ solves $x$.
+
+\begin{definition}[Budgeted few-shot agent specialization]
+\label{def:setting}
+Given a support set $\mathcal{S}=\{x_i\}_{i=1}^{N}$ of queries drawn
+from a task distribution $\mathcal{D}$, a small student policy
+$\pi_{\theta_0}$, and query access to a stronger black-box teacher
+policy $\pi_\phi$ billed per emitted token under a budget $B$, we
+aim to adapt the student so that the resulting agent maximizes task
+performance on a disjoint query set from $\mathcal{D}$,
 \[
 \max_{\theta}\;
 \mathbb{E}_{x\sim\mathcal{D}}\,
@@ -25,9 +27,10 @@ is
 \qquad\text{subject to}\qquad
 \textstyle\sum_{d\in\mathcal{A}}c(d)\le B,
 \]
-where $\mathcal{A}$ is the set of teacher completions purchased during
-training and $c(d)$ their token cost. Every teacher call is charged,
-including completions that fail verification.
+where $\mathcal{A}$ is the set of teacher completions purchased
+during training and $c(d)$ their token cost. Every teacher call is
+charged, including completions that fail verification.
+\end{definition}
 
 The conventional approach uses a purchased demonstration
 $d\sim\pi_\phi(\cdot\mid x)$ directly as an imitation target. Such an
