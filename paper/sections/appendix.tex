@@ -137,10 +137,13 @@ guarantee.
 \begin{table}[h]
 \centering
 \caption{Support-set instantiation per benchmark under the sizing
-rule $N=\mathrm{clip}(0.05\,|\text{pool}|,\,50,\,250)$. Evaluation
-always uses the query side only; where a benchmark ships an official
-evaluation split disjoint from the pool the support is drawn from,
-that split is used unchanged.}
+rule $N=\mathrm{clip}(0.05\,|\text{pool}|,\,50,\,250)$. The pool is
+the official training split when the benchmark ships one (ALFWorld,
+AppWorld) and the full task set otherwise (BFCL, $\tau^2$-bench).
+Evaluation always uses the query side only; benchmarks with an
+official evaluation split disjoint from the pool use that split
+unchanged, and the others are evaluated on the full set with the
+support queries removed.}
 \label{tab:support-sizes}
 \small
 \begin{tabular}{lrrrrl}

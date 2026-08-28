@@ -24,9 +24,12 @@ $\mathcal{S}$ is sampled once per benchmark with a fixed seed,
 stratified over the benchmark's task categories, and every method,
 including the base student rows, is evaluated on the query side
 only, meaning the official task set with the support queries
-removed. The support size $N$ is five percent of the benchmark's
-task pool clipped to the range $[50, 250]$, matching the
-demonstration volumes used by agent distillation work
+removed. The task pool from which the support set is drawn is the benchmark's
+official training split when one exists, and the full task set
+otherwise, in which case the support queries are removed from
+evaluation. The support size $N$ is five percent of this pool
+clipped to the range $[50, 250]$, matching the demonstration volumes
+used by agent distillation work
 \citep{kang2025distilling, liu2025structured}; eighty percent of
 $\mathcal{S}$ forms $\mathcal{S}_d$, the only data available for
 demand estimation, acquisition, and training, and the rest forms
