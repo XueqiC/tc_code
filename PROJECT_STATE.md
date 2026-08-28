@@ -221,7 +221,19 @@ AppWorld(agent 锚点,TGC/SGC)+ τ-bench(客服 agent,pass^k,teacher 兼任 user
 - **辅目标**:off-task 最低——作为"预算被高效转化为任务能力"的证据,
   不是独立约束。门若对 in-task 无代价则保留(零泄漏免费的故事最硬)。
 
-## RUNNING JOBS
+## RUNNING JOBS (2026-08-28 pm)
+- BFCL STANDARD-FLOW RE-MEASUREMENT (user directive: all numbers via official bfcl flow, old custom-export numbers void):
+  - lane A tmux hq:stdA GPU1 port 8921: base, sft s0-2, star s0-2 (logs/bfclstd_laneA.log)
+  - lane B tmux hq:stdB GPU2 port 8922: oursadv s0-2, sad s0-2 (logs/bfclstd_laneB.log)
+  - lane C tmux hq:stdC GPU3 port 8923: agentkd s0-2, ddpo s0-2 (logs/bfclstd_laneC.log)
+  - lane D tmux hq:stdD GPU4 port 8924: pbsd s0-2, bbopd s0-2 (logs/bfclstd_laneD.log)
+  - monitor b8x2f1a2e; script tools/bfcl_std_campaign.sh (merge->official generate->evaluate->copy->delete merged); scores land in results/bfcl_std/<tag>/
+  - root cause confirmed mechanically: old export served flattened Qwen3_5ForCausalLM; hub merge serves correct Qwen3_5ForConditionalGeneration (426 overlaid + 312 restored tensors, bit-verified)
+- codex xhigh implementing src/bfas/ (waiter b5gpsx8oh)
+- deepseek teacher demo generate (PID 3701357)
+- disk: purge APPROVED+DONE 2026-08-28 (export_vllm 58 dirs + _trash emptied; 55G->679G free); STANDING RULE: all experiments <=20% of total disk (rai 2.8T)
+
+## PREVIOUS RUNNING JOBS
 - ⛔ 2026-08-26 17:50: Azure 网关 token 配额耗尽(403, 两 key 同池, GPT+Claude 同池)。luna/sonnet demo 收集已停(verified: luna 12, sonnet 9, 已落盘可续)。等用户向 ORD 问配额规则/提额。DeepSeek 侧 Ollama 周配额同样卡住。teacher 双渠道均阻塞。
 - ⚠️ 合规事件 2026-08-26: UF RC 禁止受关注外国(含中国)开发的 LLM(Fla. Stat. 288.860);管理员在 cancel Qwen job。tc 在 hpg 的全部 pending 作业已撤(ALFWorld×3, τ²)。hpg 上不得再提交 Qwen/DeepSeek 工作负载,待用户决定(FSU 侧待确认;备选:换 Llama/Gemma 学生 + 非中系 teacher API)。/blue 上仍有 Qwen 权重与 checkpoint,视执法情况需清理。
 - rai tmux hq:v3diag (GPU4): V3 鲁棒性诊断 lane — np_s2(λ_pref=0) → s3 → s4 → np_s0;trainer 新增 v3stats(w_mean/pref 计数)

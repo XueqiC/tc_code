@@ -403,3 +403,98 @@ coverage surface from the 39-run sweep; supply-starvation mechanism (M1).}
 \todo{AppWorld / BFCL-v4 / $\tau^2$-bench topic-scoped results (tier 2);
 teacher pool from three current open teachers with execution-verified
 quality gates.}
+
+\section{Additional analysis}\label{app:analysis}
+
+\paragraph{Proof of Proposition~\ref{prop:advantage}.}
+The weighted positive objective is
+$\sum_{x}a(x)\,\mathbb{E}_{\tau\sim\pi_\theta}[V(x,\tau)\log
+\pi_\theta(\tau\mid x)]$ up to the collection distribution, and its
+gradient is the corresponding weighted sum of the per-task
+policy-gradient directions of Eq.~\eqref{eq:pg-identity}, which gives
+(i). If $\hat p(x)=1$ for all $x$ then $a(x)=0$ for all $x$, the
+objective is identically zero, and every parameter setting is a
+maximizer, so the procedure returns the initialization, which gives
+(ii). If $\hat p(x)\to 0$ uniformly then $a(x)\to 1$ and the
+objective converges to the unweighted verifier-filtered objective,
+which gives (iii). \qed
+
+\paragraph{Guided collection and importance correction.}
+Guided trajectories are drawn from
+$\mu_r(\cdot\mid x)=\pi_{\theta_r}(\cdot\mid x,h(d_x))$ while the
+optimized policy is unguided. The importance-sampling identity of
+Section~\ref{sec:distill} holds under absolute continuity of
+$\pi_\theta(\cdot\mid x)$ with respect to $\mu_r(\cdot\mid x)$, which
+contextual guidance does not guarantee, and clipping the ratio at $c$
+introduces bias in exchange for bounded variance. We therefore treat
+the clipped estimator as an approximation whose ratio distribution we
+report, and we compare uncorrected, clipped, and where feasible
+unclipped variants empirically.
+
+\paragraph{Budgeted acquisition.}
+The capped coverage term $\sum_j\min\{\delta_{r,j},\hat s_j(\cdot)\}$
+is monotone submodular in the acquired set, so greedy selection under
+a knapsack constraint inherits the classical near-optimality
+guarantees for that term alone \citep{khuller1999budgeted,
+krause2005near}. The deployed utility additionally contains the
+unlock probability and the interference penalty, and we do not claim
+that the guarantee extends to the penalized product form; greedy
+selection there is a heuristic whose value the acquisition ablations
+measure.
+
+\paragraph{Geometry preservation under sketching.}
+The gradient features compose an adapter sketch with a
+Johnson--Lindenstrauss projection \citep{johnson1984extensions}. The
+standard guarantee preserves norms and pairwise distances of a finite
+point set to multiplicative $(1\pm\varepsilon)$ with logarithmic
+dimension dependence, and by polarization the inner products the
+method consumes are preserved up to an additive distortion controlled
+by the same $\varepsilon$ and the vector norms. Inner products are
+the only property that demand estimation, supply accounting, and the
+interference statistic consume.
+
+\paragraph{First-order interference prediction.}
+For an update $\theta_{t+1}=\theta_t-\eta\sum_{x\in D}
+\nabla\ell(x;\theta_t)$, a first-order expansion gives
+$\Delta\ell(q)\approx-\eta\sum_{x\in D}
+\langle\nabla\ell(q;\theta),\nabla\ell(x;\theta)\rangle$, so predicted
+movement of a reference task is the kernel mass the training set
+supplies to it. The expansion is exact only in the lazy regime; we
+measure its predictive quality rather than assume the regime, and
+Section~\ref{sec:rq5} evaluates whether the coupling regimes estimated
+from these inner products predict measured reference-task interference
+after specialization.
+
+\paragraph{What imitation reproduces.}
+Nothing in the maximum-likelihood objective distinguishes task-required
+movement from source-specific regularities. We quantify the
+distinction with the projection diagnostic $R_{\mathrm{ext}}$ of
+Section~\ref{sec:atoms}, and Section~\ref{sec:rq2} tests whether it
+predicts the observed degradation ordering across supervision formats.
+The diagnostic is a measurement, not an assumption, since the
+dictionary provides a common basis rather than an intrinsic separation
+of helpful and harmful directions.
+
+\paragraph{Why split-conformal certification is the right tool here.}
+The deployment gate must decide, per query, whether the specialized
+student may answer or the query falls back to the teacher, under three
+constraints inherited from the problem setting. First, the student is
+served as a black box at deployment, so the score can only be a
+function of its observable output, and split-conformal calibration
+requires nothing more than such a score. Second, the few-shot premise
+gives one small exchangeable sample $\mathcal{S}_c$ from the in-task
+distribution and nothing else, and split-conformal is exactly the
+procedure whose finite-sample marginal guarantee consumes only
+exchangeability, with no density estimation, no parametric assumption,
+and no asymptotics. Third, the guarantee degrades gracefully with
+calibration size; with $|\mathcal{S}_c|=n$, realized coverage follows
+the known Beta law around the nominal level, so the certificate
+remains valid while honestly widening, which matches the budget-first
+design of the method. The alternatives all violate one of the
+constraints; held-out validation of a fixed threshold gives no
+finite-sample guarantee at these sample sizes, and density-ratio or
+Bayesian gates require modeling assumptions the black-box setting
+cannot check. The certificate is marginal over in-task queries, and we
+report out-of-task rejection as an empirical quantity because no
+distribution-free guarantee is possible there without assumptions on
+the out-of-task law.

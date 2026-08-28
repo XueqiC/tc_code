@@ -38,6 +38,42 @@ def serialize(messages: list[dict]) -> str:
     ) + "\n<|assistant|>\n"
 
 
+_HANDLER = None
+
+
+def _handler():
+    global _HANDLER
+    if _HANDLER is None:
+        from bfcl_eval.model_handler.local_inference.qwen_fc import (
+            QwenFCHandler,
+        )
+        _HANDLER = QwenFCHandler(
+            model_name="Qwen/Qwen3.5-4B-FC", temperature=0.001,
+            registry_name="Qwen/Qwen3.5-4B-FC", is_fc_model=True)
+    return _HANDLER
+
+
+_MT_FUNCS: dict = {}
+
+
+def _mt_functions(tid: str, entries: dict):
+    if tid not in _MT_FUNCS:
+        from bfcl_eval.utils import (
+            populate_test_cases_with_predefined_functions,
+        )
+        entry = entries.get(tid)
+        if entry is None:
+            _MT_FUNCS[tid] = None
+        else:
+            try:
+                pop = populate_test_cases_with_predefined_functions(
+                    [json.loads(json.dumps(entry))])
+                _MT_FUNCS[tid] = pop[0].get("function")
+            except Exception:
+                _MT_FUNCS[tid] = None
+    return _MT_FUNCS[tid]
+
+
 def load_verified(kind: str, repeats: int) -> dict[str, list[str]]:
     """id -> list of verified response strings across rollouts."""
     out: dict[str, list[str]] = {}
@@ -94,6 +130,11 @@ def main() -> int:
     ap.add_argument("--student", default="Qwen/Qwen3.5-4B")
     ap.add_argument("--repeats", type=int, default=4)
     ap.add_argument("--tag", default="ds")
+    ap.add_argument("--no-mt", action="store_true",
+                    help="exclude multi-turn dump rows; every "
+                         "construction of them degraded the stateful "
+                         "categories, so the supported configuration "
+                         "trains on single-turn advantage rows only")
     args = ap.parse_args()
 
     split = json.load((ROOT / "configs/bfcl_support_split.json").open())
@@ -151,12 +192,16 @@ def main() -> int:
         # matching the baseline pools
         if "function" not in entries[tid]:
             continue
-        msgs = entry_messages(entries[tid], None)
         phat = len(resps) / max(n_attempts.get(tid, args.repeats), 1)
+        prompt = _handler()._format_prompt(
+            list(entries[tid]["question"][0]), entries[tid]["function"])
+        allow_prose = "irrelevance" in tid or "relevance" in tid
         for k, resp in enumerate(resps):
+            if not allow_prose and "<tool_call>" not in resp:
+                continue
             row = {
                 "task_id": tid, "teacher": "self", "turn_index": 0,
-                "messages": msgs, "prompt": serialize(msgs),
+                "prompt": prompt,
                 "response": resp,
                 "token_hint": max(len(resp) // 4, 1),
                 "_task_phat": round(phat, 4),
@@ -170,10 +215,32 @@ def main() -> int:
     # evaluation-time conversation, one training row per assistant turn
     dump_dir = ROOT / "data/bfcl_dumps"
     mt_rows = 0
-    if dump_dir.exists():
-        verified_ids = set(unguided) | set(guided)
+    if dump_dir.exists() and not args.no_mt:
+        # a dump row is admissible only if THAT rollout passed the
+        # checker; task-level verification is not enough, since the
+        # first dumped trajectory may be a failed attempt
+        failed_by_r: dict[int, set[str]] = {}
+        for r in range(args.repeats):
+            failed: set[str] = set()
+            for f in (BFCL / f"score_roll_mt_r{r}").rglob("*_score.json"):
+                lines = [json.loads(l) for l in f.open() if l.strip()]
+                for e in lines[1:]:
+                    if isinstance(e, dict) and "id" in e:
+                        failed.add(e["id"])
+            failed_by_r[r] = failed
+        generated_by_r: dict[int, set[str]] = {}
+        for r in range(args.repeats):
+            gen: set[str] = set()
+            rdir = BFCL / f"result_roll_mt_r{r}"
+            if rdir.exists():
+                for f in rdir.rglob("*_result.json"):
+                    for line in f.open():
+                        if line.strip():
+                            gen.add(json.loads(line)["id"])
+            generated_by_r[r] = gen
         seen_dump: set[str] = set()
-        for df in sorted(dump_dir.glob("*.jsonl")):
+        for df in sorted(dump_dir.glob("roll_dump_r*.jsonl")):
+            r = int(df.stem.rsplit("r", 1)[1])
             for line in df.open():
                 if not line.strip():
                     continue
@@ -181,21 +248,50 @@ def main() -> int:
                 tid = d["id"]
                 if tid not in demand or tid in seen_dump:
                     continue
-                if tid not in verified_ids:
+                if tid not in generated_by_r.get(r, set()):
+                    continue
+                if tid in failed_by_r.get(r, set()):
                     continue
                 seen_dump.add(tid)
                 phat = len(unguided.get(tid, [])) / 4
                 msgs = d["messages"]
+                funcs = _mt_functions(tid, entries)
+                if funcs is None:
+                    continue
                 for i, m in enumerate(msgs):
-                    if m.get("role") != "assistant" or not str(m.get("content", "")).strip():
+                    if m.get("role") != "assistant":
                         continue
-                    ctx = msgs[:i]
+                    # two admissible target kinds: call turns, rebuilt
+                    # from the structured tool_calls field in the exact
+                    # emission format, and TURN-FINAL prose turns (the
+                    # next message is a user turn or the stream ends),
+                    # which carry the termination skill; intermediate
+                    # prose is skipped. Training calls only taught the
+                    # model to never conclude, which zeroed the
+                    # categories that require a final answer.
+                    calls = m.get("tool_calls") or []
+                    if calls:
+                        content = "\n".join(
+                            "<tool_call>\n"
+                            + json.dumps(tc, ensure_ascii=False)
+                            + "\n</tool_call>"
+                            for tc in calls
+                        )
+                    else:
+                        content = str(m.get("content", "")).strip()
+                        nxt = msgs[i + 1] if i + 1 < len(msgs) else None
+                        turn_final = nxt is None or nxt.get("role") == "user"
+                        if not content or not turn_final:
+                            continue
+                    # render the context through the SERVING handler so
+                    # training and evaluation see byte-identical prompts
+                    prompt = _handler()._format_prompt(msgs[:i], funcs)
                     rows.append({
                         "task_id": tid, "teacher": "self",
                         "turn_index": i,
-                        "messages": ctx, "prompt": serialize(ctx),
-                        "response": str(m["content"]),
-                        "token_hint": max(len(str(m["content"])) // 4, 1),
+                        "prompt": prompt,
+                        "response": content,
+                        "token_hint": max(len(content) // 4, 1),
                         "_task_phat": round(phat, 4),
                         "_traj": f"{tid}#d",
                     })

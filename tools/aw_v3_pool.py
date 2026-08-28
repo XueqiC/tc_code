@@ -104,6 +104,11 @@ def main() -> int:
     ap.add_argument("--best-only", action="store_true",
                     help="keep only the highest-quality verified "
                          "trajectory per task (max passed_tests)")
+    ap.add_argument("--unguided-tags", default="",
+                    help="comma-separated eval tags of unguided K-sample "
+                         "rounds; enables advantage rows: per-task p-hat "
+                         "from these rounds, plus their verified "
+                         "trajectories as extra w=1 rows")
     args = ap.parse_args()
 
     split = json.load((ROOT / "configs/support_split.json").open())
@@ -155,6 +160,56 @@ def main() -> int:
                             r["_rejected"] = yf
                             n_pairs += 1
                     break
+    if args.unguided_tags:
+        # advantage extension: per-task unguided success rate stamps
+        # every row, and verified unguided trajectories join the pool
+        # as plain rows (behavior policy equals training policy there)
+        utags = [t.strip() for t in args.unguided_tags.split(",") if t.strip()]
+        succ_rounds: dict[str, int] = {}
+        total_rounds: dict[str, int] = {}
+        u_succ: dict[str, list[list[dict]]] = {}
+        for tag in utags:
+            rdir = ROOT / "results/appworld" / tag
+            verdict = {}
+            for line in (rdir / "records.jsonl").open():
+                rec = json.loads(line)
+                tid = rec["task_id"]
+                verdict[tid] = rec["passed_tests"] > rec["failed_tests"]
+                total_rounds[tid] = total_rounds.get(tid, 0) + 1
+                if verdict[tid]:
+                    succ_rounds[tid] = succ_rounds.get(tid, 0) + 1
+            tpath = rdir / "transcripts.jsonl"
+            if tpath.exists():
+                for line in tpath.open():
+                    t = json.loads(line)
+                    if verdict.get(t["task_id"]):
+                        u_succ.setdefault(t["task_id"], []).append(t["messages"])
+        phat = {t: succ_rounds.get(t, 0) / max(total_rounds.get(t, 1), 1)
+                for t in total_rounds}
+        for r in rows:
+            r["_task_phat"] = round(phat.get(r["task_id"], 0.0), 4)
+        n_u = 0
+        for tid, trajs in sorted(u_succ.items()):
+            if tid not in demand:
+                continue
+            for t_idx, traj in enumerate(trajs):
+                for i in assistant_turns(traj):
+                    ctx = traj[:i]
+                    rows.append({
+                        "task_id": tid, "teacher": "self",
+                        "turn_index": i,
+                        "prompt": "\n".join(
+                            f"<|{m['role']}|>\n{m['content']}" for m in ctx
+                        ) + "\n<|assistant|>\n",
+                        "response": traj[i]["content"],
+                        "token_hint": max(len(traj[i]["content"]) // 4, 1),
+                        "_task_phat": round(phat.get(tid, 0.0), 4),
+                        "_traj": f"{tid}#ung{t_idx}",
+                    })
+                    n_u += 1
+        print(f"[v3pool] advantage: unguided rows={n_u} "
+              f"tasks_with_phat={len(phat)}")
+
     out = ROOT / args.out
     with out.open("w") as fh:
         for r in rows:

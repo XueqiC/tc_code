@@ -43,7 +43,7 @@ PYEOF
   CUDA_VISIBLE_DEVICES=$GPU VLLM_USE_FLASHINFER_SAMPLER=0 nohup \
     $PROJ/envs/vllm-serve/.venv/bin/vllm serve "$MERGED" \
     --served-model-name "$MODEL_NAME" --port $PORT \
-    --gpu-memory-utilization 0.85 --max-model-len 32768 \
+    --gpu-memory-utilization ${GPU_UTIL:-0.85} --max-model-len 32768 \
     > "$PROJ/logs/vllm_${TAG}.log" 2>&1 &
   SPID=$!
   ok=""
