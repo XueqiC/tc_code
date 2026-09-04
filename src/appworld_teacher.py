@@ -13,6 +13,7 @@ import re
 import select
 import socket
 import subprocess
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -277,9 +278,12 @@ def _content_text(content: Any) -> str:
 
 
 def _build_request_body(
-    config: TeacherConfig, messages: list[dict[str, str]]
+    config: TeacherConfig,
+    messages: list[dict[str, str]],
+    temperature: float | None = None,
 ) -> dict[str, Any]:
-    temperature = float(os.environ.get("TEACHER_TEMP", "0.0"))
+    if temperature is None:
+        temperature = float(os.environ.get("TEACHER_TEMP", "0.0"))
     if config.backend == "azure_openai":
         # The deployment is fixed by the URL; gpt-5.x deployments accept
         # only max_completion_tokens and reject non-default temperature.
@@ -308,13 +312,17 @@ def _build_request_body(
         "model": config.model,
         "messages": messages,
         "temperature": temperature,
-        **({"think": True} if os.environ.get("TEACHER_THINK") == "1" else {}),
+        # deepseek's hidden reasoning consumes the whole completion budget
+        # and returns empty content in tight agent loops; thinking stays
+        # off unless TEACHER_THINK=1 explicitly requests it.
+        "think": os.environ.get("TEACHER_THINK") == "1",
         "max_tokens": MAX_COMPLETION_TOKENS,
         "stream": False,
     }
 
 
 _OLLAMA_KEY_IDX = 0
+_OLLAMA_KEY_LOCK = threading.Lock()
 
 
 def _ollama_keys(primary: str) -> list[str]:
@@ -342,18 +350,25 @@ def _request_headers(config: TeacherConfig) -> dict[str, str]:
             "Accept": "application/json",
         }
     keys = _ollama_keys(config.api_key)
+    with _OLLAMA_KEY_LOCK:
+        key = keys[_OLLAMA_KEY_IDX % len(keys)]
     return {
-        "Authorization": f"Bearer {keys[_OLLAMA_KEY_IDX % len(keys)]}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
 
 
-def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str:
+def generate_reply(
+    config: TeacherConfig,
+    messages: list[dict[str, str]],
+    temperature: float | None = None,
+) -> str:
     global _OLLAMA_KEY_IDX
     payload = json.dumps(
-        _build_request_body(config, messages), ensure_ascii=False
+        _build_request_body(config, messages, temperature), ensure_ascii=False
     ).encode("utf-8")
+    opener = urllib.request.build_opener()
 
     total_attempts = CHAT_COMPLETION_RETRIES + 1
     rate_limit_attempts = RATE_LIMIT_RETRIES + 1
@@ -365,7 +380,7 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
             method="POST",
         )
         try:
-            with urllib.request.urlopen(
+            with opener.open(
                 request, timeout=CHAT_COMPLETION_TIMEOUT_SECONDS
             ) as response:
                 response_data = response.read()
@@ -377,7 +392,8 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
             if status == 429 and request_attempt < rate_limit_attempts:
                 if config.backend == "openai":
                     # rotate between available Ollama keys before waiting
-                    _OLLAMA_KEY_IDX += 1
+                    with _OLLAMA_KEY_LOCK:
+                        _OLLAMA_KEY_IDX += 1
                 try:
                     delay = float(retry_after)
                 except (TypeError, ValueError):
@@ -424,6 +440,21 @@ def generate_reply(config: TeacherConfig, messages: list[dict[str, str]]) -> str
         raise TeacherAPIError("chat completion returned invalid JSON") from None
     if not isinstance(data, Mapping):
         raise TeacherAPIError("chat completion response is not an object")
+    usage_log = os.environ.get("AZURE_USAGE_LOG")
+    if usage_log and config.backend in ("azure_openai", "anthropic"):
+        usage = data.get("usage") or {}
+        total = usage.get("total_tokens") or (
+            (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+        )
+        if total:
+            try:
+                with open(usage_log, "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps({
+                        "t": time.time(), "model": config.model,
+                        "total_tokens": int(total),
+                    }) + "\n")
+            except OSError:
+                pass
     if config.backend == "anthropic":
         content = data.get("content")
         if not isinstance(content, Sequence) or isinstance(content, (str, bytes)):

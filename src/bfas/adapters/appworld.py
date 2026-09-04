@@ -12,7 +12,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from ..adapter import BenchmarkAdapter, Demo, PolicyRef, Rollout, TaskRef, Turn
+from ..adapter import (
+    BenchmarkAdapter,
+    Demo,
+    PolicyRef,
+    Rollout,
+    TaskRef,
+    TeacherEpisode,
+    Turn,
+)
 from ..protocol import SAMPLING_TEMPERATURE, SupportSplit
 
 
@@ -104,7 +112,11 @@ class AppWorldAdapter(BenchmarkAdapter):
 
     def _load_policy(self, policy: PolicyRef) -> tuple[Any, Any]:
         policy_text = str(policy)
-        if self._loaded_policy == policy_text:
+        if (
+            self._loaded_policy == policy_text
+            and self._model is not None
+            and self._tokenizer is not None
+        ):
             return self._model, self._tokenizer
         import appworld_eval as appworld_eval
 
@@ -112,6 +124,22 @@ class AppWorldAdapter(BenchmarkAdapter):
         self._model, self._tokenizer = appworld_eval.load_model(args)
         self._loaded_policy = policy_text
         return self._model, self._tokenizer
+
+    def prepare_renderer(self, policy_ref: PolicyRef) -> None:
+        policy_text = str(policy_ref)
+        if self._loaded_policy == policy_text and self._tokenizer is not None:
+            self._render([{"role": "user", "content": ""}])
+            return
+        from transformers import AutoTokenizer
+        import appworld_eval
+
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            policy_text, trust_remote_code=False
+        )
+        if getattr(self._tokenizer, "chat_template", None) is None:
+            self._tokenizer.chat_template = appworld_eval.GENERIC_CHAT_TEMPLATE
+        self._loaded_policy = policy_text
+        self._render([{"role": "user", "content": ""}])
 
     def _render(self, messages: Sequence[Mapping[str, str]]) -> str:
         if self._tokenizer is None:
@@ -230,74 +258,86 @@ class AppWorldAdapter(BenchmarkAdapter):
     def teacher_demo(
         self, task_ids: Sequence[str], attempts: int
     ) -> dict[str, Demo]:
+        demos: dict[str, Demo] = {}
+        for task_id in task_ids:
+            for attempt_index in range(attempts):
+                temperature = (
+                    0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE
+                )
+                episode = self.teacher_episode(
+                    task_id, attempt_index, temperature
+                )
+                if episode.demo is not None:
+                    demos[task_id] = episode.demo
+                    break
+        return demos
+
+    def teacher_episode(
+        self, task_id: str, attempt_index: int, temperature: float
+    ) -> TeacherEpisode:
         import appworld_teacher as teacher
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
         teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
         config = teacher.load_teacher_config(teacher_name)
-        demos: dict[str, Demo] = {}
-        old_temperature = os.environ.get("TEACHER_TEMP")
+        bridge = teacher.AppWorldBridge(ROOT)
+        messages: list[dict[str, str]] = []
+        rendered_turns: list[Turn] = []
+        evaluation: dict[str, Any] = {}
         try:
-            for task_id in task_ids:
-                for attempt in range(attempts):
-                    os.environ["TEACHER_TEMP"] = (
-                        "0" if attempt == 0 else str(SAMPLING_TEMPERATURE)
-                    )
-                    bridge = teacher.AppWorldBridge(ROOT)
-                    messages: list[dict[str, str]] = []
-                    rendered_turns: list[Turn] = []
-                    evaluation: dict[str, Any] = {}
-                    try:
-                        task = bridge.request(
-                            "start",
-                            split="train",
-                            task_id=task_id,
-                            experiment_name=f"bfas-teacher-{attempt + 1}",
-                            seed=teacher.DEFAULT_SEED,
-                        )
-                        messages = [
-                            {"role": "system", "content": teacher.make_system_prompt(task)},
-                            {"role": "user", "content": "Begin by consulting the API documentation."},
-                        ]
-                        for _ in range(int(os.environ.get("BFAS_APPWORLD_MAX_STEPS", "12"))):
-                            context = [dict(message) for message in messages]
-                            reply = teacher.strip_think(teacher.generate_reply(config, messages))
-                            rendered_turns.append(Turn(self._render(context), reply, context))
-                            messages.append({"role": "assistant", "content": reply})
-                            code = teacher.extract_python_code(reply)
-                            if code is None:
-                                break
-                            execution = bridge.request("execute", code=code)
-                            output = teacher.truncate_output(str(execution.get("output", "")))
-                            messages.append({
-                                "role": "user",
-                                "content": f"Execution output:\n{output}\n\nContinue the task.",
-                            })
-                            if teacher.calls_complete_task(code):
-                                break
-                        evaluation = bridge.request("evaluate")
-                    finally:
-                        try:
-                            bridge.request("stop")
-                        except Exception:
-                            pass
-                        bridge.close()
-                    if evaluation.get("success") is True:
-                        worked = "\n".join(turn.target for turn in rendered_turns)[-6000:]
-                        demos[task_id] = Demo(
-                            task_id,
-                            rendered_turns,
-                            worked,
-                            {"attempt": attempt + 1, "checker_verified": True},
-                        )
-                        break
+            task = bridge.request(
+                "start",
+                split="train",
+                task_id=task_id,
+                experiment_name=f"bfas-teacher-{attempt_index + 1}",
+                seed=teacher.DEFAULT_SEED,
+            )
+            messages = [
+                {"role": "system", "content": teacher.make_system_prompt(task)},
+                {"role": "user", "content": "Begin by consulting the API documentation."},
+            ]
+            for _ in range(int(os.environ.get("BFAS_APPWORLD_MAX_STEPS", "12"))):
+                context = [dict(message) for message in messages]
+                reply = teacher.strip_think(teacher.generate_reply(
+                    config, messages, temperature=temperature
+                ))
+                rendered_turns.append(Turn(self._render(context), reply, context))
+                messages.append({"role": "assistant", "content": reply})
+                code = teacher.extract_python_code(reply)
+                if code is None:
+                    break
+                execution = bridge.request("execute", code=code)
+                output = teacher.truncate_output(str(execution.get("output", "")))
+                messages.append({
+                    "role": "user",
+                    "content": f"Execution output:\n{output}\n\nContinue the task.",
+                })
+                if teacher.calls_complete_task(code):
+                    break
+            evaluation = bridge.request("evaluate")
         finally:
-            if old_temperature is None:
-                os.environ.pop("TEACHER_TEMP", None)
-            else:
-                os.environ["TEACHER_TEMP"] = old_temperature
-        return demos
+            try:
+                bridge.request("stop")
+            except Exception:
+                pass
+            bridge.close()
+        verified = evaluation.get("success") is True
+        demo = None
+        if verified:
+            worked = "\n".join(turn.target for turn in rendered_turns)[-6000:]
+            demo = Demo(
+                task_id,
+                rendered_turns,
+                worked,
+                {"attempt": attempt_index + 1, "checker_verified": True},
+            )
+        return TeacherEpisode(
+            task_id=task_id,
+            verified=verified,
+            demo=demo,
+            response_texts=tuple(turn.target for turn in rendered_turns),
+        )
 
     def evaluate(self, policy_ref: PolicyRef, out_dir: Path) -> dict[str, Any]:
         split = os.environ.get("BFAS_APPWORLD_EVAL_SPLIT", "test_normal")

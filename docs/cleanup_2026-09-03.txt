@@ -1,0 +1,64 @@
+# rai cleanup 2026-09-03 12:17:02 (user-authorized: 清理本项目过期/无用文件)
+## deleted whole dirs (old-harness AppWorld arms, gate adapters, proxy-arm adapters superseded by official hpg runs, 2B-era ALFWorld, base export):
+7.9G results/appworld_students/awb4_cp_s1
+7.9G results/appworld_students/awb6_v3_s0
+7.9G results/appworld_students/awb6_v3_s1
+7.9G results/appworld_students/awb6_v3_s2
+7.9G results/appworld_students/awb6_v3_s3
+7.9G results/appworld_students/awb6_v3_s4
+7.9G results/appworld_students/awb6_v3np_s0
+7.9G results/appworld_students/awb6_v3np_s1
+7.9G results/appworld_students/awb6_v3np_s2
+7.9G results/appworld_students/awb9_adv_s0
+7.9G results/appworld_students/awb9_adv_s1
+7.9G results/appworld_students/awb9_adv_s2
+7.9G results/appworld_students/crcdgate_c0_s0
+7.9G results/appworld_students/crcdgate_c1_s0
+7.9G results/appworld_students/crcdgate_c2_s0
+7.9G results/appworld_students/crcdgate_c3_s0
+7.9G results/appworld_students/crcdgate_c4_s0
+7.9G results/appworld_students/crcdgate_c5_s0
+7.9G results/appworld_students/crcdgate_c6_s0
+7.9G results/appworld_students/crcdgate_c7_s0
+128K results/appworld_students/crcdgatev2_c0_s0
+24K results/appworld_students/crcdgatev2_c1_s0
+17G results/appworld_students/crcdr_b2ce_s0
+17G results/appworld_students/crcdr_b2ce1ep_s0
+17G results/appworld_students/crcdr_b4cepref_s0
+17G results/appworld_students/crcdr_b4cepref1ep_s0
+17G results/appworld_students/crcdr_b3pref_s0
+17G results/appworld_students/crcd_r2_b3pref_s0
+3.6G results/appworld_students/bfas_alfworld_ours_s0
+7.9G results/appworld_students/base_export_ctl
+## deleted hub_merged only (adapters kept):
+8.8G results/appworld_students/bfclb7_p025/hub_merged
+8.8G results/appworld_students/bfclb8_term_s0/hub_merged
+8.8G results/appworld_students/crcdr_r3uc3_s0/hub_merged
+## _trash emptied:
+36G
+# hpg cleanup 2026-09-03 12:21:47
+## deleted whole dirs (old-harness AppWorld arms; CE / over-dose / no-benefit CRCD arms whose official scores are logged):
+7.9G results/appworld_students/awb4_cp_s0
+7.9G results/appworld_students/awb4_curr_s0
+7.9G results/appworld_students/awb4_pres_s0
+17G results/appworld_students/crcd_b2ce_s0
+17G results/appworld_students/crcd_b4cepref_s0
+7.9G results/appworld_students/crcd_r1_b2ce_s0
+7.9G results/appworld_students/crcd_r1_b4cepref_s0
+7.9G results/appworld_students/crcd_r2_b2ce_s0
+7.9G results/appworld_students/crcd_r2_b3pref_ep5_s0
+7.9G results/appworld_students/crcd_r2_b3pref_lr2x_s0
+7.9G results/appworld_students/crcd_r2_b3pref_ep3_lr2x_s0
+7.9G results/appworld_students/crcd_r3u_ep3_s0
+7.9G results/appworld_students/crcd_r3u_anchor_ep3_s0
+7.9G results/appworld_students/crcd_c1_anchor_ep3_s0
+## deleted hub_merged copies (adapters kept):
+8.8G results/appworld_students/alfb1_curr_s0/hub_merged
+8.8G results/appworld_students/alfb1_ours_s0/hub_merged
+8.8G results/appworld_students/alfb1_pres_s0/hub_merged
+8.8G results/appworld_students/crcd_r2_b3pref_s0/hub_merged
+## _trash emptied:
+237G
+## after:
+142G
+alfb1_curr_s0 alfb1_ours_s0 alfb1_pres_s0 bfclb10_full_s0 bfclb10_full_s1 bfclb10_full_s2 bfclb11_curr_s0 bfclb12_clw_s0 bfclb13_rep_s0 bfclb14_cc_s0 bfclb16_cp_s0 crcd_b3pref_s0 crcd_c1_anchor_s0 crcd_c2_selfanchor_s0 crcd_c3_balanced_s0 crcd_r2_b3pref_ep3_s0 crcd_r2_b3pref_s0 crcd_r3_cont_s0 crcd_r3u_ep2_s0 crcd_r3_union_s0 

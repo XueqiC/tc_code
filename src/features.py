@@ -5,6 +5,7 @@ import math
 from collections import Counter, defaultdict
 
 import numpy as np
+import os
 import torch
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -27,6 +28,11 @@ def _prepare_extractor(model_name, proj_dim, device):
                         "gate_proj", "up_proj", "down_proj"],
     )
     model = get_peft_model(model, lora)
+    if os.environ.get("FEAT_GRAD_CKPT") == "1":
+        # activations dominate memory for long agent prompts on a shared GPU;
+        # recomputation changes nothing numerically (2026-09-02, 4B OOM at 2k tokens)
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        model.enable_input_require_grads()
     model.train()
     for name, param in model.named_parameters():
         param.requires_grad = "lora_B" in name

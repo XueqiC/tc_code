@@ -2,10 +2,10 @@
 """BFCL v4 support split for per-benchmark specialization (protocol
 N=50: 40 demand + 10 calibration).
 
-Stratified proportional allocation (largest remainder) over all test
-categories, fixed seed. Support ids are excluded from every evaluation
-aggregate; all methods and the base student are scored on the
-complement.
+Equal allocation per capability dimension (largest remainder over the
+fractional part), fixed seed; --proportional restores the archived v1
+size-weighted protocol. Categories come from the adapter so the memory
+axis participates instead of being dropped as eval-only.
 """
 from __future__ import annotations
 
@@ -22,28 +22,22 @@ N_CALIB = 10
 
 def main() -> int:
     rng = random.Random(SEED)
+    # Categories come from the adapter, not from the data filenames:
+    # `memory` is a group that only becomes runnable once it is expanded
+    # into memory_kv / memory_vector / memory_rec_sum with ids rewritten
+    # and the prerequisite write-chain carried along.  It used to be
+    # dropped here as "eval-only" because isolated teacher demos looked
+    # impossible; the adapter now carries the chain, so memory takes part
+    # in support like every other axis.
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "src"))
+    from bfas.adapters.bfcl import BFCLAdapter
+
     cats: dict[str, list[str]] = {}
-    for f in sorted(DATA.glob("BFCL_v4_*.json")):
-        ids: list[str] = []
-        for line in f.open():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                # not JSONL (e.g. format_sensitivity is a plain JSON
-                # object); such files are not scored test entries
-                ids = []
-                break
-            if isinstance(row, dict) and "id" in row:
-                ids.append(row["id"])
-        cat = f.stem.replace("BFCL_v4_", "")
-        # memory needs cross-conversation prerequisite snapshots; the
-        # official selective generation cannot produce isolated
-        # teacher demonstrations for it, so it stays eval-only
-        if ids and cat != "memory":
-            cats[cat] = ids
+    for task in BFCLAdapter().task_pool():
+        cats.setdefault(task.category, []).append(task.task_id)
+    for ids in cats.values():
+        ids.sort()
     total = sum(len(v) for v in cats.values())
 
     # allocation over categories: equal per capability dimension by

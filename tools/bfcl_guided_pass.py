@@ -82,8 +82,27 @@ def main() -> int:
         print("[guided] nothing to do")
         return 0
 
-    # patch data files, keeping pristine backups
-    guided_set = set(guided)
+    # patch data files, keeping pristine backups.
+    # A memory task is stored under its group id (memory_3-x) but runs under a
+    # per-backend id (memory_kv_3-x), so the row to patch is found by mapping
+    # back; two backends selecting the same underlying row would need two
+    # different worked examples in one place, so the later one is skipped.
+    def base_id(task_id: str) -> str:
+        for backend in ("kv", "vector", "rec_sum"):
+            prefix = f"memory_{backend}_"
+            if task_id.startswith(prefix):
+                return "memory_" + task_id[len(prefix):]
+        return task_id
+
+    guided_by_row: dict[str, str] = {}
+    for task_id in guided:
+        row_id = base_id(task_id)
+        if row_id in guided_by_row:
+            print(f"[guided] skipping {task_id}: row {row_id} already patched "
+                  f"for {guided_by_row[row_id]}")
+            continue
+        guided_by_row[row_id] = task_id
+    guided_set = set(guided_by_row)
     backups: list[tuple[Path, Path]] = []
     by_cat: dict[str, list[str]] = {}
     try:
@@ -100,15 +119,14 @@ def main() -> int:
                     except json.JSONDecodeError:
                         row = None
                 if isinstance(row, dict) and row.get("id") in guided_set:
+                    task_id = guided_by_row[row["id"]]
                     first_turn = row["question"][0]
                     for m in first_turn:
                         if m.get("role") == "user":
-                            m["content"] = demo_block(demos[row["id"]]) + m["content"]
+                            m["content"] = demo_block(demos[task_id]) + m["content"]
                             break
                     out_lines.append(json.dumps(row, ensure_ascii=False))
                     changed = True
-                    cat = f.stem.replace("BFCL_v4_", "")
-                    by_cat.setdefault(cat, []).append(row["id"])
                 else:
                     out_lines.append(line)
             if changed:
@@ -116,14 +134,32 @@ def main() -> int:
                 shutil.copy2(f, bak)
                 backups.append((f, bak))
                 f.write_text("\n".join(out_lines) + "\n")
+        # the adapter resolves each id to its runnable category and carries the
+        # memory prerequisite write-chain; filename membership would emit the
+        # bare `memory` group name and crash generation
+        sys.path.insert(0, str(ROOT / "src"))
+        from bfas.adapters.bfcl import BFCLAdapter
+
+        by_cat = BFCLAdapter()._selective_file(sorted(guided_by_row.values()))
         json.dump(by_cat, (BFCL / "test_case_ids_to_generate.json").open("w"),
                   indent=1)
 
+        # Stateful tasks carry their signal in the turn stream, not in a single
+        # response, so the guided run records it the same way the mt pass does.
+        # Without this a stateful task that only succeeds under guidance can
+        # never become training rows, and its whole category can end up empty.
+        dump_dir = ROOT / "data/bfcl_dumps"
+        dump_dir.mkdir(parents=True, exist_ok=True)
         env_prefix = (
             f"cd {BFCL.parent.parent} && . .venv/bin/activate && "
             f"export LOCAL_SERVER_ENDPOINT=localhost LOCAL_SERVER_PORT={args.port} && "
         )
         for r in range(args.repeats):
+            dump_path = dump_dir / f"guided_dump_r{r}.jsonl"
+            dump_path.write_text("")
+            env_prefix_r = (
+                env_prefix + f"export BFCL_DUMP_MESSAGES={dump_path} && "
+            )
             for cmd in (
                 f"bfcl generate --model Qwen/Qwen3.5-4B-FC --run-ids "
                 f"--skip-server-setup --temperature 0.7 --num-threads 4 "
@@ -133,7 +169,7 @@ def main() -> int:
                 f"--score-dir score_roll_guided_r{r} --partial-eval",
             ):
                 res = subprocess.run(
-                    ["bash", "-c", env_prefix + cmd],
+                    ["bash", "-c", env_prefix_r + cmd],
                     capture_output=True, text=True)
                 if res.returncode != 0:
                     print(f"[guided] CMD FAILED r{r}: {res.stderr[-400:]}",

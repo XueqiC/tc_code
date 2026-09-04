@@ -60,12 +60,37 @@ def _task_fields(task: Any) -> tuple[str, str]:
     return str(task_id), str(category)
 
 
-def _allocation(groups: Mapping[str, Sequence[str]], count: int) -> dict[str, int]:
+def _allocation(
+    groups: Mapping[str, Sequence[str]],
+    count: int,
+    coverage_floor: bool = False,
+) -> dict[str, int]:
     total = sum(len(ids) for ids in groups.values())
     if count > total:
         raise ValueError(f"cannot sample {count} tasks from a pool of {total}")
     if not total or not count:
         return {category: 0 for category in groups}
+    if coverage_floor:
+        # The support set exists to measure where the student is short, not to
+        # mirror how many tasks a category happens to ship with.  Size-weighted
+        # sampling hands most of the budget to the categories already covered
+        # and leaves the small ones with too few tasks to estimate anything --
+        # a category that lands zero verified rows then loses its whole axis
+        # silently.  Give every category an equal share first, then spread the
+        # remainder by size.
+        floor = count // len(groups)
+        reserved = {
+            category: min(floor, len(ids)) for category, ids in groups.items()
+        }
+        remaining = count - sum(reserved.values())
+        headroom = {
+            category: list(ids)[reserved[category]:] for category, ids in groups.items()
+        }
+        extra = _allocation(headroom, remaining) if remaining else {}
+        return {
+            category: reserved[category] + extra.get(category, 0)
+            for category in groups
+        }
     quotas = {category: count * len(ids) / total for category, ids in groups.items()}
     allocated = {category: min(math.floor(quota), len(groups[category]))
                  for category, quota in quotas.items()}
@@ -87,7 +112,10 @@ def _allocation(groups: Mapping[str, Sequence[str]], count: int) -> dict[str, in
 
 
 def stratified_sample(
-    tasks: Iterable[Any], count: int, seed: int = SUPPORT_SEED
+    tasks: Iterable[Any],
+    count: int,
+    seed: int = SUPPORT_SEED,
+    coverage_floor: bool = False,
 ) -> tuple[str, ...]:
     groups: dict[str, list[str]] = defaultdict(list)
     seen: set[str] = set()
@@ -99,7 +127,7 @@ def stratified_sample(
         groups[category].append(task_id)
     for ids in groups.values():
         ids.sort()
-    allocated = _allocation(groups, count)
+    allocated = _allocation(groups, count, coverage_floor)
     rng = random.Random(seed)
     chosen: list[str] = []
     for category in sorted(groups):
@@ -109,14 +137,18 @@ def stratified_sample(
 
 
 def make_support_split(
-    tasks: Iterable[Any], seed: int = SUPPORT_SEED
+    tasks: Iterable[Any],
+    seed: int = SUPPORT_SEED,
+    coverage_floor: bool = False,
 ) -> SupportSplit:
     task_list = list(tasks)
     by_id = {task_id: category for task_id, category in map(_task_fields, task_list)}
-    support = stratified_sample(task_list, support_size(len(task_list)), seed)
+    support = stratified_sample(
+        task_list, support_size(len(task_list)), seed, coverage_floor
+    )
     support_refs = [(task_id, by_id[task_id]) for task_id in support]
     calibration = stratified_sample(
-        support_refs, calibration_size(len(support)), seed
+        support_refs, calibration_size(len(support)), seed, coverage_floor
     )
     calibration_set = set(calibration)
     demand = tuple(task_id for task_id in support if task_id not in calibration_set)

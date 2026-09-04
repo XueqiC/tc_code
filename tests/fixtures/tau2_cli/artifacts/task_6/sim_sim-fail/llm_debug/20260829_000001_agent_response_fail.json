@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-08-29T00:00:01",
+  "request": {
+    "model": "openai/bfas-policy",
+    "messages": [
+      {"role": "system", "content": "native\npolicy"},
+      {"role": "assistant", "content": "Hi! How can I help you today?", "tool_calls": null},
+      {"role": "user", "content": "Please cancel my flight."}
+    ],
+    "tools": []
+  },
+  "response": {
+    "content": "I cannot help with that.",
+    "tool_calls": null
+  }
+}

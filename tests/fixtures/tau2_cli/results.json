@@ -1,0 +1,73 @@
+{
+  "info": {
+    "num_trials": 1,
+    "environment_info": {
+      "domain_name": "airline",
+      "policy": "native policy"
+    }
+  },
+  "tasks": [],
+  "simulations": [
+    {
+      "id": "sim-pass",
+      "task_id": "2",
+      "termination_reason": "user_stop",
+      "reward_info": {"reward": 1.0},
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "Hi! How can I help you today?",
+          "usage": null,
+          "raw_data": null
+        },
+        {
+          "role": "user",
+          "content": "Find my booking.\nThe id is ABC123.",
+          "usage": {"prompt_tokens": 10, "completion_tokens": 8},
+          "raw_data": {"message": {"role": "assistant"}}
+        },
+        {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup_booking",
+              "arguments": {"booking_id": "ABC123"},
+              "requestor": "assistant"
+            }
+          ],
+          "usage": {"prompt_tokens": 20, "completion_tokens": 5},
+          "raw_data": {"finish_reason": "tool_calls"}
+        }
+      ]
+    },
+    {
+      "id": "sim-fail",
+      "task_id": "6",
+      "termination_reason": "user_stop",
+      "reward_info": {"reward": 0.0},
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "Hi! How can I help you today?",
+          "usage": null,
+          "raw_data": null
+        },
+        {
+          "role": "user",
+          "content": "Please cancel my flight.",
+          "usage": {"prompt_tokens": 7, "completion_tokens": 6},
+          "raw_data": {"message": {"role": "assistant"}}
+        },
+        {
+          "role": "assistant",
+          "content": "I cannot help with that.",
+          "tool_calls": null,
+          "usage": {"prompt_tokens": 18, "completion_tokens": 6},
+          "raw_data": {"finish_reason": "stop"}
+        }
+      ]
+    }
+  ]
+}

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import random
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -83,12 +84,68 @@ def audit_verified_counts(
             )
 
 
+def audit_prompt_token_lengths(
+    rows: Sequence[Mapping[str, Any]],
+    prompt_token_length: Callable[[str], int],
+    max_tokens: int,
+) -> None:
+    if max_tokens <= 0:
+        _fail(f"AW_MAX_PROMPT_TOKENS must be a positive integer; got {max_tokens}")
+
+    longest_index = -1
+    longest_length = -1
+    for index, row in enumerate(rows):
+        prompt = row.get("prompt")
+        if not isinstance(prompt, str):
+            continue
+        try:
+            token_length = int(prompt_token_length(prompt))
+        except Exception as exc:
+            _fail(
+                f"row {index}: prompt tokenization failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
+        if token_length < 0:
+            _fail(f"row {index}: prompt token length is negative: {token_length}")
+        if token_length > longest_length:
+            longest_index = index
+            longest_length = token_length
+
+    if longest_length <= max_tokens:
+        return
+    longest_row = rows[longest_index]
+    identity = f"row {longest_index}"
+    if longest_row.get("task_id") is not None:
+        identity += f" task_id={longest_row['task_id']!r}"
+    if longest_row.get("turn_index") is not None:
+        identity += f" turn_index={longest_row['turn_index']!r}"
+    _fail(
+        f"prompt token audit: longest {identity} has {longest_length} tokens, "
+        f"exceeding AW_MAX_PROMPT_TOKENS={max_tokens}; "
+        f"required cap >= {longest_length}"
+    )
+
+
+def _training_prompt_cap() -> int:
+    raw_cap = os.environ.get("AW_MAX_PROMPT_TOKENS", "640")
+    try:
+        cap = int(raw_cap)
+    except ValueError as exc:
+        raise AuditError(
+            f"AW_MAX_PROMPT_TOKENS must be a positive integer; got {raw_cap!r}"
+        ) from exc
+    if cap <= 0:
+        _fail(f"AW_MAX_PROMPT_TOKENS must be a positive integer; got {raw_cap!r}")
+    return cap
+
+
 def audit_pool(
     rows: Sequence[Mapping[str, Any]],
     adapter: BenchmarkAdapter,
     *,
     rollouts: Sequence[Rollout] = (),
     checker_summary: Mapping[str, int | Mapping[str, int]] | None = None,
+    prompt_token_length: Callable[[str], int] | None = None,
 ) -> AuditReport:
     categories = adapter.task_categories()
     suffix = adapter.generation_suffix()
@@ -113,6 +170,11 @@ def audit_pool(
                 _fail(f"row {index}: guided row lacks behavior-policy mu fields")
             if int(row["_mu_ntok"]) <= 0:
                 _fail(f"row {index}: guided row has nonpositive _mu_ntok")
+
+    if prompt_token_length is not None:
+        audit_prompt_token_lengths(
+            rows, prompt_token_length, _training_prompt_cap()
+        )
 
     sample_count = min(3, len(rows))
     sampled = random.Random(SUPPORT_SEED).sample(range(len(rows)), sample_count)

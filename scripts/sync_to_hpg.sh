@@ -7,6 +7,6 @@ PROJ="$(basename "$SRC")"
 ssh hpg "mkdir -p $HPG_BASE/$PROJ/logs"
 rsync -az --info=stats1 \
   --exclude '.git/' --exclude 'data/' --exclude 'results/' --exclude 'logs/' \
-  --exclude '.venv/' --exclude '__pycache__/' --exclude 'wandb/' --exclude '_trash/' \
+  --exclude '.venv/' --exclude '__pycache__/' --exclude 'wandb/' --exclude '_trash/' --exclude 'envs/' \
   "$SRC/" hpg:"$HPG_BASE/$PROJ/"
 echo "synced -> hpg:$HPG_BASE/$PROJ"

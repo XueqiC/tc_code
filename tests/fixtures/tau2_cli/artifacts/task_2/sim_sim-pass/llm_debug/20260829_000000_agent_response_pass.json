@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-08-29T00:00:00",
+  "request": {
+    "model": "openai/bfas-policy",
+    "messages": [
+      {"role": "system", "content": ["native", "policy"]},
+      {"role": "assistant", "content": "Hi! How can I help you today?", "tool_calls": null},
+      {"role": "user", "content": ["Find my booking.", "The id is ABC123."]}
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "lookup_booking",
+          "description": "Look up a booking",
+          "parameters": {
+            "type": "object",
+            "properties": {"booking_id": {"type": "string"}},
+            "required": ["booking_id"]
+          }
+        }
+      }
+    ]
+  },
+  "response": {
+    "content": null,
+    "tool_calls": [
+      {
+        "id": "call-1",
+        "name": "lookup_booking",
+        "arguments": {"booking_id": "ABC123"},
+        "requestor": "assistant"
+      }
+    ]
+  }
+}

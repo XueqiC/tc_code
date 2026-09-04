@@ -48,17 +48,27 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _snapshot_for_model(model: str) -> Path:
+    local = Path(model)
+    if local.is_dir() and (local / "config.json").is_file() and (local / "model.safetensors.index.json").is_file():
+        # a previously exported hub_merged directory (used to stack a round-N adapter on a round-(N-1) model)
+        return local
     parts = model.strip().split("/")
     if len(parts) < 2 or any(not part or part in {".", ".."} for part in parts):
         raise ExportError(f"invalid Hub model ID: {model!r}")
 
-    cache_dir = (
-        Path.home()
-        / ".cache"
-        / "huggingface"
-        / "hub"
-        / ("models--" + "--".join(parts))
-    )
+    # honor HF_HOME / HF_HUB_CACHE: on hpg the populated cache lives on /blue,
+    # and the stale copy under ~/.cache is an old revision without the
+    # preprocessor configs vllm 0.27 requires -- resolving the home cache there
+    # produced merges that could never serve
+    import os as _os
+
+    if _os.environ.get("HF_HUB_CACHE"):
+        hub_root = Path(_os.environ["HF_HUB_CACHE"])
+    elif _os.environ.get("HF_HOME"):
+        hub_root = Path(_os.environ["HF_HOME"]) / "hub"
+    else:
+        hub_root = Path.home() / ".cache" / "huggingface" / "hub"
+    cache_dir = hub_root / ("models--" + "--".join(parts))
     main_ref = cache_dir / "refs" / "main"
     if not main_ref.is_file():
         raise ExportError(f"missing Hub ref for {model!r}: {main_ref}")
@@ -386,6 +396,14 @@ def main() -> None:
 
         _prepare_output(out, snapshot)
         _copy_snapshot_files(snapshot, out, shard_names)
+        # vllm >=0.27 refuses this architecture without its preprocessor
+        # configs; an older snapshot revision may predate them, so pull the
+        # missing ones from any sibling revision rather than failing at serve
+        for name in ("preprocessor_config.json", "video_preprocessor_config.json"):
+            if not (out / name).exists():
+                for sibling in snapshot.parent.glob(f"*/{name}"):
+                    (out / name).write_bytes(sibling.read_bytes())
+                    break
         _write_shards(out, hub_state, weight_map, shard_names)
 
         if args.verify:

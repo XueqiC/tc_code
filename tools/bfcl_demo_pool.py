@@ -48,18 +48,20 @@ def main() -> int:
 
     verified = set(json.load((ROOT / args.verified).open()))
 
-    entries: dict[str, dict] = {}
-    for f in sorted((BFCL / "bfcl_eval/data").glob("BFCL_v4_*.json")):
-        for line in f.open():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                break
-            if isinstance(row, dict) and row.get("id") in verified:
-                entries[row["id"]] = row
+    # entries come from the adapter: memory tasks only exist under their
+    # per-backend ids once the group is expanded, so data-file membership
+    # would drop them here without a word
+    sys.path.insert(0, str(ROOT / "src"))
+    from bfas.adapters.bfcl import BFCLAdapter
+
+    all_entries = BFCLAdapter()._load_entries()[0]
+    entries: dict[str, dict] = {
+        task_id: row for task_id, row in all_entries.items() if task_id in verified
+    }
+    missing = verified - set(entries)
+    if missing:
+        print(f"[bfcldemopool] WARNING {len(missing)} verified ids have no "
+              f"entry: {sorted(missing)[:5]}")
 
     results: dict[str, dict] = {}
     for f in (BFCL / args.result_dir).rglob("*_result.json"):

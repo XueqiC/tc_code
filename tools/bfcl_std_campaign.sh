@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# hpg: $HOME is full (quota) -> keep vllm/torch/triton compile caches on /blue, never under ~/.cache
+if [ -d /blue/fsu-compsci-dept/xc25.fsu/hq/tools ]; then
+  export VLLM_CACHE_ROOT=${VLLM_CACHE_ROOT:-/blue/fsu-compsci-dept/xc25.fsu/hq/tools/vllm-cache}
+  export TORCHINDUCTOR_CACHE_DIR=${TORCHINDUCTOR_CACHE_DIR:-/blue/fsu-compsci-dept/xc25.fsu/hq/tools/inductor-cache}
+  export TRITON_CACHE_DIR=${TRITON_CACHE_DIR:-/blue/fsu-compsci-dept/xc25.fsu/hq/tools/triton-cache}
+  export XDG_CACHE_HOME=${XDG_CACHE_HOME:-/blue/fsu-compsci-dept/xc25.fsu/hq/tools/xdg-cache}
+  mkdir -p "$VLLM_CACHE_ROOT" "$TORCHINDUCTOR_CACHE_DIR" "$TRITON_CACHE_DIR" "$XDG_CACHE_HOME"
+  export VLLM_NO_USAGE_STATS=1 DO_NOT_TRACK=1   # vllm usage-stats writer targets ~/.config (home is full)
+  export HOME=/blue/fsu-compsci-dept/xc25.fsu/hq/tools/fakehome; mkdir -p "$HOME"
+fi
+
 set -u
 if [ "$#" -lt 3 ]; then
   echo "Usage: bash tools/bfcl_std_campaign.sh <GPU> <PORT> <tag1> [tag2 ...]" >&2
@@ -6,9 +17,22 @@ if [ "$#" -lt 3 ]; then
 fi
 GPU=$1 PORT=$2
 shift 2
-PROJ=/home/xueqi/hq/projects/tc-alignment
+# resolve from this script's own location: hardcoding a home path made
+# every hpg run skip evaluation silently ("NO ADAPTER") while still
+# printing DONE, because /home/xueqi does not exist there
+PROJ=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 LEADERBOARD=$PROJ/envs/bfcl/gorilla/berkeley-function-call-leaderboard
-BFCL=$PROJ/envs/bfcl/.venv/bin/bfcl
+# the bfcl entry point sits in a different venv on each machine
+# (rai: envs/bfcl/.venv, hpg: envs/bfcl-venv), and a wrong guess surfaces only
+# as "env: No such file or directory" buried in a generate log
+BFCL=""
+for cand in "$PROJ/envs/bfcl/.venv/bin/bfcl" "$PROJ/envs/bfcl-venv/bin/bfcl"; do
+  [ -x "$cand" ] && { BFCL=$cand; break; }
+done
+if [ -z "$BFCL" ]; then
+  echo "no bfcl executable under $PROJ/envs (looked in bfcl/.venv and bfcl-venv)" >&2
+  exit 3
+fi
 RES_SUB=result_p$PORT SCORE_SUB=score_p$PORT
 MODEL_DIR=Qwen_Qwen3.5-4B-FC
 mkdir -p "$PROJ/logs" "$PROJ/results/bfcl_std" "$PROJ/_trash"
@@ -66,7 +90,7 @@ run_tag() (
       fi
     fi
     if ! "$PROJ/.venv/bin/python" "$PROJ/tools/bfcl_hub_merge_export.py" \
-      --adapter "$adapter" --out "$merged" --verify || \
+      --adapter "$adapter" --out "$merged" --verify ${BFCLSTD_BASE_MODEL:+--model "$BFCLSTD_BASE_MODEL"} || \
       [ ! -f "$merged/model.safetensors.index.json" ]; then
       echo "[bfclstd] $tag MERGE FAILED"
       return
@@ -81,7 +105,7 @@ run_tag() (
   fi
   if ! env CUDA_VISIBLE_DEVICES="$GPU" CUDA_DEVICE_ORDER=PCI_BUS_ID \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
-    LOCAL_SERVER_PORT="$PORT" PATH="$PROJ/envs/vllm-serve/.venv/bin:$PATH" \
+    LOCAL_SERVER_PORT="$PORT" PATH="$(dirname "$BFCL"):$PROJ/envs/vllm-serve/.venv/bin:$PATH" \
     "$BFCL" generate "${generate_args[@]}" \
     > "$PROJ/logs/bfclstd_gen_${tag}.log" 2>&1; then
     echo "[bfclstd] $tag GENERATE FAILED"

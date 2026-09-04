@@ -1,0 +1,16 @@
+{
+ "aggregate": {
+  "task_goal_completion": 50.0,
+  "scenario_goal_completion": 0.0
+ },
+ "individual": {
+  "50e1ac9_1": {
+   "success": true,
+   "difficulty": 2
+  },
+  "50e1ac9_2": {
+   "success": false,
+   "difficulty": 2
+  }
+ }
+}
