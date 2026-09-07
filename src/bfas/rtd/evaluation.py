@@ -14,6 +14,7 @@ import time
 from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
 from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
 from .identity import evaluation_harness_metadata, guard_harness, record_code_drift, verified_checkpoint
+from .hardware import guard_hardware, instance, comparison_hash
 
 
 def _parse_percentage(value):
@@ -133,15 +134,26 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
     if tree_hash(manifest['model_path']) != manifest['base_checkpoint_hash']:
         raise ValueError('evaluation base checkpoint changed')
     from .cli import data_identity, hardware_identity
-    if (digest(hardware_identity()) != manifest['hardware_hash']
-            or data_identity(root, manifest['config'], manifest['bank_path']) != manifest['data_hash']):
+    current_hardware = hardware_identity()
+    hardware_binding = guard_hardware(root, directory, manifest, current_hardware, context=f'evaluation-{round_number}')
+    class_hash = digest(hardware_binding['hard'])
+    if data_identity(root, manifest['config'], manifest['bank_path']) != manifest['data_hash']:
         raise ValueError('evaluation hardware/data differs from training')
     identities = guard_harness(root, directory, manifest)
     drift = record_code_drift(root, directory, manifest, context=f'evaluation-{round_number}', identities=identities)
     expected = official_expectations(root)
+    base = json.loads(Path(base_evaluation).read_text()) if base_evaluation else None
+    if base is not None:
+        if (base.get('hardware_class_hash') != class_hash
+                or digest(base.get('hardware_class')) != class_hash):
+            raise ValueError('base comparison needs the same audited hardware class')
+        if base['expected'] != expected or not base['validation']['complete']:
+            raise ValueError('base comparison needs matching complete evaluation')
     identity = dict(checkpoint=meta, config_hash=manifest['config_hash'], data_hash=manifest['data_hash'],
                     base_checkpoint_hash=manifest['base_checkpoint_hash'],
                     tokenizer_hash=manifest.get('tokenizer_hash'),
+                    # Retain historical campaign addresses for immutable old
+                    # manifests; guard_hardware checks the effective class above.
                     hardware_hash=manifest['hardware_hash'], expected_hash=digest(expected),
                     evaluation_harness_hash=identities['harness_hash'],
                     evaluation_temperature=manifest['config']['evaluation_temperature'])
@@ -166,8 +178,9 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             if result['identity'] != identity or result['artifacts_hash'] != tree_hash(out):
                 raise ValueError('evaluation identity/artifacts changed')
             validate_evaluation(expected, out / 'resultdir', out / 'scoredir')
-            if result.get('code_drift') != drift:
+            if result.get('code_drift') != drift or result.get('hardware_class_hash') != class_hash:
                 result['code_drift'] = drift
+                result.update(hardware_class=hardware_binding['hard'], hardware_class_hash=class_hash)
                 atomic_json(completed, result)
             return result
         stage = root / 'results/appworld_students' / tag
@@ -202,7 +215,7 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             if not visible or ',' in visible or visible == '-1':
                 raise ValueError('evaluate requires one CUDA_VISIBLE_DEVICES GPU')
             port, port_fd = locks.enter_context(reserve_port(root, tag=tag, port=port,
-                gpu_uuid=manifest.get('hardware', {}).get('uuid'), **settings))
+                gpu_uuid=instance(current_hardware)['uuid'], **settings))
             print(f'[rtd] evaluation resources tag={tag} port={port}', flush=True)
             stage.mkdir(parents=True, exist_ok=True)
             atomic_json(binding, identity)
@@ -255,16 +268,14 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             journal.append('evaluation_reused', round=round_number, tag=tag, identity=identity,
                            campaign_identity=campaign_identity, gpu_seconds=0., gpu_reserved_seconds=0.)
         result = dict(identity=identity, campaign_identity=campaign_identity,
+            hardware_class=hardware_binding['hard'], hardware_class_hash=class_hash,
             merged_hash=export['merged_hash'], expected=expected, code_drift=drift,
             evaluation_harness_metadata=evaluation_harness_metadata(root),
             artifacts_hash=tree_hash(out), overall_accuracy_percent=score, validation=validation,
             campaign_log=str(log) if log else None, campaign_seconds=elapsed, reused_campaign=reused,
             evaluation_lock_idle_seconds=wait_seconds,
             port=port, output_directory=str(out))
-        if base_evaluation:
-            base = json.loads(Path(base_evaluation).read_text())
-            if base['expected'] != expected or not base['validation']['complete']:
-                raise ValueError('base comparison needs matching complete evaluation')
+        if base is not None:
             before = base['validation']['verdicts']
             result['repairs_damage'] = {tid: dict(before=before[tid], after=ok,
                 repaired=not before[tid] and ok, damaged=before[tid] and not ok)
@@ -351,7 +362,7 @@ def report(directories, output):
                 code_drift=result.get('code_drift', []) if result else [],
                 official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
-                hardware_hash=manifest['hardware_hash'], run=str(directory)))
+                hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     comparable = len({r['hardware_hash'] for r in rows}) <= 1

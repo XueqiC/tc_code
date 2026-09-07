@@ -15,6 +15,7 @@ sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 from bfas.rtd import cli, evaluation, identity
 from bfas.rtd.persistence import atomic_json, digest, file_hash, tree_hash
 from rtd_identity_fixtures import put_tools, tool_content
+from rtd_identity_fixtures import hardware_fixture
 from bfcl_fake_socket import install_fake_socket
 
 
@@ -46,7 +47,7 @@ def campaign(tmp_path, monkeypatch):
     executable.chmod(0o755)
     put(root/'envs/bfcl/.venv/lib/python3.11/site-packages/bfcl_eval-1.dist-info/METADATA')
     put(root/'base/model.safetensors')
-    hardware = dict(uuid='mock-uuid', gpu='mock CPU test', memory=48_000_000_000)
+    hardware = hardware_fixture()
     monkeypatch.setattr(cli, 'ROOT', root)
     monkeypatch.setattr(cli, 'hardware_identity', lambda: hardware)
     monkeypatch.setattr(cli, 'data_identity', lambda *a: 'data')
@@ -97,7 +98,7 @@ def campaign(tmp_path, monkeypatch):
                   max_action_tokens=4096, mode='sealed_replay')
     harness = identity.evaluation_harness_identity(root, config)
     manifest = dict(config=config, config_hash=digest(config), arm='R0', smoke=False,
-                    hardware=hardware, hardware_hash=digest(hardware), data_hash='data', bank_path='bank',
+                    hardware=hardware, hardware_hash=digest(hardware['hard']), data_hash='data', bank_path='bank',
                     model_path=str(root/'base'), base_checkpoint_hash=tree_hash(root/'base'),
                     harness_hash=digest(harness), evaluation_harness=harness,
                     rtd_source=identity.source_identity(root), initial_parameter_hash='initial')

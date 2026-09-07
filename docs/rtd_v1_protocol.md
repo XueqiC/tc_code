@@ -1,3 +1,117 @@
+# RTD protocol v1.0.4 — C25n scheduler hardware identity (2026-09-07)
+
+Hardware equality means **device class**, including the software environment.
+SLURM can allocate the same GPU class but cannot guarantee an individual GPU.
+HPG job 41293740 returned to `c1100a-s25` with B200 UUID `6b5cf600...` instead
+of the manifest's `4200c43f...`; this is an admissible instance change.
+bf16 nondeterminism across identical-class devices is already accepted and
+recorded. This policy does not extend comparisons across GPU or host classes.
+The v1.0.1 scientific config and full original manifest/checkpoint bindings
+remain immutable; saved `config.protocol_version: 1.0.1` remains valid.
+
+New `hardware` identities have version `rtd-hardware-class-v1` and two parts:
+
+| Part | Fields | Policy |
+| --- | --- | --- |
+| `hard` | GPU name/model, compute capability, total memory **in exact bytes**, CUDA runtime version, NVIDIA driver version, torch/transformers/peft/numpy versions, Python version, machine architecture, `host_class` | All must match exactly for training resume and evaluation. `hardware_hash` hashes only this part. |
+| `metadata` | Literal hostname, GPU UUID, PCI bus ID, CUDA device ordering (`PCI_BUS_ID` / `FASTEST_FIRST`) | Recorded; differences append a hash-chained `device_instance_changed` event to `device_instances.jsonl`, with original/previous/current metadata, manifest/class hashes, context and timestamp. Return transitions are recorded too. |
+
+`host_class` is `hpg-b200` for B200 devices when SLURM's partition says
+`hpg-b200`, the cluster says `hpg`/`hipergator`, or the historical hostname
+matches HPG's `c<digits><letter>-s<digits>` compute-node label. This explicit
+historical mapping permits migration of old manifests without SLURM metadata.
+Other scheduler nodes use `SLURM_CLUSTER_NAME`, then the partition label;
+local rai uses its literal hostname `sn4622122543`. The GPU model remains an
+independent hard field even when a cluster contains several device types.
+
+The local launcher retains per-run UUID pinning: local `resume`/`evaluate`
+defaults to the saved UUID before importing torch, with `PCI_BUS_ID` as the
+default ordering. Explicit `CUDA_VISIBLE_DEVICES` remains honored. Scheduler
+launches retain SLURM visibility, and training workers retain the coordinator's
+environment and exact UUID check. A new local run still uses its explicitly
+selected GPU. Device-binding logs always describe the current device.
+
+## Audited migration of parked runs
+
+`update-hardware-identity` is a separate CPU-only audit from C25j's scoring
+`update-identity`. It needs neither git nor CUDA initialization/model loading.
+It writes only `configs/rtd/hardware_identities/<full-original-manifest-hash>.json`,
+listing the complete old/new identities and hashes. Every existing round's
+checkpoint binding and adapter/state file hashes are checked before the first
+write, with manifest/checkpoint/supplement race checks under a writer lock.
+Repeated successful migration is idempotent. Original manifests, recovery,
+round checkpoints, scoring supplements and historical campaign addresses stay
+intact. Legacy resume/evaluation requires this explicit supplement; there is no
+automatic migration during a GPU launch.
+
+All old GPU/capability/memory/CUDA/software fields are copied exactly.
+`--host-class` asserts the derived class and cannot override it.
+`--reference-manifest` optionally requires the full class of another already
+migrated manifest; different model, capacity, driver or software refuses.
+Tampered hashes/bindings and attempts to change an existing class also refuse
+with JSON evidence and nonzero status.
+
+The old manifests did **not** record driver version or PCI ordering. On the
+same host, migration reads the current driver version and verifies local
+software versions and the matching UUID/model in the kernel GPU inventory
+when available. On another host, supply `--driver-version` from the target
+compute node. The audit labels this as establishing the driver at migration,
+not proof of the historical driver. Missing original PCI metadata stays null;
+observed inventory is separate audit evidence. Future resume/evaluation checks
+the complete live class, including this newly established driver, before model
+work. The retained hard fields are never inferred from a replacement GPU.
+
+Local commands used for C25n (no GPU launches):
+
+```bash
+for run in rai_R0 rai_R1 rai_R1s; do
+  CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python tools/rtd_experiment.py update-hardware-identity --run-dir "results/rtd_v1/$run" --host-class sn4622122543 || break
+done
+```
+
+All three local migrations returned `updated: true`, verified `round-1`, and
+then returned `updated: false` on repeat. The size/mtime inventory of all 94
+run files was unchanged. Each audit records the matching kernel UUID/model
+and PCI address. Shared retained fields are host class `sn4622122543`, CUDA
+`13.0`, Python `3.12.13`, machine `x86_64`, torch `2.13.0`, transformers
+`5.14.1`, peft `0.20.0`, numpy `2.5.2`; driver `580.95.05` was established at
+migration. Hashes below are 12-character prefixes; the linked supplements
+contain full hashes, complete old/new values and verified checkpoint evidence.
+
+| Run / audit supplement | GPU class | Capability / memory bytes | Old instance hash → new class hash |
+| --- | --- | --- | --- |
+| [rai_R0](../configs/rtd/hardware_identities/6b5b84b47cac8e2dddc26e71aeec5004ad175ad1e0f3cf2b40aff60f08c32c26.json) | RTX 6000 Ada Generation | 8.9 / 50,865,307,648 | `6acfed4f7c95` → `47d1750200b8` |
+| [rai_R1](../configs/rtd/hardware_identities/6319fc3b01a6076591bbff403cd0c20231818d65a2cf9f7585ca801b8bc06269.json) | A100 80GB PCIe | 8.0 / 85,094,825,984 | `fde46ea0f50b` → `c274542763fc` |
+| [rai_R1s](../configs/rtd/hardware_identities/e95096df2105cf399819a8066445fe439147d26094cea06ddccc309af34c5459.json) | RTX PRO 6000 Blackwell Max-Q Workstation Edition | 12.0 / 101,971,722,240 | `38966a3c99fc` → `01008afbb023` |
+
+These remain **three different comparison classes**. A local attempt to
+re-migrate rai_R1 with rai_R0's `--reference-manifest` refused with exit 1 and
+listed the differing model, capability and memory values; it wrote nothing.
+
+After syncing the updated source to HPG, run the following **from the HPG
+project root on a compute node with the target NVIDIA driver loaded**, using
+an existing allocation. The commands only read hardware metadata and run files;
+they do not submit a job, resume training, or launch evaluation. No `.git` is
+needed. The target driver version is read once for both runs:
+
+```bash
+RTD_HPG_DRIVER_VERSION=$(cat /sys/module/nvidia/version)
+for run in R0 R1; do
+  CUDA_VISIBLE_DEVICES='' OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python tools/rtd_experiment.py update-hardware-identity --run-dir "results/rtd_v1/$run" --host-class hpg-b200 --driver-version "$RTD_HPG_DRIVER_VERSION" || break
+done
+```
+
+This is independent of the existing C25j scoring audit; a run missing that
+audit still needs `update-identity`. Continued training still requires
+`--acknowledge-code-drift`, which cannot bypass any hard class/scoring check.
+Reports and newly frozen fixed-ledger sources use the effective class hash.
+Original evaluation campaign identities retain their historical hardware hash
+to permit validated artifact reuse; the live guard uses the audited class.
+Evaluation records add the effective class and class hash, and base repair/damage
+comparisons require the same class. Re-reading a completed evaluation after
+migration adds these fields without changing its score or campaign identity.
+Unmigrated reports retain conservative historical instance grouping.
+
 # RTD protocol v1.0.2 — C25j scoring identity (2026-09-07)
 
 This addendum scopes evaluation provenance. It preserves the v1.0.1 scientific

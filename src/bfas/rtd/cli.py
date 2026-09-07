@@ -1,12 +1,9 @@
 """Command boundary for RTD. CPU commands never load a production model."""
 import argparse
-import importlib.metadata
 import json
 import os
 from pathlib import Path
-import platform
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -22,6 +19,7 @@ from .scoring import ScoreTolerance
 from .memory import MemoryPolicy
 from .identity import (audit_legacy, evaluation_harness_identity, evaluation_harness_metadata,
                        source_identity, validate_resume, verified_checkpoint)
+from .hardware import hardware_identity, instance, device_class, comparison_hash
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -84,18 +82,6 @@ def harness_hash(root, config):
     return digest(evaluation_harness_identity(root, config))
 
 
-def hardware_identity():
-    import torch
-    if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-        raise ValueError('exactly one CUDA GPU is required')
-    props = torch.cuda.get_device_properties(0)
-    versions = {name: importlib.metadata.version(name) for name in ('torch', 'transformers', 'peft', 'numpy')}
-    return dict(hostname=socket.gethostname(), gpu=props.name, memory=props.total_memory,
-        capability=[props.major, props.minor], uuid=str(getattr(props, 'uuid', 'unknown')),
-        cuda=torch.version.cuda, python=platform.python_version(), versions=versions,
-        machine=platform.machine())
-
-
 def data_identity(root, config, bank):
     root, bank = Path(root), Path(bank)
     data = root / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data'
@@ -151,7 +137,7 @@ def make_manifest(config, arm, audit, *, smoke=False):
         harness_hash=digest(harness), evaluation_harness=harness, rtd_source=source_identity(ROOT),
         evaluation_harness_metadata=evaluation_harness_metadata(ROOT),
         data_hash=data_identity(ROOT, config, audit['bank_path']),
-        hardware=hardware, hardware_hash=digest(hardware), **{k: audit[k] for k in
+        hardware=hardware, hardware_hash=digest(hardware['hard']), **{k: audit[k] for k in
             ('bank_path', 'bank_public_cap_sum', 'budget_ceilings', 'recorded_bank_usage', 'available_packages', 'm')},
         backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',
         backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured',
@@ -198,8 +184,9 @@ def run_command(args):
         if not resume and (directory/'manifest.json').exists():
             raise ValueError('existing run; use resume with the same configuration')
         manifest = make_manifest(config, args.arm, audit, smoke=smoke)
+        current_hardware = manifest['hardware']
         expected_gpu = getattr(args, 'expected_gpu_uuid', None)
-        if expected_gpu is not None and manifest['hardware']['uuid'] != expected_gpu:
+        if expected_gpu is not None and instance(current_hardware)['uuid'] != expected_gpu:
             raise ValueError('training worker GPU UUID differs from coordinator; refusing model load')
         if saved:
             validate_resume(ROOT, directory, saved, manifest,
@@ -210,8 +197,8 @@ def run_command(args):
         journal = ComputeJournal(directory/'compute.jsonl', cuda=True, deadline=deadline)
         journal.append('device_binding', cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
             cuda_device_order=os.environ.get('CUDA_DEVICE_ORDER'), logical_device='cuda:0',
-            gpu_uuid=manifest['hardware']['uuid'], gpu_name=manifest['hardware']['gpu'],
-            total_memory_bytes=manifest['hardware']['memory'], coordinator_gpu_uuid=expected_gpu)
+            gpu_uuid=instance(current_hardware)['uuid'], gpu_name=device_class(current_hardware)['gpu'],
+            total_memory_bytes=device_class(current_hardware)['memory'], coordinator_gpu_uuid=expected_gpu)
         def timeout(signum, frame):
             raise TimeoutError('smoke exceeded 15 minutes; resume state retained')
         previous = signal.signal(signal.SIGALRM, timeout) if smoke else None
@@ -273,8 +260,8 @@ def run_campaign(args, config):
     print('[rtd] device binding ' + json.dumps(dict(
         cuda_visible_devices=worker_env.get('CUDA_VISIBLE_DEVICES'),
         cuda_device_order=worker_env.get('CUDA_DEVICE_ORDER'), logical_device='cuda:0',
-        gpu_uuid=coordinator_gpu['uuid'], gpu_name=coordinator_gpu['gpu'],
-        total_memory_bytes=coordinator_gpu['memory'])), flush=True)
+        gpu_uuid=instance(coordinator_gpu)['uuid'], gpu_name=device_class(coordinator_gpu)['gpu'],
+        total_memory_bytes=device_class(coordinator_gpu)['memory'])), flush=True)
     directory = Path(args.run_dir or ROOT/config['output_root']/args.arm).resolve()
     if args.command == 'run' and (directory/'manifest.json').exists():
         raise ValueError('existing campaign; use resume')
@@ -296,7 +283,7 @@ def run_campaign(args, config):
                 command = 'resume' if (directory/'manifest.json').exists() else 'run'
                 worker = [sys.executable, str(ROOT/'tools/rtd_experiment.py'), command, '--arm', args.arm,
                     '--run-dir', str(directory), '--training-worker', '--through-round', str(round_number),
-                    '--expected-gpu-uuid', coordinator_gpu['uuid']]
+                    '--expected-gpu-uuid', instance(coordinator_gpu)['uuid']]
                 if command == 'run':
                     worker += ['--config', str(Path(args.config).resolve())]
                 if command == 'resume' and getattr(args, 'acknowledge_code_drift', False):
@@ -339,6 +326,7 @@ def replay_ledger(args):
             fixed_ledger_source=str(directory.resolve()), fixed_ledger_hash=digest(ledger.events),
             fixed_initial_parameter_hash=manifest['initial_parameter_hash'])
         config.update({'fixed_source_'+k: manifest[k] for k in ('data_hash','base_checkpoint_hash','hardware_hash')})
+        config['fixed_source_hardware_hash'] = comparison_hash(ROOT, manifest)
         # All four cells start from theta0 and retrain the entire final collection.
         # These configs do not treat adaptive R0/R1 as the diagonal cells.
         config['output_root'] = str(Path(config['output_root']) / args.out.stem)
@@ -347,11 +335,11 @@ def replay_ledger(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='RTD protocol v1.0.2 identity / v1.0.1 sealed BFCL replay. No teacher API path.')
+    parser = argparse.ArgumentParser(description='RTD protocol v1.0.4 identity / v1.0.1 sealed BFCL replay. No teacher API path.')
     subs = parser.add_subparsers(dest='command', required=True)
-    for name in ('audit', 'audit-legacy', 'update-identity', 'smoke', 'run', 'resume', 'replay-ledger', 'swap-component', 'evaluate', 'report'):
+    for name in ('audit', 'audit-legacy', 'update-identity', 'update-hardware-identity', 'smoke', 'run', 'resume', 'replay-ledger', 'swap-component', 'evaluate', 'report'):
         p = subs.add_parser(name)
-        if name not in ('report', 'audit-legacy', 'update-identity'):
+        if name not in ('report', 'audit-legacy', 'update-identity', 'update-hardware-identity'):
             p.add_argument('--config', default=None if name == 'resume' else
                            os.environ.get('RTD_CONFIG', str(ROOT/'configs/rtd/v1_bfcl_c25.yaml')))
         if name == 'resume':
@@ -368,8 +356,13 @@ def main(argv=None):
                            help='maximum lock wait in seconds (env RTD_EVALUATION_LOCK_TIMEOUT_SECONDS; default 21600)')
             p.add_argument('--evaluation-lock-log-interval', type=float,
                            help='lock wait log interval in seconds (env RTD_EVALUATION_LOCK_LOG_INTERVAL_SECONDS; default 60)')
-        if name in ('smoke', 'run', 'resume', 'replay-ledger', 'evaluate', 'audit-legacy', 'update-identity'):
-            p.add_argument('--run-dir', type=Path, required=name in ('replay-ledger', 'evaluate', 'audit-legacy', 'update-identity'))
+        if name in ('smoke', 'run', 'resume', 'replay-ledger', 'evaluate', 'audit-legacy', 'update-identity', 'update-hardware-identity'):
+            p.add_argument('--run-dir', type=Path, required=name in ('replay-ledger', 'evaluate', 'audit-legacy', 'update-identity', 'update-hardware-identity'))
+        if name == 'update-hardware-identity':
+            p.add_argument('--host-class', help='assert the saved host class; cannot override it')
+            p.add_argument('--driver-version', help='establish the previously unrecorded target NVIDIA driver version')
+            p.add_argument('--reference-manifest', type=Path,
+                           help='also require equality with this already migrated manifest class')
         if name == 'audit':
             p.add_argument('--build-bank', action='store_true')
         if name in ('replay-ledger', 'swap-component'):
@@ -396,6 +389,17 @@ def main(argv=None):
             result = update_identity(ROOT, args.run_dir)
         except IdentityUpdateRefused as exc:
             print(json.dumps(exc.evidence, indent=2, sort_keys=True))
+            return 1
+        print(json.dumps(result, indent=2, sort_keys=True))
+    elif args.command == 'update-hardware-identity':
+        from .hardware import bound_hardware, update_hardware_identity
+        try:
+            reference = (bound_hardware(ROOT, json.loads(args.reference_manifest.read_text()))
+                         if args.reference_manifest else None)
+            result = update_hardware_identity(ROOT, args.run_dir,
+                expected_host_class=args.host_class, driver=args.driver_version, reference=reference)
+        except (ValueError, KeyError, OSError, subprocess.SubprocessError) as exc:
+            print(json.dumps(dict(updated=False, refusals=[str(exc)]), indent=2, sort_keys=True))
             return 1
         print(json.dumps(result, indent=2, sort_keys=True))
     elif args.command == 'replay-ledger':

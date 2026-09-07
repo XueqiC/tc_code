@@ -768,3 +768,4 @@ rtd hpg R1 round1 official | 41264649 (dept, B200): round 1 + campaign in 1h39m;
 rtd hpg R1 round1 axes | NL 79.27 / Live 77.42 / MT 49.75 / Mem 26.24 / Irrel 82.36 / Rel 75.00 / Web 10.50 (OVERALL 46.18) | vs rai R0 r1: NL 79.98 / Live 77.65 / MT 49.13 / Mem 27.31 / Irrel 83.44 / Web 12.50 (46.81) | -
 2026-09-08 | codex_C25l reuse (Codex) | campaign cleanup exit handling fixed; evaluate() reuses completed campaigns (validated R0 46.81 artifacts); 281 tests | next C25m percent parse
 rtd rai R1s round1 | scalar-gate arm finished round 1 on rai GPU1 (spend 225/825,753; different purchases from R0 188 / R1 197) | parked at end-of-round identity guard (evaluation.py changed by C25l/C25m after start) -> update-identity then resume after C25m | results/rtd_v1/rai_R1s
+2026-09-08 | codex_C25m percent parse (Codex) | evaluation.py strips %, N/A->None; 289 tests | tagged rtd-v1.0.3-hotfix

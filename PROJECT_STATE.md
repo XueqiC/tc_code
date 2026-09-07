@@ -1229,3 +1229,11 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/8 04:20Z 解析 bug 定位:src/bfas/rtd/evaluation.py:244 float(row['Overall Acc']) 遇 '46.18%'。C25l 交付后立即交 C25m(去掉 %,同时处理分轴列),不并行编辑同一文件。
 - 9/8 04:45Z C25l 交付(281 测试;R0 46.81 产物验证通过);C25m 启动(百分号解析)。
 - 9/8 05:20Z R1s 跑完 round 1(spend 225),轮末撞身份守卫(C25l/C25m 改了 evaluation.py)→ C25m 后 update-identity 再 resume。三臂第 1 轮采购各不相同(R0 188 / R1 197 / R1s 225)。
+- 9/8 05:45Z C25m 交付(289 测试)→ **tag rtd-v1.0.3-hotfix**。update-identity:rai_R1s、rai_R1;resume:rai R0(GPU2,复用第 1 轮评测→第 2 轮)、rai R1s(GPU1);hpg:同步 + update-identity R1/R0 + 重投 resume(id 见下一行)。rai R1 评测仍在跑,结束后 resume。
+- 9/8 05:50Z **hpg resume 重投:R1 = 41293509(dept),R0 = 41293510(yd24f)**(hpg 身份无需更新);rai R0(GPU2)/R1s(GPU1)resume 中;rai R1 评测中。hotfix commit 9bc7680。
+- 9/8 06:10Z rai R0 复用第 1 轮评测,进入 round 2;R1s 第 1 轮官方评测中(GPU1);rai R1 第 1 轮评测中(GPU3);hpg R1/R0 resume 排队。
+- 9/8 06:35Z hpg R1 resume 41293509 秒败:'resume config/data/base/hardware metadata changed'——落到了不同节点/GPU(硬件身份含 hostname+UUID)。对策不改代码:用 --nodelist 钉回原节点(R1 c1100a-s25 dept;R0 c1001a-s15 yd24f)重投;41293510 取消。
+- 9/8 06:40Z **hpg 钉节点重投:R1 = 41293740(c1100a-s25,dept),R0 = 41293741(c1001a-s15,yd24f)**;监视器一个看两个。
+- 9/8 07:00Z rai R0 round 2 在 GPU2 OOM:同一用户的 scaling-down-law 会话在 GPU2 起了两个 v12_distill 训练(33 GB),不是本项目进程,不动。R0 的硬件身份钉在 GPU2 UUID,不能换卡 → 挂监视器等 GPU2 空出后重 resume。R1s(GPU1)/R1(GPU3)不受影响。
+- 9/8 07:20Z hpg 钉节点 resume 41293740 仍败:同节点不同 GPU(UUID 不同)。SLURM 无法钉 GPU 实例 → 交 Codex C25n(协议 v1.0.4:硬件身份硬校验只到设备类别,hostname/UUID 记录为元数据;审计式迁移已有 manifest)。41293741 取消。
+- 9/8 07:50Z hotfix 代码(9bc7680)全量 RTD 测试 289 通过。等 C25n(设备类别硬件身份)。

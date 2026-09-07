@@ -300,11 +300,14 @@ def record_code_drift(root, directory, manifest, *, context, training=False,
 
 
 def validate_resume(root, directory, saved, current, *, acknowledge=False, training=True):
+    from .hardware import bound_hardware, guard_hardware
     ignored = {'initial_parameter_hash', 'harness_hash', 'evaluation_harness',
-               'evaluation_harness_metadata', 'rtd_source'}
+               'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash'}
     if ({k: v for k, v in saved.items() if k not in ignored}
             != {k: v for k, v in current.items() if k not in ignored}):
-        raise ValueError('resume config/data/base/hardware metadata changed')
+        raise ValueError('resume config/data/base metadata changed')
+    guard_hardware(root, directory, saved, bound_hardware(root, current),
+                   context='training_resume' if training else 'evaluation_resume')
     identities = guard_harness(root, directory, saved, current=current['evaluation_harness'])
     record_code_drift(root, directory, saved, context='training_resume' if training else 'evaluation_resume',
                       training=training,
