@@ -335,7 +335,7 @@ def replay_ledger(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='RTD protocol v1.0.4 identity / v1.0.1 sealed BFCL replay. No teacher API path.')
+    parser = argparse.ArgumentParser(description='RTD protocol v1.0.6 / v1.0.1 sealed BFCL replay. No teacher API path.')
     subs = parser.add_subparsers(dest='command', required=True)
     for name in ('audit', 'audit-legacy', 'update-identity', 'update-hardware-identity', 'smoke', 'run', 'resume', 'replay-ledger', 'swap-component', 'evaluate', 'report'):
         p = subs.add_parser(name)

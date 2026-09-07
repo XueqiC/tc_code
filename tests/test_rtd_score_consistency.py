@@ -1,4 +1,4 @@
-"""C25b: real HF cached BF16 Qwen3.5 vs full native CE, entirely on CPU."""
+"""C25b/C25q: cached BF16 vs native CE and recorded outlier checks, on CPU."""
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -10,10 +10,10 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 
-from bfas.rtd.cli import load_config
+from bfas.rtd.cli import load_config, resume_config
 from bfas.rtd.functional_step import gradients, lora_parameters, snapshot
-from bfas.rtd.persistence import ComputeJournal
-from bfas.rtd.return_gradient import TaskRollout, reinforce_gradient
+from bfas.rtd.persistence import ComputeJournal, digest
+from bfas.rtd.return_gradient import ActionTrace, TaskRollout, reinforce_gradient
 from bfas.rtd.runtime import HFGenerateBackend
 from bfas.rtd.scoring import ScoreTolerance
 from bfas.rtd.transport import Behavior, FullState, SourceSample
@@ -74,6 +74,8 @@ def test_c25_bf16_qwen_cache_discrepancy_is_recorded_and_reinforce_uses_same_ce(
     assert diagnostic['sequence_abs_difference'] > 2e-4 + 2e-5*abs(action.generation_logprob)
     assert 0 < diagnostic['mean_abs_difference'] <= .05
     assert 0 < diagnostic['max_abs_difference'] <= 1.
+    assert diagnostic['outlier_token_count'] == 0
+    assert diagnostic['outlier_positions'] == [] and diagnostic['outlier_fraction'] == 0.
     assert action.generation_metadata['logits_dtypes'] == ['torch.bfloat16']
     assert action.generation_metadata['scores_dtypes'] == ['torch.float32']
     assert diagnostic['scoring_backend']['logits_dtype'] == 'torch.bfloat16'
@@ -107,7 +109,8 @@ def test_failed_checks_are_durable_and_tolerance_cannot_hide_structural_errors(s
             values = [v-.06 for v in values]
         else:
             values[-1] -= 1.1
-            monkeypatch.setattr(b, 'score_tolerance', ScoreTolerance(mean_abs=2., max_abs=1.))
+            monkeypatch.setattr(b, 'score_tolerance', ScoreTolerance(
+                mean_abs=2., max_abs=1., max_abs_outlier_tokens=0))
         action = replace(action, generation_token_logprobs=tuple(values), generation_logprob=sum(values))
     elif kind == 'prompt':
         expected_prompt = action.prompt_ids[:-1]
@@ -127,21 +130,126 @@ def test_failed_checks_are_durable_and_tolerance_cannot_hide_structural_errors(s
         assert saved['structural_errors']
 
 
-def test_tolerance_config_defaults_overrides_and_invalid_values(tmp_path):
+@pytest.mark.parametrize('value', [None, {'mean_abs': .001, 'max_abs': .02},
+    {'max_abs_outlier_tokens': 0, 'max_abs_hard': 3.},
+    {'mean_abs': .1, 'max_abs': .5, 'max_abs_outlier_tokens': 4, 'max_abs_hard': 6.}])
+def test_tolerance_config_defaults_and_overrides(tmp_path, value):
     import yaml
     config = load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
     path = tmp_path/'config.yaml'
-    for value in (None, {'mean_abs': .001, 'max_abs': .02}, {'mean_abs': -1}, {'max_abs': float('inf')}):
-        config.pop('score_consistency_tolerance', None)
-        if value is not None:
-            config['score_consistency_tolerance'] = value
-        path.write_text(yaml.safe_dump(config))
-        if value and any(v < 0 or not torch.isfinite(torch.tensor(v)) for v in value.values()):
-            with pytest.raises(ValueError, match='finite and nonnegative'):
-                load_config(path)
-        else:
-            expected = value or {'mean_abs': .05, 'max_abs': 1.}
-            assert load_config(path)['score_consistency_tolerance'] == expected
+    config.pop('score_consistency_tolerance')
+    if value is not None:
+        config['score_consistency_tolerance'] = value
+    path.write_text(yaml.safe_dump(config))
+    expected = dict(mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8.) | (value or {})
+    assert load_config(path)['score_consistency_tolerance'] == expected
+    assert vars(ScoreTolerance.from_config(config)) == expected
+
+
+@pytest.mark.parametrize('key', ['mean_abs', 'max_abs', 'max_abs_hard'])
+@pytest.mark.parametrize('value', [-1., float('inf'), float('nan')])
+def test_tolerance_config_rejects_invalid_numeric_bounds(tmp_path, key, value):
+    import yaml
+    config = load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
+    config['score_consistency_tolerance'][key] = value
+    path = tmp_path/'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    with pytest.raises(ValueError, match='finite and nonnegative'):
+        load_config(path)
+
+
+@pytest.mark.parametrize('value', [-1, 1.5, 2., True, float('inf'), float('nan')])
+def test_tolerance_config_requires_nonnegative_integer_outlier_count(tmp_path, value):
+    import yaml
+    config = load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
+    config['score_consistency_tolerance']['max_abs_outlier_tokens'] = value
+    path = tmp_path/'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    with pytest.raises(ValueError, match='nonnegative integer'):
+        load_config(path)
+
+
+@pytest.mark.parametrize('config_source', ['manifest', 'saved_yaml'])
+@pytest.mark.parametrize('legacy_tolerance', [None, {'mean_abs': .05, 'max_abs': 1.}])
+def test_resume_uses_new_tolerance_defaults_without_mutating_saved_config(tmp_path, config_source, legacy_tolerance):
+    import yaml
+    config = load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
+    config.pop('score_consistency_tolerance')
+    if legacy_tolerance is not None:
+        config['score_consistency_tolerance'] = legacy_tolerance
+    saved = dict(config=config, config_hash=digest(config))
+    original = json.dumps(saved, sort_keys=True)
+    path = tmp_path/'saved.yaml'
+    path.write_text(yaml.safe_dump(config))
+    saved_bytes = path.read_bytes()
+    resumed = resume_config(path if config_source == 'saved_yaml' else None, saved)
+    assert vars(ScoreTolerance.from_config(resumed)) == dict(
+        mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8.)
+    assert resumed is config and digest(resumed) == saved['config_hash']
+    assert json.dumps(saved, sort_keys=True) == original and path.read_bytes() == saved_bytes
+
+
+@pytest.mark.parametrize('kind,positions,magnitude,passed', [
+    ('one', [44], 1.43, True),
+    ('two_including_eos', [44, 255], 1.43, True),
+    ('three', [0, 44, 255], 1.43, False),
+    ('hard_max', [44], 9., False),
+    ('hard_max_boundary', [44], 8., True),
+    ('outlier_boundary', [0, 44, 255], 1., True),
+    ('mean', list(range(256)), .06, False),
+    ('structural', [44], 1.43, False),
+])
+def test_outlier_decision_records_all_tokens_and_preserves_native_score_and_gradient(
+        tmp_path, capsys, kind, positions, magnitude, passed):
+    from test_rtd_return_gradient import backend
+    b = backend()
+    b.max_context_tokens = 512
+    # Match an old saved config: new limits must come from code defaults.
+    b.score_tolerance = ScoreTolerance.from_config({'score_consistency_tolerance': {'mean_abs': .05, 'max_abs': 1.}})
+    params = lora_parameters(b.model)
+    action = ActionTrace((0, 1), (1,)*255+(3,), 3, 'toy', -256., b.backend_id, b.identity(params))
+    native, values, _ = b.score_action(action, params, return_details=True)
+    generated = values.detach().clone()
+    generated[positions] -= magnitude
+    action = replace(action, generation_token_logprobs=tuple(generated.tolist()),
+                     generation_logprob=float(generated.sum()))
+    expected_prompt = action.prompt_ids[:-1] if kind == 'structural' else action.prompt_ids
+    journal = ComputeJournal(tmp_path/'compute.jsonl', cuda=False)
+    kwargs = dict(expected_prompt_ids=expected_prompt, record=lambda d: journal.append('score_consistency', **d))
+    if passed:
+        score, diagnostic = b.checked_score_action(action, params, **kwargs)
+        torch.testing.assert_close(score, native, rtol=0, atol=0)
+        actual_gradient, native_gradient = gradients(score, params), gradients(native, params)
+        for name in params:
+            torch.testing.assert_close(actual_gradient[name], native_gradient[name], rtol=0, atol=0)
+    else:
+        with pytest.raises(ValueError, match='likelihood differs'):
+            b.checked_score_action(action, params, **kwargs)
+    records = [json.loads(line) for line in journal.path.read_text().splitlines()]
+    assert len(records) == 1
+    saved = records[0]
+    assert saved['passed'] is passed and saved['protocol_version'] == '1.0.6'
+    assert saved['n_tokens'] == 256
+    outliers = positions if magnitude > 1. else []
+    assert saved['outlier_positions'] == outliers
+    assert saved['outlier_token_count'] == len(outliers)
+    assert saved['outlier_fraction'] == pytest.approx(len(outliers)/256)
+    assert saved['max_abs_difference'] == pytest.approx(magnitude)
+    assert saved['mean_abs_difference'] == pytest.approx(len(positions)*magnitude/256)
+    assert (saved['mean_abs_difference'] > .05) is (kind == 'mean')
+    assert bool(saved['structural_errors']) is (kind == 'structural')
+    assert saved['generation_token_logprobs'] == list(action.generation_token_logprobs)
+    assert saved['teacher_forced_token_logprobs'] == values.detach().tolist()
+    assert saved['eos']['included_in_both_scores'] and saved['eos']['action_positions'] == [255]
+    assert saved['masks']['teacher_forced_action'] == [False]*2+[True]*256
+    lines = capsys.readouterr().out.splitlines()
+    if passed and outliers:
+        assert len(lines) == 1 and lines[0].startswith('[rtd] score-consistency outlier ')
+        for field in (f"state_hash={saved['state_hash']}", 'n_tokens=256',
+                      f'outlier_token_count={len(outliers)}', f'max_abs_difference={magnitude:g}'):
+            assert field in lines[0]
+    else:
+        assert lines == []
 
 
 def test_source_sample_records_failing_state_before_raising(sampled, tmp_path, monkeypatch):

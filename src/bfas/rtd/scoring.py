@@ -1,4 +1,4 @@
-"""Recorded sampling/teacher-forcing comparisons (spec 4.2), in nats/token."""
+"""RTD v1.0.6 sampling/teacher-forcing comparisons (spec 4.2), in nats/token."""
 from dataclasses import asdict, dataclass
 import math
 
@@ -11,13 +11,18 @@ from .persistence import digest
 class ScoreTolerance:
     mean_abs: float = .05
     max_abs: float = 1.
+    max_abs_outlier_tokens: int = 2
+    max_abs_hard: float = 8.
 
     def __post_init__(self):
-        if any(not math.isfinite(v) or v < 0 for v in (self.mean_abs, self.max_abs)):
+        if any(not math.isfinite(v) or v < 0 for v in (self.mean_abs, self.max_abs, self.max_abs_hard)):
             raise ValueError('score tolerances must be finite and nonnegative')
+        if type(self.max_abs_outlier_tokens) is not int or self.max_abs_outlier_tokens < 0:
+            raise ValueError('max_abs_outlier_tokens must be a nonnegative integer')
 
     @classmethod
     def from_config(cls, config):
+        # Resumes use the immutable manifest config, which may predate these fields.
         return cls(**config.get('score_consistency_tolerance', {}))
 
 
@@ -45,16 +50,21 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
     delta = (gen - rescored).abs() if len(gen) == len(rescored) and finite and len(gen) else None
     mean_abs = float(delta.mean()) if delta is not None else None
     max_abs = float(delta.max()) if delta is not None else None
+    # Positions are zero-based action-token offsets, including sampled EOS.
+    outlier_positions = (delta > tolerance.max_abs).nonzero().flatten().tolist() if delta is not None else None
+    outlier_count = len(outlier_positions) if outlier_positions is not None else None
+    outlier_fraction = outlier_count / len(gen) if delta is not None else None
     total = float(score.detach())
     sequence_abs = abs(total - action.generation_logprob) if finite else None
-    within = mean_abs is not None and mean_abs <= tolerance.mean_abs and max_abs <= tolerance.max_abs
+    within = (mean_abs is not None and mean_abs <= tolerance.mean_abs
+              and outlier_count <= tolerance.max_abs_outlier_tokens and max_abs <= tolerance.max_abs_hard)
     if score_atol is not None or score_rtol is not None:
         within = within and sequence_abs <= (score_atol or 0.) + (score_rtol or 0.)*abs(action.generation_logprob)
     p, n = len(action.prompt_ids), len(action.action_ids)
     # JSON forbids NaN/Inf in the durable hash chain. Keep their identity as text.
     def numbers(values):
         return [float(v) if math.isfinite(float(v)) else str(float(v)) for v in values]
-    return dict(version='rtd-score-consistency-v1',
+    return dict(version='rtd-score-consistency-v1', protocol_version='1.0.6', n_tokens=n,
         state_hash=digest(dict(prompt_ids=action.prompt_ids)),
         prompt_ids=action.prompt_ids, action_ids=action.action_ids, generated_text=action.text,
         expected_prompt_ids=expected_prompt_ids,
@@ -62,6 +72,7 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
         generation_logprob=action.generation_logprob,
         teacher_forced_logprob=total if finite else str(total),
         mean_abs_difference=mean_abs, max_abs_difference=max_abs, sequence_abs_difference=sequence_abs,
+        outlier_token_count=outlier_count, outlier_positions=outlier_positions, outlier_fraction=outlier_fraction,
         tolerance=asdict(tolerance), sequence_atol=score_atol, sequence_rtol=score_rtol,
         passed=bool(within and not errors), structural_errors=errors,
         truncated=action.truncated,
@@ -82,5 +93,11 @@ def enforce_score_diagnostic(diagnostic):
         raise ValueError('generation/teacher-forced likelihood differs: '
             f"mean |delta|={diagnostic['mean_abs_difference']}, "
             f"max |delta|={diagnostic['max_abs_difference']} nats/token; "
+            f"outlier_token_count={diagnostic['outlier_token_count']}; "
             f"tolerance={diagnostic['tolerance']}; structural_errors={diagnostic['structural_errors']}; "
             'see score_consistency record in compute.jsonl')
+    if diagnostic['outlier_token_count']:
+        print('[rtd] score-consistency outlier '
+              f"state_hash={diagnostic['state_hash']} n_tokens={diagnostic['n_tokens']} "
+              f"outlier_token_count={diagnostic['outlier_token_count']} "
+              f"max_abs_difference={diagnostic['max_abs_difference']:.6g} nats/token", flush=True)

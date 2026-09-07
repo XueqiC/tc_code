@@ -1,3 +1,49 @@
+# RTD protocol v1.0.6 — C25q score-consistency outliers (2026-09-07)
+
+## Changelog
+
+The generation/teacher-forced likelihood self-check now tolerates up to two
+isolated token differences above `max_abs: 1.0` nats. Structural errors and
+`mean_abs: 0.05` remain hard failures. The numeric check fails if the number of
+tokens strictly above `max_abs` exceeds `max_abs_outlier_tokens: 2`, or any token
+difference exceeds `max_abs_hard: 8.0` nats. All tokens, including sampled EOS,
+still contribute to the mean and maximum; outliers are never removed or clipped.
+The optional double-precision sequence check remains enforced.
+
+This fixes the `rai_R1s` round 2, step 1 crash recorded under state hash
+`d978b6f4744872d03c795cb6211381202b8e9275726a5672475793f553412a7f`:
+mean absolute difference 0.0156, maximum 1.43 nats, `structural_errors=[]`.
+The isolated mid-sequence token at position 44 of 135 had generation logprob
+-3.84 versus teacher-forced -5.27 at temperature 1.0. KV-cached `hf-generate`
+and functional teacher forcing without cache both use bf16 logits; this
+low-probability token reflects numerical divergence. Across the reported 592
+checks per arm, the p99 maximum was 0.3–0.5 nats, and `rai_R1` had already reached
+0.845, exposing all arms to the former single-token hard limit.
+
+Every full comparison remains recorded in `compute.jsonl` before enforcement,
+as required by spec 4.2 / T6 item 5, with the existing scores, sampling policy,
+EOS and masks. Records add `protocol_version: 1.0.6`, `n_tokens`,
+`outlier_token_count`, `outlier_positions` (zero-based action-token offsets,
+including sampled EOS), and `outlier_fraction` (count divided by all action
+tokens). Outlier fields are null when nonfinite values or inconsistent coverage
+prevent a token comparison. A passing comparison with outliers prints one
+`[rtd] score-consistency outlier ...` line with state hash, token count, outlier
+count and maximum difference. Sampling, teacher-forced scores, gradients and
+the frozen evaluation-harness source inventory are unchanged.
+
+Both new tolerance fields have code defaults in `ScoreTolerance`; the two C25
+repo YAMLs also declare them explicitly. `resume_config` reads `manifest.json`'s
+saved `config` and preserves its hash, rather than reloading the repo YAML.
+An explicitly supplied identical saved YAML follows the same path. Backend
+construction calls `ScoreTolerance.from_config`, so old configs containing only
+`mean_abs` and `max_abs` receive the new defaults without any run-directory edit.
+The historical `v1_bfcl.yaml` has no tolerance key. Scientific config version
+1.0.1 and historical identity versions remain intact; the CLI and diagnostic
+records advertise v1.0.6.
+Resumed processes load the hotfix; already-running Python processes retain
+their loaded code until restarted. Existing code-drift acknowledgement rules
+continue to apply.
+
 # RTD protocol v1.0.4 — C25n scheduler hardware identity (2026-09-07)
 
 Hardware equality means **device class**, including the software environment.

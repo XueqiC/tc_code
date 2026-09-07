@@ -1251,3 +1251,9 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/8 11:40Z rai R1 round 2 训练 worker 崩:KeyError 'arguments'(更新后的学生偶发输出缺 arguments 的 tool_call,rollout/checker 解析不容错)。冻结代码的鲁棒性 bug → Codex C25p:解析失败按'畸形动作=失败'记分并标记,不中止。
 - 9/8 12:05Z C25o 交付(RTD_EXTRA_ARGS);等 C25p(畸形调用容错)后一次性同步 hpg,重投 hpg R1/R0 resume(RTD_EXTRA_ARGS=--acknowledge-code-drift)并 resume rai R1。
 - 9/8 12:15Z rai R0 round 2 同样 KeyError 'arguments'(畸形 tool_call 进多轮历史)。R0/R1 都等 C25p 后 resume;R1s 第 1 轮评测中(其 round 2 大概率同样)。
+- 9/8 12:50Z C25p 交付(380 测试)→ tag rtd-v1.0.5;rai R0/R1 以 v1.0.5 resume(round 2);同步 hpg 并重投 resume(带 --acknowledge-code-drift)。
+- 9/8 12:55Z **hpg resume(v1.0.5,带 --acknowledge-code-drift):R1 = 41299687(dept),R0 = 41299688(yd24f)**;rai R0(GPU2)/R1(GPU3)round 2 运行中;R1s 第 1 轮评测中(GPU1)。commit 8e336f4。
+- 9/8 13:20Z hpg R1 resume 41299687 通过全部校验,复用 46.18 的第 1 轮评测,进入 round 2(B200);hpg R0 41299688 排队;rai R0/R1 round 2、R1s 第 1 轮评测中。
+- 9/8 13:35Z rai R1s 第 1 轮官方分 45.71(NL 79.54/Live 77.79/MT 49.38/Mem 24.95/Irrel 82.70/Rel 75.00/Web 9.50);进入 round 2 step 1 后在 v1.0.3 内存代码上崩溃:生成/teacher-forced 似然自检 max|δ|=1.43 nats(单 token,pos 44/135,bf16 数值差;mean 0.016,无结构错误;阈值 max_abs 1.0)。各臂 p99 0.3–0.5、rai R1 已到 0.845 → 所有臂都有同类风险。Codex C25q(v1.0.6):max_abs 改为 per-token 离群阈值(≤2 个离群 token 且 max<8 nats 通过,全部记录),mean/结构错误仍硬失败;不改任何评分文件。R1s 等 v1.0.6 后 --acknowledge-code-drift 恢复(GPU1)。
+- 9/8 13:35Z 注意:rai GPU3(A100,R1)上有实验室同学 bolin 的 vllm Llama-3.1-8B(51 GB,不是我们的,不动);R1 round 2 结束时的 240G 评测 vllm(util 0.6≈48 GB)可能放不下 → 若评测 OOM,等其释放后 resume(v1.0.3+ 会复用已完成 campaign)。
+- 9/8 13:45Z v1.0.5(8e336f4)全量测试 380 passed / 0 failed(15 min)。
