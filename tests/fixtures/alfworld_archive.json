@@ -1,0 +1,13 @@
+{
+  "task_id": "room-a/trial-1",
+  "goal": "put the apple on the table.",
+  "turns": [
+    {"prompt": "reset deployment prompt", "target": "go to table 1", "context": [{"role": "user", "content": "reset"}]},
+    {"prompt": "second deployment prompt", "target": "put apple 1 on table 1", "context": [{"role": "user", "content": "table"}]}
+  ],
+  "rows": [
+    {"task_id": "room-a/trial-1", "attempt_index": 0, "timestamp": "2026-01-01T00:00:00Z", "teacher": "synthetic", "verified": true, "tokens_spent": 40},
+    {"task_id": "room-a/trial-1", "attempt_index": 1, "timestamp": "2026-01-01T00:00:01Z", "teacher": "synthetic", "verified": false, "tokens_spent": 80},
+    {"task_id": "room-a/trial-2", "attempt_index": 1, "timestamp": "2026-01-01T00:00:02Z", "teacher": "synthetic", "verified": false, "tokens_spent": 90}
+  ]
+}

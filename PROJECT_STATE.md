@@ -1279,3 +1279,6 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/8 22:25Z rai R0/R1s round 2 step 10 actual;hpg R1 round 2 step 4(~5 步/h);hpg R0 排队;规划文档 codex 进行中。
 - 9/8 15:41Z ALFWorld 就绪审查完成 docs/rtd_alfworld_readiness_zh.md(107 个候选 episode 包、estimated 成本、m=135、强 CE 锚点 77.86%、仅新增文件的分阶段清单);强对照方案 Codex 第一次因脚本路径(相对路径)未启动,已用绝对路径重启。
 - 9/8 16:05Z 强对照方案完成 docs/rtd_strong_baselines_plan_zh.md(B1–B4 定义、同池/全 bank 定义、V-S/V-T 曝光视角、配置与命令契约、算力估算、可现在准备/必须等待清单)。
+- 9/8 16:07Z 并行 Codex:C27 stage 1(强对照 B1–B4 新文件实现,pid 1079128)与 C26-A(ALFWorld 档案/状态审计 + 封存 bank 新文件,pid 1089561);两者只新增文件(源码漂移仅记录,resume 已带 acknowledge)。R1s round 2 训练结束进入评测;R0 step 10 feedback;hpg R1 step 7。提交 26c7282(C25 剩余测试 + 两份规划文档)。
+- 9/8 16:08Z rai R0 round 2 训练完成(step 12 round_end),旧 v1.0.5 内存代码的评测守卫拒绝(harness 与审计绑定不一致,因 bridge 文件已改);用 v1.0.7b 重新 resume(GPU2,pid 1107826,logs/rtd_resume_rai_R0_v107b.log)→ 直接进第 2 轮评测。
+- 9/8 16:09Z rai R0 v1.0.7b resume 通过校验(复用第 1 轮评测),进入第 2 轮评测(GPU2)。R1s 第 2 轮评测在 GPU1 进行中(spend 582/2,064,384)。
