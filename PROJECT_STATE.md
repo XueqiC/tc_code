@@ -1295,3 +1295,26 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 18:12Z C26-E 交付并提交(registry、alfworld_config、v1_alfworld_c26(.yaml/_scalar_gate)、tools/rtd_alfworld_experiment.py audit/smoke-plan、契约测试 95 通过、docs/rtd_alfworld_c26f_integration_plan_zh.md)。ALFWorld 新文件阶段 A–E 全部完成;C26-F(改 10 个既有模块的集成)必须等所有 BFCL run 停跑后做。
 - 9/9 18:13Z 核实 rai 两个第 2 轮评测 campaign 均在跑(R1s GPU1 2h27m,R0 GPU2 2h03m;vllm + bfcl generate 存活)。
 - 9/9 18:20Z rai R1s 第 2 轮官方分 46.07(NL 80.02/Live 78.09/MT 49.12/Mem 27.96/Irrel 83.29/Rel 75.00/Web 8.00;spend 582);第 1 轮 45.71、base 46.74,噪声内;进入 round 3。rai R0 评测仍在跑。
+- 9/9 18:22Z v1.1 方案 docs/rtd_v1_1_budget_quota_plan_zh.md 提交(b5fc528)并向用户列出 7 项批准点(分母 55,370;类 cap 2048/512 需信息例外;K=20/M=40 配额结转;S=40 每包 2 槽;算力 2–3×;hpg B200×3 作 matched 主比较;10/25% 为主点)。等用户批准;实现可在隔离副本先做,部署等 v1.0 第 3 轮结束。
+- 9/9 18:32Z 联合回归套件(rtd + alfworld + baselines + bridge)@6cdd34c:886 passed, 6 warnings in 1131.35s (0:18:51)
+- 9/9 02:25Z hpg R1 round 3 step 10;rai R1s round 3 step 1;rai R0 r2 评测 ~3h 仍在跑;hpg R0 排队;GPU3 仍被占。
+- 9/9 18:36Z rai R0 r2 评测生成 5,914/16.8k 行(2h25m;Ada 48 GB、util 0.6 慢),预计 ~05:30Z 出分。hpg R1 作业剩 4h10m,够跑完第 3 轮评测。
+- 9/9 19:32Z hpg R1 全部 3 轮完成(41301504 COMPLETED):r3 Overall 47.31(NL 79.54/Live 77.57/MT 50.00/Mem 29.03/Irrel 82.96/Rel 75.00/Web 12.50);曲线 46.18→45.85→47.31,base 46.74,+0.57 仍在噪声内;总支出 482 tok/5 包;report/budget_curve.* 已生成。
+- 9/9 19:35Z hpg R0 从 yd24f(QOSGrpMemLimit 卡 9h)撤回,改投 dept:41326193 PENDING。hpg R1 结果已归档到 results/rtd_v1_hpg/R1 与 results/bfcl_std_hpg/。R1 反馈 rollout 格式错误逐轮增加(0/12/36)记为诊断项。
+- 9/9 03:25Z rai R0 r2 评测在多轮题阶段 4602/5217(12.97 s/it,~2h);rai R1s round 3 step 7;hpg R0 41326193 排队(dept);GPU3 仍被占 14h。
+- 9/9 19:38Z GPU3 空出(bolin 的 vllm 退出),rai R1 自动 resume(pid 3309491,logs/rtd_resume_rai_R1_v106.log,当前树 v1.0.7b+,drift acknowledged)→ 应复用第 1 轮评测并进入 round 2。
+- 9/9 19:39Z rai R1 resume 通过校验(复用第 1 轮评测),round 2 训练中(GPU3 A100)。
+- 9/9 20:22Z 用户:想办法并行,B200 更快。hpg R1 实际 MaxRSS 仅 11.5 GB(申请 240G 导致 QOSGrpMemLimit;dept 组 1000G 已用 844G;burst QOS 无 GPU)。撤回 41326193,改 --mem=64G --cpus 8 重提 hpg R0 resume;同时在 hpg 从头起 R1s(run,scalar_gate 配置,run-dir results/rtd_v1/R1s),凑齐 hpg 同硬件 R0/R1/R1s。
+- 9/9 20:23Z hpg 提交:R0 resume 41328394、R1s 新 run 41328395(dept,64G,8 cpu),排队原因 Priority;监视器已换。
+- 9/9 20:24Z 新建 worktree projects/tc-alignment-alf(分支 alfworld-c26f @ b5fc528,data/envs 只读软链),Codex C26-F(ALFWorld 集成 10 模块 + slurm 脚本 + 全套测试)在其中进行;完成后同步到 hpg 独立目录跑 ALFWorld R0/R1(B200)。主目录不受影响。
+- 9/9 20:25Z hpg R0 resume 41328394 RUNNING(64G 申请奏效)。
+- 9/9 20:25Z hpg R1s 新 run 41328395 RUNNING(B200)。
+- 9/9 20:32Z hpg R1s 41328395 通过启动校验,round 1 step 1 运行中。
+- 9/9 04:25Z hpg R0/R1s 运行 12 min;rai R0 r2 评测 5000/5217;rai R1s r3 评测生成开始;rai R1 round 2 step 4;C26-F 进行中。
+- 9/9 20:36Z hpg R0 41328394 实际在补第 1 轮官方评测(tag rtd_R0_6777af4f8da2ed69_r1;之前 hpg R0 只完成了第 1 轮训练),之后 round 2/3;R0(~9.3h)与 R1s 新 run(~11.7h)都超 8h walltime → 各提交一个 --dependency=afterany 的 resume 接力作业(完成则空跑退出)。
+- 9/9 20:44Z ⚠️ Codex 用量额度耗尽(恢复时间 Sep 11 8:34 PM):C26-F 半成品(worktree 20 文件改动 + 3 新测试,无报告);正在 worktree 跑全套测试。已向用户提出:加额度 或 允许我直接写代码。v1.1 实现同样受阻。
+- 9/9 20:49Z C26-F worktree 首轮测试(-x):416 passed / 1 failed(tests/test_rtd_baselines_runner.py:experiment.py:399 用 self.config,C27 测试的桩对象无 config 属性;小修),完整失败清单后台再跑。等用户决定 codex 额度/我直接改。
+- 9/9 20:55Z 用户:codex 额度已补。重启 C26-F 续做(worktree,pid 3474749)。
+- 9/9 21:02Z rai R0 第 2 轮官方分 45.79(NL 79.58/Live 77.42/MT 50.00/Mem 24.52/Irrel 82.81/Rel 75.00/Web 9.50;spend 491/5 包);第 1 轮 46.81、base 46.74,噪声内;进入 round 3(GPU2)。
+- 9/9 21:09Z rai R0 round 3 启动时 CUDA OOM:GPU2(Ada 48 GB)被 bolin 新起的 vllm 占 33 GB(非我们的)。挂 GPU2 空出自动 resume 监视(logs/rtd_resume_rai_R0_r3.log);hpg R0(B200)承担该臂。
+- 9/9 21:16Z hpg R0 第 1 轮官方分 45.53(NL 80.29/Live 77.79/MT 49.62/Mem 23.66/Irrel 83.06/Rel 75.00/Web 9.00;spend 188/2 包);与 rai R0 r1 46.81 同购买轨迹,机器效应 −1.28;进入 round 2(B200)。
