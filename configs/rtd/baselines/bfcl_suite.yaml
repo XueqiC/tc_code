@@ -1,0 +1,14 @@
+# Fill only after both sources finish, using a single matched hardware class.
+# prepare refuses this template until explicit source paths and hardware are supplied.
+version: c27-suite-v1
+bank: data/rtd/v1_bfcl_c25
+hardware_class_hash: null
+pools: {}
+recipes:
+  b1: configs/rtd/baselines/bfcl_b1_sft.yaml
+  b2: configs/rtd/baselines/bfcl_b2_pairwise.yaml
+  b3_sft: configs/rtd/baselines/bfcl_b3_sft_pg.yaml
+  b3_mix: configs/rtd/baselines/bfcl_b3_mix_pg.yaml
+  b4: configs/rtd/baselines/bfcl_b4_meta_reweight.yaml
+views: [slots, tokens]
+common: configs/rtd/baselines/bfcl_common.yaml

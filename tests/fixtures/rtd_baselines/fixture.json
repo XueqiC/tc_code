@@ -1,0 +1,16 @@
+{
+  "description": "Synthetic same-pool oracle. No production task/text/ledger is used. Hashes and C25 append-only events are materialized in pytest tmp_path.",
+  "parents": [
+    {"number": 0, "category": "simple_python"},
+    {"number": 1, "category": "simple_python"},
+    {"number": 2, "category": "multi_turn_base"},
+    {"number": 3, "category": "multi_turn_base"}
+  ],
+  "packages": [
+    {"name": "paid_a", "parent": 0, "cost": 7, "confidence": "exact", "texts": ["A", "A", "B"], "dependencies": []},
+    {"name": "paid_b", "parent": 1, "cost": 11, "confidence": "estimated", "texts": ["B"], "dependencies": []},
+    {"name": "paid_a_independent", "parent": 0, "cost": 13, "confidence": "exact", "texts": ["A"], "dependencies": ["paid_a"]}
+  ],
+  "expected": {"teacher_tokens": 31, "unique_states": 4, "teacher_empirical_items": 4, "teacher_items_parent_0": 3,
+               "nominal_slots": 288, "physical_feedback_groups": 18, "feedback_rollouts": 108}
+}

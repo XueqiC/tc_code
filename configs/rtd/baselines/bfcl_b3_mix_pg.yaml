@@ -1,0 +1,8 @@
+recipe: b3_mix
+optimizer: adamw
+lr: 0.000003
+lambda_pg: 1.0
+mixture_alpha: 0.5
+commits: 36
+slots: 288
+distribution: strong

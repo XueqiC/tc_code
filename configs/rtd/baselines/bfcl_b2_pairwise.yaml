@@ -1,0 +1,9 @@
+# Frozen theta0; same-state complete chosen/rejected, including empty EOS action.
+# AW_DDPO_REF_FREE=0; AW_DDPO_SPAN_ONLY=0; AW_DDPO_WEIGHT=none; AW_ANCHOR_ADAPTIVE=0.
+# These semantics are implemented directly, independently of inherited AW_* env.
+recipe: b2
+optimizer: adamw
+lr: 0.000005
+beta: 0.1
+commits: 36
+slots: 288

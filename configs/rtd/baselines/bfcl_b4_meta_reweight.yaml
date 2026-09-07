@@ -1,0 +1,9 @@
+recipe: b4
+optimizer: fixed
+features_off: true
+weight_parameterization: per_query_softplus_mean_one
+meta_lr: 0.1
+ridge: 1.0
+eta_multiplier: 1.0
+commits: 36
+slots: 288

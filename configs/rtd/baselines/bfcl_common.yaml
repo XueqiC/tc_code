@@ -1,0 +1,20 @@
+# Assertions against the finished source's EFFECTIVE configuration, not inheritance.
+seed: 0
+new_teacher_calls: false
+evaluate_after_round: false
+runtime:
+  student: Qwen/Qwen3.5-4B
+  model_local_files_only: true
+  training_seed: 0
+  benchmark: bfcl
+  source_backend: hf_generate
+  source_temperature: 1.0
+  source_top_p: 1.0
+  source_samples_per_state: 2
+  lora_rank: 16
+  lora_alpha: 32
+  lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  max_context_tokens: 32768
+  max_action_tokens_by_benchmark:
+    bfcl: {single_turn: 512, multi_turn: 1024}
+  evaluation_temperature: 0.0
