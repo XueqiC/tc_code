@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import Counter
 from contextlib import contextmanager, nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import copy
 import math
 import uuid
@@ -22,6 +22,7 @@ from ..cc_pairs import thinking_off
 from .functional_step import FrozenStep, _matching, gradients, lora_parameters, policy_identity, snapshot
 from .transport import Behavior, SourceSample, complete_token_logprobs, positive_mixture_loss, validate_sampled_action
 from .scoring import ScoreTolerance, enforce_score_diagnostic, score_diagnostic
+from .bfcl_decode import DECODE_ERRORS, guard_rtd_decoding
 
 
 class IncompleteRolloutError(RuntimeError):
@@ -40,6 +41,9 @@ class ActionTrace:
     generation_token_logprobs: tuple[float, ...] = ()
     generation_metadata: dict = field(default_factory=dict)
     truncated: bool = False
+    malformed: bool = False
+    malformed_exception_type: str | None = None
+    malformed_stage: str | None = None
 
     def __post_init__(self):
         if not self.prompt_ids:
@@ -47,6 +51,8 @@ class ActionTrace:
         validate_sampled_action(self.action_ids, self.eos_token_id, self.truncated)
         if not math.isfinite(self.generation_logprob) or self.generation_logprob > 0:
             raise ValueError("invalid generation log probability")
+        if self.malformed != bool(self.malformed_exception_type):
+            raise ValueError('malformed actions require an exception type')
 
 
 @dataclass(frozen=True)
@@ -57,6 +63,8 @@ class TaskRollout:
     policy_id: str
     from_task_start: bool = True
     truncated: bool = field(init=False)
+    malformed: bool = field(init=False)
+    malformed_exception_types: tuple[str, ...] = field(init=False)
 
     def __post_init__(self):
         if not self.from_task_start or not self.actions or not 0 <= self.reward <= 1:
@@ -64,6 +72,11 @@ class TaskRollout:
         if any(a.policy_id != self.policy_id for a in self.actions):
             raise ValueError("mixed policies in one rollout")
         object.__setattr__(self, 'truncated', any(a.truncated for a in self.actions))
+        object.__setattr__(self, 'malformed', any(a.malformed for a in self.actions))
+        object.__setattr__(self, 'malformed_exception_types', tuple(sorted({
+            a.malformed_exception_type for a in self.actions if a.malformed_exception_type})))
+        if self.malformed and self.reward != 0:
+            raise ValueError('malformed actions require a failed rollout (reward zero)')
 
 
 class TorchPolicyBackend:
@@ -257,8 +270,9 @@ class TorchPolicyBackend:
 def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *, checker=None):
     """Run the existing Qwen BFCL harness from a fresh copy of the task start.
 
-    Only the handler's model query is replaced with the local scoreable backend.
-    Multi-turn observations/execution and official evaluation stay in BFCL.
+    The model query uses the local scoreable backend; RTD-only decoding guards
+    preserve malformed samples as failed actions. Multi-turn observations and
+    execution stay in BFCL, as does the official campaign's handling.
     Missing environments/checkers raise; infrastructure errors are never rewards.
     """
     from ..adapters.bfcl import BFCLAdapter
@@ -272,6 +286,13 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
         raise ValueError("BFCL agentic memory/web-search requires its own initial-state/checker adapter")
     task = populate_test_cases_with_predefined_functions([copy.deepcopy(entry)])[0]
     actions = []
+    def record_malformed(exc, stage):
+        if not actions:
+            raise exc  # no sampled action: this is not a policy failure
+        if not actions[-1].malformed:
+            actions[-1] = replace(actions[-1], malformed=True,
+                malformed_exception_type=type(exc).__name__, malformed_stage=stage)
+    guard_rtd_decoding(handler, record_malformed)
     def query(_handler, inference_data):
         prompt = thinking_off(_handler._format_prompt(inference_data["message"], inference_data["function"]))
         with backend.action_limit(category) if hasattr(backend, 'action_limit') else nullcontext():
@@ -301,13 +322,22 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
         if contain_multi_turn_interaction(task["id"]):
             verdict = checker.check_multi_turn(task, result, truth, category)
         elif "relevance" in category:
+            if 'irrelevance' not in category:
+                try:
+                    if not handler.decode_ast(result, language=ReturnFormat.PYTHON, has_tool_call_tag=False):
+                        raise ValueError('model returned no call for a required action')
+                except DECODE_ERRORS as exc:
+                    record_malformed(exc, 'decode_ast')
             verdict = checker.check_relevance(task, result, category)
         else:
             language = ReturnFormat.JAVA if "java" in category and "javascript" not in category else (
                 ReturnFormat.JAVASCRIPT if "javascript" in category else ReturnFormat.PYTHON)
             try:
                 calls = handler.decode_ast(result, language=language, has_tool_call_tag=False)
-            except (ValueError, KeyError, TypeError, SyntaxError):
+                if not calls and truth:
+                    raise ValueError('model returned no call for a required action')
+            except DECODE_ERRORS as exc:
+                record_malformed(exc, 'decode_ast')
                 calls = []  # same official invalid-action decoding behavior
             verdict = checker.check(dict(function=task["function"], truth=truth, category=category,
                 expected="abstain" if not truth else "call"), calls)
@@ -316,7 +346,8 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
             checker.close()
     if type(verdict.get("valid")) is not bool:
         raise RuntimeError("official checker failed to return a terminal verdict")
-    return TaskRollout(task["id"], tuple(actions), float(verdict["valid"]), backend.identity(parameters))
+    reward = 0. if any(a.malformed for a in actions) else float(verdict['valid'])
+    return TaskRollout(task["id"], tuple(actions), reward, backend.identity(parameters))
 
 
 def collect_feedback(tasks, rollout, *, feedback_parent_hashes, rollouts_per_task=2):
@@ -392,6 +423,10 @@ def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_
         rollouts=len(rollouts), tasks=len(set(r.task_id for r in rollouts)), action_tokens=tokens,
         truncated_rollouts=sum(r.truncated for r in rollouts),
         truncated_actions=sum(a.truncated for r in rollouts for a in r.actions),
+        malformed_rollouts=sum(r.malformed for r in rollouts),
+        malformed_actions=sum(a.malformed for r in rollouts for a in r.actions),
+        malformed_exception_types=dict(Counter(a.malformed_exception_type
+            for r in rollouts for a in r.actions if a.malformed)),
         rewards=rewards.tolist(), baselines=baselines.tolist(), baseline=baseline,
         score_backend=backend.backend_id, generation_backend=backend.backend_id,
         score_consistency=diagnostics,

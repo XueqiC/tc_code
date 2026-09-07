@@ -1237,3 +1237,17 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/8 07:00Z rai R0 round 2 在 GPU2 OOM:同一用户的 scaling-down-law 会话在 GPU2 起了两个 v12_distill 训练(33 GB),不是本项目进程,不动。R0 的硬件身份钉在 GPU2 UUID,不能换卡 → 挂监视器等 GPU2 空出后重 resume。R1s(GPU1)/R1(GPU3)不受影响。
 - 9/8 07:20Z hpg 钉节点 resume 41293740 仍败:同节点不同 GPU(UUID 不同)。SLURM 无法钉 GPU 实例 → 交 Codex C25n(协议 v1.0.4:硬件身份硬校验只到设备类别,hostname/UUID 记录为元数据;审计式迁移已有 manifest)。41293741 取消。
 - 9/8 07:50Z hotfix 代码(9bc7680)全量 RTD 测试 289 通过。等 C25n(设备类别硬件身份)。
+- 9/8 08:20Z C25n 交付 → tag rtd-v1.0.4;rai 三个 run 身份已迁移;同步 hpg、迁移 hpg R0/R1、重投 resume(不钉节点)。
+- 9/8 08:45Z hpg R0/R1 用 update-hardware-identity 迁移到设备类别(host-class hpg-b200,driver 填了 580.95.05——hpg 真实驱动版本未知,若 resume 报驱动不符则用作业日志里的版本重迁);resume 41296355(R1)/41296356(R0)排队。
+- 9/8 09:05Z hpg 驱动实为 580.178.04(我填错为 rai 的 580.95.05)→ 重迁移 R0/R1 并重投 resume(id 见下一行);41296356 取消。
+- 9/8 09:15Z 我把 hpg 的硬件类别驱动填错(580.95.05,实为 580.178.04),迁移工具拒绝改已建立的类别 → 撤回错误的补充文件(移入 _trash/legacy_identities_wrongdriver)后按真实驱动重迁,再重投 resume。
+- 9/8 09:30Z 撤回两份错误 hpg 硬件绑定(_trash/hardware_identities_wrongdriver),按 580.178.04 重迁 R0/R1(updated:true);**resume 重投:R1 = 41296619(dept),R0 = 41296620(yd24f)**;hpg 的 hardware_identities 已拉回 rai 保持并集(以后同步不能覆盖)。
+- 9/8 09:50Z hpg R1 resume 41296619 失败:'RTD source changed; training resume requires --acknowledge-code-drift'(slurm 启动器没传该标志);R0 41296620 取消。查启动器是否有额外参数钩子。
+- 9/8 10:35Z v1.0.4(c223947)全量 RTD 测试 336 通过。等 C25o(启动器 RTD_EXTRA_ARGS)后重投 hpg。
+- 9/8 10:50Z **rai R1 第 1 轮官方 = 45.50**;R1 以 v1.0.4 resume(GPU3,复用评测 → round 2)。
+- 9/8 11:00Z 备好 §10.2 第二替换配置 configs/rtd/v1_bfcl_c25_acq_mean.yaml(acquisition=posterior_mean),rai 再有空卡即起 R1p。
+- 9/8 11:05Z swap-component 拒绝第二个变体(每个父配置只允许一次组件替换;scalar gate 已占用)→ 不开 R1p;§10.2 下一项(固定 ledger 2×2)需三轮后的最终采购集。
+- 9/8 11:20Z GPU2 空出 → rai R0 以 v1.0.4 resume(复用第 1 轮评测,进 round 2;logs/rtd_resume_rai_R0_v104.log)。
+- 9/8 11:40Z rai R1 round 2 训练 worker 崩:KeyError 'arguments'(更新后的学生偶发输出缺 arguments 的 tool_call,rollout/checker 解析不容错)。冻结代码的鲁棒性 bug → Codex C25p:解析失败按'畸形动作=失败'记分并标记,不中止。
+- 9/8 12:05Z C25o 交付(RTD_EXTRA_ARGS);等 C25p(畸形调用容错)后一次性同步 hpg,重投 hpg R1/R0 resume(RTD_EXTRA_ARGS=--acknowledge-code-drift)并 resume rai R1。
+- 9/8 12:15Z rai R0 round 2 同样 KeyError 'arguments'(畸形 tool_call 进多轮历史)。R0/R1 都等 C25p 后 resume;R1s 第 1 轮评测中(其 round 2 大概率同样)。

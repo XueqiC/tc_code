@@ -1,4 +1,52 @@
-# RTD v1 status — C25l / T0–T6 / protocol v1.0.2
+# RTD v1 status — C25p / T0–T6 / protocol v1.0.2
+
+## C25p: retain malformed feedback actions without crashing
+
+The rai R1 round-2 resume in `logs/rtd_resume_rai_R1_v104.log` failed because
+Qwen's BFCL handler admitted a tool call without `arguments` into assistant
+history, then indexed that key while formatting the next prompt. Its extractor
+also silently discarded invalid JSON; AST and execution decoding could raise
+on missing keys or invalid JSON shapes.
+
+RTD now guards only its own fresh handler instance. Missing keys, invalid call
+or argument types, malformed JSON/framing and empty outputs remain sampled
+actions. A failed parse keeps the original text in assistant history, and BFCL's
+failed-decode path advances to the next user turn without executing the call.
+Required single-turn actions that decode to no calls fail as well. Legitimate
+assistant chat and abstention remain supported. No action is repaired, retried,
+resampled or filtered, and malformed rollouts receive reward **0**. Backend,
+environment and checker infrastructure errors still propagate.
+
+Every action and rollout records `malformed`; actions include
+`malformed_exception_type` and `malformed_stage`, and rollouts include
+`malformed_exception_types`. `compute.jsonl` retains these fields in each
+`feedback_rollout`. The original sampled token IDs, EOS/cap flags and generation
+likelihoods still enter REINFORCE, including failed samples in the same-task
+leave-one-out baseline and denominator. `trajectory.json` and `window_malformed`
+journal events record per-window rollout/action counts and exception counts.
+The JSON/CSV/Markdown reports expose sampled and committed totals plus
+`malformed_by_window`; actual feedback reused from the reference is counted once.
+Old windows without these fields remain readable, without inventing historical
+exception counts.
+
+This is **protocol-neutral (no scoring change)** under spec §§4.2 and 8: malformed
+policy actions are failed samples, not training-worker exceptions. Protocol
+v1.0.2, the official campaign handler/checkers, scoring identities and campaign
+evaluation handling are unchanged. No GPU launch or training resume is part of
+this fix.
+
+Validation: **380 passed** in 126.80 seconds with CUDA disabled:
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -m pytest -q tests/test_rtd_*.py
+```
+
+The 44 new cases cover malformed single/multi-turn and relevance actions,
+unchanged campaign handler behavior, sampled-token REINFORCE (including capped
+actions), infrastructure error propagation, and durable window/report counts
+with and without feedback reuse. The six warnings concern existing toy tensor
+conversion and PEFT fixture configuration. The official evaluation scoring
+projection matches the pre-change source; `git diff --check` also passes.
 
 ## C25l: recover completed campaigns after cleanup failure
 

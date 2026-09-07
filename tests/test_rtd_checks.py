@@ -224,11 +224,13 @@ def engine_config():
     return yaml.safe_load((ROOT/'configs/rtd/v1_bfcl_c25.yaml').read_text())
 
 
-def experiment(directory, toy_bank, *, resume=False, after_save=None, arm='R1', smoke=False, config=None):
+def experiment(directory, toy_bank, *, resume=False, after_save=None, arm='R1', smoke=False, config=None,
+               budget_ceilings=None):
     bank, _, _, states = toy_bank
     config = config or engine_config()
     manifest = dict(config_hash=digest(config), config=config, arm=arm, bank_path=str(bank),
-                    budget_ceilings=[100000,200000,300000], bank_public_cap_sum=32768, hardware_hash='toy-cpu')
+                    budget_ceilings=[100000,200000,300000] if budget_ceilings is None else budget_ceilings,
+                    bank_public_cap_sum=32768, hardware_hash='toy-cpu')
     return RTDExperiment(config, manifest, directory, tiny_backend(), TinySupport(states),
                          resume=resume, after_save=after_save, smoke=smoke)
 
@@ -479,6 +481,44 @@ def test_capped_rollouts_survive_runner_ledger_trajectory_and_report(tmp_path, t
     assert row['truncation_by_window'][0]['truncated_actions'] == len(rollouts)
     assert {'source_sampling', 'source_preconditioner'} <= row['subphase_memory_peaks'].keys()
     assert 'Truncation per committed decision window' in (tmp_path/'report/budget_curve.md').read_text()
+
+
+@pytest.mark.parametrize('reuse', [False, True])
+def test_malformed_rollouts_survive_journal_trajectory_resume_and_report(tmp_path, toy_bank, monkeypatch, reuse):
+    original = TinySupport.feedback
+    def malformed_feedback(self, *args):
+        rollout = original(self, *args)
+        action = replace(rollout.actions[0], malformed=True,
+                         malformed_exception_type='KeyError', malformed_stage='parse_response')
+        return replace(rollout, actions=(action,), reward=0.)
+    monkeypatch.setattr(TinySupport, 'feedback', malformed_feedback)
+    e = experiment(tmp_path/'run', toy_bank, smoke=True, budget_ceilings=[0, 0, 0] if reuse else None)
+    atomic_json(e.directory/'manifest.json', e.manifest)
+    e.run()
+    rollouts = [r for r in e.journal.events if r['kind'] == 'feedback_rollout']
+    assert rollouts and all(r['rollout']['malformed'] and r['rollout']['reward'] == 0 for r in rollouts)
+    assert all(r['rollout']['malformed_exception_types'] == ('KeyError',) for r in rollouts)
+    saved = [json.loads(line) for line in (e.directory/'compute.jsonl').read_text().splitlines()]
+    assert all(r['rollout']['malformed_exception_types'] == ['KeyError']
+               for r in saved if r['kind'] == 'feedback_rollout')
+    window = e.state['steps'][0]['malformed_feedback']
+    assert window['actual_feedback_reused'] == reuse
+    assert window['malformed_rollouts'] == window['malformed_actions'] == len(rollouts)
+    assert window['malformed_exception_types'] == {'KeyError': len(rollouts)}
+    assert window['reference']['malformed_rollouts'] == len(rollouts) // (1 if reuse else 2)
+    trajectory = json.loads((e.directory/'trajectory.json').read_text())
+    assert trajectory['steps'][0]['malformed_feedback'] == window
+    assert any(r['kind'] == 'window_malformed' and r['malformed_rollouts'] == len(rollouts) for r in e.journal.events)
+    resumed = RTDExperiment(e.config, e.manifest, e.directory, tiny_backend(), e.support, resume=True, smoke=True)
+    assert resumed.state['steps'][0]['malformed_feedback'] == window
+    # Interrupted compute stays in sampled accounting, never in committed windows.
+    resumed.journal.append('feedback_rollout', round=1, step=1, role='interrupted', rollout=rollouts[0]['rollout'])
+    row = report([e.directory], tmp_path/'report')[0]
+    assert row['sampled_malformed_rollouts'] == row['sampled_malformed_actions'] == len(rollouts) + 1
+    assert row['committed_malformed_rollouts'] == row['committed_malformed_actions'] == len(rollouts)
+    assert row['malformed_by_window'][0]['malformed_exception_types'] == {'KeyError': len(rollouts)}
+    markdown = (tmp_path/'report/budget_curve.md').read_text()
+    assert 'Malformed actions per committed decision window' in markdown and 'KeyError:' in markdown
 
 
 def test_state_batch_size_preserves_samples_gradients_pilot_and_updates(tmp_path, toy_bank):

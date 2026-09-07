@@ -595,6 +595,18 @@ class RTDExperiment:
             row['truncation'] = dict(reference=ref_counts, actual=actual_counts, actual_feedback_reused=reused,
                 **{key: ref_counts[key] + (0 if reused else actual_counts[key]) for key in ref_counts})
             self.journal.append('window_truncation', round=s['round'], step=s['step'], **row['truncation'])
+            def malformed_counts(feedback):
+                return {key: feedback.metadata.get(key, 0) for key in
+                        ('rollouts', 'malformed_rollouts', 'malformed_actions')}
+            ref_bad, actual_bad = malformed_counts(reference), malformed_counts(actual)
+            exceptions = dict(reference.metadata.get('malformed_exception_types', {}))
+            if not reused:
+                for name, count in actual.metadata.get('malformed_exception_types', {}).items():
+                    exceptions[name] = exceptions.get(name, 0) + count
+            row['malformed_feedback'] = dict(reference=ref_bad, actual=actual_bad,
+                actual_feedback_reused=reused, malformed_exception_types=exceptions,
+                **{key: ref_bad[key] + (0 if reused else actual_bad[key]) for key in ref_bad})
+            self.journal.append('window_malformed', round=s['round'], step=s['step'], **row['malformed_feedback'])
         row['source_truncated_slots'] = sum(src.truncated for src, _ in
             (*s['old_targets'], *(s['new_targets'] or ())))
         s['steps'].append(row)

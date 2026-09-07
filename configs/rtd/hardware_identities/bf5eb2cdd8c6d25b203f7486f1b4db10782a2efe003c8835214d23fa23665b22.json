@@ -1,0 +1,90 @@
+{
+  "audit": {
+    "driver_basis": "operator-supplied",
+    "driver_was_recorded": false,
+    "limitation": "Legacy driver version and PCI order were not recorded. Driver is established at migration, not proven historically; missing instance metadata remains null. Saved model, capability, memory and software fields are preserved; the full live class is checked before GPU work.",
+    "method": "immutable-manifest-device-class-projection-v1",
+    "new_hardware_hash": "01be985e345c3190df6f638bd107a012441b0f01d2642cb9f40f64a2993e307d",
+    "observations": {},
+    "protocol_version": "1.0.4",
+    "recorded_at": "2026-09-07T08:34:53.351221+00:00",
+    "retained_hard_fields": [
+      "gpu",
+      "capability",
+      "memory",
+      "cuda",
+      "versions",
+      "python",
+      "machine"
+    ],
+    "task": "C25n",
+    "verified_checkpoints": {
+      "round-1": {
+        "actual_spend": 197,
+        "adapter_hash": "d251b642dd964bd96bdadc1c9f14b5c34548188f73a22b8900acd59c7c9961cc",
+        "authorized_budget": 825753,
+        "config_hash": "1253d78f08d03f7800e425d1d253741a07096c5487e762e762046cbe729f0f5e",
+        "manifest_hash": "bf5eb2cdd8c6d25b203f7486f1b4db10782a2efe003c8835214d23fa23665b22",
+        "owned": [
+          "c313fecb8cac154894ba0a09babefa5f9dfb19fb0e26dd6fda1498241f39b43d",
+          "ef75c44ef406fb914f825798caae9cdc44067f3205e1dcca6fca9420455ab9b0"
+        ],
+        "parameter_hash": "b15c9ad74f2d4891f36ae1d7b451ce74ee21913bc909c9784895add124472f2a",
+        "round": 1,
+        "round_state_hash": "40e104b1cc74f79be63cee1a81d13816e870713b6ddb5c6b85945e5e84dcf71c",
+        "source_id": "8b87b38c1a8998569a91b525249974ba155132fd36488418249d552a1f948815"
+      }
+    }
+  },
+  "hardware": {
+    "hard": {
+      "capability": [
+        10,
+        0
+      ],
+      "cuda": "12.8",
+      "driver": "580.178.04",
+      "gpu": "NVIDIA B200",
+      "host_class": "hpg-b200",
+      "machine": "x86_64",
+      "memory": 191502876672,
+      "python": "3.12.13",
+      "versions": {
+        "numpy": "2.5.2",
+        "peft": "0.20.0",
+        "torch": "2.11.0+cu128",
+        "transformers": "5.14.1"
+      }
+    },
+    "metadata": {
+      "cuda_device_order": null,
+      "hostname": "c1100a-s25.ufhpc",
+      "pci_bus_id": null,
+      "uuid": "ac22923e-e837-8260-60ef-d90b2c04df64"
+    },
+    "version": "rtd-hardware-class-v1"
+  },
+  "hardware_hash": "01be985e345c3190df6f638bd107a012441b0f01d2642cb9f40f64a2993e307d",
+  "manifest_hash": "bf5eb2cdd8c6d25b203f7486f1b4db10782a2efe003c8835214d23fa23665b22",
+  "old_hardware": {
+    "capability": [
+      10,
+      0
+    ],
+    "cuda": "12.8",
+    "gpu": "NVIDIA B200",
+    "hostname": "c1100a-s25.ufhpc",
+    "machine": "x86_64",
+    "memory": 191502876672,
+    "python": "3.12.13",
+    "uuid": "ac22923e-e837-8260-60ef-d90b2c04df64",
+    "versions": {
+      "numpy": "2.5.2",
+      "peft": "0.20.0",
+      "torch": "2.11.0+cu128",
+      "transformers": "5.14.1"
+    }
+  },
+  "old_hardware_hash": "1931c3dcf3acd5e2b5c774ad6fffd6a9c1855a59a7c8947cf5944ce592af5a39",
+  "version": "rtd-hardware-class-v1"
+}

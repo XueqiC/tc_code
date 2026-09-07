@@ -323,6 +323,8 @@ def report(directories, output):
             rollouts = [e for e in journal.events if e['kind'] == 'feedback_rollout' and e['round'] <= r]
             windows = [dict(round=e['round'], step=e['step'], **e['truncation'])
                        for e in steps if e.get('decision') and 'truncation' in e]
+            malformed_windows = [dict(round=e['round'], step=e['step'], **e['malformed_feedback'])
+                                 for e in steps if e.get('decision') and 'malformed_feedback' in e]
             def event_round(event):
                 context_round = event.get('context', '').split('/')[0]
                 return event.get('round', int(context_round[1:])
@@ -351,6 +353,11 @@ def report(directories, output):
                     if e['kind'] == 'source_sample' and e['round'] <= r),
                 committed_truncated_rollouts=sum(w['truncated_rollouts'] for w in windows),
                 truncation_by_window=windows, subphase_memory_peaks=phase_peaks,
+                sampled_malformed_rollouts=sum(e['rollout'].get('malformed', False) for e in rollouts),
+                sampled_malformed_actions=sum(a.get('malformed', False) for e in rollouts for a in e['rollout']['actions']),
+                committed_malformed_rollouts=sum(w['malformed_rollouts'] for w in malformed_windows),
+                committed_malformed_actions=sum(w['malformed_actions'] for w in malformed_windows),
+                malformed_by_window=malformed_windows,
                 source_exposure_tokens=sum(e['old_exposure']['source_action_tokens']+e['new_exposure']['source_action_tokens'] for e in steps),
                 teacher_exposure_tokens=sum(e['old_exposure']['teacher_action_tokens']+e['new_exposure']['teacher_action_tokens'] for e in steps),
                 training_prompt_tokens=sum(e['old_exposure']['prompt_tokens']+e['new_exposure']['prompt_tokens'] for e in steps),
@@ -372,13 +379,14 @@ def report(directories, output):
         with (output / 'budget_curve.csv').open('w') as stream:
             writer = csv.DictWriter(stream, fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
     lines = ['# RTD budget curves', '', 'The x-axis is actual recorded output-token spend; caps authorize purchases.', '',
-             '| Arm | Round | Actual spend | Cap budget | Packages | Official accuracy (%) | Truncated rollouts (sampled / committed) | Evaluation |',
-             '|---|---:|---:|---:|---:|---:|---:|---|']
+             '| Arm | Round | Actual spend | Cap budget | Packages | Official accuracy (%) | Truncated rollouts (sampled / committed) | Malformed rollouts (sampled / committed) | Evaluation |',
+             '|---|---:|---:|---:|---:|---:|---:|---:|---|']
     for r in rows:
         score = '—' if r['official_accuracy_percent'] is None else str(r['official_accuracy_percent'])
         lines.append(f"| {r['arm']} | {r['round']} | {r['actual_spend_x']} | {r['authorized_cap_budget']} | "
                      f"{r['purchased_packages']} | {score} | {r['sampled_truncated_rollouts']} / "
-                     f"{r['committed_truncated_rollouts']} | {r['evaluation_status']} |")
+                     f"{r['committed_truncated_rollouts']} | {r['sampled_malformed_rollouts']} / "
+                     f"{r['committed_malformed_rollouts']} | {r['evaluation_status']} |")
     lines.extend(['', 'Truncation per committed decision window (actual reuse is counted once):', '',
                   '| Run | Round | Step | Truncated rollouts | Truncated actions | Actual reused |',
                   '|---|---:|---:|---:|---:|---|'])
@@ -387,6 +395,15 @@ def report(directories, output):
         for window in latest['truncation_by_window']:
             lines.append(f"| {run} | {window['round']} | {window['step']} | {window['truncated_rollouts']} | "
                          f"{window['truncated_actions']} | {window['actual_feedback_reused']} |")
+    lines.extend(['', 'Malformed actions per committed decision window (actual reuse is counted once):', '',
+                  '| Run | Round | Step | Malformed rollouts | Malformed actions | Exception types (actions) | Actual reused |',
+                  '|---|---:|---:|---:|---:|---|---|'])
+    for run in sorted({row['run'] for row in rows}):
+        latest = max((row for row in rows if row['run'] == run), key=lambda row: row['round'])
+        for window in latest['malformed_by_window']:
+            exceptions = ', '.join(f'{name}: {count}' for name, count in sorted(window['malformed_exception_types'].items()))
+            lines.append(f"| {run} | {window['round']} | {window['step']} | {window['malformed_rollouts']} | "
+                         f"{window['malformed_actions']} | {exceptions or '—'} | {window['actual_feedback_reused']} |")
     if not comparable:
         lines.extend(['', 'Hardware hashes differ: these runs do not form a matched arm comparison.'])
     (output / 'budget_curve.md').write_text('\n'.join(lines)+'\n')

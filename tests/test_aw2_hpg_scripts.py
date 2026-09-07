@@ -22,6 +22,7 @@ SCRIPTS = [
     "tools/aw2_mine_more_hpg.sh",
     "scripts/aw2_bc_hpg.slurm",
     "scripts/aw2_mine_hpg.slurm",
+    "scripts/rtd_run_hpg.slurm",
 ]
 
 
@@ -35,6 +36,15 @@ def test_bash_syntax_and_no_home_writes(script):
     assert not re.search(r"\bCUDA_VISIBLE_DEVICES=", text)
     assert "envs/appworld-venv" not in text
     assert "envs/appworld-data" not in text
+
+
+def test_rtd_slurm_extra_args_follow_built_arguments():
+    text = (ROOT / "scripts/rtd_run_hpg.slurm").read_text()
+    built, tail = text.split('args+=("${extra_args[@]}")', 1)
+    assert 'args+=(--run-dir "$RTD_RUN_DIR")' in built
+    assert "read -r -d '' -a extra_args" in built
+    assert '"${RTD_EXTRA_ARGS:-}"' in built
+    assert 'tools/rtd_experiment.py "${args[@]}"' in tail
 
 
 def test_setup_static_downloader_guard_and_install_provenance():

@@ -25,4 +25,7 @@ RTD_COMMAND=${RTD_COMMAND:-run}
 case $RTD_COMMAND in run|resume|smoke) ;; *) echo 'RTD_COMMAND must be run, resume or smoke' >&2; exit 2 ;; esac
 args=("$RTD_COMMAND" --arm "$RTD_ARM" --config "$RTD_CONFIG")
 if [[ -n ${RTD_RUN_DIR:-} ]]; then args+=(--run-dir "$RTD_RUN_DIR"); fi
+# Optional whitespace-separated flags, preserving literal characters.
+IFS=$' \t\n' read -r -d '' -a extra_args < <(printf '%s\0' "${RTD_EXTRA_ARGS:-}")
+args+=("${extra_args[@]}")
 exec "${RTD_PYTHON:-$ROOT/.venv/bin/python}" tools/rtd_experiment.py "${args[@]}"

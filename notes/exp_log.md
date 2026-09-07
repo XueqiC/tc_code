@@ -769,3 +769,7 @@ rtd hpg R1 round1 axes | NL 79.27 / Live 77.42 / MT 49.75 / Mem 26.24 / Irrel 82
 2026-09-08 | codex_C25l reuse (Codex) | campaign cleanup exit handling fixed; evaluate() reuses completed campaigns (validated R0 46.81 artifacts); 281 tests | next C25m percent parse
 rtd rai R1s round1 | scalar-gate arm finished round 1 on rai GPU1 (spend 225/825,753; different purchases from R0 188 / R1 197) | parked at end-of-round identity guard (evaluation.py changed by C25l/C25m after start) -> update-identity then resume after C25m | results/rtd_v1/rai_R1s
 2026-09-08 | codex_C25m percent parse (Codex) | evaluation.py strips %, N/A->None; 289 tests | tagged rtd-v1.0.3-hotfix
+2026-09-08 | codex_C25n hardware class identity (Codex) | protocol v1.0.4: hard part = device class + software; hostname/UUID recorded; rai_R0/R1/R1s migrated; cross-class refusal tested | tag rtd-v1.0.4
+rtd rai R1 round1 official | tag rtd_R1_3b907b1e9e45c30b_r1, campaign on rai GPU3 (~5 h, GPU_UTIL 0.6) | OVERALL 45.50 | old in-memory runner then failed the post-eval harness check; artifacts complete; resumed with v1.0.4 (reuse) | results/bfcl_std/rtd_R1_3b907b1e9e45c30b_r1
+rtd rai R1 round1 axes | NL 79.40 / Live 77.72 / MT 50.38 / Mem 23.23 / Irrel 83.29 / Rel 81.25 / Web 8.50 (OVERALL 45.50) | round-1 table so far: rai R0 46.81, rai R1 45.50, hpg R1 46.18; base 46.74 | -
+2026-09-08 | codex_C25o launcher (Codex) | scripts/rtd_run_hpg.slurm RTD_EXTRA_ARGS (whitespace-split, appended); launcher excluded from scoring identity; 7 tests | hpg resubmit after C25p sync
