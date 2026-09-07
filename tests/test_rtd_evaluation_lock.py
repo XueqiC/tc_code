@@ -222,6 +222,37 @@ def test_two_tags_generate_concurrently_with_distinct_ports_and_outputs(fake_cam
     assert (control / 'A.scored').read_text() != (control / 'B.scored').read_text()
 
 
+@pytest.mark.parametrize('fault', ['return 17', ': "$C25L_UNSET_CLEANUP_VARIABLE"', 'exit 19'])
+@pytest.mark.parametrize('scoring_fails', [False, True])
+def test_campaign_cleanup_trap_preserves_status_and_tag(fake_campaign, fault, scoring_fails):
+    root, control, launch = fake_campaign
+    script = root/'tools/bfcl_std_campaign.sh'
+    # Exercise the real EXIT trap, including failures that would abort a shell
+    # despite `|| true` if cleanup were not isolated in a subshell.
+    overrides = f'''cleanup_harness_outputs() {{
+  echo harness >> "$TEST_CONTROL/cleanup"
+  {fault}
+}}
+cleanup_listener() {{
+  echo "listener:${{1:-missing}}" >> "$TEST_CONTROL/cleanup"
+  {fault}
+}}
+'''
+    script.write_text(script.read_text().replace('campaign_status=0\n', overrides+'campaign_status=0\n'))
+    if scoring_fails:
+        bfcl = root/'envs/bfcl/.venv/bin/bfcl'
+        bfcl.write_text(bfcl.read_text().replace("assert args[0] == 'evaluate'",
+                                               "assert args[0] == 'evaluate'; sys.exit(23)"))
+    (control/'A.release').touch()
+    with launch('A', 'R0') as (process, log):
+        status = process.wait(timeout=5)
+    assert status == (1 if scoring_fails else 0), log.read_text()
+    assert (control/'cleanup').read_text().splitlines() == ['harness', 'listener:R0']
+    assert ('CAMPAIGN COMPLETE' in log.read_text()) == (not scoring_fails)
+    assert ('OVERALL=50' in log.read_text()) == (not scoring_fails)
+    assert (root/'results/bfcl_std/R0/data_overall.csv').exists() == (not scoring_fails)
+
+
 def test_same_tag_waits_before_generation_and_never_reuses_attempt(fake_campaign):
     root, control, launch = fake_campaign
     with launch('A', 'shared') as (one, log1):

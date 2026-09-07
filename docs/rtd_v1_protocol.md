@@ -29,6 +29,15 @@ closed. Changes to these selectors require a protocol review: they are an
 explicit boundary, not automatic semantic equivalence detection. The two whole
 helpers are conservative scoring units; their internal edits remain guarded.
 
+C25m adds one explicit CSV representation equivalence: the exact
+`_parse_percentage` helper that strips surrounding whitespace and a trailing
+`%`, returns `None` for `N/A`, and otherwise calls `float` projects to the
+historical `float` reader. Its nullable finite/range guard projects to the
+historical numeric guard. The helper's complete AST must match the reviewed
+template; other implementations remain scoring content. Column selection,
+numeric scale, finite checks and bounds remain guarded, preserving the frozen
+scoring identity while admitting BFCL's real CSV format.
+
 The **effective evaluation identity** also binds the saved `evaluation_*`
 configuration, original `base_checkpoint_hash`, `tokenizer_hash`, and the
 round checkpoint's adapter/round-state hashes. Base/tokenizer content lives in

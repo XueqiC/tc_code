@@ -20,6 +20,15 @@ PYTHON_SCOPES = {
 }
 SHELL = 'tools/bfcl_std_campaign.sh'
 
+# C25m's only representation equivalence: percent suffix/whitespace and N/A.
+# Match the entire helper AST before normalizing its call to historical float;
+# any other helper implementation remains scoring content (including scaling).
+_PERCENTAGE_PARSER = """
+def _parse_percentage(value):
+    value = value.strip().removesuffix('%').strip()
+    return None if value == 'N/A' else float(value)
+"""
+
 
 class _ScientificAST(ast.NodeTransformer):
     def __init__(self, *, placement=False, diagnostics=False):
@@ -92,6 +101,25 @@ def scoring_projection(name, content):
             matches = [n for n in nodes if predicate(n)]
             if len(matches) != 1:
                 raise ValueError(f'evaluation harness scope evaluation.py:{label}: expected one selection')
+            if label == 'aggregate':
+                calls = [n for n in ast.walk(matches[0]) if isinstance(n, ast.Call)
+                         and isinstance(n.func, ast.Name) and n.func.id == '_parse_percentage']
+                if calls:
+                    helpers = [n for n in tree.body if isinstance(n, ast.FunctionDef)
+                               and n.name == '_parse_percentage']
+                    if len(helpers) != 1:
+                        raise ValueError('evaluation harness scope requires one percentage parser')
+                    helper = _ScientificAST().visit(helpers[0])
+                    if ast.dump(helper) == ast.dump(ast.parse(_PERCENTAGE_PARSER).body[0]):
+                        for call in calls:
+                            call.func.id = 'float'
+                    else:
+                        selected.append(helper)
+            if label == 'aggregate_range':
+                test = matches[0].test
+                if (isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And)
+                        and len(test.values) == 2 and ast.unparse(test.values[0]) == 'score is not None'):
+                    matches[0].test = test.values[1]
             # Working directory and CPU environment are placement metadata.
             selected.append(matches[0].args[0] if label == 'merge_command' else matches[0])
     # Bind the module imports actually referenced by the selected code, so

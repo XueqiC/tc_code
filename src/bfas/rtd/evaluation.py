@@ -16,6 +16,12 @@ from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
 from .identity import evaluation_harness_metadata, guard_harness, record_code_drift, verified_checkpoint
 
 
+def _parse_percentage(value):
+    """Read a BFCL CSV accuracy cell on the percent scale; N/A stays missing."""
+    value = value.strip().removesuffix('%').strip()
+    return None if value == 'N/A' else float(value)
+
+
 def official_expectations(root):
     leaderboard = Path(root) / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard'
     sys.path.insert(0, str(leaderboard))
@@ -86,6 +92,38 @@ def _flatten_adapter(manifest, checkpoint, destination):
         raise ValueError('campaign requires the flattened model.safetensors export')
 
 
+def _completed_campaign_identity(root, manifest, identity, identities, round_number):
+    """Find old tags only through the manifest's already-audited identity chain."""
+    def tag_for(candidate):
+        return f"rtd_{manifest['arm']}_{digest(candidate)[:16]}_r{round_number}"
+    tag = tag_for(identity)
+    if (root / 'results/bfcl_std' / tag / 'data_overall.csv').is_file():
+        return tag, identity
+    # guard_harness/saved_identities has checked these updates and their full
+    # manifest/model binding. C25g migrations connect the earlier v1 identity.
+    hashes = [identity['evaluation_harness_hash']]
+    for note in reversed(identities.get('identity_updates', [])):
+        previous = note['previous_identity']
+        if previous.get('evaluation_harness') is not None:
+            hashes.append(previous['harness_hash'])
+    for note in reversed(identities.get('identity_migrations', [])):
+        if (note.get('content_harness_hash') not in hashes
+                or note.get('previous_harness_hash') != digest(note.get('previous_evaluation_harness'))
+                or note.get('verified_manifest_data_hash') != manifest['data_hash']):
+            raise ValueError('historical campaign identity migration binding mismatch')
+        hashes.append(note['previous_harness_hash'])
+    for harness_hash in hashes:
+        candidate = dict(identity, evaluation_harness_hash=harness_hash)
+        # C25e omitted these explicit fields; its verified checkpoint still
+        # binds the full immutable manifest, including base/tokenizer hashes.
+        legacy = {k: v for k, v in candidate.items() if k not in {'base_checkpoint_hash', 'tokenizer_hash'}}
+        for bound in (candidate, legacy):
+            old_tag = tag_for(bound)
+            if (root / 'results/bfcl_std' / old_tag / 'data_overall.csv').is_file():
+                return old_tag, bound
+    return tag, identity
+
+
 def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
              lock_timeout=None, lock_log_interval=None):
     root, directory = Path(root).resolve(), Path(directory).resolve()
@@ -107,7 +145,7 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                     hardware_hash=manifest['hardware_hash'], expected_hash=digest(expected),
                     evaluation_harness_hash=identities['harness_hash'],
                     evaluation_temperature=manifest['config']['evaluation_temperature'])
-    tag = f"rtd_{manifest['arm']}_{digest(identity)[:16]}_r{round_number}"
+    tag, campaign_identity = _completed_campaign_identity(root, manifest, identity, identities, round_number)
     out = root / 'results/bfcl_std' / tag
     completed = directory / f'evaluation-{round_number}.json'
     journal = ComputeJournal(directory / 'compute.jsonl', cuda=False)
@@ -132,69 +170,96 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                 result['code_drift'] = drift
                 atomic_json(completed, result)
             return result
-        visible = os.environ.get('CUDA_VISIBLE_DEVICES', '')
-        if not visible or ',' in visible or visible == '-1':
-            raise ValueError('evaluate requires one CUDA_VISIBLE_DEVICES GPU')
-        port, port_fd = locks.enter_context(reserve_port(root, tag=tag, port=port,
-            gpu_uuid=manifest.get('hardware', {}).get('uuid'), **settings))
-        print(f'[rtd] evaluation resources tag={tag} port={port}', flush=True)
         stage = root / 'results/appworld_students' / tag
-        stage.mkdir(parents=True, exist_ok=True)
         binding = stage / 'rtd_binding.json'
-        if binding.exists() and json.loads(binding.read_text()) != identity:
+        if binding.exists() and json.loads(binding.read_text()) != campaign_identity:
             raise ValueError('campaign stage belongs to another checkpoint')
-        atomic_json(binding, identity)
         merged, adapter = stage / 'hub_merged', stage / 'adapter'
-        if not (stage / 'export.json').exists():
-            # Incomplete local exports are reconstructable from the bound LoRA.
-            for p in (merged, adapter):
-                if p.exists():
-                    shutil.rmtree(p)
-            _flatten_adapter(manifest, checkpoint, adapter)
-            subprocess.run([sys.executable, str(root / 'tools/bfcl_hub_merge_export.py'), '--adapter', str(adapter),
-                '--out', str(merged), '--model', manifest['model_path'], '--verify'], check=True, cwd=root,
-                env=dict(os.environ, CUDA_VISIBLE_DEVICES=''))
-            atomic_json(stage / 'export.json', dict(merged_hash=tree_hash(merged), adapter_hash=tree_hash(adapter)))
-        export = json.loads((stage / 'export.json').read_text())
-        if export['merged_hash'] != tree_hash(merged) or export['adapter_hash'] != tree_hash(adapter):
+        export_path = stage / 'export.json'
+        export = json.loads(export_path.read_text()) if export_path.exists() else None
+        if export is not None and (export['merged_hash'] != tree_hash(merged)
+                                   or export['adapter_hash'] != tree_hash(adapter)):
             raise ValueError('export changed after checkpoint binding')
-        atomic_json(stage / 'expected.json', expected)
-        if out.exists():
-            # Preserve incomplete campaign evidence; never mix two attempts.
-            out.rename(out.with_name(out.name + f'.incomplete-{time.time_ns()}'))
-        env = dict(os.environ, BFCLSTD_PREMERGED=str(merged), BFCLSTD_PRESERVE_GENERATION='1',
-                   BFCLSTD_BASE_MODEL=manifest['model_path'],
-                   BFCLSTD_TAG_LOCK_FD=str(tag_fd), BFCLSTD_PORT_LOCK_FD=str(port_fd),
-                   BFCLSTD_TEMPERATURE=str(manifest['config']['evaluation_temperature']))
-        env.pop('BFCLSTD_LOCKED', None)  # always enter the validating wrapper
-        log = stage / f'campaign-{time.time_ns()}.log'
-        start = time.monotonic()
-        event = journal.append('evaluation_begin', round=round_number, identity=identity, port=port,
-                               tag=tag, merged_hash=export['merged_hash'])
-        returncode = None
-        try:
-            with log.open('w') as stream:
-                process = subprocess.run(['bash', str(root / 'tools/bfcl_std_campaign.sh'), visible, str(port), tag],
-                    cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT, pass_fds=(tag_fd, port_fd))
-            returncode = process.returncode
-        finally:
-            elapsed = time.monotonic()-start
-            journal.append('evaluation_end', begin_sequence=event, round=round_number, returncode=returncode,
-                           wall_seconds=elapsed, gpu_reserved_seconds=elapsed)
-        if process.returncode or f'[bfclstd] {tag} OVERALL=' not in log.read_text():
-            raise RuntimeError(f'official campaign failed; see {log}')
+        reused = False
+        if (out / 'data_overall.csv').is_file():
+            # A campaign may finish copying scores, then fail during cleanup.
+            # Never establish a new binding/export over such existing evidence.
+            if not binding.is_file() or export is None:
+                raise ValueError('completed campaign requires existing stage/export binding')
+            try:
+                validate_evaluation(expected, out / 'resultdir', out / 'scoredir')
+            except ValueError as error:
+                print(f'[rtd] incomplete campaign tag={tag}: {error}', flush=True)
+            else:
+                reused = True
+        if reused:
+            log = max(stage.glob('campaign-*.log'), default=None)
+            elapsed, port = 0., None  # no campaign work or port lease on reuse
+        else:
+            if campaign_identity != identity:
+                raise ValueError('historical campaign is incomplete; refusing to regenerate under an old identity')
+            visible = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+            if not visible or ',' in visible or visible == '-1':
+                raise ValueError('evaluate requires one CUDA_VISIBLE_DEVICES GPU')
+            port, port_fd = locks.enter_context(reserve_port(root, tag=tag, port=port,
+                gpu_uuid=manifest.get('hardware', {}).get('uuid'), **settings))
+            print(f'[rtd] evaluation resources tag={tag} port={port}', flush=True)
+            stage.mkdir(parents=True, exist_ok=True)
+            atomic_json(binding, identity)
+            if export is None:
+                # Incomplete local exports are reconstructable from the bound LoRA.
+                for p in (merged, adapter):
+                    if p.exists():
+                        shutil.rmtree(p)
+                _flatten_adapter(manifest, checkpoint, adapter)
+                subprocess.run([sys.executable, str(root / 'tools/bfcl_hub_merge_export.py'), '--adapter', str(adapter),
+                    '--out', str(merged), '--model', manifest['model_path'], '--verify'], check=True, cwd=root,
+                    env=dict(os.environ, CUDA_VISIBLE_DEVICES=''))
+                export = dict(merged_hash=tree_hash(merged), adapter_hash=tree_hash(adapter))
+                atomic_json(export_path, export)
+            atomic_json(stage / 'expected.json', expected)
+            if out.exists():
+                # Preserve incomplete campaign evidence; never mix two attempts.
+                out.rename(out.with_name(out.name + f'.incomplete-{time.time_ns()}'))
+            env = dict(os.environ, BFCLSTD_PREMERGED=str(merged), BFCLSTD_PRESERVE_GENERATION='1',
+                       BFCLSTD_BASE_MODEL=manifest['model_path'],
+                       BFCLSTD_TAG_LOCK_FD=str(tag_fd), BFCLSTD_PORT_LOCK_FD=str(port_fd),
+                       BFCLSTD_TEMPERATURE=str(manifest['config']['evaluation_temperature']))
+            env.pop('BFCLSTD_LOCKED', None)  # always enter the validating wrapper
+            log = stage / f'campaign-{time.time_ns()}.log'
+            start = time.monotonic()
+            event = journal.append('evaluation_begin', round=round_number, identity=identity, port=port,
+                                   tag=tag, merged_hash=export['merged_hash'])
+            returncode = None
+            try:
+                with log.open('w') as stream:
+                    process = subprocess.run(['bash', str(root / 'tools/bfcl_std_campaign.sh'), visible, str(port), tag],
+                        cwd=root, env=env, stdout=stream, stderr=subprocess.STDOUT, pass_fds=(tag_fd, port_fd))
+                returncode = process.returncode
+            finally:
+                elapsed = time.monotonic()-start
+                journal.append('evaluation_end', begin_sequence=event, round=round_number, returncode=returncode,
+                               wall_seconds=elapsed, gpu_reserved_seconds=elapsed)
+            if process.returncode or f'[bfclstd] {tag} OVERALL=' not in log.read_text():
+                raise RuntimeError(f'official campaign failed; see {log}')
         # Catch harness edits during the campaign before admitting its score.
         guard_harness(root, directory, manifest)
         drift = record_code_drift(root, directory, manifest, context=f'evaluation-{round_number}', identities=identities)
         validation = validate_evaluation(expected, out / 'resultdir', out / 'scoredir')
         with (out / 'data_overall.csv').open() as stream:
-            score = float(next(csv.DictReader(stream))['Overall Acc'])
-        if not math.isfinite(score) or not 0 <= score <= 100:
+            score = _parse_percentage(next(csv.DictReader(stream))['Overall Acc'])
+        if score is not None and (not math.isfinite(score) or not 0 <= score <= 100):
             raise ValueError('invalid official aggregate')
-        result = dict(identity=identity, merged_hash=export['merged_hash'], expected=expected, code_drift=drift,
+        if reused:
+            print(f'[rtd] reusing completed campaign tag={tag}', flush=True)
+            journal.append('evaluation_reused', round=round_number, tag=tag, identity=identity,
+                           campaign_identity=campaign_identity, gpu_seconds=0., gpu_reserved_seconds=0.)
+        result = dict(identity=identity, campaign_identity=campaign_identity,
+            merged_hash=export['merged_hash'], expected=expected, code_drift=drift,
             evaluation_harness_metadata=evaluation_harness_metadata(root),
             artifacts_hash=tree_hash(out), overall_accuracy_percent=score, validation=validation,
-            campaign_log=str(log), campaign_seconds=elapsed, evaluation_lock_idle_seconds=wait_seconds,
+            campaign_log=str(log) if log else None, campaign_seconds=elapsed, reused_campaign=reused,
+            evaluation_lock_idle_seconds=wait_seconds,
             port=port, output_directory=str(out))
         if base_evaluation:
             base = json.loads(Path(base_evaluation).read_text())

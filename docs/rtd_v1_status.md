@@ -1,4 +1,79 @@
-# RTD v1 status — C25j / T0–T6 / protocol v1.0.2
+# RTD v1 status — C25l / T0–T6 / protocol v1.0.2
+
+## C25l: recover completed campaigns after cleanup failure
+
+Rai R0 round 1 finished scoring at **46.81%**, with complete artifacts in
+`results/bfcl_std/rtd_R0_d9f417e2eea03ee5_r1/{data_overall.csv,resultdir,scoredir}`.
+The shell then failed with `up_harness_outputs: command not found` and
+`tag: unbound variable`, so the coordinator never published `evaluation-1.json`.
+The frozen file itself had the full function name: the project log traces the
+truncation to Bash reading shifted offsets after an edit during execution.
+
+Cleanup now uses a per-tag EXIT trap, retains its tag outside function-local
+scope, guards missing ownership variables, and isolates cleanup failures while
+preserving the original exit status. Generation/scoring/copy failures return
+nonzero explicitly. The script was replaced atomically to preserve the source
+inode used by an already-running shell.
+
+Before exporting or leasing a port, `evaluate()` checks for a completed campaign
+under the tag lease. Reuse requires the verified checkpoint, current
+hardware/data/base/harness guards, the exact saved stage binding, unchanged
+merged/adapter export hashes, complete generation/scoring coverage, and a valid
+aggregate. It logs **`reusing completed campaign`** and publishes the missing
+evaluation record through the usual validation/reporting path. Reuse records
+zero new campaign seconds/GPU reservation; the original attempt's timing and
+nonzero exit remain in `compute.jsonl`. Incomplete current attempts retain the
+existing archive-and-retry behavior; binding mismatches fail closed.
+
+R0 also needs its historical tag: that campaign predates C25g/C25j and omitted
+explicit base/tokenizer fields from its evaluation identity. Lookup follows only
+the existing manifest-bound identity audit/migration chain, checks its hashes and
+data binding, and derives the old tag from the complete historical identity.
+The verified checkpoint still binds the immutable manifest's base/tokenizer.
+The published record retains both the current `identity` and original
+`campaign_identity`; the old stage binding, tag, exports and results are preserved.
+Incomplete historical artifacts cannot trigger generation under an old identity.
+
+The existing resume coordinator already evaluates each saved checkpoint before
+launching the next training worker. CPU regressions cover R0/R1 proceeding from
+completed round-1 scores directly to the round-2 worker, including R0's historical
+identity shape. Both frozen scoring projections remain unchanged:
+
+- Campaign: `66279841742a043566b960c20cc486718a6411157cf4f2f48c70a1e0272a9b22`.
+- Evaluation/export: `a8897c3ae5df2911e072200f03322b4aa0a69ef36f95f2453d53b06fe8beda46`.
+
+From `/home/xueqi/hq/projects/tc-alignment` on rai, run each command in its own
+session after its existing coordinator/campaign has exited. R1 retains
+`GPU_UTIL=0.6` for subsequent evaluations. Omit `--config` to use each saved
+manifest, and retain `--acknowledge-code-drift` for continued training:
+
+```bash
+CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=GPU-20b20454-ae9f-7860-6801-430d68842a27 PYTHONPATH=src:. OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -u tools/rtd_experiment.py resume --arm R0 --run-dir results/rtd_v1/rai_R0 --acknowledge-code-drift > logs/rtd_resume_rai_R0_c25l.log 2>&1
+```
+
+```bash
+GPU_UTIL=0.6 CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=GPU-8b270cf8-6bb4-cee0-7060-88eba83d2fb0 PYTHONPATH=src:. OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -u tools/rtd_experiment.py resume --arm R1 --run-dir results/rtd_v1/rai_R1 --acknowledge-code-drift > logs/rtd_resume_rai_R1_c25l.log 2>&1
+```
+
+Read-only CPU inspection verified R0's historical tag/stage/checkpoint binding,
+the current scoring guard, and complete coverage of **5,106 scored tasks**.
+Both arms' base, data, merged-export and adapter hashes matched their bindings.
+At inspection, R1's bound tag was `rtd_R1_3b907b1e9e45c30b_r1`, but its aggregate
+had not yet been copied into `results/bfcl_std`; its reuse path applies once the
+campaign completes. These commands were documented, **not executed**. Live GPU
+identity verification remains part of resume. No production run artifacts or
+identity supplements were changed by C25l.
+
+Validation passed: **281 CPU tests in 143.03 seconds**, with six existing toy
+tensor/PEFT warnings. This includes all `tests/test_rtd_*.py` and
+`tests/test_bfcl_std_campaign.py`, cleanup return/nounset/exit failures, completed
+campaign reuse, historical audit-chain refusals, and both frozen scoring
+projections. `bash -n` and `git diff --check` also passed.
+
+```bash
+CUDA_VISIBLE_DEVICES='' PYTHONPATH=src:. OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 .venv/bin/python -m pytest -q tests/test_rtd_*.py tests/test_bfcl_std_campaign.py
+bash -n tools/bfcl_std_campaign.sh
+```
 
 ## C25j: scoring identity and audited parked-run updates
 

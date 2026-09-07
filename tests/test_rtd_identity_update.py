@@ -18,6 +18,15 @@ from bfas.rtd.scoring_scope import scoring_hash
 from rtd_identity_fixtures import put_tools
 
 
+@pytest.mark.parametrize('path,frozen_hash', [
+    ('tools/bfcl_std_campaign.sh', '66279841742a043566b960c20cc486718a6411157cf4f2f48c70a1e0272a9b22'),
+    ('src/bfas/rtd/evaluation.py', 'a8897c3ae5df2911e072200f03322b4aa0a69ef36f95f2453d53b06fe8beda46'),
+])
+def test_c25l_cleanup_and_reuse_preserve_frozen_scoring_projection(path, frozen_hash):
+    # C25j's audited projections, also recorded in docs/rtd_v1_status.md.
+    assert scoring_hash(path, (ROOT/path).read_text()) == frozen_hash
+
+
 def put(path, text='fixture'):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
@@ -100,6 +109,9 @@ def test_plumbing_changes_only_source_metadata(run, path):
     ('src/bfas/rtd/evaluation.py', "torch_device='cpu'", "torch_device='cuda'", False),
     ('src/bfas/rtd/evaluation.py', 'include_prereq=False', 'include_prereq=True', True),
     ('src/bfas/rtd/evaluation.py', "['Overall Acc']", "['Other Acc']", True),
+    ('src/bfas/rtd/evaluation.py', 'else float(value)', 'else float(value) / 100', True),
+    ('src/bfas/rtd/evaluation.py', "None if value == 'N/A'", "0.0 if value == 'N/A'", True),
+    ('src/bfas/rtd/evaluation.py', '0 <= score <= 100', '0 <= score <= 1', True),
     ('src/bfas/rtd/evaluation.py', "--verify", "--not-verify", True),
     ('src/bfas/rtd/evaluation.py', 'evaluation resources tag=', 'resources tag=', False),
     ('src/bfas/adapters/bfcl.py', 'task_ids - failures', 'task_ids', True),

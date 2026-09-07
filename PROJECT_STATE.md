@@ -1215,3 +1215,17 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/7 23:50Z C25i 在 rai(有 GPU)验证:evaluation/resume + checks 61 测试全过(含此前失败的 CUDA 初始化用例)。等 C25j。
 - 9/8 00:00Z 时间估计已发用户:C25j+冻结+resume ≈1 h;hpg 一轮 ≈50 min、评测 ≈1 h;R0 三轮明早出;R1 视 hpg 排队。观察:一轮只花 188 token(便宜生成项包),三个预算点远未绑定——报告按实际花费画并说明。
 - 9/8 00:05Z 用户:尽量把 hpg 和 rai 都用起来。已投 hpg R1 yd24f 副本 41284327(dept 41264649 留队;先起先跑,后起的会因 existing campaign 自退)。准备 configs/rtd/v1_bfcl_c25_scalar_gate.yaml(§10.2 第一优先替换:learned scalar gate),冻结后在 rai 空卡上作为第三臂 R1s 并行跑。
+- 9/8 01:05Z **代码冻结:commit 3f11b7f,tag rtd-v1.0.2-frozen**(253 测试)。hpg R0 身份更新成功 → resume 提交 **41286756(yd24f)**;rai R1 resume 启动(GPU3,logs/rtd_resume_rai_R1_c25j.log);rai R0 评测继续(GPU2)。R1s(scalar gate)等 rai 出现空卡(GPU1 被占)。hpg R1 两份排队。
+- 9/8 01:35Z rai R1 resume 通过身份守卫,但第 1 轮官方 campaign 的 vllm 起不来:gpu_memory_utilization 0.85(67 GB)> GPU3 空余 61 GB(coordinator 常驻 17.8 GB)。code 冻结中,唯一必要改动:campaign 的利用率改为环境变量可配(默认 0.85 不变,评分身份不受影响)→ Codex C25k;之后用 0.6 重跑 R1 resume。
+- 9/8 01:45Z 发现 campaign 已支持 GPU_UTIL 环境变量(默认 0.85)→ 无需改代码,终止 C25k 保持冻结;rai R1 resume 以 GPU_UTIL=0.6 重启(GPU3)。
+- 9/8 02:05Z hpg R1 dept 41264649 开跑(冻结代码);yd24f 副本 41284327 已取消。hpg R0 resume 41286756 排队。
+- 9/8 02:20Z rai R1 第 1 轮官方 campaign 以 GPU_UTIL=0.6 起来了(GPU3 66 GB,100%),与 R0 的评测(GPU2)并行——C25h 的按 tag/端口锁生效。
+- 9/8 02:35Z 冻结代码(3f11b7f)全量 RTD 测试:246 通过,0 失败。
+- 9/8 02:50Z rai GPU1 空出 → 启动 **R1s(learned scalar gate,§10.2 第一替换)**:configs/rtd/v1_bfcl_c25_scalar_gate.yaml,run-dir results/rtd_v1/rai_R1s,GPU_UTIL=0.6,冻结代码。
+- 9/8 03:20Z **rai R0 第 1 轮官方 = 46.81**(≈ base 46.74),但 campaign 评分后在清理 trap 处报错(up_harness_outputs 未定义 + tag 未绑定,C25h 引入)→ runner 判失败。交 Codex C25l:修 trap;evaluate() 遇到已完整的结果目录(data_overall + validate_evaluation 通过)直接接受不重跑 campaign。
+- 9/8 03:30Z 更正原因:冻结的 campaign 脚本第 194 行是完整的 cleanup_harness_outputs;运行中的那份是 C25h 编辑脚本时 bash 按偏移继续读导致的截断——脚本运行中被改写。教训已在冻结策略内。C25l 的关键是'复用已完成评测'。
+- 9/8 04:05Z **hpg R1 第 1 轮官方 = 46.18**(R0 46.81;R1 采购不同:spend 197),runner 在解析 '46.18%' 时崩(百分号解析 bug,冻结代码里的第二个 bug)→ C25l 之后交 C25m 修解析并 resume;rai R0 也会走到同一处。
+- 9/8 04:10Z 取消排队的 hpg R0 resume 41286756(会撞同一解析 bug),C25l+C25m 后重投。hpg R1 r1 分轴:NL 79.27 / Live 77.42 / MT 49.75 / Mem 26.24 / Irrel 82.36 / Web 10.50。
+- 9/8 04:20Z 解析 bug 定位:src/bfas/rtd/evaluation.py:244 float(row['Overall Acc']) 遇 '46.18%'。C25l 交付后立即交 C25m(去掉 %,同时处理分轴列),不并行编辑同一文件。
+- 9/8 04:45Z C25l 交付(281 测试;R0 46.81 产物验证通过);C25m 启动(百分号解析)。
+- 9/8 05:20Z R1s 跑完 round 1(spend 225),轮末撞身份守卫(C25l/C25m 改了 evaluation.py)→ C25m 后 update-identity 再 resume。三臂第 1 轮采购各不相同(R0 188 / R1 197 / R1s 225)。

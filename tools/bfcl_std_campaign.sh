@@ -47,14 +47,15 @@ cleanup_harness_outputs() {
     "$LEADERBOARD/$RES_SUB/$MODEL_DIR"
 }
 cleanup_listener() {
-  local tag=$1 pid cmdline
+  local tag=${1:-} pid cmdline
   local killed=0 waited=0
+  [ -n "$tag" ] && [ -n "${BFCLSTD_RUN_ID:-}" ] || return 0
   while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     [ -r "/proc/$pid/cmdline" ] || continue
     # Port ownership alone is insufficient: never kill a different run's
     # server, even if it appeared after our original free-port probe.
-    grep -zFxq "BFCLSTD_RUN_ID=${BFCLSTD_RUN_ID:?}" "/proc/$pid/environ" 2>/dev/null || continue
+    grep -zFxq "BFCLSTD_RUN_ID=$BFCLSTD_RUN_ID" "/proc/$pid/environ" 2>/dev/null || continue
     cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline")
     case "$cmdline" in
       *"hub_merged/$tag"*|*vllm*)
@@ -74,10 +75,21 @@ cleanup_listener() {
     done
   fi
 }
+cleanup_run_tag() {
+  local status=$?
+  trap - EXIT
+  # Isolate even nounset/exit failures in cleanup; retain the campaign status.
+  (cleanup_harness_outputs) || :
+  (cleanup_listener "${cleanup_tag:-}") || :
+  exit "$status"
+}
 run_tag() (
   local tag=$1 adapter merged="" trash out overall
   local attempt incomplete category counts gen_log
   local -a generate_args
+  # EXIT can run after function locals unwind. Keep its tag in this subshell.
+  cleanup_tag=$tag
+  trap cleanup_run_tag EXIT
   case "$tag" in
     ""|.|..|*/*) echo "[bfclstd] $tag INVALID TAG"; return 1 ;;
   esac
@@ -92,7 +104,7 @@ run_tag() (
     merged=$PROJ/results/appworld_students/$tag/hub_merged
     if [ ! -f "$adapter/model.safetensors" ]; then
       echo "[bfclstd] $tag NO ADAPTER, skip"
-      return
+      return 1
     fi
     if [ -e "$merged" ] || [ -L "$merged" ]; then
       trash=$PROJ/_trash/hub_merged_${tag}_$(date +%s)
@@ -102,17 +114,17 @@ run_tag() (
       done
       if ! mv -- "$merged" "$trash"; then
         echo "[bfclstd] $tag MERGE FAILED"
-        return
+        return 1
       fi
     fi
     if ! "$PROJ/.venv/bin/python" "$PROJ/tools/bfcl_hub_merge_export.py" \
       --adapter "$adapter" --out "$merged" --verify ${BFCLSTD_BASE_MODEL:+--model "$BFCLSTD_BASE_MODEL"} || \
       [ ! -f "$merged/model.safetensors.index.json" ]; then
       echo "[bfclstd] $tag MERGE FAILED"
-      return
+      return 1
     fi
   fi
-  cd "$LEADERBOARD" || { echo "[bfclstd] $tag GENERATE FAILED"; return; }
+  cd "$LEADERBOARD" || { echo "[bfclstd] $tag GENERATE FAILED"; return 1; }
   generate_args=(--model Qwen/Qwen3.5-4B-FC --backend vllm --num-gpus 1
     --temperature "${BFCLSTD_TEMPERATURE:-0.001}"
     --gpu-memory-utilization "${GPU_UTIL:-0.85}"
@@ -126,8 +138,7 @@ run_tag() (
     "$BFCL" generate "${generate_args[@]}" --test-category all --allow-overwrite \
     > "$PROJ/logs/bfclstd_gen_${tag}.log" 2>&1; then
     echo "[bfclstd] $tag GENERATE FAILED"
-    cleanup_harness_outputs
-    return
+    return 1
   fi
   gen_log=$PROJ/logs/bfclstd_gen_${tag}.log
   for attempt in 0 1 2; do
@@ -135,7 +146,6 @@ run_tag() (
     if ! incomplete=$("$(dirname "$BFCL")/python" "$PROJ/tools/bfcl_generation_check.py" \
       "$LEADERBOARD" "$LEADERBOARD/$RES_SUB/$MODEL_DIR" "$tag" 2>> "$gen_log"); then
       echo "[bfclstd] $tag GENERATION COMPLETENESS CHECK FAILED (see $gen_log)" | tee -a "$gen_log"
-      cleanup_harness_outputs
       return 1
     fi
     [ -n "$incomplete" ] || break
@@ -144,7 +154,6 @@ run_tag() (
         echo "[bfclstd] $tag GENERATION INCOMPLETE after 2 retries; refusing evaluate:"
         printf '%s\n' "$incomplete"
       } | tee -a "$gen_log"
-      cleanup_harness_outputs
       return 1
     fi
     while IFS=$'\t' read -r category counts; do
@@ -165,16 +174,14 @@ run_tag() (
     --result-dir "$RES_SUB" --score-dir "$SCORE_SUB" \
     > "$PROJ/logs/bfclstd_eval_${tag}.log" 2>&1; then
     echo "[bfclstd] $tag EVALUATE FAILED"
-    cleanup_harness_outputs
-    return
+    return 1
   fi
   out=$PROJ/results/bfcl_std/$tag
   mkdir -p "$out"
   if ! cp "$SCORE_SUB/data_overall.csv" "$out/" || \
     ! cp -rT "$SCORE_SUB/$MODEL_DIR" "$out/scoredir"; then
     echo "[bfclstd] $tag SCORE COPY FAILED"
-    cleanup_harness_outputs
-    return
+    return 1
   fi
   # RTD binds complete generation IDs to the exact checkpoint before admitting
   # aggregate scores. Opt-in retention leaves existing campaign behavior intact.
@@ -184,7 +191,6 @@ run_tag() (
       return 1
     fi
   fi
-  cleanup_harness_outputs
   if [ "$tag" != base ] && [ -z "${BFCLSTD_PREMERGED:-}" ] && [ -f "$out/data_overall.csv" ]; then
     case "$merged" in
       "$PROJ"/results/appworld_students/*/hub_merged) rm -rf -- "$merged" ;;
@@ -198,7 +204,6 @@ run_tag() (
 campaign_status=0
 for TAG in "$@"; do
   run_tag "$TAG" || campaign_status=1
-  cleanup_listener "$TAG"
 done
 if [ "$campaign_status" -ne 0 ]; then
   echo "[bfclstd] CAMPAIGN FAILED"
