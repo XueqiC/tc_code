@@ -1265,3 +1265,17 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/8 C25r 交付(v1.0.7,未提交):checker_bridge worker 用 default=_diagnostic_repr 序列化(只影响非 JSON 原生值,verdict 字段与 valid 不变);checker_bridge.py 进入 scoring projection(verdict 内容符号 + worker 的 verdict 块),pre-edit HEAD 内容作为证据 configs/rtd/identity_evidence/c25r.json;CONTENT_VERSION v3→v4;rai_R0/R1/R1s 的 update-identity 审计通过并写入 supplements(复跑 updated=False、无拒绝)。等 C25q-b(manifest tolerance)一起提交。
 - 9/8 C25q-b 交付:make_manifest 的 score_consistency.tolerance 只写 config 显式声明的键;三个 rai run 重建 manifest 与保存值全等([])。提交 v1.0.7(C25r+C25q-b,tag rtd-v1.0.7);R1s 在 GPU1 用 v1.0.7 恢复(logs/rtd_resume_rai_R1s_v107.log);同步 hpg 并对 hpg R0/R1 做 update-identity,随后重提 hpg R1;全量套件后台跑(codex 提到 2 个 C25r 解析类测试失败待核)。
 - 9/8 R1s v1.0.7 resume 再被拒:evaluate() 复用已完成评测时把 evaluation-1.json 记录的 harness hash(f0fa…,评测当时的审计 hash)与现在的审计 hash(29bd…,C25r update-identity 之后)硬比较 → 任何审计过的身份更新都会让已完成评测无法复用。Codex C25r-b:复用检查接受本 run 审计链中的历史 hash(其余字段与 artifacts 仍严格),记录到 compute.jsonl。
+- 9/8 C25r-b 交付并提交(tag rtd-v1.0.7 移到新提交):evaluate() 复用已完成评测时接受本 run 审计链中的历史 harness hash,其余字段+artifacts 严格;208 测试通过,三个 rai run 链成员确认。R1s 在 GPU1 再次恢复(logs/rtd_resume_rai_R1s_v107b.log);同步 hpg 并重提 hpg R1 resume(dept)。
+- 9/8 16:45Z R1s v1.0.7b(0521992)恢复通过全部校验(复用第 1 轮评测,记录 evaluation_reuse_via_audited_identity),round 2 step 1 运行中(GPU1,pid 573001)。hpg R1 resume 41301302 RUNNING(dept);hpg R0 41299688 排队;rai R0 round 2 运行中;rai R1 等 GPU3。
+- 9/8 17:00Z hpg R1 41301302 FAILED:launcher 总传 --config,而仓库 yaml 已加两个容差键 → 'resume config changed'。做法:configs/rtd/v1_bfcl_c25_frozen_v101.yaml(= C25q 前的 yaml,hpg R0/R1 的 resume_config 均接受);scancel 41299688(同样会失败),重提 hpg R1(dept)与 R0(yd24f),RTD_CONFIG 指向 frozen yaml。rai R0 的保存 config 更老(无 memory_* 键、max_action_tokens 4096,来自当时未提交的工作树 yaml),rai 上不传 --config 即可。
+- 9/8 17:15Z 全量套件 @bc4f4cf:466 passed / 2 failed(test_rtd_evaluation_resume 的两个 C25r 解析用例,C25r-b 已修:该文件在当前树 61 passed);全量套件 @6e91a27 后台重跑中。
+- 9/8 全量套件 @6e91a27:495 passed, 6 warnings in 925.84s (0:15:25)
+- 9/8 19:25Z rai R0/R1s round 2 step 4;R1s 1 次离群 token 放行;hpg R1/R0 排队;GPU3 仍被占。
+- 9/8 20:25Z rai R0/R1s round 2 step 7(~3 步/h);hpg 两作业仍排队;GPU3 仍被占。
+- 9/8 21:25Z rai R0/R1s round 2 step 10;hpg 两作业仍排队;GPU3 仍被占。
+- 9/8 14:46Z hpg R1 resume 41301504 RUNNING(dept,frozen yaml)。
+- 9/8 14:49Z hpg R1 41301504 通过全部校验,round 2 step 1 运行中(B200)。
+- 9/8 15:12Z 用户:并行、准确。并行启动两个只写文档的 Codex 规划任务:docs/rtd_alfworld_readiness_zh.md(ALFWorld sealed bank 就绪审查)与 docs/rtd_strong_baselines_plan_zh.md(§10.3 强对照方案);不改任何代码/配置。用户 9/7 15:09Z 指示:BFCL 只看 Overall。
+- 9/8 22:25Z rai R0/R1s round 2 step 10 actual;hpg R1 round 2 step 4(~5 步/h);hpg R0 排队;规划文档 codex 进行中。
+- 9/8 15:41Z ALFWorld 就绪审查完成 docs/rtd_alfworld_readiness_zh.md(107 个候选 episode 包、estimated 成本、m=135、强 CE 锚点 77.86%、仅新增文件的分阶段清单);强对照方案 Codex 第一次因脚本路径(相对路径)未启动,已用绝对路径重启。
+- 9/8 16:05Z 强对照方案完成 docs/rtd_strong_baselines_plan_zh.md(B1–B4 定义、同池/全 bank 定义、V-S/V-T 曝光视角、配置与命令契约、算力估算、可现在准备/必须等待清单)。
