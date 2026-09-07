@@ -89,15 +89,16 @@ class ALFWorldExperimentSupport:
     def feedback_context(self, round_number, backend, journal):
         """C26-F feedback dispatch supplies a fresh explicit per-window context."""
         _privileged()
-        from .alfworld_support import RealStepper, prompt_messages
+        from .alfworld_support import RealStepper, prompt_messages, worker_options
         from ...adapters.alfworld import ALFWorldAdapter
         from ...cc_pairs import thinking_off
         adapter = ALFWorldAdapter()
         adapter._tokenizer = backend.tokenizer
         renderer = lambda request, history: thinking_off(adapter._render(prompt_messages(request, history)))
         environment_hash = self.protocol.manifest['environment']['environment_hash']
+        limits = worker_options(self.config)
         return ALFWorldFeedbackContext(self.protocol, round_number, renderer,
-            lambda: RealStepper(environment_hash=environment_hash), journal)
+            lambda: RealStepper(environment_hash=environment_hash, **limits), journal)
 
     def feedback(self, parent, backend, parameters, generator, checker):
         _privileged()

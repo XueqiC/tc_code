@@ -98,10 +98,17 @@ def test_resume_after_every_durable_phase(integrated, phase):
     assert not resumed.ledger.reservations
     assert len(resumed.state['steps']) == 1 and resumed.slots == 8
     assert len(resumed.state['inner']) == len(resumed.state['feedback']) == 4
+    for engine in (resumed, clean):
+        for row in engine.journal.events:
+            if row['kind'] == 'alfworld_episode':
+                assert 0 <= row['env_seconds'] <= row['wall_seconds']
+                assert 0 <= row['generation_seconds'] <= row['wall_seconds']
+                assert row['n_env_calls'] >= 1
     for kind in ('source_sample', 'feedback_rollout', 'alfworld_episode', 'return_gradient'):
         def events(e):
             return comparable([{k: v for k, v in row.items() if k not in
-                               ('sequence', 'timestamp', 'previous_hash', 'event_hash', 'hash')}
+                               ('sequence', 'timestamp', 'previous_hash', 'event_hash', 'hash',
+                                'env_seconds', 'generation_seconds', 'wall_seconds')}
                                for row in e.journal.events if row['kind'] == kind])
         assert events(resumed) == events(clean), kind
     results = [r['metadata'] for r in resumed.journal.events if r['kind'] == 'return_gradient']

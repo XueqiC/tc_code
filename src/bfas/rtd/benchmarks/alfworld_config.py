@@ -10,7 +10,7 @@ from ..memory import MemoryPolicy
 from ..persistence import digest, file_hash
 from ..scoring import ScoreTolerance
 from . import alfworld_identity as identity
-from .alfworld_support import validate_support, audit_verified_bank
+from .alfworld_support import validate_support, audit_verified_bank, WORKER_DEFAULTS, worker_options
 
 # Executable copy of readiness §7.2; BFCL files/manifests are never rewritten.
 DEFAULTS = {'method': 'rtd_v1',
@@ -107,6 +107,7 @@ DEFAULTS = {'method': 'rtd_v1',
  'alfworld_evaluation_split': 'valid_seen',
  'alfworld_expected_eval_tasks': 140,
  'alfworld_max_episode_steps': 40,
+ **WORKER_DEFAULTS,
  'alfworld_student_react': True,
  'alfworld_data_root': 'envs/alfworld/data/json_2.1.1',
  'alfworld_environment_root': 'envs/alfworld',
@@ -120,7 +121,7 @@ DEFAULTS = {'method': 'rtd_v1',
 MUTABLE = {"student", "output_root", "replay_bank_path", "support_manifest",
            "max_context_tokens",
            "max_state_batch_size", "memory_peak_budget_gb", "memory_reserve_gb",
-           "memory_state_estimate_gb", "gate"}
+           "memory_state_estimate_gb", "gate", *WORKER_DEFAULTS}
 
 
 def default_config():
@@ -159,6 +160,7 @@ def validate_config(value):
     for key, expected in DEFAULTS.items():
         if key not in MUTABLE and not same(config[key], expected):
             raise ValueError("frozen protocol value changed: " + key)
+    worker_options(config)
     if config["gate"] not in {"linear_sigmoid", "scalar_sigmoid"}:
         raise ValueError("supported gate components: linear_sigmoid/scalar_sigmoid")
     for key in ("student", "output_root", "replay_bank_path", "support_manifest",

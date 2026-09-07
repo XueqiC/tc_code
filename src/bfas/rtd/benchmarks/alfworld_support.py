@@ -7,13 +7,16 @@ later stage: callers must use the round/ownership guards before consuming states
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import asdict, replace
 import json
+import math
 import os
 from pathlib import Path
 import queue
 import re
+import select
 import signal
 import subprocess
 import tempfile
@@ -284,15 +287,77 @@ class EnvironmentUnavailable(RuntimeError):
     """Infrastructure failed; never interpreted as reward zero."""
 
 
+WORKER_DEFAULTS = dict(alfworld_worker_read_timeout_s=30,
+                      alfworld_env_time_budget_s=600,
+                      alfworld_episode_wall_guard_s=3600)
+
+
+def worker_options(config):
+    """Shared train/evaluation limits, also accepting older configs' defaults."""
+    values = {k: config.get(k, v) for k, v in WORKER_DEFAULTS.items()}
+    for key, value in values.items():
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+            raise ValueError("positive finite environment limit required: " + key)
+    return dict(timeout=values['alfworld_worker_read_timeout_s'],
+                env_time_budget=values['alfworld_env_time_budget_s'],
+                episode_wall_guard=values['alfworld_episode_wall_guard_s'])
+
+
+class EpisodeTiming:
+    """Wall time and time inside/outside environment calls; cleanup is separate.
+
+    Outside time starts after the first call and ends at the final call (or a
+    policy failure). It includes rendering/parsing as well as model generation.
+    """
+    def __init__(self):
+        self.started = time.monotonic()
+        self.env_seconds = self.generation_seconds = 0.
+        self.n_env_calls = 0
+        self._last_end = None
+
+    def outside(self):
+        if self._last_end is not None:
+            self.generation_seconds += time.monotonic() - self._last_end
+            self._last_end = None
+
+    @contextmanager
+    def call(self, *, count=True):
+        self.outside()
+        start = time.monotonic()
+        self.n_env_calls += int(count)
+        try:
+            yield
+        finally:
+            self._last_end = time.monotonic()
+            self.env_seconds += self._last_end - start
+
+    def record(self, *, include_outside=False):
+        now = time.monotonic()
+        outside = now - self._last_end if include_outside and self._last_end is not None else 0.
+        return dict(env_seconds=self.env_seconds, generation_seconds=self.generation_seconds + outside,
+                    wall_seconds=now - self.started, n_env_calls=self.n_env_calls)
+
+
 class BoundedEnvBridge(adapter._EnvBridge):
-    """Preserve adapter JSON/step protocol, replacing spawn/read/cleanup only."""
-    def __init__(self, task_id, *, timeout=30.0, episode_timeout=120.0):
+    """Bound send/receive time independently of the student's sampling time."""
+    def __init__(self, task_id, *, timeout=30.0, env_time_budget=600.0,
+                 episode_wall_guard=3600.0, episode_timeout=None, split="train"):
         bank._privileged()
         parent_hash(task_id)
-        if timeout <= 0 or episode_timeout <= 0:
-            raise ValueError("positive worker deadlines required")
+        # Compatibility for offline C26-B replay callers: the old spelling now
+        # means environment time, never a short whole-episode wall deadline.
+        if episode_timeout is not None:
+            env_time_budget = episode_timeout
+        worker_options(dict(alfworld_worker_read_timeout_s=timeout,
+            alfworld_env_time_budget_s=env_time_budget,
+            alfworld_episode_wall_guard_s=episode_wall_guard))
+        if split not in {"train", "valid_seen"}:
+            raise ValueError("unsupported ALFWorld worker split")
         self.timeout = timeout
-        self.deadline = time.monotonic() + episode_timeout
+        self.env_time_budget = env_time_budget
+        self._timing = EpisodeTiming()
+        self.wall_deadline = self._timing.started + episode_wall_guard
+        self._call_deadline = None
         self.process = None
         self._tmp = tempfile.TemporaryDirectory(prefix="rtd-alfworld-c26b-")
         self._stderr = open(Path(self._tmp.name) / "worker.stderr", "w+")
@@ -307,18 +372,55 @@ class BoundedEnvBridge(adapter._EnvBridge):
                    TOKENIZERS_PARALLELISM="false", PYTHONHASHSEED="0", TMPDIR=self._tmp.name,
                    HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", BFAS_ALFWORLD_MAX_STEPS="40")
         try:
-            self.process = subprocess.Popen(
-                [str(adapter.ENV_PYTHON), "-u", "-m", "bfas.adapters.alfworld", "--worker",
-                 "--split", "train", "--task-id", task_id],
-                cwd=self._tmp.name, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=self._stderr, text=True, encoding="utf-8", bufsize=1, start_new_session=True)
-            self._reader = threading.Thread(target=self._read_lines, daemon=True)
-            self._reader.start()
-            if self._read().get("op") != "ready":
-                raise EnvironmentUnavailable("ALFWorld worker did not become ready")
+            with self._io():
+                self.process = subprocess.Popen(
+                    [str(adapter.ENV_PYTHON), "-u", "-m", "bfas.adapters.alfworld", "--worker",
+                     "--split", split, "--task-id", task_id],
+                    cwd=self._tmp.name, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                    stderr=self._stderr, text=True, encoding="utf-8", bufsize=1, start_new_session=True)
+                os.set_blocking(self.process.stdin.fileno(), False)
+                self._reader = threading.Thread(target=self._read_lines, daemon=True)
+                self._reader.start()
+                if self._read().get("op") != "ready":
+                    raise EnvironmentUnavailable("ALFWorld worker did not become ready")
         except BaseException:
             self.close()
             raise
+
+    @property
+    def timing(self):
+        return self._timing.record(include_outside=True)
+
+    @contextmanager
+    def _io(self):
+        # step includes its write and nested read exactly once.
+        if self._call_deadline is not None:
+            yield
+            return
+        now = time.monotonic()
+        deadlines = {"command read timeout": now + self.timeout,
+                     "environment time budget": now + self.env_time_budget - self._timing.env_seconds,
+                     "episode wall guard": self.wall_deadline}
+        self._limit = min(deadlines, key=deadlines.get)
+        self._call_deadline = deadlines[self._limit]
+        try:
+            with self._timing.call():
+                self._remaining()
+                yield
+                self._remaining()
+        except (OSError, EnvironmentUnavailable) as exc:
+            error = exc if isinstance(exc, EnvironmentUnavailable) else EnvironmentUnavailable(str(exc))
+            error.timing = self.timing
+            raise error from (exc if error is not exc else None)
+        finally:
+            self._call_deadline = None
+
+    def _remaining(self):
+        remaining = self._call_deadline - time.monotonic()
+        if remaining <= 0:
+            raise EnvironmentUnavailable(f"ALFWorld worker timeout ({self._limit}; "
+                f"read={self.timeout}s, env_budget={self.env_time_budget}s)")
+        return remaining
 
     def _read_lines(self):
         try:
@@ -333,23 +435,36 @@ class BoundedEnvBridge(adapter._EnvBridge):
             self._queue.put(None)
 
     def _read(self):
-        wait = min(self.timeout, self.deadline - time.monotonic())
-        try:
-            if wait <= 0:
-                raise queue.Empty
-            value = self._queue.get(timeout=wait)
-        except queue.Empty as exc:
-            raise EnvironmentUnavailable(f"ALFWorld worker timeout (read={self.timeout}s, episode deadline)") from exc
-        if value is None:
-            self._stderr.flush()
-            self._stderr.seek(0)
-            detail = self._stderr.read()[-3000:]
-            raise EnvironmentUnavailable(f"ALFWorld worker exited ({self.process.poll()}): {detail}")
-        return value
+        with self._io():
+            try:
+                value = self._queue.get(timeout=self._remaining())
+            except queue.Empty as exc:
+                raise EnvironmentUnavailable(f"ALFWorld worker timeout ({self._limit}; "
+                    f"read={self.timeout}s, env_budget={self.env_time_budget}s)") from exc
+            if value is None:
+                self._stderr.flush()
+                self._stderr.seek(0)
+                detail = self._stderr.read()[-3000:]
+                raise EnvironmentUnavailable(f"ALFWorld worker exited ({self.process.poll()}): {detail}")
+            return value
 
     def step(self, command):
         bank._privileged()
-        return super().step(command)
+        with self._io():
+            self._request_id += 1
+            data = memoryview((json.dumps(dict(id=self._request_id, command=command)) + "\n").encode("utf-8"))
+            fd = self.process.stdin.fileno()
+            while data:
+                if not select.select([], [fd], [], self._remaining())[1]:
+                    self._remaining()
+                try:
+                    data = data[os.write(fd, data):]
+                except BlockingIOError:
+                    continue
+            response = self._read()
+            if response.get("id") != self._request_id:
+                raise ValueError("ALFWorld worker response id mismatch")
+            return response
 
     def close(self):
         process = self.process
@@ -378,8 +493,11 @@ class BoundedEnvBridge(adapter._EnvBridge):
 
 
 class RealStepper:
-    def __init__(self, *, timeout=30.0, episode_timeout=120.0, environment_hash):
-        self.timeout, self.episode_timeout = timeout, episode_timeout
+    def __init__(self, *, timeout=30.0, env_time_budget=600.0, episode_wall_guard=3600.0,
+                 episode_timeout=None, environment_hash):
+        self.worker_options = dict(timeout=timeout, env_time_budget=env_time_budget,
+            episode_wall_guard=episode_wall_guard, episode_timeout=episode_timeout)
+        self._timing = None
         self.environment_hash = environment_hash
         self.bridge = None
         self.request = None
@@ -408,7 +526,11 @@ class RealStepper:
             raise ValueError("environment/horizon differs from frozen request")
         self._world(request)
         self.request = deepcopy(request)
-        self.bridge = BoundedEnvBridge(request["task_id"], timeout=self.timeout, episode_timeout=self.episode_timeout)
+        try:
+            self.bridge = BoundedEnvBridge(request["task_id"], **self.worker_options)
+        except EnvironmentUnavailable as exc:
+            self._timing = getattr(exc, "timing", None)
+            raise
         raw = self.bridge._read()
         goal = adapter._goal_line(raw["observation"])
         if not goal:
@@ -430,8 +552,13 @@ class RealStepper:
 
     def close(self):
         if self.bridge is not None:
+            self._timing = self.bridge.timing
             self.bridge.close()
             self.bridge = None
+
+    @property
+    def timing(self):
+        return self.bridge.timing if self.bridge is not None else self._timing
 
 
 def prompt_messages(request, history, *, react=True):

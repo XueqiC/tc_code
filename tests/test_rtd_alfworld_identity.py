@@ -85,7 +85,7 @@ def test_training_and_operational_drift_outside_scoring_inventory(campaign):
     ("src/bfas/rtd/benchmarks/alfworld_support.py", "lines[-8:]", "lines[-7:]"),
     ("src/alfworld_eval.py", 'return "look"', 'return "inventory"'),
     ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", "range(40)", "range(39)"),
-    ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", '"--split", "valid_seen"', '"--split", "train"'),
+    ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", 'split="valid_seen"', 'split="train"'),
     ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", "100 * successes / 140", "successes / 140"),
 ])
 def test_scientific_edits_change_identity(campaign, name, old, new):

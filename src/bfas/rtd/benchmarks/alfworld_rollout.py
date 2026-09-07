@@ -9,12 +9,13 @@ explicit data roots, offline settings and a temporary working directory.
 Task-start feedback uses collect_feedback/feedback and the existing RTD LOO
 kernel unchanged. Owned teacher-prefix continuations are separately available
 for diagnostics; they cannot masquerade as task-start return gradients. No
-teacher calls, shaped rewards, command retokenization, retries or downloads.
+teacher calls, shaped rewards, command retokenization or downloads. C26-G
+retries EnvironmentUnavailable once with the same policy seed and prefix.
 """
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 import json
 import math
 from typing import Protocol
@@ -28,6 +29,7 @@ from .alfworld_state import (
     Observation, Stepper, _observed, canonical_hash, parent_hash,
     validate_full_state, validate_request,
 )
+from .alfworld_support import EnvironmentUnavailable, EpisodeTiming
 
 
 MAX_ACTION_TOKENS = 256
@@ -63,6 +65,8 @@ class IncompleteFeedbackError(RuntimeError):
 class _EnvironmentFailure(Exception):
     def __init__(self, stage, cause):
         self.reason = dict(stage=stage, exception_type=type(cause).__name__, message=str(cause))
+        self.retryable = isinstance(cause, EnvironmentUnavailable)
+        self.timing = getattr(cause, "timing", None)
         super().__init__(str(cause))
 
 
@@ -134,6 +138,12 @@ class ALFWorldEpisode:
     final_observation: Observation | None
     failure: dict | None = None
     horizon_reached: bool = False
+    attempt: int = 1
+    # Timing is diagnostic, not part of deterministic trajectory equality.
+    env_seconds: float = field(default=0., compare=False)
+    generation_seconds: float = field(default=0., compare=False)
+    wall_seconds: float = field(default=0., compare=False)
+    n_env_calls: int = field(default=0, compare=False)
 
     @property
     def actions(self):
@@ -225,6 +235,28 @@ def _validate_action(action, state, backend, parameters):
 def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env_factory: EnvironmentFactory,
                          renderer, journal, rollout_index=0, base_seed=0,
                          prefix_package_id=None, owned_packages=None, support=None, round_number=None):
+    """Run an episode, retrying only environment unavailability at most once.
+
+    Each attempt owns a fresh worker and reconstructs the same seed/reset/prefix.
+    Failed attempts remain journaled but never enter the return estimator.
+    """
+    for attempt in (1, 2):
+        episode, retryable = _episode_attempt(task_ref, backend, parameters,
+            env_factory=env_factory, renderer=renderer, journal=journal,
+            rollout_index=rollout_index, base_seed=base_seed, prefix_package_id=prefix_package_id,
+            owned_packages=owned_packages, support=support, round_number=round_number, attempt=attempt)
+        if not retryable or attempt == 2:
+            return episode
+        journal.append("alfworld_episode_retry", task_id=episode.task_id,
+            rollout_index=episode.rollout_index, seed=episode.seed, policy_id=episode.policy_id,
+            prefix_package_id=episode.prefix_package_id, prefix_steps=episode.prefix_steps,
+            prefix_state_hash=task_ref.state_hash if isinstance(task_ref, FullState) else None,
+            failed_attempt=attempt, retry_attempt=2, max_attempts=2, failure=episode.failure)
+
+
+def _episode_attempt(task_ref, backend, parameters, *, env_factory, renderer, journal,
+                     rollout_index, base_seed, prefix_package_id, owned_packages,
+                     support, round_number, attempt):
     """Run to terminal success/failure or 40 total environment actions.
 
     task_ref is a fixed train request dict, a reset FullState, or an owned
@@ -265,12 +297,17 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
     # CPU tests create only a CPU generator. No device detection or model load.
     generator = torch.Generator(device=next(iter(parameters.values())).device).manual_seed(seed)
     policy_id = backend.identity(parameters)
+    timing = EpisodeTiming()
+    def env_call(stage, fn, *args):
+        with timing.call(count=stage != "factory"):
+            return _env_call(stage, fn, *args)
     env, observation, start, failure = None, None, None, None
+    retryable, failed_timing = False, None
     steps, history = [], []
     pending = None
     try:
-        env = _env_call("factory", env_factory)
-        cursor, observation = _env_call("reset", env.reset, deepcopy(request))
+        env = env_call("factory", env_factory)
+        cursor, observation = env_call("reset", env.reset, deepcopy(request))
         observation = _observation(observation, request, 0)
         history.append(_observed(observation))
         for i in range(prefix_steps + 1):
@@ -279,7 +316,7 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
             if i == prefix_steps:
                 break
             command = target_history[2 * i + 1]["content"]
-            cursor, observation = _env_call("prefix_step", env.step, cursor, command)
+            cursor, observation = env_call("prefix_step", env.step, cursor, command)
             observation = _observation(observation, request, i + 1)
             history.extend([dict(role="assistant", index=i + 1, content=command), _observed(observation)])
         start = _state(request, history, renderer)
@@ -293,7 +330,7 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
             _validate_action(action, state, backend, parameters)
             command, fallback = parse_action(action.text, observation.admissible)
             steps.append(EpisodeStep(state, action, command, fallback))
-            cursor, observation = _env_call("step", env.step, cursor, command)
+            cursor, observation = env_call("step", env.step, cursor, command)
             observation = _observation(observation, request, index + 1)
             steps[-1] = replace(steps[-1], observation=observation)
             history.extend([dict(role="assistant", index=index + 1, content=command), _observed(observation)])
@@ -301,25 +338,36 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
                 break
     except _EnvironmentFailure as exc:
         failure = exc.reason
+        retryable, failed_timing = exc.retryable, exc.timing
     except BaseException as exc:
         # Interrupts still propagate, but their partial measurement must not
         # leave a misleading completed/reward-zero record in the journal.
         failure = dict(stage="policy_or_state_contract", exception_type=type(exc).__name__, message=str(exc))
         pending = exc
     finally:
+        timing.outside()
         if env is not None:
             try:
                 _env_call("close", env.close)
             except _EnvironmentFailure as exc:
+                if failure is None:
+                    retryable = exc.retryable
                 failure = dict(failure, cleanup_failure=exc.reason) if failure else exc.reason
+        measured = timing.record()
+        bridge_timing = getattr(env, "timing", None) or failed_timing
+        if bridge_timing is not None:
+            # Real IO metrics include ready/reset reads and failed sends/reads;
+            # the outer timer also covers a policy failure before the next call.
+            measured.update({k: bridge_timing[k] for k in
+                             ("env_seconds", "generation_seconds", "n_env_calls")})
         episode = ALFWorldEpisode(request["task_id"], rollout_index, seed, policy_id,
             prefix_package_id, prefix_steps, start, tuple(steps), observation, failure,
             horizon_reached=bool(observation and not observation.done and
-                                 observation.index == MAX_EPISODE_STEPS))
+                                 observation.index == MAX_EPISODE_STEPS), attempt=attempt, **measured)
         journal.append("alfworld_episode", **episode.record())
     if pending is not None:
         raise pending
-    return episode
+    return episode, retryable
 
 
 def collect_feedback(task_refs, backend, parameters, *, env_factory, renderer, journal,
@@ -330,7 +378,8 @@ def collect_feedback(task_refs, backend, parameters, *, env_factory, renderer, j
     includes parents without teacher payloads), then supplies their reset states
     or requests here. Any worker failure invalidates this measurement; retain
     every attempted episode but never compute a partial-task LOO or silently
-    change task weights by dropping an unlucky worker/task. No automatic retry.
+    change task weights by dropping an unlucky worker/task. Only the bounded
+    same-seed EnvironmentUnavailable retry inside each rollout is permitted.
     """
     refs = tuple(task_refs)
     if type(rollouts_per_task) is not int or rollouts_per_task < 2 or not refs:

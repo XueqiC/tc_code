@@ -15,6 +15,7 @@ from ..hardware import checked_hardware
 from ..identity import verified_checkpoint
 from ..persistence import digest, file_hash, tree_hash
 from ..scoring_scope import _ScientificAST
+from .alfworld_support import WORKER_DEFAULTS, worker_options
 
 
 VERSION = "alfworld-evaluation-scoring-c26d-v1"
@@ -44,9 +45,11 @@ SCOPES = {
     "src/bfas/cc_pairs.py": ("thinking_off",),
     "tools/behavior_atom/gpu_driver.py": ("_thinking_off",),
     "src/bfas/rtd/benchmarks/alfworld_support.py": (
-        "prompt_messages", "FrozenRenderer", "BoundedEnvBridge._read_lines", "BoundedEnvBridge._read"),
+        "prompt_messages", "FrozenRenderer", "WORKER_DEFAULTS", "worker_options",
+        "EpisodeTiming", "BoundedEnvBridge"),
     "src/bfas/rtd/benchmarks/alfworld_evaluation.py": (
-        "Generation", "_checked_state", "official_episode", "validate_records",
+        "Generation", "_checked_state", "official_episode", "_official_episode_attempt",
+        "_EvaluationEnvironmentFailure", "validate_records",
         "aggregate_records", "compare_base", "HFBackend", "EvaluationEnvBridge.__init__"),
 }
 
@@ -127,6 +130,7 @@ def checked_config(config):
               isinstance(expected, (int, bool)) and type(actual) is not type(expected) or
               key == "evaluation_temperature" and type(actual) not in (int, float)):
             raise ValueError(f"invalid official ALFWorld config: {key}")
+    worker_options(config)
     return deepcopy(config)
 
 
@@ -232,7 +236,8 @@ def evaluation_harness_identity(root, config, *, data_root, model_path, tokenize
         expected=official_expectations(data_root), model=model_identity(model_path),
         tokenizer=tokenizer_identity(tokenizer_path),
         environment=environment_identity(environment_root or root / "envs/alfworld"),
-        config={k: config[k] for k in OFFICIAL_CONFIG},
+        config={**{k: config[k] for k in OFFICIAL_CONFIG},
+                **{k: config.get(k, v) for k, v in WORKER_DEFAULTS.items()}},
         prompt_format="C26-B FrozenRenderer: adapter ReAct + existing thinking_off")
 
 

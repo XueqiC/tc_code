@@ -178,3 +178,37 @@ CPU 集成与两真实train replay已验；rai单窗口模型正确性、真实G
 最终工作树状态为20个已跟踪文件修改、8个未跟踪新文件；`git diff --stat` 为20 files changed、424 insertions、120 deletions（git默认不把未跟踪文件计入diff stat）。完整输出保存于 `results/c26f/git-status.txt`、`results/c26f/git-diff-stat.txt`；`git diff --check` 已通过。所有源码、测试、脚本和本报告保持未提交。
 
 冻结源码清单为 `results/c26f/source-identity.json`：`rtd-source-v2`，337文件，hash=`4592f4405b4ca2a778a84e0d1015d1881aaf099d8aefcc8b893e257f6299ff8b`。新run须在代码停止修改后启动；本报告的CPU manifest section没有冒充完整GPU run manifest。
+
+## 6. C26-G：episode deadline 语义修复（2026-09-07）
+
+本节补充 C26-F 冻结后的首次真实 GPU smoke 失败及修复；上文的 120 秒 deadline 和“GPU smoke 未执行”是 C26-F 当时状态。此次修改在隔离工作树 `/home/xueqi/hq/projects/tc-alignment-alf`、分支 `alfworld-c26f`、起始 HEAD `1be9dff` 完成；live tree 与只读 `data/`、`envs/` symlink 目标未写入，本次没有使用 GPU，也没有提交。
+
+根因已用 `results/c26f/rai_smoke.log` 与 `results/c26f/rai-R1-window-p2-k2/compute.jsonl` 核对：round 1 / step 1 的 `reference_feedback` 中，sequence 110 的 `alfworld_episode` 保存 `EnvironmentUnavailable: ALFWorld worker timeout (read=30.0s, episode deadline)`；已采样 8 个 action，成功完成 7 次环境 step，action/prompt token 数为 1680/4622。随后 `as_task_rollout()` 抛出 `IncompleteFeedbackError`。旧桥接创建时执行 `deadline = monotonic() + 120`，把两次环境调用之间的学生采样也计入环境期限。C26-B 的脚本命令没有模型生成，因此未暴露这个错误；失败不能解释为任务回报 0。
+
+训练与完整 greedy evaluation 现在共用 `BoundedEnvBridge` 的计时、发送、读取和清理实现。两份 YAML 均显式声明以下可配置键，`alfworld_config.py` 与 evaluation config 校验均拒绝非正值、非有限数、布尔值和非数值；允许正整数或小数。registry → `RealStepper` → bridge 与 evaluation factory 使用同一配置映射，evaluation harness identity 绑定有效值，修改限制会改变身份。
+
+| 配置键 | 默认值 | 语义与理由 |
+|---|---:|---|
+| `alfworld_worker_read_timeout_s` | 30 s | 保留每次命令 IO 的上限；发送与接收共享期限，worker 不读取 stdin 时也能超时。 |
+| `alfworld_env_time_budget_s` | 600 s | 累计桥接内部环境 wall time，包括启动握手、reset 读取、成功及失败的 step IO；两次调用之间的模型采样不扣预算。正常每步环境耗时低于 1 秒，600 秒为启动和环境波动留出余量。 |
+| `alfworld_episode_wall_guard_s` | 3600 s | 从创建 worker 起计算的宽松整集 wall guard，在每次 IO 入口和等待期间检查，作为兜底保护。不会异步中断正在执行的模型生成。 |
+
+默认规划估算为 **40 steps ×（generation 约 3–6 s + env <1 s）≈ 120–280 s/episode**，另加启动与清理。仅生成就可能达到原 120 秒期限，因此不能把原值简单当作环境慢。3–6 秒是规划假设，并非此次测得的 GPU 吞吐；旧 rai smoke 日志中的部分生成实际约 8–20 秒，进一步说明要将生成时间与环境预算分开。CLI 现有 900 秒 smoke 总期限是另一个约束，本次保持不变；多个 full episodes 仍可能超过它。
+
+每次尝试均追加 `alfworld_episode`，包含 `env_seconds`、`generation_seconds`、`wall_seconds`、`n_env_calls` 与从 1 起的 `attempt`。真实 worker 的 `n_env_calls` 包括一次 ready 握手、一次 reset state 读取及每个成功/失败 step；嵌套的 step/read 只计一次。`generation_seconds` 是环境调用之间的外部时间，包含生成、prompt 渲染、解析及状态处理，不是纯 GPU kernel 时间；`wall_seconds` 覆盖整次尝试并包含清理，因此不要求前两项精确相加。计时不参与随机轨迹相等性判定，避免影响既有 seed/resume 验证。
+
+仅来自环境操作的 `EnvironmentUnavailable`（包括桥接转换的启动/管道 IO 故障）触发**最多一次**重试。重试先清理旧 worker，再完整 reset/replay 相同任务、相同 seed、同一合法 owned prefix 与 policy；不额外抽取 registry 的外部 seed，不因正常失败回报、parser fallback、模型异常或状态合同错误而重抽。第一次失败记录保留 `reward=None`，并追加 `alfworld_episode_retry`，记录失败原因、seed/prefix、失败与重试 attempt、`max_attempts=2`；失败尝试的 token 开销保留在日志中，不进入梯度。第二次环境失败仍按既有路径触发 `IncompleteFeedbackError`，不补零、不丢任务、不减少 K。greedy evaluation 同样记录尝试与一次重试，持续失败仍向上抛出环境异常，不写完成题目或 aggregate。
+
+旧离线 replay 调用的 `episode_timeout=` 参数保留为累计环境预算的兼容别名；新训练与评估只通过三项显式配置控制。本次未修改已有 smoke manifest、recovery、bank 或日志，也未把旧运行自动迁移到新源码身份；修复后的 GPU 验证应使用新的运行目录。
+
+CPU 验证使用 `PY=/home/xueqi/hq/projects/tc-alignment/.venv/bin/python`、`PYTHONPATH=src:.`、`PYTHONDONTWRITEBYTECODE=1`、`CUDA_VISIBLE_DEVICES=''` 和 `-p no:cacheprovider`。新增测试以虚拟时钟和 fake worker 检查长生成不消耗环境预算、单次/累计环境超时、wall guard、真实管道背压时发送也有界、相同 seed/prefix 的一次重试、失败后排除反馈、配置验证与评估配置传递。完整测试计数及最终 git 状态见下方验收补记。
+
+C26-G 验收补记：新增定向测试 **44 passed**；修正既有断言后的定向组合 **52 passed**。评估中断 fixture 现在连续两次失败以验证重试耗尽，评估复用断言计入新增的 140 条 episode 日志；恢复测试逐项检查计时非负、调用次数，并仅从轨迹一致性比较中排除三个耗时字段。身份测试继续验证修改 evaluation split 会使 harness guard 拒绝，只更新重构后的参数位置。
+
+第一组指定命令 `PYTHONPATH=src:. $PY -m pytest tests/test_rtd_alfworld_*.py tests/test_rtd_bfcl_c26f_regression.py -q -p no:cacheprovider`：**406 passed，4 skipped，0 failed，438.56 秒，退出码 0**。日志：`results/c26g/pytest-alfworld.log`。4 项 skip 是未启用的真实环境 opt-in 测试；本次未重新执行真实模型 GPU smoke。最终验收同时设置 `OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1` 限制 CPU 线程数。首次探索性运行的断言失败日志单独保留在 `pytest-alfworld-initial.log`，该运行已中断，不计入通过数；以上计数来自修正后重新执行的完整第一组。
+
+全量首次运行未设置 `BFCL_PROJECT_ROOT`，得到 **939 passed，17 failed，4 skipped，6 warnings，670.75 秒**；17 个失败均为既有 BFCL 多轮测试尝试在只读 `envs/` 下创建 `.file_locks`，写入被沙箱拒绝。该限制及正确设置已在 C26-F §2 记录；C26-G 随后补上 `BFCL_PROJECT_ROOT=$PWD/results/c26g/bfcl-test-runtime`，重新运行原完整套件。只移动官方支持的运行输出/锁目录，未修改 BFCL 源码、数据或对应断言。首次日志保留为 `results/c26g/pytest-full-readonly-locks.log`；最终验收以 `results/c26g/pytest-full.log` 为准。
+
+补上运行目录后，原 17 个 BFCL 失败用例定向复验为 **17 passed，37 deselected，21.64 秒**（`results/c26g/pytest-bfcl-locks.log`）。完整指定套件 `PYTHONPATH=src:. $PY -m pytest tests/test_rtd_*.py tests/test_checker_bridge*.py -q -p no:cacheprovider` 随后独立重跑完成：**956 passed，4 skipped，0 failed，6 warnings，684.27 秒（11分24秒），退出码 0**，共 960 项，日志 `results/c26g/pytest-full.log`。6 项 warning 来自既有 torch 标量转换和 tiny PEFT 配置，4 项 skip 为真实环境 opt-in；各组检查有重叠，不相加为独立通过数。
+
+最终 `git diff --check` 通过。C26-G 的 `git status --short` 与 `git diff --stat` 分别保存在 `results/c26g/git-status.txt`、`results/c26g/git-diff-stat.txt`；默认 diff stat 不计尚未跟踪的新测试文件。工作树保留未提交状态；本次未使用 GPU，未改动 live tree、只读数据/环境或既有 smoke 产物。

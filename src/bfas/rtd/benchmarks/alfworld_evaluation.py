@@ -11,15 +11,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import json
-import math
-import os
 from pathlib import Path
-import queue
 import random
-import subprocess
-import tempfile
-import threading
-import time
 
 from ...adapters import alfworld as adapter
 from ..evaluation_lock import evaluation_lock
@@ -28,7 +21,7 @@ from ..persistence import ComputeJournal, atomic_json, digest, file_hash, tree_h
 from .alfworld_identity import (
     campaign_identity, checked_expectations, guard_manifest,
 )
-from .alfworld_support import BoundedEnvBridge, EnvironmentUnavailable, FrozenRenderer
+from .alfworld_support import BoundedEnvBridge, EnvironmentUnavailable, FrozenRenderer, EpisodeTiming, worker_options
 
 
 @dataclass(frozen=True)
@@ -50,7 +43,29 @@ def _checked_state(state):
     return state
 
 
-def official_episode(task_id, backend, *, env_factory, identity):
+class _EvaluationEnvironmentFailure(Exception):
+    def __init__(self, cause):
+        self.cause = cause
+        super().__init__(str(cause))
+
+
+def official_episode(task_id, backend, *, env_factory, identity, journal=None):
+    """Greedy full episodes share the bounded, journaled infrastructure retry."""
+    for attempt in (1, 2):
+        try:
+            return _official_episode_attempt(task_id, backend, env_factory=env_factory,
+                identity=identity, journal=journal, attempt=attempt)
+        except _EvaluationEnvironmentFailure as exc:
+            if attempt == 2:
+                raise exc.cause from exc
+            if journal is not None:
+                journal.append("alfworld_episode_retry", task_id=task_id, split="valid_seen",
+                    identity_hash=digest(identity), seed=0, prefix_package_id=None, prefix_steps=0,
+                    failed_attempt=1, retry_attempt=2, max_attempts=2,
+                    failure=dict(exception_type=type(exc.cause).__name__, message=str(exc.cause)))
+
+
+def _official_episode_attempt(task_id, backend, *, env_factory, identity, journal, attempt):
     """The official loop; the two-task integration test uses this same function.
 
     backend.renderer follows FrozenRenderer's (request, full history) boundary;
@@ -60,10 +75,18 @@ def official_episode(task_id, backend, *, env_factory, identity):
     if (identity.get("split") != "valid_seen" or identity.get("evaluation_temperature") != 0 or
             identity.get("max_steps") != 40 or identity.get("max_action_tokens") != 256):
         raise ValueError("official episode requires valid_seen/greedy/40 steps/256 tokens")
-    env = env_factory(task_id)
+    env, failure, pending = None, None, None
+    timing = EpisodeTiming()
+    def env_call(fn, *args, count=True):
+        try:
+            with timing.call(count=count):
+                return fn(*args)
+        except EnvironmentUnavailable as exc:
+            raise _EvaluationEnvironmentFailure(exc) from exc
     turns, history = [], []
     try:
-        state = _checked_state(env._read())
+        env = env_call(env_factory, task_id, count=False)
+        state = _checked_state(env_call(env._read))
         if state["done"]:
             raise ValueError("unexpected terminal reset")
         goal = adapter._goal_line(state["observation"])
@@ -80,7 +103,7 @@ def official_episode(task_id, backend, *, env_factory, identity):
                     type(reply.truncated) is not bool or reply.truncated and reply.token_count != 256):
                 raise ValueError("invalid greedy generation/token-cap record")
             command = adapter.ALFWorldAdapter._teacher_command(reply.text, state["admissible"])
-            state = _checked_state(env.step(command))
+            state = _checked_state(env_call(env.step, command))
             turns.append(dict(prompt=prompt, generated_text=reply.text, command=command,
                 token_count=reply.token_count, truncated=reply.truncated,
                 observation=state["observation"], admissible=state["admissible"],
@@ -91,13 +114,40 @@ def official_episode(task_id, backend, *, env_factory, identity):
             if state["done"]:
                 break
         horizon = not state["done"] and len(turns) == 40
-        return dict(task_id=task_id, split="valid_seen", identity_hash=digest(identity),
+        record = dict(task_id=task_id, split="valid_seen", identity_hash=digest(identity),
             max_steps=40, status="completed", steps=len(turns), success=state["won"],
             done=state["done"], horizon_reached=horizon,
             truncated=horizon or any(t["truncated"] for t in turns),
             generated_text=[t["generated_text"] for t in turns], turns=turns)
+    except BaseException as exc:
+        pending = exc
+        cause = exc.cause if isinstance(exc, _EvaluationEnvironmentFailure) else exc
+        failure = dict(exception_type=type(cause).__name__, message=str(cause))
     finally:
-        env.close()
+        timing.outside()
+        bridge_timing = getattr(env, "timing", None)
+        if bridge_timing is None and isinstance(pending, _EvaluationEnvironmentFailure):
+            bridge_timing = getattr(pending.cause, "timing", None)
+        if env is not None:
+            try:
+                env.close()
+            except Exception as exc:
+                cleanup = dict(exception_type=type(exc).__name__, message=str(exc))
+                failure = dict(failure, cleanup_failure=cleanup) if failure else cleanup
+                if pending is None:
+                    pending = _EvaluationEnvironmentFailure(exc) if isinstance(exc, EnvironmentUnavailable) else exc
+        measured = timing.record()
+        if bridge_timing is not None:
+            measured.update({k: bridge_timing[k] for k in
+                             ("env_seconds", "generation_seconds", "n_env_calls")})
+        if journal is not None:
+            journal.append("alfworld_episode", task_id=task_id, split="valid_seen",
+                identity_hash=digest(identity), attempt=attempt, failure=failure,
+                status="failed_with_reason" if failure else "completed", excluded=failure is not None,
+                sampled_steps=len(turns), success=None if failure else record["success"], **measured)
+    if pending is not None:
+        raise pending
+    return dict(record, attempt=attempt, **measured)
 
 
 class EvaluationEnvBridge(BoundedEnvBridge):
@@ -107,7 +157,8 @@ class EvaluationEnvBridge(BoundedEnvBridge):
     misleading env variable or monkeypatching global modules. A relocated repo
     may use an envs/alfworld symlink to its explicit read-only installation.
     """
-    def __init__(self, task_id, *, data_root, environment_root, timeout=30., episode_timeout=900.):
+    def __init__(self, task_id, *, data_root, environment_root, timeout=30.,
+                 env_time_budget=600., episode_wall_guard=3600., episode_timeout=None):
         if Path(data_root).resolve() != adapter.DATA.resolve():
             raise ValueError("explicit data root must match the existing adapter DATA")
         if (Path(environment_root) / ".venv/bin/python").absolute() != adapter.ENV_PYTHON.absolute():
@@ -117,32 +168,8 @@ class EvaluationEnvBridge(BoundedEnvBridge):
                 raise ValueError("environment root must match the existing adapter installation")
         if not (adapter.DATA / "valid_seen" / task_id / "game.tw-pddl").is_file():
             raise ValueError("missing valid_seen task")
-        if any(not math.isfinite(x) or x <= 0 for x in (timeout, episode_timeout)):
-            raise ValueError("positive finite environment deadlines required")
-        self.timeout, self.deadline = timeout, time.monotonic() + episode_timeout
-        self.process, self._reader = None, None
-        self._tmp = tempfile.TemporaryDirectory(prefix="rtd-alfworld-c26d-")
-        self._stderr = open(Path(self._tmp.name) / "worker.stderr", "w+")
-        self._queue, self._request_id = queue.Queue(), 0
-        env = dict(os.environ, PYTHONPATH=str(adapter.ROOT / "src"), PYTHONDONTWRITEBYTECODE="1",
-            ALFWORLD_DATA=str(Path(data_root).resolve().parent), ALFRED_DATA=str(Path(data_root).resolve()),
-            ALFWORLD_DATA_ROOT=str(Path(data_root).resolve().parent), CUDA_VISIBLE_DEVICES="",
-            OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1",
-            TOKENIZERS_PARALLELISM="false", PYTHONHASHSEED="0", TMPDIR=self._tmp.name,
-            HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", BFAS_ALFWORLD_MAX_STEPS="40")
-        try:
-            self.process = subprocess.Popen(
-                [str(adapter.ENV_PYTHON), "-u", "-m", "bfas.adapters.alfworld", "--worker",
-                 "--split", "valid_seen", "--task-id", task_id], cwd=self._tmp.name, env=env,
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._stderr,
-                text=True, encoding="utf-8", bufsize=1, start_new_session=True)
-            self._reader = threading.Thread(target=self._read_lines, daemon=True)
-            self._reader.start()
-            if self._read().get("op") != "ready":
-                raise EnvironmentUnavailable("ALFWorld worker did not become ready")
-        except BaseException:
-            self.close()
-            raise
+        super().__init__(task_id, timeout=timeout, env_time_budget=env_time_budget,
+            episode_wall_guard=episode_wall_guard, episode_timeout=episode_timeout, split="valid_seen")
 
 
 class HFBackend:
@@ -399,8 +426,8 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
                     else:
                         backend = backend_factory(current)
                 factory = env_factory or (lambda t: EvaluationEnvBridge(t, data_root=manifest["paths"]["data_root"],
-                    environment_root=manifest["paths"]["environment_root"]))
-                record = official_episode(tid, backend, env_factory=factory, identity=identity)
+                    environment_root=manifest["paths"]["environment_root"], **worker_options(current["config"])))
+                record = official_episode(tid, backend, env_factory=factory, identity=identity, journal=journal)
                 validate_records(expected, [record], identity, complete=False)
                 atomic_json(artifacts / "tasks" / f"{digest(tid)}.json", dict(record=record, record_hash=digest(record)))
                 records.append(record)

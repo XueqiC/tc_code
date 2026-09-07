@@ -108,11 +108,14 @@ def test_interrupt_resumes_only_complete_tasks(campaign):
     def factory(tid):
         nonlocal count
         count += 1
-        if count == 3:
+        if count in (3, 4):  # C26-G: exhaust the same-task retry before interruption.
             raise evaluation.EnvironmentUnavailable("fixture worker unavailable")
         return c.env_factory(tid)
     with pytest.raises(evaluation.EnvironmentUnavailable):
         run(c, env_factory=factory)
+    assert count == 4
+    assert sum(e['kind'] == 'alfworld_episode_retry' for e in
+               ComputeJournal(c.directory / 'audit.jsonl').events) == 1
     assert not (c.directory / "campaign.json").exists()
     assert not (c.directory / "artifacts/aggregate.json").exists()
     assert len(records(c)) == 2 and c.backends[0].closed
@@ -183,6 +186,8 @@ def test_audited_reuse_retains_original_scored_identity_and_artifacts(campaign):
     assert (c.directory / "campaign.json").read_bytes() == original
     assert tree_hash(c.directory / "artifacts") == first["artifacts_hash"]
     events = ComputeJournal(c.directory / "audit.jsonl").events
+    assert sum(e["kind"] == "alfworld_episode" for e in events) == 140
+    events = [e for e in events if e["kind"] != "alfworld_episode"]
     assert len(events) == 2 and all(e["kind"] == "evaluation_reuse_via_audited_identity" for e in events)
     assert all(e["gpu_seconds"] == e["gpu_reserved_seconds"] == 0 for e in events)
     assert events[0]["stored_harness_hash"] == first["identity"]["evaluation_harness_hash"]

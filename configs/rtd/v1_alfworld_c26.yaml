@@ -139,6 +139,10 @@ alfworld_evaluation_split: valid_seen
 alfworld_expected_eval_tasks: 140
 # ALFWorld-specific: docs/rtd_alfworld_readiness_zh.md §7.2.
 alfworld_max_episode_steps: 40
+# C26-G: environment IO budget excludes model generation between steps.
+alfworld_worker_read_timeout_s: 30
+alfworld_env_time_budget_s: 600
+alfworld_episode_wall_guard_s: 3600
 # ALFWorld-specific: docs/rtd_alfworld_readiness_zh.md §7.2.
 alfworld_student_react: true
 # ALFWorld-specific: docs/rtd_alfworld_readiness_zh.md §7.2.
