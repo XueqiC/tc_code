@@ -1329,3 +1329,8 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 22:11Z hpg R1s 第 1 轮官方分 45.91(NL 79.21/Live 77.65/MT 50.37/Mem 24.52/Irrel 83.10/Rel 75.00/Web 9.50;spend 197/2 包);进入 round 2。
 - 9/9 22:22Z C26-G 交付并提交(78603af;956 测试):env 侧 600s 预算(不含生成)+ 3600s wall guard + 30s IO + 计时 + 一次重试。rai GPU4 重跑 smoke(results/c26f/rai-R1-window-p2-k2-g)。hpg 版 YAML(v1_alfworld_c26_hpg / _scalar_gate_hpg)audit 均 passed;提交 ALFWorld R0/R1 B200 作业(48h,64G)。
 - 9/9 22:23Z hpg ALFWorld R0 41335248 / R1 41335249 均 RUNNING(B200)。
+- 9/9 06:25Z rai ALFWorld smoke(C26-G):episode 1 completed 40 步(env 3.3s / gen 599s,success False),episode 2 被 smoke 900s 上限截断(TimeoutError,resume state retained)→ 截止语义修复有效;生成 ~15 s/步(GPU4 共享)。hpg ALFWorld R0/R1 运行 13 min(round_start);BFCL:hpg R0 r2 s7、hpg R1s r2 s4、rai R1s r3 评测 95%、rai R1 r2 s4。
+- 9/9 22:36Z hpg ALFWorld R1s(scalar gate)提交 41336055;rai smoke 结束(15 min 上限,预期)。监视器已换成三臂。
+- 9/9 22:37Z hpg ALFWorld 三臂全部 RUNNING:R0 41335248、R1 41335249、R1s 41336055(B200;48h 上限)。
+- 9/9 22:58Z rai R1s 三轮完成:r3 Overall 46.12(NL 80.04/Live 77.72/MT 50.25/Mem 23.87/Irrel 82.93/Rel 75.00/Web 11.00);曲线 45.71→46.07→46.12,base 46.74;总支出 1,603 tok/7 包;report 已生成。GPU1 空出。
+- 9/9 22:58Z rai R1s 反馈 rollout 格式错误逐轮 0/10/50(hpg R1 为 0/12/36)——跨臂一致的采样格式退化趋势,v1.1 必报健康指标。
