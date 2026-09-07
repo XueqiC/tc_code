@@ -243,7 +243,7 @@ def main() -> int:
                         stats["consequential"] += 1
                     handle.write(json.dumps({
                         "task_id": item["id"],
-                        "teacher": "oracle_gt",
+                        "teacher": "teacher_authored_gt",  # generated task: the teacher wrote the answer (relabelled 2026-09-04)
                         "turn_index": turn_index,
                         "prompt": prompt,
                         "response": target,

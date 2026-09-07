@@ -926,3 +926,292 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 12:5x data/bfcl_sft/calibration_ids.json:60 条从未进过任何训练池/锚点/桶的单轮 prompt(按 hash),保留给认证校准。ALFWorld 划分可用:train 8810、valid_seen 494、valid_unseen 341 目录(valid_seen 可作开发集,待用户同意)。当前 commit a8d4744(工作区大量未提交改动)。
 - 12:5x 待用户决定(补充 5):任务书要求每条记录带 git commit,而工作区有大量未提交改动(git status 约百余项);建议我把当前工作区提交为一个检查点(不 push),之后每个里程碑一提交——需用户点头(规则:仅在用户要求时提交)。
 - 13:0x src/bfas/adapters/alfworld.py:评测划分可由 BFAS_ALFWORLD_EVAL_SPLIT=valid_seen|valid_unseen 指定(worker 映射到 AlfredTWEnv 的 eval_in/out_of_distribution);默认仍 valid_unseen。回归锚点表 results/analysis/regression_anchors_2026-09-04.json。
+
+### 2026-09-04 13:10 — 用户决定 + BFCL teacher token 口径修正
+- 用户(16:36Z):三个 benchmark 均单种子(ALFWorld 不做三种子);BFCL teacher token 口径须与论文统一;第 5 条(提交)按我意见 → 已提交 checkpoint `5be0483`(173 文件)。
+- **BFCL 从来不是零 teacher token**:生成池 gen_pool*/gen_oos/gen_stateful* 由 deepseek-v4-pro 合成(`tools/bfcl_generate.py` TEACHER 默认 deepseek-v4-pro),只是 `ask()` 丢弃了 usage。已修:两个生成脚本每次调用追加 `data/teacher_ledger/bfcl_generation_usage.jsonl`。
+- 重建账本 `tools/bfcl_teacher_tokens.py` → `results/analysis/bfcl_teacher_tokens.json`:
+  - 演示(官方 demand 40 题,3 次尝试,精确,官方结果文件 output_token_count):**1,233,607** output token,34/40 验证通过(≈36k/条,含推理 token)。
+  - 生成池(估计,重新分词 question+ground_truth[+scenario],×1.3 prose 因子,不含被拒草稿/repair → 下界):全部池 ≈ **143k**;r3/r4 有状态事件所用行 ≈ 12k,单轮事件所用生成行 ≈ 4k + 官方 id 演示 11k。
+  - 口径:GT checker 只是验证器 V;y^T 对生成任务 = teacher 写的答案,对官方任务 = deepseek 演示。`events_single_*` 里有 3–4 个官方 id 既无生成记录也无演示(oracle_gt 直接当 teacher)→ 违反口径,BF-1 重跑前从池中剔除。
+  - 论文报法:每个 arm 报累计 teacher output token(生成池全额 + 若用演示则演示全额 1.23M),不再写"零 token"。
+- hpg 41098042(alfVS ×3):ALFWorld valid_seen 参考分 base/CE-C/pref-C56,排队中(Monitor bo8q9gk7q)。
+- 13:35 **calibration 泄漏**:`tools/bfcl_event_mine_single.py` 原来挖 demand+calibration,r3 联合池含 8 行 calibration 题事件(4 个 id)。已修:只挖 demand;官方题 y^T 只取验证过的 deepseek 演示(`--teacher-demos`,默认合并目录),无演示则跳过;生成题 teacher 字段改标 `teacher_authored_gt/_abstain`(mirror.py 的 auto 模式已同步识别)。
+- `tools/bfcl_pool_teacherize.py`:不重挖、直接改池。r3 联合池 324→302(`pool_events_pref_v3t.jsonl`)。已有 BFCL 官方数字(r1–r4、C1–C3、adaptive、3 seeds)全部标为 **oracle-GT + calibration 泄漏版**,只作机制证据;主结果以 teacher 版重跑为准(单种子)。
+- hpg `bfclT` 41098941 = crcd_r3_union_t_s0(base 学生,pref-only 1 ep,pool v3t,官方评测),白天提交,若被合规取消则晚上重投。
+- 13:45 **T3 完成**(镜像蒸馏 + 原对偶训练器,smoke 通过):`src/bfas/mirror.py`、`tools/crcd_mirror_train.py`、`tests/test_mirror.py`(12/12)。对偶 λ 满足原子→0、违反原子单调上升;Λ_i 与 teacher 目标质量相关 0.74;off-atom 罚项经 Adam 耦合会震荡→默认 decoupled(近端步)。待办:接 T1 的 ψ/T2 的 Z 做真实原子加载;规模化时盯 probe KL。
+- 13:55 teacher 版池齐:`pool_events_pref_{v3t,v4t,v3c3t,c3t}.jsonl`(报告 results/analysis/pool_*_teacherize_report.json);相关测试 52 通过。**T5 启动**(后台子代理):`tools/appworld_event_mine.py` + mock 测试 + 设计文档;仅当 rai 有空闲 GPU 才跑 2 题试点(GPU1=T1、GPU4=T4 不动)。T1/T2/T4 仍在跑。
+- 14:30 T1 中间结果:bfcl_r2 指纹 210×256 单位范数,与事件文件对齐并加戳;cos(ψ, 未白化差) 均值 0.75,ψ 间离对角 cos 0.13,同状态不同学生样本对 cos 0.69(状态驱动但仍区分样本);12/210 提示超 2048 截尾。ALFWorld(385 事件)与 bfcl_r3 进行中;已追加要求:也做 v3t 池指纹并在元数据里标 calibration 索引。
+- 14:50 **T2 完成(负结果,低功效)**:A3 特征上稀疏字典覆盖率不超 PCA,迁移预测原始 ρ_off +0.08 与类别/同侧标签打平,中心化 ρ≈0.28 但 PCA 同样;NDCG≈随机、MSE 比≈1、偏相关≈0.04。详见 exp_log。正在 Fisher ψ(data/fingerprints/bfcl_r2_v1.npz)上重跑(logs/t2_atoms_fisher_run.log → results/analysis/atoms_*_gate_v2_fisher.json)。结论待 Fisher 版 + 细粒度增益测量;若仍无增量,Block I 的"稀疏原子"改为"梯度子空间(PCA)+ 残差",论文按负结果写。
+- 15:15 Fisher ψ 上的原子门:稀疏字典 ρ_off +0.068 = 随机字典,低于原始余弦/类别/同侧;列中心化 0.17 < A3 的 0.29。**Block I 现状:两种特征都过不了门**,测试床(8 簇、8 样本通过率、离簇增益 43% 恰为 0)功效不足。下一步 BF-2b:受控单事件更新的经验迁移矩阵(每个事件单独训几步,量所有其他事件 log π(y^T)−log π(y^S) 的变化),给迁移预测一个稠密、细粒度的靶。
+- 15:20 **T6 启动**(GPU0,与闲置室友进程共享):`tools/bfcl_transfer_matrix.py` 受控单事件更新的经验迁移矩阵(210×210,base-centred pairwise 3 步/事件,量所有事件 y^T−y^S 边际变化)+ `bfcl_transfer_matrix_eval.py`(ψ/字典/PCA/k-means/类别/同侧/同 prompt 预测 vs 实测,bootstrap+置换,与 gate-v2 簇级增益对账)。T5 AppWorld 试点在 GPU2 跑(2 题)。
+- 15:25 **T4 完成**:AppWorld 划分审计 + smoke。train/dev 场景不相交(30×3 / 19×3);推荐主协议 = app-family 情节(spotify、phone+venmo;file_system 只报告),S_few K∈{2,4,8} 来自不同场景,dev 家族场景评测,test_normal 冻结后只跑一次。环境确定性 ✔,离线评测器 ✔。**Bug**:学生 vllm 未加 `--reasoning-parser qwen3`,thinking 泄入 content 撑爆 32k → 400;更正:9/01 的 awoff_base4b(dev 14%)是用 awoff_base_chain.sh 跑的,已带 enable_thinking=false,不受影响;只有 T4 自己的 smoke.sh 漏了该 flag(已补)。已通知 T5 检查试点配置。AW-1 base 半边可跑,teacher 半边等配额。
+- 15:55 **T5 完成**:AppWorld 事件挖掘器 + 15 测试 + 2 题试点(4 事件,ΔU −0.5/−0.25/0/0,249 s,0 teacher token;thinking 关闭已验证)。问题:代码级精确相等 → 学生每步都"分歧",探针全花在 t≤2。已追加:实现 api_effects(按实际 API 调用序列判等),然后在 GPU2 后台跑全部 40 条演示(K=3,4 探针)→ `data/appworld_events/aw1_base_k3.jsonl`,预计 3–5 h。
+- 16:15 ALFWorld ψ 字典拟合:稀疏 = PCA(K=32 覆盖 0.841;K=4 已 0.761),ALFWorld 指纹低维;迁移靶待 T6 模式推广到 ALF。
+- 16:25 **RUNNING(rai GPU2)**:AW-1 base 半边挖掘,miner pid 3307538,vllm pid 3299206(port 8989,thinking off),`--split demand --k 3 --max-probes 4 --max-cont-steps 20 --equality api_effects --resume` → `data/appworld_events/aw1_base_k3.jsonl`,log `logs/t5_aw1_mine.log`;首题 4 事件/560 s,预计 ≈6.3 h(~20:00 完)。完成后:停 vllm 3299206;事件进统一 schema(from_appworld_row 见 T5 文档);AW-1 后续 = 后果性事件上 CE vs pairwise(单种子,dev 家族评测)。T5 测试 18/18;api_effects 判等已实现(API 调用序列归一化)。
+- 16:50 hpg 41098042 完成:ALFWorld valid_seen(开发划分)参考分 base 7.14 / CE-C 77.86 / pairwise-C56 27.14(valid_unseen 8.96 / 74.63 / 28.36,排序一致)。已写入 regression_anchors JSON。新组件一律在 valid_seen 上开发。
+- 17:00 41098941 训练完(38 步,hub_merged 已存)但评测前被 SIGNAL 取消 → 只评测作业 **bfclTe 41104049** 已提交(scripts/bfcl_teacher_eval_hpg.slurm);若再取消则晚上重投。
+- 17:45 **bfclTe 41104049 出分**:BF-1 teacher 版 Overall 46.74(base 46.06;oracle-GT 版 47.82 / 三种子 47.37±0.23)。差异几乎全在 Memory(25.16 vs 30.11,≈base 25.59),NL/Live/MT/Irrel 与 oracle-GT 版差 ≤0.3。单种子,池大小(302 vs 324)与 y^T 来源效应不可分。→ 这是新的记账一致 BFCL 主锚点。
+- 17:55 提交 **bfclTg 41108408** = 对照 crcd_r3_union_tgt_s0:同一 302 行池,但 15 行 demand 题 y^T 用回 oracle GT(分离 y^T 来源 vs 池大小/步数效应),单种子。若被取消则用已存模型只评测重投。
+- 18:30 **T1 完成**(按落盘文件确认):统一事件 schema + Fisher ψ 指纹,bfcl_r2/r3/r3t、alfworld 四套 npz,calibration 索引已标(r2 有 7 个、r3 有 4 个 calibration 事件)。T6 迁移矩阵 106/117 行。
+- 19:05 **T6 完成(正结果)**:单事件迁移矩阵 120×210。ψ·ψ 对实测迁移的离对角 Spearman 0.674、符号 AUROC 0.774,显著高于类别标签(0.608 / 0.605,配对 CI 不含 0);稀疏字典 ≈ ψ·ψ(无稀疏增益);双中心化后与类别打平(交互结构 = 类别块);T 对称、近秩 1(simple_python 块)、以学生侧 push-down 为主。簇级均值与 gate-v2 臂增益 ρ=0.90。Block I 结论更新:**指纹一阶迁移预测成立,稀疏原子不成立** → 方法改为"梯度子空间 + 连续迁移预测",原子字典降为可选。待办:lr 5e-5 复制(40 行)、teacher 侧靶、剩余 90 行。
+- 19:25 41108408(对照)训练完+合并后评测中被 SIGNAL 取消 → 只评测 **bfclTge 41116685** 已提交。
+- 20:05 T6 追加:lr 5e-5 复制(40 行,无饱和)排序不变,ψ 的 AUROC 优势 +0.14 稳健;侧分解:学生侧 push-down = 类别块 + 学生长度效应(类别标签 ρ 更高),teacher 侧迁移(y^T 变得更可能)ψ 保持符号/排序优势(AUROC +0.10,CI 不含 0)。剩余 90 行未跑。
+- 20:25 **AW-1 后续已排队**(tools/aw1_runner.sh,rai,等挖掘 FINAL 后自动:停 miner vllm → 建池 all/conseq/pos → GPU4 依次跑 aw1_ce_conseq / aw1_pref_conseq / aw1_ce_all / aw1_pref_all,各自训练+合并+官方 dev57 评测 ~1 h;log logs/aw1_runner.log、logs/awoff_<tag>_dev.log)。当前 122 事件:ΔU>0 19、<0 18、=0 85。
+
+## ⟳ RESTART CHECKLIST (2026-09-04 20:30 更新;重启后重挂)
+1. hpg `bfclTge 41116685`(对照 crcd_r3_union_tgt_s0 只评测):`squeue -j 41116685`;完成后读 results/bfcl_std/crcd_r3_union_tgt_s0/data_overall.csv,与 46.74(teacher 版)/47.82(oracle-GT 324 行)对比后发频道。
+2. rai AW-1 挖掘:miner pid 3307538、vllm 3299206(GPU2);log logs/t5_aw1_mine.log(FINAL 行 = 完成)。
+3. rai `tools/aw1_runner.sh` v2 (等 miner 进程退出→修复出错 id→建池→4 臂):等 FINAL 后自动跑 4 臂(GPU4,port 8950);log logs/aw1_runner.log,每臂 `aggregate | TGC | SGC` 行;出分后写 exp_log + 频道对照表(base dev57 14.0%)。
+4. 每小时 :23 汇报 cron(CronCreate,频道 1536171352573349909)。
+5. 未完成/可选:T6 迁移矩阵剩余 90 行(GPU0,1.7 h);r4/C3 teacher 版池的 BFCL 重跑(晚上 hpg);ALF-3/BF-3 = 镜像蒸馏接真实 ψ 子空间(T3 训练器 + data/fingerprints/*.npz)。
+- 20:55 事故:runner v1 的 grep FINAL 命中了 T5 交接注释,提前触发并杀了 miner 的 vllm;4 题(b0a8eae_2/_3、b7a9ee9_2、ccb4494_2)因连接失败出错。已重启 vllm(pid 3690010)、杀掉误起的训练、runner v2 改为等 miner 进程退出后先补挖这 4 题再跑 4 臂。
+- 21:00 **对照出分** crcd_r3_union_tgt_s0(同 302 行、GT 目标)Overall 46.04 = base;teacher 演示目标版 46.74 → 同池上演示目标 +0.70(Memory +1.7、WS +2.0,其余 ≤0.3)。与 324 行版(47.82)的差来自去掉的 22 行/少 3 步(或 Memory 噪声),不是 y^T 来源。
+- 21:05 **T7 启动**(GPU0 smoke only):BF-3 镜像蒸馏臂准备——bfcl_r3t ψ 的 K=32 白化梯度子空间加载(tools/atoms_loadings.py → data/atoms/bfcl_r3t_K32.npz),两套配置 ρ=1 / ρ=J0+0.3(configs/mirror_bf3_*.json),各 2 步 smoke,出完整命令后由我今晚提交 hpg(训练+合并+官方评测)。hpg 当前空闲。
+- 21:45 **T7 完成 → BF-3 提交 hpg 41122834**(3 臂:rho1 / rhoJ0 / k1 全局镜像基线;训练+合并+官方评测,每臂 ~4 h)。训练器已打补丁(唯一事件键、cache 键含 prompt hash),测试 18 通过。smoke 目录已移 _trash/(17G)。rai 根分区 98%(剩 273G)。
+- 22:50 用户:"没做/推迟的能做的尽快排上" → 启动 4 条线:**T8**(GPU1)ALF-3 镜像蒸馏臂准备(alfworld ψ K=32 加载 + C 池 85 行 rho1/rhoJ0/k1 + A 池 385 行,smoke 后我提交 hpg,valid_seen 评测);**T9**(GPU0)迁移矩阵剩余 90 行 + ALFWorld 迁移矩阵(复现检验);**T10**(CPU)Block IV 认证:表示覆盖证书、原子残差同时置信界(BF-3 trace)、校准题选择性风险(Clopper–Pearson/McNemar/风险–覆盖曲线);**T11**(CPU)BF-4 采集离线回放:7 种策略 × 预算 25/50/75%,产出子集池,之后我提交 hpg 臂。AW-1 挖掘完成(40/40,147 事件,20 后果性),runner v2 正在补挖 4 题。
+- 23:20 **T11 完成 → BF-6 采集回放臂提交 hpg 41125724**(7 臂:b25 等 token 4 策略 + u50 等行数 3 策略)。回放发现:池里 302 行 ΔU 全 >0(硬过滤=随机)、288 行 turn 0;token 预算下成本主导(残差/token ≈ 最便宜优先);等行数下残差规则=覆盖规则(最贵)。
+- 23:40 **T10 完成**(Block IV):覆盖证书(交叉拟合 0.60)、原子残差同时置信界(BF-3 两臂无原子可认证满足)、风险证书:学生 vs base 官方单轮 3641 题 McNemar p=0.28,parallel 显著变好、live_irrelevance 显著变坏(64 vs 5)。发现 calibration_ids.json v1 全是生成的 simple_python(无官方题)→ 已建 calibration_ids_official_v2.json(官方、分层、从未训练/未做种子),v1 移 _trash。
+- 23:55 T10 补:官方校准集 v2(65 题)上学生 0.138 vs base 0.169(不显著),类别证书在 τ=0.2/0.3/0.4 均在名义内。
+- 00:05 **BF-3 rhoJ0 出分:35.50(负)**——镜像蒸馏在 λ≈4 的对偶压力下把竞争力 base 推向弃答(Irrel 87.5、Rel 62.5、NL 56),同 CE 覆写失败族。等 rho1/k1。
+- 00:15 提交 **BF-3b gentle** hpg 41127345(configs/mirror_bf3_gentle.json:κ=1 → λ≤1、η_dual 0.5、32 probe 行 γ_probe 1.0(KL 信任域)、γ_⊥ 1e-2,ρ=J0+0.3,38 步)。acq 7 臂开始跑(1 R + 6 P)。
+- 00:20 AW-1 挖掘最终 160 事件(ΔU>0 21 / <0 25 / =0 114;后果性 46);runner 开始 aw1_ce_conseq 训练(GPU4),随后 3 臂;每臂 ~1 h。
+- 00:35 **BF-3 三臂全出,全负、按压力单调**:rho1 24.03 / rhoJ0 35.50 / k1 44.74(base 46.06)。三臂 Rel 都塌到 62.5、Irrel 88 → 往弃答塌。诊断:(1) 镜像配置 lr=1e-4(= SFT lr),而 pairwise 锚用 AW_DDPO_LR=5e-6,差 20 倍;(2) Λ_i 归一化使 K=32 的每事件位移 ≈ λ/9.4,λ 顶到 5 时位移 ~0.5;K=1 只有 0.017 仍掉 1.3 分 → 优化本身(lr×38 步)就在伤。已提交 **bf3 lrmatch 41127934**(lr 5e-6 + κ=1 + 32 probe 信任域)与 gentle 41127345(lr 1e-4 + κ=1 + 信任域)作对照。
+- 00:50 用户:接下来所有代码用 **gpt-6-astra xhigh**(Codex)。已建 tools/codex.sh(CODEX_MODEL=gpt-6-astra CODEX_EFFORT=xhigh → ops/codex_task.sh);~/.codex/config.toml 默认已是 gpt-6-astra。规则:代码改动交 Codex,我做实验设计/分析/审查;在跑的 T8/T9 收尾不换。
+- 01:05 **AW-1 臂 1(CE,46 后果性事件)dev57 = 0/57**(base 8/57):学生退化成循环查 api 文档/login(49.7 步/题、38/57 题最后一步是 show_api_doc(login));原因 = 事件全在 t≤2,CE 学成永远回答查文档。首分歧陷阱在 AppWorld 复现。runner 继续跑 pairwise/全池 3 臂;下一步(交 Codex):挖掘器加探针沿演示均匀分布选项。
+- 01:15 AW-1 pairwise 臂在 rai GPU4 OOM(ddpo 路径 95 GB)。runner v3 排队:等 v2 跑完 CE 全池后,用 AW_GRAD_CKPT=1 重跑两个 pairwise 臂。
+- 01:35 Codex 首任务完成(--probe-select spread/late,40 测试)。**RUNNING(rai GPU2)**:AW-1 spread 重挖 miner(pid 见 logs/aw1_mine_spread.log,vllm port 8989)→ data/appworld_events/aw1_spread_k3.jsonl,预计 ~4.6 h。
+- 01:50 acq random_b25 = 47.77(87 行/11 步;Irrel 82.2 = base)—— 超过全池 46.74。等其余 6 臂。
+- 02:05 acq consequential_first_b25 = 45.46(184 行/23 步,Memory 20.0)< random_b25 47.77。
+- 02:20 acq residual_per_token_b25 = 46.97(200 行/25 步)。b25 目前:random 47.77 > residual 46.97 > conseq 45.46;等 cheapest。
+- 02:45 **T8 完成 → ALF-3 提交 hpg 41132767**(5 臂:C_rho1 / C_rhoJ0 / C_k1 / A_rho1 / C_strong(gt_teacher,κ=20);valid_seen 评测)。ALFWorld ψ 近一维(PC1 69%),base 几乎总偏好 y^S(p(T)≈0.13)。smoke 17G 已移 _trash。
+
+## ⟳ RESTART CHECKLIST (2026-09-05 02:50 更新;重启后重挂)
+1. hpg 作业(全部 squeue 可见):acq 41125724(7 臂 BF-6,已出 random 47.77 / conseq 45.46 / residual 46.97;剩 cheapest_b25 + u50×3)、bf3g 41127345(gentle)、bf3l 41127934(lrmatch)、alf3 41132767(5 臂,eval_metrics.json 在 results/bfas/alfworld/crcd_alf3_<arm>_s0/)。出分 → exp_log + 频道。
+2. rai GPU2:AW-1 spread 重挖(logs/aw1_mine_spread.log,vllm port 8989 pid 4018680,miner pid 4023432)→ data/appworld_events/aw1_spread_k3.jsonl;完成后停 vllm、建池(tools/aw1_pools.py)、跑 CE/pairwise 臂(tools/aw1_train_eval.sh,AW_GRAD_CKPT=1 for ddpo)。
+3. rai GPU4:runner v2(ce_all)→ runner v3(pref_conseq/pref_all,grad-ckpt);logs/aw1_runner.log;"aggregate" 行 = dev57 分数。
+4. rai GPU0:T9 ALFWorld 迁移矩阵(logs/t9_*.log → results/analysis/transfer_matrix_alfworld_v1*.npz/json)。
+5. 每小时 :23 汇报 cron。
+6. 代码改动一律 `bash tools/codex.sh "<task>"`(gpt-6-astra xhigh)。
+- 03:20 AW-1 CE 全池臂 dev57 = 3/57(5.3%),仍低于 base 8/57;pairwise 两臂(grad-ckpt)开始。
+- 04:05 acq b25 全出:random 47.77 > residual 46.97 ≈ cheapest 46.89 > conseq 45.46(行数/步数与分数反相关,剂量混淆);等 u50 等行数三臂。
+- 04:20 runner v4 (tools/aw1_runner_spread.sh) 排队:等 spread 挖掘 + v3 结束 → 补挖溢出题(新自适应上限)→ 池 aw1s_* → GPU4 四臂(aw1s_ce/pref × conseq/all)。
+- 04:40 acq u50:random 46.95、conseq 47.02(等行等步打平;conseq 只花 57% token);等 residual_u50。
+- 05:20 AW-1 pairwise 后果性臂 dev57 = 6/57(10.5%,SGC 5.3):没毁策略但也没超 base(8/57)。pref_all 在跑。
+- 06:10 T9:BFCL 矩阵 210/210 完成(全矩阵评估 CPU 中);ALFWorld 单事件迁移矩阵已启动(GPU0,pid 27287,120 行 × 385 列,111 s/行,~3.7 h;smoke T_ii +1.6/+2.9,离对角 99% 正、均值 +2.0 → 学生侧共模更强)。
+
+### 2026-09-05 03:05 — 新任务书:行为原子(docs/2026-09-05-crcd-behavior-atom-execution-prompt.md)
+- 用户:重新思考 capability atom 设计;可暂停未出结果的实验;并行 + 用上 hpg 两个 group。
+- 已暂停:ALF-3 pending 四臂(41132767_1..4 scancel;_0 C_rho1 在跑让它完成);runner v4(AppWorld spread 四臂)停掉,spread 挖掘继续到完成(数据保留,§8.2 要用);保留 gentle/lrmatch(§8.1)、acq residual_u50、AppWorld pref_all、T9 ALFWorld 矩阵。
+- 本轮顺序:P0 审计 → P1 拆解 → P2 BFCL micro-update 试验(24 source / 32 probe,先 4 pilot);P3–P5 只做设计/测试/dry-run。新付费 teacher 调用 = 0。
+- 03:15 acq u50 全出:random 46.95 / conseq 47.02 / residual 46.74(等行等步打平;residual 花 1.8× token)。BF-6 判决 NO-GO(与新任务书 §9.2 一致:旧池不能检验选择规则)。
+- 03:30 **行为原子阶段并行线**:T12(子代理)P0.1 运行/数据审计 + P0.3 成本账本 + P2.1 划分 manifest(24 source/4 pilot/2 no-op、32 P_disc、P_confirm、分组折)+ §8 读数 → results/behavior_atom_v1/p0/;Codex C1:src/bfas/behavior/{deltas,whiten,microupdate}.py + tests/test_behavior_deltas.py(参数差保存/重放、H 度量正交基、独立 micro-update);Codex C2:src/bfas/behavior/{response,lowrank}.py + tools/behavior_atom_experiment.py(audit/decompose/pilot/collect/fit/intervene/distill/report,全带 dry-run)+ tests。用户:关口不必等他,按结果自行推进 P2 pilot。
+- 04:10 T9:BFCL 迁移矩阵 210×210 全量评估,结论不变(ψ vs 类别 Δρ +0.054、ΔAUROC +0.156,teacher 侧 ΔAUROC +0.080,CI 均不含 0);ALFWorld 矩阵 12/120 行。
+- 04:20 **gentle 出分 46.94**(NL 83.8 最高、Mem 30.5,但 Irrel 62.0 / Rel 87.5 → 边界反向漂到过度调用);J 几乎没动。等 lrmatch 再归因(§8.1)。
+- 04:40 Codex C1 完成:参数差保存/重放、H 度量正交基(C^T H C=I)、独立 micro-update runner,测试 29 通过。
+- 04:55 **lrmatch 出分 45.85**(≈base,不学习)。BF-3 判决:镜像蒸馏在竞争力 BFCL base 上无增益(gentle 46.94 靠信任域止塌但边界反漂;lrmatch 稳定但不学);停止压力扫描(任务书 §1)。
+- 05:25 ALF-3 C_rho1 valid_seen 14.29(base 7.1 / CE 77.9 / pairwise 27.1):镜像最大压力在不会做的 base 上只有小增益。其余臂已取消。
+- 05:35 用户决定:**继续原子线但重设计**,概念须跨 benchmark。理论重想见 docs/2026-09-05-atoms-rethink-zh.md(原子 = teacher 侧响应算子的主方向 / CCA;分层 rank-1 边界 + 家族块 + 残差;student 侧擦除单独坐标;对比源 + frontier 探针;三公理:可预测/可干预/可组合;只用于预算分配与信任域整形)。已让 T12 按此改 P2 manifest(对比源、因子分层 frontier 探针、T/S 分开记录)。跨 benchmark 的检验 = 同一程序在 BFCL→ALFWorld 复现同样层级结构。
+
+## ⟳ RESTART CHECKLIST (2026-09-05 05:45 更新;重启后重挂)
+1. rai 后台:Codex C2(src/bfas/behavior/{response,lowrank}.py + tools/behavior_atom_experiment.py)、C3(tools/behavior_atom/fisher_train_layout.py)——看 logs/codex_*_launch.log 与最新 logs/codex_2026*.log,跑对应 tests;T12 子代理(P0 审计 → results/behavior_atom_v1/p0/,manifests → data/behavior_atom_v1/)。
+2. rai GPU2:AppWorld spread 挖掘(miner 4023432 / vllm 4018680)完成后停 vllm;不再自动跑四臂(改最小 early-vs-spread 对照,见 T12 §8.2 提案)。
+3. rai GPU4:AW-1 pref_all(runner v3 pid 4008040;logs/aw1_runner.log "aggregate")。
+4. rai GPU0:T9 ALFWorld 迁移矩阵(pid 27287,logs/t9_alf_full.stdout,~00:25 完)→ 评估 + doc 段。
+5. hpg:本项目无在跑作业(alf3 其余已取消)。下一批 = P2 pilot(4 source micro-update + 32 probe 评估),dept + yd24f 各半。
+6. 每小时 :23 汇报 cron;代码一律 tools/codex.sh。
+- 06:00 Codex C2(response/lowrank/CLI,25 测试)、C3(训练布局 Fisher 工具,22 测试)完成。理论推导文档已发用户。下一步:C4 分层降秩(rank-1 + 家族块 + 残差,teacher 侧靶);T12 manifest 出来后 C5 pilot/collect GPU 驱动;GPU 空出后跑训练布局 Fisher。
+- 06:40 用户给出另一方案(可行更新集极点 / 互补示范,docs/2026-09-05-atoms-alt-proposal-feasible-updates.md)。我的比较意见已发:定义与蒸馏机制取附件(可实现性 + 保留约束 + 配方权重 + 超可加采购),测量与不变性取我方(H 度量、teacher 侧、分层低秩把 B=GD 低秩化后再取极点)。建议 P2 第一道关口改为**互补组合检验**(纠正单训 / 锚点单训 / 合训 / 纠正+随机锚点,匹配剂量)。等用户点头。
+- 06:55 Codex C5 启动:tools/behavior_atom/gpu_driver.py(pilot/collect 的 GPU 驱动:同一初态独立 micro-update、存 δ、探针确定性解码 + checker 0/1、T/S 似然、P0.2 底噪/零 δ/重放检查、分片 + 合并、dry-run)。C4 分层模型在写。T12 已收到 manifest schema 与互补对要求。
+- 07:15 合并方案 v1 已发(docs/2026-09-05-capability-atoms-merged-plan-zh.md):定义 = 低秩化可行更新集的极点三元组 (a,u,b);关口 G0 审计 → G1 互补组合 → G2 响应竞赛 → G3 干预 → G4 蒸馏对照 → G5 采购。Codex C6 启动:配方 NNLS + 信任域 QP + 低秩空间 LP 原子发现(src/bfas/behavior/recipe.py)。
+- 07:40 AW-1 pairwise 全池 dev57 = 6/57(10.5%)。首分歧池四臂全出:CE 0/57、3/57;pairwise 6/57、6/57;base 8/57 → 无一超 base。spread 挖掘完成 137 事件(45 后果性、18 一致行、3 溢出题待补)。
+- 08:00 Codex C4 完成(分层模型,34 测试)。Fisher(训练布局,v3t 学生续写,GPU4)在跑;init_state_seed0.pt 同步保存。
+- 08:25 方案 A 作者第二轮意见(docs/2026-09-05-atoms-alt-author-reply-2.md)全部采纳 → 合并方案 v1.1(附在同一文档末尾):G1 改为受保留约束的可达收益比较并并入 P2 先单后合;主算法 = 配方蒸馏;B̂ = R C^T H D 一致性;估计误差保守约束;不变性/帕累托/超可加降调。
+- 08:45 Codex C6 完成(recipe.py,72 测试)。C7 启动:按 v1.1 加 B̂ = R C^T H D 一致性预测器 + 估计误差保守约束 (B̂_R − E_R) w ≥ 0 + 交叉拟合残差分位数估计 E。
+- 08:55 **用户批准执行 v1.1**。待 C5(GPU 驱动)+ Fisher/初态 → P2 pilot(4+2)→ 24 源采集(hpg 两 group 分片)→ 拟合 B̂/补偿方向 → 联合配方 pilot(≤8)。AW-2 匹配对照(T12 提案:31 同源任务、每臂 124 事件、CE/pairwise 各 early/spread)排 GPU4 空出后。
+- 09:10 T12 合法锚点 432 id(flat 文件已建);C8(挖掘器 --official-ids)在写;准备 P2 pilot 配置与 slurm。
+- 09:40 P2 pilot dry-run 通过(configs/behavior_atom/pilot_r1.json;manifest 修:noop 单元 unit_type=noop + 参考行,probes_disc.json 32 探针)。计划:repair 结束后在 rai GPU2 跑 pilot(4 源 + 2 no-op);随后合法锚点挖掘;24 源 collect 分片到 hpg 两 group。
+- 10:05 Fisher 运行 17 min 零 GPU 利用率、无进度(CPU 2 核忙)→ 判定卡住,已杀;交 Codex 修(强制 GPU、逐行计时与进度、benchmark 模式),并让 GPU 驱动在 pilot/collect 阶段容忍 Fisher 缺失(只在 fit 阶段需要)。
+- 10:45 Codex C9 完成(tools/aw2_matched_pools.py):AW-2 匹配池 early/spread 各 155 行 40 任务 20 步 + early 半剂量。**RUNNING(rai GPU2)** tools/aw2_runner.sh 五臂(CE early/spread、pairwise early/spread、CE early 半剂量),官方 dev57,log logs/aw2_runner.log。GPU4:合法锚点挖掘(352 题 ×4)→ 之后 P2 pilot。
+- 11:05 AW-2 首臂在 GPU2(48 GB 卡)OOM → 所有臂加 AW_GRAD_CKPT=1 重启(pid 380887)。Fisher 改到 hpg 跑(scripts/behavior_fisher_hpg.slurm,等 C10 修好后 sync 提交)。
+- 11:20 **hpg 提交**:bafish 41141636(训练布局 Fisher,dept)、bapilot 41141637(P2 pilot 4+2 源 × 32 探针,yd24f);Monitor 已挂。rai:GPU2 AW-2 五臂、GPU4 合法锚点挖掘、GPU0 T9。
+
+## ⟳ RESTART CHECKLIST (2026-09-05 11:25 更新;重启后重挂)
+1. hpg:bafish 41141636(Fisher → data/behavior_atom_v1/fisher_v3t_student_full.npz,完成后 scp 回 rai)、bapilot 41141637(P2 pilot → results/behavior_atom_v1/pilot_r1/pilot_pass.json;pass=true 则 `sbatch scripts/behavior_collect_fsu-compsci-dept_hpg.slurm`(SHARD=0/2)与 `scripts/behavior_collect_yd24f_hpg.slurm`(SHARD=1/2),先 sync + 确认 configs/behavior_atom/collect_r1_hpg.json 的 pilot_pass 路径)。
+2. rai GPU2:tools/aw2_runner.sh(pid 380887,五臂,logs/aw2_runner.log,"aggregate" 行 = dev57)。
+3. rai GPU4:合法锚点挖掘(logs/anchor_mine_legal2.log,ANCHOR_EXIT 行 = 完成;vllm 366440 随后自杀)→ data/behavior_atom_v1/anchors_legal_v1.jsonl → 让 T12 补 complementarity_pairs 的 anchor_match。
+4. rai GPU0:T9 ALFWorld 迁移矩阵(pid 27287)→ results/analysis/transfer_matrix_alfworld_v1*.
+5. 每小时 :23 汇报 cron;代码一律 tools/codex.sh(gpt-6-astra);单种子;不做 mirror 压力扫描/旧池采集变体。
+- 11:35 bapilot 41141637 秒败:hpg 副本无 .git,驱动的 git rev-parse 崩 → COMMIT 文件已 scp,Codex C11 加 git-free 回退;修好后重投 hpg;备选:rai GPU4(有 .git)锚点挖完就跑 pilot。bafish 41141636 RUNNING。
+- 11:55 Fisher 完成(hpg 207 s,21.2M 参数;已拷回 rai);C11 git 回退完成;重投 pilot 到 hpg yd24f。
+- 12:10 合法锚点挖掘完成:268 行(simple_python 40、multiple 38、live_simple 37、parallel_multiple 36、live_multiple 33、parallel 33、simple_java 20、live_parallel_multiple 13、simple_javascript 12、live_parallel 6),0 teacher token;T12 正在用它补 complementarity_pairs 的 anchor_match/anchor_random 并加 role=anchor 源单元。pilot 41142051 排队中。
+- 12:40 T12 加了 24 个 role=anchor 源(独立池 pool_anchors_legal.jsonl)→ 驱动单池校验失败;建 sources_pilot.json(不含 anchor)供 pilot/collect;anthropic 包两边装好;rai GPU4 pilot 重启。
+- 12:55 pilot 在 rai/hpg 都被 bfcl_eval 的包级 import 链卡住(anthropic → cohere → google 等 vendor SDK);hpg 41142051 已取消;Codex C12:checker 通过 envs/bfcl/.venv 子进程桥接(直接 import 为快路径)。
+- 13:25 C12 checker 桥接完成(58 测试)。pilot 重启:rai GPU4(pid 465626,logs/behavior_pilot_r1_rai.log)+ hpg yd24f(41142686)。
+- 13:35 pilot 又败于 'initial checkpoint/settings mismatch'(Fisher 工具存的 init_state 的 model_settings 与驱动构造的模型设置不一致,疑为梯度检查点/use_cache 等运行态字段);hpg 41142686 取消;Codex C13:放宽为 layout+frozen+trainables 哈希校验、settings 差异记警告、缺失时自建 init state、并加 per-unit pool_path 多池支持。
+- 14:10 C13 完成(109 测试)。pilot 第 4 次启动:rai GPU4 pid 490454;hpg yd24f 41143536。
+- 15:05 hpg 隧道认证失败(Permission denied keyboard-interactive),已通知用户重起 autossh;停掉 hpg pilot 轮询;备选:pilot 通过后 collect 在 rai GPU4 跑。
+- 15:45 rai pilot 在 micro-update 阶段卡住 40+ min(base/重复/零 δ 评测已完成;GPU 0%、CPU 多线程忙、无进度输出;py-spy 无 ptrace 权限)→ 杀掉;hpg 41143536 取消。Codex C14:逐阶段计时日志 + 设备断言 + faulthandler(SIGUSR1)+ --profile。
+- 16:05 AW-2 臂 1 CE early = 3/57(5.3%)。
+- 00:10 smoke 通过(1 步 7 s、δ 捕获 0.15 s、探针 2.7 s;线程上限 8 后无卡顿)。pilot 第 5 次启动:rai GPU4 pid 677801(--profile);hpg 41146438。
+- 00:30 T9 ALFWorld 矩阵预读(117 行):teacher 侧公共模式主导(离对角均值 +1.69 nat/token,98.6% 正;var(ΔT)=0.519/0.524),几乎无类别块——单事件更新主要教用 ACTION 命令回答而不是 256 token 的 think(base 对 teacher 命令 −2.78 nat/token)。等最终评估表。
+- 00:45 **pilot 通过**(底噪精确为 0,源 KL 均值 ~0.005,5 探针翻转)。collect 24 源三分片:rai GPU4 0/3 + hpg dept 1/3 + yd24f 2/3(41147483 41147484 )。hpg pilot 41146438 取消。
+- 01:05 C15 启动:codes 子命令(H 度量基、按折编码 x_i=C^T H δ_i、残差、transductive 变体)。collect 三分片在跑。
+- 01:40 rai GPU4 被室友 75 GB 进程挤占,collect 生成卡死 → 杀掉;冻结哈希含绝对路径 → 改用相对路径配置(pilot_r2/collect_r2,两机哈希一致 2c3cdedf);hpg yd24f 重跑 pilot_r2(41147725),通过后三分片 collect 全部在 hpg。
+- 02:10 C15 codes 子命令交付(9 测试);在 pilot_r1 上做 codes smoke;pilot_r2 排队 hpg(通过后自动投 3 分片 collect_r2)。
+- 02:20 codes smoke(pilot_r1,6 δ):训练折基维 2–3,留出源在训练基上的残差分数 ≈ 0.9996(δ 几乎互相正交,H 范数 ~0.0094);x_j 只是小的投影系数——与迁移矩阵时代 ψ 间余弦 0.13 一致,预测靠的是小重叠的结构而非覆盖;24 源时基 ≤18 维。fit 需要 responses+codes 的描述文件。
+- 02:35 fit 链路在 pilot 数据上跑通(stage_report 生成)。collect_r2 的 fit 配置与判决阈值已冻结(configs/behavior_atom/fit_collect_r2.json:B2 相对 B0/B1 留出误差改善 ≥5% 且分组 CI 不含 0、置换复现 ≤10%、≥6 源有变化、≥4 父组)。
+
+## ⟳ RESTART CHECKLIST (2026-09-05 02:40 更新;重启后重挂)
+1. hpg:bapilot2 41147725(pilot_r2,相对路径配置;通过后 Monitor 自动投 collect_r2 三分片:dept 0/3、dept 1/3、yd24f 2/3,job-name bacol2_*)。分片全完成后:`bash tools/behavior_postcollect.sh results/behavior_atom_v1/collect_r2_shard0 ...`(先 `ls results/behavior_atom_v1/` 在 hpg 上确认分片目录名)→ codes → fit flat/hierarchical → report → 频道。
+2. rai GPU2:tools/aw2_runner.sh(pid 380887;臂 2 CE spread 评测中,随后 pref early/spread、CE early half;logs/aw2_runner.log "aggregate")。
+3. rai GPU0:T9 ALFWorld 迁移矩阵评估(results/analysis/transfer_matrix_alfworld_v1*);GPU4 被室友占用,不再用于 P2。
+4. 每小时 :23 汇报 cron;代码一律 tools/codex.sh;单种子。
+- 02:55 AW-2 臂 2 CE spread = 3/57 = CE early;阶段覆盖没修好 CE 循环。
+- 03:05 yd24f 队列 QOSGrpMemLimit(21 pending)→ pilot_r2 改投 dept(41149432),yd24f 41147725 取消;collect 三分片也全投 dept。
+- 03:50 pilot_r2 在 hpg 跑完 6 源后写 pass 文件时撞到我早先 scp 过去的 pilot_r1/pilot_pass.json(不可变产物校验)→ 移走后带 --resume 重投(41150521)。
+- 03:55 真因:r2 slurm 第 22 行仍指向 pilot_r1_hpg.json(sed 模式没匹配到本地副本)→ 已改为 pilot_r2.json,重投 41150531。
+- 04:35 pilot_r2 通过(hpg,hash af047a5b);collect_r2 三分片排队 dept(41151311–13);完成后 Monitor 自动跑 tools/behavior_postcollect.sh。
+- 05:05 AW-2 臂 3 pairwise early = 7/57(12.3%)≈ base 8/57。
+- 05:30 collect_r2 三分片完成(各 ~21 min);merge 成功;codes 需要分片目录里的 δ → rsync 三分片到 rai 后重跑 codes → fit(logs/behavior_postcollect2.log)。
+- 05:45 collect_r2 矩阵描述:65/768 格变化,+23/−42;增益集中在 simple_python frontier 调用探针,损伤集中在弃答探针(边界模式);codes/fit 运行中。
+- 06:05 LP on measured matrix:零损伤下只有 src_23 一个正向源;线性配方在 0/1 空间无法表达补偿(保留探针无 headroom)→ 互补检验必须用联合 micro-update(pack 单元)。准备 G1-joint pilot(≤8 次)。
+- 06:40 **G1-joint pilot 提交 hpg dept(41152530)**:4 个 collect_r2 里有收益也有损伤的纠正源(src_17/14 live_multiple、src_04 lpm、src_09 javascript)× {同家族 call 锚点合训, 异家族锚点合训} = 8 个 pack 单元,冻结协议不变;弃答锚点挖掘中(GPU4,util 0.18)。
+- 07:10 弃答锚点 78 行挖好;**G1-joint v2 提交 hpg dept(41153491)**:同 4 个纠正源 × base 正确的弃答锚点合训(补偿候选)。
+- 07:40 joint_call_r1 出:call 锚点合训主要稀释纠正(增益减少)、不消除弃答损伤(仅 src_04+match 消除);随机锚点加损伤。提交半剂量单源对照(lr 2.5e-6,pilot 阶段,hpg 41154071)。
+- 07:55 codes 完成(24 源:训练折基维见 summary;留出残差分数仍 ≈1);fit 因 decision 键名错失败 → 按 DecisionConfig 真实字段冻结阈值后重跑(logs/behavior_fits_r2.log)。
+- 08:40 **collect_r2 拟合(行为靶)判决 NO-GO**:B2 留出 MSE .064 = 置换 B3 .064–.066,不敌范数缩放公共方向 B0-norm .041;损伤 AUROC ~.97 对所有非零模型(损伤 = 公共模式);净收益 Spearman ≈ 0。可预测结构 = 公共损伤模式 × 更新幅度。分层拟合运行中。
+- 08:50 分层拟合同样 NO-GO:全局层解释留出方差 22%,家族层 +1.3%,残差 0。G2 结论:24 源 × 32 探针、3 步 lr 5e-6 剂量下,可预测的只有公共损伤模式 × 幅度。等 joint-abstain 与半剂量对照后写 P2 关口报告。
+
+## ⟳ RESTART CHECKLIST (2026-09-05 09:05 更新;重启后重挂)
+1. hpg:bajointA 41153491(弃答锚点联合,4 pack)、bahalf 41154071(半剂量单源,pilot 阶段 lr 2.5e-6)。完成后:rsync results/behavior_atom_v1/{joint_abstain_r1,halfdose_r1}(不含 delta)到 rai,按 exp_log 里 joint_call_r1 的 (gain,damage) 口径比较;写入 docs/2026-09-05-p2-stage-report-zh.md §6/§10 并发频道 + stage_report.json。
+2. rai GPU2:tools/aw2_runner.sh(pref spread 评测中,随后 CE early 半剂量);logs/aw2_runner.log。
+3. T9(子代理)ALFWorld 迁移矩阵评估(已催);results/analysis/transfer_matrix_alfworld_v1*.
+4. 每小时 :23 汇报;代码一律 tools/codex.sh;单种子;P3–P5 不启动(P2 判决 NO-GO/SIMPLIFY,待用户看关口报告)。
+- 09:15 T9 ALFWorld 矩阵:秩 1 占 0.997,列效应 = base 对 teacher 命令的概率(ρ .92);跨 benchmark 结论收紧为单一公共模式。评估表待出。
+- 09:30 joint_abstain_r1 出:无系统性补偿(1/4 去损伤但增益减半,2/4 更差,1/4 失增益)。等半剂量对照。
+
+### 2026-09-05 07:30 — P2 关口定稿(NO-GO / SIMPLIFY)
+- 半剂量单源对照 41154071 完成:半剂量丢收益不减损伤(17 (3,1)→(0,2);14 (2,2)→(0,1);04 (1,1)→(1,2);09 (1,1)→(1,3));联合批 ≈ 稀释;互补机制 INCONCLUSIVE→按 NO-GO。
+- 定稿:docs/2026-09-05-p2-stage-report-zh.md v1.0;results/behavior_atom_v1/stage_report_p2.json。已发 Discord。
+- 不进入 P3–P5。待用户决定:连续边际靶重拟合(需带 y^T/y^S 的探针,≈15 min B200)/ ALFWorld 复现。
+- 仍在跑:T9 ALFWorld 迁移矩阵三项评估(rai,pids 899827-29,监视器已挂);AW-2 spread/CE-half 臂(rai GPU2,监视器 bvj00k7z4)。hpg 本项目无排队作业。
+- 07:50 T9 ALFWorld 评估出齐(附 A 已写入 P2 报告):ψ 点积 ρ .41 / 去行列 .60 / AUROC .97;稀疏字典 = ψ;标签 ≈ 0;学生侧 0。与 BFCL 平行 → 跨 benchmark 结论稳定。剩余在跑:AW-2 spread/CE-half(GPU2)。
+- 08:00 AW-2 臂 4 pairwise spread = 12/57(21.1%,SGC 10.5)> base 8/57(14.0);pairwise early 7/57。首个高于 base 的 AppWorld 臂,单种子,+4 任务 ≈ 1 sd。臂 5 CE early 半剂量在跑(GPU2)。
+- 08:45 AW-2 臂 5 CE early 半剂量 = 0/57。AW-2 五臂全部完成,runner 退出;GPU2 释放。AW-2 结论:CE 任何剂量/覆盖都塌(0–3/57),pairwise early ≈ base,pairwise spread 12/57 > base 8/57(单种子)。
+- 12:05 用户要总结:写 docs/2026-09-05-progress-since-atoms-discussion-zh.md(05:35 讨论后至今:方案 v1.1、基础设施、P2 全链路与判决、T9 ALFWorld、AW-2 五臂、成本、建议),已发 Discord。
+- 12:20 用户问下一步判断:写 docs/2026-09-05-next-step-judgment-zh.md(理论六条对证据:5 成立且退化情形即现实、4 成立、6 超可加死;§8 降级规则触发 → 转 G4 边界模式约束蒸馏,三 benchmark 各三臂 D0/D1/D2,单种子)。等用户批准。
+- 13:30 采纳外部建议:合并计划 docs/2026-09-05-merged-next-plan-zh.md;P2 报告 v1.1 措辞收窄 + 联合 δ 参数空间检查(联合 = 同幅度转向,半剂量 = 同向半幅);AppWorld 配对分析(+6/−2);Codex C16(连续余量诊断)、C17(AppWorld B/C 臂)后台运行中(监视器 b77kmn4fy)。D2 边界模式臂保留为候选,不与本批同开。
+- 13:45 Codex C17 交付并审查通过(B/C 运行器、C 池扩展、挖掘脚本 dry-run 154 探针/40 任务)。等 rai 空卡:先跑 B 臂(AW2_ARMS=B bash tools/aw2_runner_bc.sh <gpu> <port>),另一张卡挖 C 事件(CUDA_VISIBLE_DEVICES=<g> bash tools/aw2_mine_more.sh <port>)。C16 仍在运行。
+- 14:05 Codex C16 交付并审查(margin 子命令,配对 11/32 双侧齐);**hpg 提交 bamargin 41167935**(dept,41 状态 × 32 探针双侧似然 + 三问分析,~15–30 min;监视器已挂)。产物将在 hpg results/behavior_atom_v1/margins_v1/(report.md、margin_matrix.json)。rai 仍 0 空卡,B 臂与 C 挖掘等卡(监视器 b3fmycn62)。
+- 14:20 用户:rai 满了就都上 hpg 两个 group。hpg 缺官方 AppWorld 评测环境(只有旧 appworld 0.1.3 venv)→ Codex C18 写 hpg 安装/同步/训练评测/挖掘脚本(安装只在 envs/ 内、--root 指向 envs/appworld-repo)。bamargin 41167935 FAILED:margin.py 读 init state 的 trainables_hash 键(驱动里是可选)→ Codex C16b 修;修好重投。
+- 14:45 C16b 修好(98 测试过),**bamargin2 41168155 重投 dept**(监视器已挂)。AppWorld 官方 repo+数据、demos、事件池已同步到 hpg;C18(hpg 安装/训练评测脚本)在写。
+- 15:05 rai GPU3 空出 → **AW-2 B 臂启动**(aw2_pref_spread_e2_s0,155 行 2 epoch,pid 1248725,logs/aw2_runner_bc.log,监视器已挂)。C 挖掘待 C18 后投 hpg(或 rai 再空一张卡)。
+- 15:30 bamargin2 完成:三问判决 = 结束编码路线(附 B 已写入 P2 报告)。连续尺度上单源响应 rank-1 仅 0.60 → D2 边界模式臂前提被削弱,不排入。剩余:AW-2 B 臂(rai GPU3)、C18(hpg AppWorld 脚本)。
+- 15:50 hpg 官方 AppWorld 环境装好(APPWORLD_OFFICIAL_OK,数据 0.2.0 已同步无需下载)。**aw2mine 41168604 提交 dept**(C 事件挖掘 154 探针 / 40 任务 → pool_aw2_spread_x2;监视器已挂,persistent)。完成后提交 scripts/aw2_bc_hpg.slurm(AW2_ARMS=C)。yd24f 队列 20 PD,dept 6 PD。
+- 16:05 aw2mine 41168604 FAILED(2m51s):vllm FlashInfer JIT 找不到 ninja(SLURM 作业里 PATH 不含 envs/vllm/.venv/bin;能跑的 slurm 都先 source .venv/bin/activate)→ Codex C18b 修 tools/aw_hpg_common.sh 的 PATH;修好重投。
+- 16:45 C18b 交付(PATH 前置 vllm venv bin,测试复现并通过);同步后重投 C 挖掘(见下一行 job id)。
+- 16:47 **aw2mine2 41170090 提交 dept**(监视器 persistent)。
+- 17:40 AW-2 B 臂 = 9/57(15.8%,SGC 10.5):同池 2 epoch 不优于 A(12/57);配对 B vs A +3/−6、vs base +4/−3;通过率 .603。GPU3 释放。等 C(hpg 挖掘中 41170090)。
+- 18:00 C 挖掘完成(151 新 + 155 = 306 行,3 溢出,4 任务各缺 1)。**aw2C 41172532 提交 hpg dept**(306 行 × 1 epoch ≈ 39 步 + 官方 dev57,首次在 hpg 跑官方评测;监视器 persistent)。池与报告已拷回 rai。
+- 19:10 C 臂(hpg 训练+评测)= 6/57(10.5%,SGC 0),vs base +4/−6、vs A +2/−8,通过率 .549 —— 但机器不同(base/A/B 都在 rai)。同机复现:C 在 rai 空卡重训 + 评测(tools/aw2_runner_bc.sh AW2_ARMS=C);hpg 训出的 hub_merged 正 rsync 回 rai 备用。
+- 19:25 rai C 首次启动失败:我把 hpg 模型 rsync 到了 rai 同名输出目录,runner 以为已训完去 serve 半拷贝的模型 → 已把 hpg 模型改到 results/appworld_students/aw2_pref_spread_x2_s0_hpg/,rai C 重新启动(从头训练)。
+- 19:40 hpg 训出的 C 模型已拷回 results/appworld_students/aw2_pref_spread_x2_s0_hpg/hub_merged。待 rai C 训练评测完(GPU3)后,用 tools/aw1_train_eval.sh aw2_pref_spread_x2_s0_hpg <pool> ddpo 3 8951 在 rai 评测它(跳过训练),分离评测机器效应。
+- 20:50 rai C = 8/57(14.0%,SGC 5.3)= base;vs A +4/−8;C_hpg 6/57 → 机器效应 ≈ 2 题。按解释表:B、C 均不优于 A → 不继续扩量;A 的 12/57 可能是高抽样。正在 rai GPU3 评测 hpg 训出的 C 模型(分离评测机器效应),完成后发三臂终表。
+- 21:20 hpg 训 C 模型在 rai 评测 = 7/57(hpg 评 6;rai 训 rai 评 8)→ 训练机器与评测机器效应各 ≈1–2 题。AW-2 B/C 批结束;rai GPU3 释放;本项目两台机器均无在跑实验。
+- 21:15(9/6 01:10Z)用户要全天汇总 → docs/2026-09-05-daily-summary-full-zh.md,已发。
+- 9/6 01:40Z 用户转来第二轮建议(条件对照证据原型)+ '结合你的想法'。查实:教师 API 全耗尽(ollama 429、azure 403);历史教师变体 gen_pool_v3 303 + gen_oos 140 可构 0-token 对(类型 1/3),类型 2 需教师。计划 docs/2026-09-06-condition-contrast-plan-zh.md;Codex C19(对构造 + 混淆探测)、C20(pair_unit 联合目标 + 三臂)后台运行。
+- 9/6 03:00Z C19 交付:213 候选对(147 绑定 + 66 调用/弃答,4 个种子函数;simple_python_31 因 P2 探针/校准保护被整体排除),但 31/39 历史教师文本因格式(JS 数值类型、空可选参数)过不了 checker → Codex C19b 按 schema 类型渲染教师 GT + 复核泄漏规则;C20 交付 pair_unit(worst-side/sum、打乱控制、三臂 runner),2 个测试因 rg 缺失失败 → C20b。
+- 9/6 05:45Z C19b/C20b 交付:教师文本 37/39 通过,186 个教师有效对;混淆探测提交 hpg(见下一行)。
+- 9/6 05:50Z **ccprobe 41215087 提交 hpg dept**(base 学生贪心 + k=4 采样 × 91 状态,checker 判定,κ 似然,select 划分;监视器 persistent)。
+- 9/6 06:05Z ccprobe 41215087 秒败:slurm 下脚本用 BASH_SOURCE 定位项目根(指向 spool 目录)→ Codex C19c 改用 SLURM_SUBMIT_DIR + ninja PATH;修好重投。
+- 9/6 06:40Z C19c 交付(SLURM_SUBMIT_DIR + ninja PATH);**ccprobe2 41216994 重投 hpg dept**(监视器 persistent)。
+- 9/6 07:10Z ccprobe2 完成:严格混淆对只有 9(6 绑定 + 3 弃答,训练划分 2)。绑定错误全是格式/取值/调用数错误,κ 全负 → 这三个函数上不存在'条件混淆';弃答型 49/60 κ>0(过度调用)。发现 gen id 大量复用(303 行 27 个 id),id 规则误删 simple_python_31 全部 270 变体 → Codex C19d 改为 prompt-hash 保护;修好后重跑探测。
+- 9/6 07:50Z C19d 交付(prompt-hash 保护,找回 simple_python_31 210 行;候选 20,991 对 / 263 状态)。**ccprobe3 41219031 提交 hpg dept(--time 3h)**,监视器 persistent。
+- 9/6 08:25Z ccprobe3 41219031 在 dept 因 QOSGrpMemLimit 排队(dept 15 PD / yd24f 24 PD)→ 另投 yd24f 副本 41220509(--mem 100G);先起的一份跑,另一份届时 scancel(都是本项目作业)。
+- 9/6 08:40Z yd24f 副本 41220509 开跑;dept 副本 41219031 已取消。
+- 9/6 10:20Z ccprobe3 完成:绑定型混淆仅 6,弃答型 49;simple_python_31 的 191/204 状态学生用文字解题不调用(missing_call),κ −25 → 这个学生没有参数级条件混淆,失效是调用/弃答边界。建议第一阶段取消 1/3 上限,用 55 个混淆对(边界型为主)跑 A/B/C,'两侧同时正确'指标天然免疫整体调用率平移;待用户拍板。
+- 9/6 12:10Z 无上限划分:55 对集中在 44 个状态,默认种子内留出 + 交叉排除 → 训练仅 5 对;改为只留整个函数 live_multiple_923(9 对),其余全训(≈46 对),Codex C19f 加 --within-fraction 0 并生成 data/cc_pairs_v1_stage1。锚点池 anchors_single_base.jsonl 93 行已同步 hpg。C19f 交付后:sync,sbatch scripts/cc_arms_hpg.slurm(CC_PAIRS_PATH=data/cc_pairs_v1_stage1/confused_pairs.json,CC_TAG_PREFIX=cc_s1),dept + yd24f 双投先起先跑。已告知用户,可否决。
+- 9/6 12:35Z C19f 交付:stage1 划分 train 46 / heldout 函数 live_multiple_923 9 对。**三臂投 hpg:dept 41227486 + yd24f 41227487**(CC_PAIRS_PATH=data/cc_pairs_v1_stage1,CC_TAG_PREFIX=cc_s1;先起先跑,另一份取消;监视器各一)。
+- 9/6 12:45Z Codex C21 启动:cc_pairs.py evaluate(训练后模型在 train/heldout 对上的两侧同时正确、修复/损伤、κ 翻转、整体调用率 vs base)+ scripts/cc_eval_hpg.slurm。三臂两份都在排队(24 PD)。
+- 9/6 13:30Z 三臂改 --mem 100G 重投:dept 41230328 + yd24f 41230329(旧 41227486/7 已取消);C21(evaluate 子命令 + scripts/cc_eval_hpg.slurm,140 测试过)已同步 hpg,三臂完成后对 cc_s1_A/B/C 跑留出对评测。
+- 9/6 13:37Z 三臂 dept 41230328 开跑(100G);yd24f 副本 41230329 被 runner 锁拒绝(同一 checkout 已在跑),无干扰。
+- 9/6 14:05Z 三臂 41230328 40 s 失败:pair_unit 要求 y_plus 非空,而 8 个弃答侧教师文本为空(GT 为空)→ Codex C19g 用 base 学生 checker 验证过的弃答输出填充(记 provenance),重生成 stage1 后重投。
+- 9/6 14:40Z C19g 交付(8 侧填充,划分不变,loader 46 对);三臂重投 dept 100G(job id 见下一行)。
+- 9/6 14:42Z **ccarms2 41232203 提交 dept**(监视器 persistent)。完成后:scripts/cc_eval_hpg.slurm 对 cc_s1_A/B/C 跑留出对评测。
+- 9/6 15:25Z ccarms2 41232203 在 dept 仍 QOSGrpMemLimit 排队 → 另投 yd24f 副本(runner 锁保证只跑一份)。
+- 9/6 15:27Z yd24f 副本 = 41232529(监视器 persistent);哪份先起跑哪份,另一份 scancel。
+- 9/6 15:50Z yd24f 副本 41232529 开跑;dept 副本 41232203 已取消。
+- 9/6 15:55Z yd24f 41232529 预检失败:arm C 的打乱要求不同种子函数的完美匹配,绑定型 5+1 无解 → Codex C20c 加同种子回退(仍不同原对)。修好后再投。
+- 9/6 16:30Z C20c 交付并本地预检通过(46 对,绑定型 4 个同函数重配);三臂重投 dept + yd24f(100G)。
+- 9/6 16:32Z **ccarms3:dept 41233504 + yd24f 41233505**(监视器各一;先起先跑,另一份取消)。
+- 9/6 16:40Z yd24f 41233505 开跑(dept 副本被锁拒绝)。
+- 9/6 16:45Z 41233505 预检通过进入训练:train pairs=46, types=2, anchors=93, steps=35/遍;A → B → C 各训后跑官方 v4 全量。
+- 9/6 17:50Z ccarms3 41233505:三臂训练全部完成并匹配(46 对 + 93 锚点,35 步,KL≈0.005),A 的官方评测在 multi_turn_long_context 只生成 26/200 条 → evaluate 长度不匹配失败,B/C 未评测。推断与 100G 主存下多线程长上下文生成有关(以往成功的 campaign 用 240G)。计划:eval-only 作业(240G)重评三臂。
+- 9/6 18:05Z 留出对评测(cc_pairs evaluate,三臂)投 hpg yd24f + dept(先起先跑,另一份取消);Codex C22 写 eval-only 官方评测 + 生成完整性检查。
+- 9/6 18:10Z **cc_eval(留出对评测,三臂 adapter):yd24f 41235819 + dept 41235820**(监视器各一;先起先跑,另一份取消)。
+- 9/6 18:45Z cc_eval dept 41235820 秒败:evaluate 的陈旧性检查按 candidate_sha256 比对,C19g 填充弃答文本改变了哈希 → Codex C21b 改为按 state/prompt 身份比对;yd24f 副本已取消,修好重投。
+- 9/6 19:20Z C21b 修复已落地(本地 load_eval_inputs 加载 55 对 OK),等 Codex 跑完测试后同步重投 cc_eval;C22(eval-only 官方评测 + 生成完整性检查 tools/bfcl_generation_check.py)仍在写。
+- 9/6 20:25Z **hpg 隧道认证失败**(端口在,keyboard-interactive 被拒),已通知用户重起 autossh;不重试循环。待隧道恢复:同步 C21b/C22 代码,投 cc_eval(三臂留出对)+ cc_eval_arms(官方 eval-only,240G)。
+- 9/6 20:50Z C21b 交付;C22 仍在写(57 min);隧道仍断。
+- 9/6 21:10Z C22 交付(bash -n 通过)。隧道恢复后:sync;sbatch scripts/cc_eval_arms_hpg.slurm(dept + yd24f);sbatch --time=02:00:00 --mem=100G scripts/cc_eval_hpg.slurm cc_s1_A_s0 cc_s1_B_s0 cc_s1_C_s0(dept + yd24f);各挂监视器,先起先跑另一份取消。
+- 9/6 23:15Z 隧道恢复(用户重起)。同步 C21b/C22 后投 hpg:官方 eval-only **41241770(dept)/41241771(yd24f)**;留出对评测 **41241772(dept)/41241773(yd24f)**;单一监视器看四个作业,先起先跑另一份取消。yd24f 12 PD / dept 14 PD。
+- 9/6 23:20Z 官方 eval-only dept 41241770 开跑 → yd24f 副本 41241771 取消。
+- 9/6 23:35Z cc_eval dept 41241772 秒败:adapter/ 无 config.json(PEFT 导出),hub_merged 被官方 campaign 评完删除 → Codex C21c 让 cc_eval 自己合并到临时目录;yd24f 副本 41241773 取消。官方 eval-only 41241770 运行中。
+- 9/6 23:45Z 更正:三臂 adapter/ 都是完整原生 checkpoint(含 config.json);cc_eval 失败真因是与同时运行的官方 eval-only 作业竞争——后者先建 hub_merged 再评完删除,cc_eval 预检时选中了 hub_merged,几秒后加载失败。对策:等 41241770 结束(hub_merged 已删)后再投 cc_eval,届时自动落到 adapter/;C21c 的合并回退无害保留。
+- 9/7 00:05Z 用户要清理项目无用文件:盘点 rai 本项目 565G(appworld_students 471G:47 tag × adapter 7.9G + 17 hub_merged 8.8G;_trash 34G)。提案三档(hub_merged 148G / 关闭臂 adapter 245G / _trash+less_cache+bfas_archive 40G),等用户勾选后再 rm。保留:crcd_r3_union、crcdr_ce/pref/ce1ep_r2、bfclb4–b9、alfabl_CE、cc_s1_*、behavior_atom_v1。
+- 9/7 00:35Z 用户授权清理:删除 17 个 hub_merged、31 个关闭臂的 adapter(aw1/aw2 12、gatev2 8、du/dusp 7、crcdr 消融 4)、_trash、less_cache_*、bfas_archive → 释放 434G(rai 可用 2.4T);appworld_students 剩 87G(基线/bfclb/alfabl/r3_union/mirror_smoke 保留,manifest 小文件保留)。
+- 9/7 01:10Z 用户发来 RTD v1(Return-guided Repair-Transport Distillation)任务书:停不必要实验、开始新实验、可按我理解优化。决定:条件对照线到此收口(A/B/C 官方评测 41241770 与留出评测按文档要求完成归档,不再开新臂/不买类型 2);RTD v1 分三段交 Codex:C23=T0–T2(协议/封存 broker+ledger/传输目标与特征),C24=T3–T4(一步实际更新 + 回报 VJP + 插入价值 + 采购),C25=T5–T6(runner + 正确性检查);随后 hpg smoke → BFCL sealed_replay R0/R1。我的优化见 docs/2026-09-06-rtd-v1-execution-plan-zh.md。
+- 9/7 01:25Z **cc_s1_A 官方 = 47.12**(NL 83.56 / Live 79.79 / MT 52.38 / Mem 26.24 / Irrel 81.25),高于 46.74 主锚点;B/C 评测中。
+- 9/7 01:40Z 用户:rai 3 张空卡,尽量并行。启动:三臂 adapter rsync 到 rai(后台);base 学生混淆探测在 rai GPU1 重跑(CC_OUT=data/cc_pairs_v1_rai,保证留出对评测同机);随后 A/B/C 的 cc evaluate 在 rai 三张卡并行。hpg 官方评测(41241770)继续。
+- 9/7 02:20Z C23 交付(19 测试过):m=40、折 22/18;bank 420 可用包(84 演示尝试精确 21k tok + 336 生成项估计 34k tok)。问题:公开单包成本上界按 131,072 设,三个预算点全是 replay-only → C24 要求按归档请求配置(max_tokens)定类级上界,再做 T3–T4。
+- 9/7 03:25Z **cc_s1_B 官方 = 48.06**(NL 82.94 / Live 78.98 / MT 53.00 / Mem 24.73 / Irrel 78.26 / Web 16.00);A = 47.12(Irrel 应为 75.22,Rel 81.25,之前汇报写反);C 评测中。rai:探测生成完成进入 κ 评分;三臂 adapter 已同步。
+- 9/7 03:50Z **三臂官方分齐:A 47.12 / B 48.06 / C 46.10**(主锚点 46.74)。B > A (+0.94)、B > C (+1.96, 超 ±1.3 噪声);C 的 Irrel 与 B 同高(78.5 vs 78.3)但 MT/Mem/Web 都掉 → 联合目标本身推边界,正确配对决定不伤别处。等留出对评测(rai)看两侧同时正确率/κ/调用率。
+- 9/7 04:20Z rai base 探测完成(data/cc_pairs_v1_rai);A/B/C 留出对评测在 rai GPU1/2/3 并行启动(results/cc_eval_rai/<tag>)。
+- 9/7 05:10Z 留出对评测(rai 同机)出:三臂在 44 个训练/留出状态上贪心几乎与 base/彼此一致(A=B 40/44),训练对 0 修复到两侧同对,留出 0 修复/9 损伤 → 剂量(35 步 lr 5e-6,KL .005)不足以改变行为;官方 A/B/C 差异不能归因于条件决策学习。cc 线归档完毕,不再投入。
+- 9/7 05:40Z C24 交付(48 测试)。上界问题仍在(归档请求无 max_tokens、无有限重试界 → 三个预算点 0 包可买)。我的协议决定 v1.0.1:预算点按公开类级上界之和(演示尝试 65,536 = deepseek 推理模型文档最大输出;生成项 8,192 = 文档聊天最大输出)取 10/25/50%,购买后按揭示的实际 usage 扣账并双报;写入 C25。
+- 9/7 06:20Z C25 交付(79 测试):runner 全部子命令、R0/R1 闭环、恢复、ledger、官方评测、slurm;公开上界总额 8.26M tok,三预算点 0.83M / 2.06M / 4.13M。下一步:rai smoke → hpg R0/R1。
+- 9/7 06:50Z rai smoke R1 在 round1 step1 失败:source generation/teacher-forced score mismatch(采样 logprob 与 teacher-forced 重打分不一致的硬检查)→ Codex C25b 诊断:容差记录(规范 4.2)还是 EOS/mask 真 bug;修好重跑 smoke。bank 已由 C25 建好(420 包,m=40)。
+- 9/7 07:35Z C25b:mismatch 是 bf16 后端容差(≈1e-3 nat/token),改为记录 + 容差;89 测试。smoke R1 在 rai GPU1 重跑(logs/rtd_smoke_R1b.log)。
+- 9/7 08:05Z **smoke R1 通过**(rai GPU1,一个决策窗口全流程,买到 1 包,spend 60/825,753)。投出:hpg dept R1、hpg yd24f R0(scripts/rtd_run_hpg.slurm,RTD_ARM);rai GPU2 R0(results/rtd_v1/rai_R0)。
+- 9/7 08:10Z **RTD 正式:hpg R1 = 41255561(dept),R0 = 41255562(yd24f);rai GPU2 R0(logs/rtd_run_rai_R0.log)**。监视器:hpg 双作业一个,rai 一个 waiter。完成后:evaluate(官方 v4)→ report(预算曲线)。
+- 9/7 08:15Z rai GPU3 再跑一份 R1(results/rtd_v1/rai_R1),使 rai 上有同机 R0/R1 对照,不受 hpg 排队影响。
+- 9/7 08:40Z rai R0(GPU2)OOM:worker 报 'GPU 0 total 94.97 GiB … 93.55 GiB in use' → (a) 训练 worker 子进程未遵守父进程 CUDA_VISIBLE_DEVICES(用了 GPU1);(b) 8 槽/步的 per-slot 梯度未逐槽累积,4k 上下文下 93 GB。交 Codex C25c。
+- 9/7 08:45Z rai R1(GPU3)同样 OOM 于 94.97 GiB 设备(GPU1)——两个 worker 都跑到了 GPU1 上互相挤爆,证实 worker 忽略 CUDA_VISIBLE_DEVICES;hpg 排队作业若起跑也可能 93 GB(B200 180 GB 可能装下),先不动。
+- 9/7 09:30Z C25c 交付(109 测试);rai 重跑 R0(GPU2,logs/rtd_run_rai_R0b.log)与 R1(GPU3,logs/rtd_run_rai_R1b.log);代码已同步 hpg(排队作业起跑时用新代码)。
+- 9/7 10:20Z rai R1 失败:IncompleteRolloutError(反馈 rollout 在 T=1 采样时撞到动作 token 上限未出 EOS,代码拒绝重试/过滤/强制 EOS);R0 仍在 round_start,GPU2 显存已到 47.5 GB(48 GB 卡)有 OOM 风险。交 Codex C25d:截断 rollout 按实际采样分布记分(无 EOS 项、checker 判原文、ledger 记截断数),不丢弃;并把采样/预条件阶段批量按显存自适应。
+- 9/7 10:30Z 取消 hpg 排队的 R1/R0(旧代码在反馈阶段会撞同一 IncompleteRolloutError),C25d 后重投。R0(rai)已进入第 1 决策窗口(reference_gradient),分配峰值 22.5 GiB(nvidia-smi 47.5 GB 为缓存);预计其反馈阶段也会撞截断错误。
+- 9/7 10:45Z rai R0 第 1 决策窗口提交(买 1 包,spend 81/825,753),峰值分配 33.0 GiB(48 GB 卡可跑),进入 step 2;每窗口约 1 h。C25d 落地后不重启 R0(如撞截断错误可 resume),只重跑 R1 并重投 hpg。
+- 9/7 11:35Z C25d 交付(122 测试):截断 rollout 按实际采样记分并记录;显存缓存清理 + 自适应批量。rai R1 重跑(GPU3,logs/rtd_run_rai_R1c.log);hpg R1(dept)/R0(yd24f)重投(id 见下一行);R0(rai)继续跑旧进程(可 resume)。
+- 9/7 11:40Z **hpg 重投:R1 = 41264649(dept),R0 = 41264651(yd24f)**;监视器一个看两个。rai:R0 GPU2(旧进程,step 4+),R1 GPU3 重跑(新代码)。
+- 9/7 13:20Z rai R0 跑完 round 1(12 步,spend 188/825,753),在轮末预定开发评测处失败:'evaluation hardware/harness/data differs from training'(一致性守卫)。疑因运行中我同步了新代码(源码树哈希变了)或评测环境哈希与训练记录不一致。查守卫字段后交 Codex C25e;run dir 可 resume。
+- 9/7 13:35Z 守卫诊断(CUDA_VISIBLE_DEVICES=2 复算):hardware 不同、harness 不同、data 相同。harness = 源码树哈希漂移(C25d);hardware_identity 在同一张 GPU2 上也不相等 → 含易变字段(需只保留 GPU 名/UUID/能力/驱动)。C25e 若未覆盖 hardware 部分则追加 C25f。
+- 9/7 13:45Z 更正:hardware 不同是我的诊断没设 CUDA_DEVICE_ORDER=PCI_BUS_ID(launcher 默认设),设了之后一致;真正漂移的只有 harness(源码树哈希)。C25e 范围正确。
+- 9/7 14:40Z hpg R0 41264651(yd24f)开跑(C25d 代码,无 C25e 守卫修正):预计第 1 轮末评测处会撞守卫,届时用新代码 resume(checkpoint 保留),不取消以保住队列时间。R1 41264649 仍排队。
+- 9/7 14:50Z hpg R0 41264651 7 min 失败:hpg .venv 缺 requests → 已装,R0 重投 yd24f(id 见下一行);R1 41264649 留队(起跑前环境已修好)。
+- 9/7 14:52Z **hpg R0 重投 = 41270571(yd24f)**,监视器已挂;R1 = 41264649(dept,排队)。
+- 9/7 15:40Z hpg R0 41270571 秒败:'existing campaign; use resume'(上次失败留下的 results/rtd_v1/R0 目录)→ 移入 _trash 后重投(id 见下一行);C25e 已同步 hpg。
+- 9/7 15:45Z **hpg R0 重投 = 41270793(yd24f)**;rai R0 resume 启动(GPU2 UUID 绑定,--acknowledge-code-drift,logs/rtd_resume_rai_R0_c25e.log):先评第 1 轮 checkpoint,再训第 2 轮。
+- 9/7 16:05Z rai R1 也跑完第 1 轮(spend 177)并撞旧守卫 → 同样 resume(GPU3 UUID,logs/rtd_resume_rai_R1_c25e.log)。
+- 9/7 16:35Z rai R1 resume 失败:legacy manifest 需审计过的评测身份补充文件(C25e 只为 rai_R0 做了)→ Codex C25f 为 rai_R1 做同样审计并加 audit-legacy 命令;rai R0 resume 正常(评第 1 轮 checkpoint 中)。
+- 9/7 16:50Z hpg R0 41270793 FAILED(原因待查);**hpg 隧道认证再次失败**(端口在,keyboard-interactive 被拒),已通知用户重起 autossh,不循环重试。rai:R0 resume 评测中;R1 等 C25f 补充文件后 resume。
+- 9/7 17:05Z 隧道恢复(用户)。hpg R0 41270793 19 s 失败:C25e 的评测环境身份调用 git rev-parse(hpg 副本无 .git)→ Codex C25g 改为内容哈希(git 仅可选元数据)。R1 41264649 仍排队(起跑前需 C25g 同步)。
+- 9/7 18:25Z **教师 API 全部恢复 200**(ollama ×2、azure ×2)。计划:sealed_replay R0/R1 出结果后再开 online 模式与类型 2 购买;在此之前不花新 token。
+- 9/7 18:40Z 用户:小心用 ollama API,不能重复浪费。规则:R0/R1 出结果前 0 调用;开 online 前先在频道报预算;ledger 硬上限(默认 ≤50 请求 / ≤200k 输出 token 每天);按状态哈希去重;响应先缓存;有限重试。
+- 9/7 18:45Z 用户:今天首要任务 = 完成 RTD 当前(sealed_replay)验证;能不用 API 就不用。执行中:rai R0 评第 1 轮;R1 待 C25f 后 resume;hpg R0 待 C25g 后重投;R1 排队。
+- 9/7 18:55Z C25e 后测试 143 过 / 1 失败(未捕获到用例名;C25f/C25g 正并行编辑同一模块,待两者交付后用 -rf 重跑定位)。
+- 9/7 19:00Z 用户:资源充足尽量并行,但执行准确性优先。执行:先收口 C25f/C25g 两个正确性修复,再并行 rai R1 + hpg R0/R1;rai 空卡用于并行做预算点官方评测(rtd_experiment.py evaluate),不再多开训练实例。
+- 9/7 19:10Z C25f/C25g 交付(201 测试):rai R1 resume 重启(GPU3);同步 hpg 并重投 R0。
+- 9/7 19:15Z **hpg R0 重投 = 41277116(yd24f,C25g 代码)**;R1 = 41264649(dept,排队,起跑时用新代码)。rai:R0 resume 评第 1 轮;R1 resume 重启(GPU3)。
+- 9/7 19:55Z rai R1 resume 又败:评测的全局排他锁(persistence.exclusive_run,LOCK_NB)被 R0 的第 1 轮官方评测占着 → Codex C25h:锁缩小到按 tag/端口隔离,剩余全局锁改为有界阻塞等待并计入 idle。R0 评测结束后先手动 resume R1。hpg R0 41277116 已开跑(C25g 代码)。
+- 9/7 20:20Z hpg R0 41277116 6 min 失败:缺 tree_sitter → 装 tree-sitter 三件 + openai/tenacity/pandas/pyarrow/datasets 预防;**R0 重投 = 41277785(yd24f)**。
+- 9/7 20:40Z 测试 193 过 / 1 失败:test_real_tiny_peft_export_never_initializes_cuda(CPU 导出不得初始化 CUDA;在有 GPU 的 rai 上失败,可能是测试环境问题或导出真的碰了 CUDA)→ C25h 之后交 C25i 查。hpg venv 补装 rai 缺失包(tree-sitter、overrides、google 等)。
+- 9/7 21:00Z hpg venv 补齐后,RTD worker 的 BFCL handler 导入链(adapters/bfcl._handler → qwen_fc → base_handler → java_parser/tree_sitter/overrides)在 hpg 通过;排队的 R0 41277785 / R1 41264649 起跑时应可越过此前失败点。
+- 9/7 21:35Z C25h 交付(216 测试);同步 hpg。注意:评测环境身份因 campaign 脚本变更而变化,rai 两个 legacy run 需重新 audit-legacy 后才能 resume。
+- 9/7 21:50Z audit-legacy(rai_R1)拒绝:C25h 改动的 evaluation_lock.py / bfcl_campaign_lock 等被算进评测环境身份且晚于 manifest。判断:身份把锁/端口/启动器等非评分代码也算进硬校验,迭代开发下任何在跑的 run 都会在轮末被拦(hpg R0 41277785 也将在 round 1 末撞上)。计划:C25i 后交 C25j——评测身份只覆盖评分相关文件(bfcl_eval 包 + 数据、checker bridge、campaign 评分逻辑),并提供审计式'身份更新'命令(列出改动文件并断言均在评分集之外);之后冻结代码打 tag,再 resume/重启各臂。
+- 9/7 22:05Z hpg R0 41277785 跑完 round 1(52 min;采购轨迹与 rai R0 完全一致:step1 81 → step10 188,跨机确定性 ✓),轮末撞评测身份守卫(C25h 同步导致),checkpoint 保留,待 C25j 后 resume。hpg R1 41264649 留队。
+- 9/7 22:15Z C25h 后测试 210 过 / 1 失败(仍是 CPU 导出 CUDA 初始化用例,C25i 修复中)。
+- 9/7 23:35Z C25i 交付(212 测试);C25j 启动(评测身份收窄到评分相关文件 v1.0.2 + update-identity 审计命令,先为 rai_R0/rai_R1 生成补充)。
+- 9/7 23:50Z C25i 在 rai(有 GPU)验证:evaluation/resume + checks 61 测试全过(含此前失败的 CUDA 初始化用例)。等 C25j。
+- 9/8 00:00Z 时间估计已发用户:C25j+冻结+resume ≈1 h;hpg 一轮 ≈50 min、评测 ≈1 h;R0 三轮明早出;R1 视 hpg 排队。观察:一轮只花 188 token(便宜生成项包),三个预算点远未绑定——报告按实际花费画并说明。
+- 9/8 00:05Z 用户:尽量把 hpg 和 rai 都用起来。已投 hpg R1 yd24f 副本 41284327(dept 41264649 留队;先起先跑,后起的会因 existing campaign 自退)。准备 configs/rtd/v1_bfcl_c25_scalar_gate.yaml(§10.2 第一优先替换:learned scalar gate),冻结后在 rai 空卡上作为第三臂 R1s 并行跑。

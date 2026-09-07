@@ -35,6 +35,7 @@ import json
 import math
 import sys
 import time
+import warnings
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -46,7 +47,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from bfas import atoms  # noqa: E402
 
-BOOT_METRICS = ("spearman_offdiag", "spearman_colcentred", "spearman_rowcentred",
+BOOT_METRICS = ("spearman_offdiag", "spearman_colcentred", "spearman_rowcentred", "spearman_doublecentred",
                 "ndcg@1", "ndcg@3", "ndcg@5", "auroc_sign", "balanced_acc_sign", "mse_ratio_calibrated")
 
 
@@ -220,7 +221,9 @@ def build_scores(ev: dict, gate: dict, sel: dict, seed: int, fh=None) -> tuple[d
     info["kmeans_coverage_all"] = atoms.reconstruction_coverage(km["U"], psi)
     # random unit-norm dictionary at the same K and lambda
     Ur = atoms.random_dictionary(psi.shape[1], K, seed=seed + 1)
-    S["random_dict"] = atoms.transfer_prediction(Ur, atoms.encode(Ur, cent, lam), atoms.encode(Ur, psi, lam))
+    # random atoms are ~orthogonal to the data in 8192-d, so lasso codes at lambda>0 are all zero;
+    # use the unregularised projection onto the random K-subspace (least-squares codes) instead
+    S["random_dict"] = atoms.transfer_prediction(Ur, atoms.least_squares_codes(Ur, cent), atoms.least_squares_codes(Ur, psi))
     info["random_dict_coverage_all"] = atoms.reconstruction_coverage(Ur, psi)
     # category Jaccard and same side
     cats_i = {i: set(ev["category"][j] for j in members[i]) for i in ids}
@@ -249,7 +252,8 @@ def _spearman(a: np.ndarray, b: np.ndarray) -> float:
 
 def _centre(M: np.ndarray, mask: np.ndarray, axis: int) -> np.ndarray:
     Mm = np.where(mask, M, np.nan)
-    with np.errstate(all="ignore"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
         mu = np.nanmean(Mm, axis=axis, keepdims=True)
     return M - np.nan_to_num(mu)
 
@@ -303,6 +307,8 @@ def evaluate(S: np.ndarray, G: np.ndarray, off: np.ndarray, in_mask: np.ndarray 
     out["spearman_colcentred"] = _spearman(Sc[m], Gc[m])
     Gr, Sr = _centre(G, m, 1), _centre(S, m, 1)                  # per-cluster (row) centring
     out["spearman_rowcentred"] = _spearman(Sr[m], Gr[m])
+    Gd, Sd = _centre(Gc, m, 1), _centre(Sc, m, 1)                # both (removes event and cluster main effects)
+    out["spearman_doublecentred"] = _spearman(Sd[m], Gd[m])
     # NDCG of positive transfer per trained cluster
     for k in (1, 3, 5):
         vals = []
@@ -489,8 +495,8 @@ def sensitivity_sweep(ev: dict, gate: dict, sel: dict, args, fh) -> list:
         pca = atoms.fit_pca(psi, K, center=True)
         rp = evaluate(cosine_rows(atoms.encode_pca(pca, cent), atoms.encode_pca(pca, psi)), G, off)
         out.append({"K": K, "lambda_z": lam, "mean_nnz_per_event": float(fd.nnz_per_event.mean()),
-                    "sparse_dict": {k: r[k] for k in ("spearman_offdiag", "spearman_colcentred", "ndcg@3", "auroc_sign", "mse_ratio_calibrated")},
-                    "pca_cos": {k: rp[k] for k in ("spearman_offdiag", "spearman_colcentred", "ndcg@3", "auroc_sign", "mse_ratio_calibrated")}})
+                    "sparse_dict": {k: r[k] for k in ("spearman_offdiag", "spearman_colcentred", "spearman_doublecentred", "ndcg@3", "auroc_sign", "mse_ratio_calibrated")},
+                    "pca_cos": {k: rp[k] for k in ("spearman_offdiag", "spearman_colcentred", "spearman_doublecentred", "ndcg@3", "auroc_sign", "mse_ratio_calibrated")}})
         log(f"  sweep K={K:2d} lam={lam:<5} nnz={fd.nnz_per_event.mean():4.2f} sparse rho={r['spearman_offdiag']:+.3f} "
             f"col={r['spearman_colcentred']:+.3f} ndcg3={r['ndcg@3']:.3f} auroc={r['auroc_sign']:.3f} | "
             f"pca rho={rp['spearman_offdiag']:+.3f} col={rp['spearman_colcentred']:+.3f}", fh)
@@ -498,9 +504,9 @@ def sensitivity_sweep(ev: dict, gate: dict, sel: dict, args, fh) -> list:
 
 
 def fmt_table(level: dict) -> str:
-    cols = ["spearman_offdiag", "spearman_colcentred", "spearman_rowcentred", "ndcg@1", "ndcg@3", "ndcg@5",
+    cols = ["spearman_offdiag", "spearman_colcentred", "spearman_rowcentred", "spearman_doublecentred", "ndcg@1", "ndcg@3", "ndcg@5",
             "mse_ratio_calibrated", "auroc_sign", "balanced_acc_sign", "partial_spearman_ctrl"]
-    short = ["rho_off", "rho_col", "rho_row", "ndcg@1", "ndcg@3", "ndcg@5", "mse/mse0", "auroc", "bal_acc", "rho_partial"]
+    short = ["rho_off", "rho_col", "rho_row", "rho_dbl", "ndcg@1", "ndcg@3", "ndcg@5", "mse/mse0", "auroc", "bal_acc", "rho_partial"]
     lines = [f"{'method':<20}" + "".join(f"{c:>22}" for c in short) + f"{'perm_p':>8}"]
     for m in level["methods"]:
         r, ci = level["metrics"][m], level["bootstrap_ci"][m]

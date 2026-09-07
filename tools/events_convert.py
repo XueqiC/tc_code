@@ -31,6 +31,12 @@ SETS = {
                     student=BASE_STUDENT),
     "bfcl_r3": dict(path="data/bfcl_sft/pool_events_pref_r3.jsonl", benchmark="bfcl",
                     student=R2_STUDENT),
+    # round-3 union pool made teacher-consistent (15 official rows carry a deepseek
+    # demo as y^T, generated rows relabelled teacher_authored_*); rows are a union
+    # of round-2 (base student) and round-3 (r2 student) events, so the student is
+    # resolved per row from the state hash; self_anchor rows are skipped.
+    "bfcl_r3t": dict(path="data/bfcl_sft/pool_events_pref_v3t.jsonl", benchmark="bfcl",
+                     student="by_hash", skip_teachers=("self_anchor",)),
     "alfworld_v1": dict(path="data/alf_sft/events_v1.jsonl", benchmark="alfworld",
                         student=BASE_STUDENT),
     # extra sources the converters also understand
@@ -42,6 +48,20 @@ SETS = {
                              student=BASE_STUDENT),
 }
 DEFAULT_SETS = ("bfcl_r2", "bfcl_r3", "alfworld_v1")
+
+
+def student_by_hash(out_dir: Path) -> dict[tuple[str, str], str]:
+    """(state_hash, sha1(y^S)) -> student checkpoint from the already-converted
+    bfcl_r2 / bfcl_r3 sets.  The pair is needed because the same state can be
+    mined in both rounds with different student samples."""
+    from bfas.events_schema import iter_events, state_hash_of
+    table: dict[tuple[str, str], str] = {}
+    for name in ("bfcl_r2", "bfcl_r3"):
+        f = out_dir / f"{name}.jsonl"
+        if f.exists():
+            for ev in iter_events(f):
+                table[(ev.state_hash, state_hash_of(ev.student_continuation))] = ev.student_checkpoint
+    return table
 
 
 def main() -> int:
@@ -59,9 +79,25 @@ def main() -> int:
     for name in args.sets:
         spec = SETS[name]
         rows = load_raw_rows(ROOT / spec["path"])
+        skip = set(spec.get("skip_teachers", ()))
+        n_skip = sum(r.get("teacher") in skip for r in rows)
+        rows = [r for r in rows if r.get("teacher") not in skip]
         conv = CONVERTERS[spec["benchmark"]]
-        events = [conv(r, tok, source=spec["path"], split=args.split,
-                       student_checkpoint=spec["student"]) for r in rows]
+        if spec["student"] == "by_hash":
+            from bfas.events_schema import state_hash_of
+            table = student_by_hash(out_dir)
+            students = [table.get((state_hash_of(r["prompt"]), state_hash_of(r["_rejected"])),
+                                  "unknown (union pool; (state, y^S) not in bfcl_r2/bfcl_r3)")
+                        for r in rows]
+        else:
+            students = [spec["student"]] * len(rows)
+        events = [conv(r, tok, source=spec["path"], split=args.split, student_checkpoint=st)
+                  for r, st in zip(rows, students)]
+        if n_skip:
+            print(f"[convert] {name}: skipped {n_skip} rows with teacher in {sorted(skip)}")
+        if spec["student"] == "by_hash":
+            from collections import Counter
+            print(f"[convert] {name}: student attribution {dict(Counter(students))}")
         hashes = {e.state_hash for e in events}
         out = out_dir / f"{name}.jsonl"
         n = write_events(out, events)

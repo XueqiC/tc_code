@@ -26,6 +26,7 @@
   "utility_mode": "auto",
   "gamma_probe": 0.1,
   "gamma_perp": 1e-3,
+  "perp_mode": "decoupled",
   "fisher": null,
   "U": null,
   "sketch_dim": 256,

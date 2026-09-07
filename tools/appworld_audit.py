@@ -206,7 +206,10 @@ def task_record(outputs_dir: Path, task_id: str, split: str, evaluation: dict[st
         "n_env_interactions": len(env_io),
         "n_api_calls": len(api_rows),
         "api_call_urls": urls,
-        "complete_task_called": any("supervisor/complete_task" in u for u in urls),
+        # the supervisor.complete_task API posts to /supervisor/message, so detect it from the
+        # executed code (environment_io) and accept any complete_task URL as a fallback
+        "complete_task_called": any(re.search(r"apis\.supervisor\.complete_task\s*\(", e["input"]) for e in env_io)
+        or any("complete_task" in u for u in urls),
         "tokens": {"prompt": sum(i["prompt_tokens"] or 0 for i in interactions),
                    "completion": sum(i["completion_tokens"] or 0 for i in interactions),
                    "usage_json": usage_total},
@@ -309,10 +312,36 @@ def smoke(args: argparse.Namespace) -> int:
     return 0 if out["all_identical"] else 3
 
 
+def rebuild_records(args: argparse.Namespace) -> int:
+    """Rebuild the smoke json's records/determinism from kept official outputs dirs."""
+    path = ANALYSIS / "appworld_audit_smoke.json"
+    out = json.loads(path.read_text())
+    for run in out["runs"]:
+        odir = Path(run["outputs_dir"])
+        ev_files = list((odir / "evaluations").glob("*.json"))
+        ev = json.loads(ev_files[0].read_text()) if ev_files else None
+        for tid, old in run["records"].items():
+            rec = task_record(odir, tid, "train", ev)
+            rec["reconstruction"]["random_seed"] = old["reconstruction"]["random_seed"]
+            rec["adapter_turns"] = old.get("adapter_turns")
+            run["records"][tid] = rec
+    for tid in out["tasks"]:
+        keys = [determinism_key(r["records"][tid]) for r in out["runs"]]
+        out["determinism"][tid]["identical"] = all(k == keys[0] for k in keys)
+        out["determinism"][tid]["success"] = [r["records"][tid]["success"] for r in out["runs"]]
+        out["determinism"][tid]["complete_task"] = [r["records"][tid]["complete_task_called"] for r in out["runs"]]
+    out["all_identical"] = all(d["identical"] for d in out["determinism"].values())
+    path.write_text(json.dumps(out, indent=1))
+    for tid, d in out["determinism"].items():
+        print(tid, d)
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("split")
+    sub.add_parser("records", help="rebuild results/analysis/appworld_audit_smoke.json records from kept outputs")
     s = sub.add_parser("smoke")
     s.add_argument("--policy", default="Qwen/Qwen3.5-4B")
     s.add_argument("--port", type=int, default=8988)
@@ -324,6 +353,8 @@ def main() -> int:
     s.add_argument("--keep", action="store_true", help="keep experiments/outputs of the smoke runs")
     s.add_argument("--vllm-version", default="")
     args = ap.parse_args()
+    if args.cmd == "records":
+        return rebuild_records(args)
     if args.cmd == "split":
         a = split_audit()
         print(json.dumps({k: a[k] for k in ("data_version", "task_counts", "scenarios", "variants_per_scenario",

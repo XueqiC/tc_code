@@ -1,0 +1,27 @@
+{
+ "run_id": "pilot_r1_fit_smoke",
+ "stage": "fit",
+ "data": "/home/xueqi/hq/projects/tc-alignment/results/behavior_atom_v1/pilot_r1_codes/fit_input.json",
+ "fit": {
+  "ranks": [
+   1,
+   2
+  ],
+  "lambdas": [
+   0,
+   0.01,
+   0.1,
+   1
+  ],
+  "permutation_seeds": [
+   11,
+   29
+  ],
+  "bootstrap_samples": 50
+ },
+ "measurement": {
+  "stable": true,
+  "resolved": true
+ },
+ "output_dir": "/home/xueqi/hq/projects/tc-alignment/results/behavior_atom_v1/pilot_r1_fit_smoke"
+}

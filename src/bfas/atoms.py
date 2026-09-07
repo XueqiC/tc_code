@@ -214,6 +214,7 @@ class DictionaryFit:
     objective_history: list[float] = field(default_factory=list)
     n_iter: int = 0
     converged: bool = False
+    init: str = "random"
 
     @property
     def nnz_per_event(self) -> np.ndarray:
@@ -227,7 +228,7 @@ class DictionaryFit:
     def summary(self) -> dict:
         return {
             "K": int(self.K), "lambda_z": float(self.lambda_z), "seed": int(self.seed),
-            "n_iter": int(self.n_iter), "converged": bool(self.converged),
+            "n_iter": int(self.n_iter), "converged": bool(self.converged), "init": self.init,
             "objective": float(self.objective_history[-1]) if self.objective_history else None,
             "mean_nnz_per_event": float(self.nnz_per_event.mean()),
             "median_nnz_per_event": float(np.median(self.nnz_per_event)),
@@ -238,12 +239,22 @@ class DictionaryFit:
 
 
 def fit(Psi, K: int, lambda_z: float, seed: int = 0, n_iter: int = 200, tol: float = 1e-6,
-        init: str = "samples", fista_iter: int = 200, sweeps: int = 2) -> DictionaryFit:
-    """Alternating sparse dictionary learning (see module docstring).  Deterministic given ``seed``."""
+        init: str = "best", fista_iter: int = 200, sweeps: int = 2) -> DictionaryFit:
+    """Alternating sparse dictionary learning (see module docstring).  Deterministic given ``seed``.
+
+    init: ``random`` (Gaussian unit-norm atoms), ``samples`` (random training events; can get stuck
+    on atom mixtures), or ``best`` (default: run both with the same seed, keep the lower objective).
+    """
     Psi = _as2d(Psi)
     n, d = Psi.shape
     if K < 1:
         raise ValueError("K must be >= 1")
+    if init == "best":
+        runs = [fit(Psi, K, lambda_z, seed=seed, n_iter=n_iter, tol=tol, init=i, fista_iter=fista_iter,
+                    sweeps=sweeps) for i in ("random", "samples")]
+        best = min(runs, key=lambda r: r.objective_history[-1])
+        best.init = "random" if best is runs[0] else "samples"
+        return best
     rng = np.random.default_rng(seed)
     U = _init_dictionary(Psi, K, rng, init)
     Z = np.zeros((n, K))

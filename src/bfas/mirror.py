@@ -147,7 +147,12 @@ def candidates_from_row(
         raise ValueError(f"row {event_id_for_row(row)} has no _rejected continuation")
     mode = utility_mode
     if mode == "auto":
-        is_gt = row.get("teacher") == "oracle_gt" and int(row.get("turn_index", 0)) == 0
+        # single-turn rows whose teacher continuation is verified-correct by construction:
+        # benchmark GT (accounting-inconsistent, ablation only), teacher-authored GT of a
+        # generated task, or a verified paid teacher demo (2026-09-04 relabelling)
+        is_gt = int(row.get("turn_index", 0)) == 0 and (
+            row.get("teacher") in ("oracle_gt", "teacher_authored_gt", "teacher_authored_abstain")
+            or float(row.get("_event_u_plus", 0.0)) >= 1.0)
         mode = "gt_teacher" if is_gt else "stored"
     if mode == "gt_teacher":
         q_teacher = 1.0

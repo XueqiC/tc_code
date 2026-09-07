@@ -1,0 +1,46 @@
+{
+ "run_id": "collect_r2_fit",
+ "stage": "fit",
+ "data": "/home/xueqi/hq/projects/tc-alignment/results/behavior_atom_v1/collect_r2_codes/fit_input.json",
+ "fit": {
+  "ranks": [
+   1,
+   2,
+   4
+  ],
+  "lambdas": [
+   0,
+   0.01,
+   0.1,
+   1
+  ],
+  "permutation_seeds": [
+   11,
+   29,
+   47,
+   61,
+   83
+  ],
+  "bootstrap_samples": 1000
+ },
+ "measurement": {
+  "stable": true,
+  "resolved": true
+ },
+ "decision": {
+  "min_source_groups": 4,
+  "min_probe_groups": 3,
+  "min_changed_sources": 6,
+  "min_observed_fraction": 0.5,
+  "max_ci_width": 1.0,
+  "min_zero_improvement": 0.05,
+  "min_baseline_improvement": 0.05,
+  "min_permutation_gap": 0.05,
+  "min_net_benefit_spearman": 0.2,
+  "min_leave_group_out_improvement": 0.0,
+  "min_fold_win_fraction": 0.5,
+  "min_permutation_moved_fraction": 0.5
+ },
+ "output_dir": "/home/xueqi/hq/projects/tc-alignment/results/behavior_atom_v1/collect_r2_fit",
+ "decision_note": "frozen 2026-09-05 07:50 before seeing collect_r2 fit results (v1.1 P2.5): B2 must beat the zero predictor and B0/B1 by >=5% relative held-out error with group CIs, permutation gap >=5% in >=50% of seeds, net-benefit Spearman >=0.2, >=6 sources with any change, >=4 source groups"
+}

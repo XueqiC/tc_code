@@ -1,0 +1,35 @@
+{
+ "run_id": "joint_abstain_r1",
+ "stage": "collect",
+ "data": "../../data/behavior_atom_v1/joint_abstain_data_manifest_rel.json",
+ "protocol": {
+  "micro_update": {
+   "model_id": "Qwen/Qwen3.5-4B",
+   "steps": 3,
+   "lr": 5e-06,
+   "beta": 0.1,
+   "seed": 0,
+   "init_seed": 0,
+   "ell": "full_sequence",
+   "prompt_cap": 4096,
+   "prompt_side": "tail",
+   "init_state_path": "../../data/behavior_atom_v1/init_state_seed0.pt"
+  },
+  "evaluation": {
+   "temperature": 0,
+   "max_new_tokens": 512,
+   "batch_size": 4,
+   "enable_thinking": false
+  },
+  "fisher": "../../data/behavior_atom_v1/fisher_v3t_student_full.npz",
+  "damping": 0.001,
+  "pilot": {
+   "max_policy_kl": 0.1,
+   "max_abstention_shift": 0.25,
+   "min_changed_probes": 1,
+   "min_changed_source_fraction": 0.5
+  }
+ },
+ "output_dir": "../../results/behavior_atom_v1/joint_abstain_r1",
+ "pilot_pass": "../../results/behavior_atom_v1/pilot_r2/pilot_pass.json"
+}

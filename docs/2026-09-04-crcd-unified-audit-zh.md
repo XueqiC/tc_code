@@ -81,5 +81,5 @@ P2:离线回放采集(ALFWorld demo 池、BFCL 事件池)、AppWorld 在线采�
 
 1. **ALFWorld 划分**:valid_unseen 已被反复使用。建议:新组件在 train(挖掘)+ valid_seen(开发)上调,valid_unseen 只做冻结后的三种子确认——是否同意用 valid_seen 做开发集(需跑 base/CE/成对的 valid_seen 参考分,约 3 B200 小时)?
 2. **AppWorld teacher**:deepseek 周上限、Azure 周耗尽。AW-1 起步需 ~6 万 teacher token;等 ollama 周期重置(时间未知)还是先用已归档的 40 条 gpt-5.4 演示做离线试点(零新 token,但 teacher 标记为 gpt-5.4)?
-3. **BFCL 的 teacher token 口径**:BFCL 用 GT checker(零 teacher token),任务书要求"明确说明";建议 BFCL 只做机制与保留实验,不做 token 效率主张——是否同意?
+3. **BFCL 的 teacher token 口径**:~~BFCL 用 GT checker(零 teacher token)~~ **已更正(13:10)**:生成池由 deepseek 合成、演示精确 1,233,607 token,BFCL 与其他 benchmark 同口径记账;官方题 y^T 改用演示,calibration 泄漏已清;主结果重跑 crcd_r3_union_t_s0。
 4. **算力**:主对比三种子 ≈ 80 B200 小时;hpg 白天可用则本周内完成,否则只夜间跑要 3–4 天。

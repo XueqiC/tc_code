@@ -124,10 +124,21 @@ def ask(prompt: str, temperature: float, key: str, timeout: int = 240) -> str:
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read())["choices"][0]["message"]["content"]
+            payload = json.loads(response.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"teacher HTTP {exc.code}: "
                            f"{exc.read(200).decode('utf-8', 'replace')}") from exc
+    # usage accounting (added 2026-09-04): every teacher call is appended to the ledger
+    try:
+        import datetime, pathlib
+        _ledger = pathlib.Path(__file__).resolve().parents[1] / "data/teacher_ledger/bfcl_generation_usage.jsonl"
+        _ledger.parent.mkdir(parents=True, exist_ok=True)
+        with _ledger.open("a") as _fh:
+            _fh.write(json.dumps({"model": TEACHER, "usage": payload.get("usage"), "tool": pathlib.Path(__file__).name,
+                                  "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()}) + "\n")
+    except Exception as _exc:  # accounting must never break generation
+        print(f"[usage-ledger] {_exc}", file=sys.stderr)
+    return payload["choices"][0]["message"]["content"]
 
 
 def parse_json(text: str) -> dict | None:

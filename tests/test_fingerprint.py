@@ -262,3 +262,27 @@ def test_real_model_smoke():
     res2 = fp.fingerprints(model, events, set_name="smoke", cfg=cfg)
     assert res.fingerprint_version == res2.fingerprint_version
     assert np.allclose(res.psi, res2.psi, atol=1e-3)
+
+
+def test_calibration_indices_and_annotation(tmp_path):
+    events = [
+        {"task_id": "live_parallel_11-7-0", "state_hash": "h0", "provenance": {}},
+        {"task_id": "gen_live_parallel_11-7-0_2", "state_hash": "h1", "provenance": {}},
+        {"task_id": "genmt_memory_kv_113-student-33_1", "state_hash": "h2",
+         "provenance": {"seed_task": "memory_kv_113-student-33"}},
+        {"task_id": "simple_python_5", "state_hash": "h3", "provenance": {}},
+        {"task_id": "oos_live_parallel_multiple_3-2-1_0", "state_hash": "h4", "provenance": {}},
+    ]
+    calib = ["live_parallel_11-7-0", "memory_kv_113-student-33", "live_parallel_multiple_3-2-1"]
+    exact, derived = fp.calibration_indices(events, calib)
+    assert exact.tolist() == [0, 2]
+    assert derived.tolist() == [0, 1, 2, 4]
+    assert fp._base_task_id("gen_live_parallel_multiple_10-9-0_1") == "live_parallel_multiple_10-9-0"
+    assert fp._base_task_id("multi_turn_base_79") == "multi_turn_base"   # suffix strip is only for derived match
+    npz = tmp_path / "x.npz"
+    np.savez(npz, psi=np.zeros((5, 4), np.float32), state_hash=np.array([f"h{i}" for i in range(5)]))
+    fp.annotate_calibration(npz, events, calib)
+    z = np.load(npz)
+    assert z["calibration_idx"].tolist() == [0, 2] and z["psi"].shape == (5, 4)
+    with pytest.raises(ValueError, match="order"):
+        fp.annotate_calibration(npz, events[::-1], calib)

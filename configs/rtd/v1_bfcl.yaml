@@ -1,0 +1,76 @@
+# Frozen RTD v1 section 14; C23, 2026-09-06. Changes require a new protocol version.
+method: rtd_v1
+mode: sealed_replay
+training_seed: 0
+same_hardware_required: true
+harness_frozen: true
+teacher_access: text_only
+support_split: parent_hash_two_fold
+certificate_isolation: strict
+
+rounds: 3
+decision_steps_per_round: [1, 4, 7, 10]
+max_new_packages_per_decision: 1
+replay_is_explicit_choice: true
+replay_prior_mass: 0.5
+budget_checkpoints_bank_fraction: [0.10, 0.25, 0.50]
+online_max_teacher_turns: 8
+replay_request_lengths: recorded_only
+
+source_refresh: round
+source_samples_per_state: 2
+source_temperature: 1.0
+source_top_p: 1.0
+loss: positive_source_teacher_mixture
+behavior_probability: complete_action_with_termination
+exposure_unit: complete_source_action_slot
+slots_per_step: 8
+committed_steps_per_round: 12
+
+gate: linear_sigmoid
+gate_hidden_projection_dim: 32
+gate_initial_logit: 0.0
+gate_ridge: 1.0
+gate_learning_rate: 0.1
+gate_gradient_scale: running_rms_from_past_feedback_only
+
+optimizer: fixed_preconditioned_single_step
+preconditioner: train_only_rms_diagonal
+preconditioner_refresh: round
+preconditioner_damping_relative: 0.01
+preconditioner_mean_diagonal: 1.0
+step_size_selection: frozen_training_only_kl_pilot
+pilot_kl_target_per_step: 0.005
+meta_feedback_steps: [1, 4, 7, 10]
+insertion_reference: virtual_same_start
+extra_reference_compute_accounting: separate
+meta_tasks_per_feedback: 4
+rollouts_per_meta_task: 2
+reward: official_terminal_metric
+baseline: leave_one_out_same_task
+
+acquisition: bayesian_linear_posterior_sampling
+acquisition_prior_precision: 1.0
+acquisition_prior_noise_variance: 1.0
+acquisition_entropy_temperature: 1.0
+acquisition_value: exposure_conserving_insertion
+insertion_fraction: 0.25
+acquisition_posterior_refresh: round
+hard_cost_reservation: true
+
+# Practical resource declarations (definitions above stay unchanged).
+benchmark: bfcl
+gate_projection_seed: 0
+parameter_space: lora_trainables
+new_teacher_calls: false
+new_teacher_tokens: 0
+replay_bank_path: data/rtd/v1_bfcl_c24
+replay_public_cap_output_tokens_by_class: {demo_attempt: 131072, generator_item: 131072}
+replay_cap_scope: class_uniform_fallback_after_archived_configuration_audit
+support_manifest: configs/rtd/v1_bfcl_support.json
+source_policy_generation: same_backend_torch_categorical
+historical_demo_output_tokens_exact: 1233607
+historical_generation_output_tokens_estimated: 142727
+feedback_scope: rotating_meta_training
+experiment_scope: exploratory
+support_parent_tasks_m: 40

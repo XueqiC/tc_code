@@ -34,6 +34,7 @@ if ss -ltn 2>/dev/null | grep -q ":$PORT "; then echo "port $PORT already in use
 CUDA_VISIBLE_DEVICES="$UUID" VLLM_USE_FLASHINFER_SAMPLER=0 nohup "$VLLM" serve "$POLICY" \
   --served-model-name bfas-policy --port "$PORT" --gpu-memory-utilization "$GPU_UTIL" \
   --max-model-len 32768 --enable-auto-tool-choice --tool-call-parser hermes \
+  --default-chat-template-kwargs '{"enable_thinking": false}' \
   > "$VLLM_LOG" 2>&1 &
 VPID=$!
 echo "vllm pid $VPID (log $VLLM_LOG)"

@@ -24,6 +24,7 @@ Every CLI value may be given in a JSON ``--config``; explicit CLI flags win.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -76,6 +77,7 @@ DEFAULTS: dict[str, Any] = {
     "utility_mode": "auto",
     "gamma_probe": 0.1,
     "gamma_perp": 1e-3,
+    "perp_mode": "decoupled",  # decoupled (AdamW-style proximal step) | coupled (into Adam)
     "fisher": None,  # path to torch dict {param_name: diag} or None -> F = 1
     "U": None,  # path to .npy (sketch_dim x K) or None -> penalty on full displacement
     "sketch_dim": 256,
@@ -129,6 +131,17 @@ def _vector(value: Any, K: int, name: str) -> np.ndarray | None:
     return arr
 
 
+def _sha(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def event_key(ev: mirror.Event) -> str:
+    """Unique event key ``_traj|sha1(prompt)|sha1(y^S)`` (== tools/atoms_loadings.event_key_for_event).
+    ``_traj`` alone is not unique in re-mined pools (v3t: 80 distinct _traj over 302 rows). 2026-09-04 (T7)."""
+    y_s = ev.candidates[ev.index_of(mirror.STUDENT)].text
+    return f"{ev.event_id}|{_sha(ev.prompt)}|{_sha(y_s)}"
+
+
 def load_loadings(cfg: argparse.Namespace, events: list[mirror.Event]) -> tuple[np.ndarray, str]:
     n = len(events)
     if cfg.loadings:
@@ -136,10 +149,11 @@ def load_loadings(cfg: argparse.Namespace, events: list[mirror.Event]) -> tuple[
         Z_all = np.asarray(data["Z"], dtype=np.float64)
         ids = [str(h) for h in data["state_hash"]]
         lookup = {h: i for i, h in enumerate(ids)}
+        by_key = "event_key" in data.files  # npz keyed by the unique event key, not by _traj
         Z = np.zeros((n, Z_all.shape[1]))
         missing = []
         for i, ev in enumerate(events):
-            j = lookup.get(ev.event_id)
+            j = lookup.get(event_key(ev) if by_key else ev.event_id)
             if j is None:
                 missing.append(ev.event_id)
             else:
@@ -178,7 +192,7 @@ def load_probes(cfg: argparse.Namespace, tokenizer: Any) -> list[dict[str, Any]]
 
 def cache_key(cfg: argparse.Namespace, ev: mirror.Event, cand: mirror.Candidate) -> str:
     cap, side = awt.prompt_truncation_config()
-    return f"{cfg.student}|cap{cap}{side}|{ev.event_id}|{cand.key()}"
+    return f"{cfg.student}|cap{cap}{side}|{ev.event_id}|{_sha(ev.prompt)}|{cand.key()}"  # prompt hash: _traj is not unique
 
 
 def score_candidate(model: Any, tokenizer: Any, ev: mirror.Event,
@@ -364,18 +378,42 @@ def main(argv=None) -> None:
                 (float(cfg.gamma_probe) * kl).backward()
             kl_val = float(kl.item())
         pen = penalty()
-        if float(cfg.gamma_perp) > 0:
-            (float(cfg.gamma_perp) * pen).backward()
         pen_val = float(pen.item())
+        perp_grads = None
+        if float(cfg.gamma_perp) > 0:
+            if cfg.perp_mode == "coupled":
+                (float(cfg.gamma_perp) * pen).backward()
+            else:
+                # Decoupled (AdamW-style) proximal step: the penalty is a quadratic
+                # in a 256-dim sketch of ~12M coordinates; fed through Adam's
+                # per-coordinate normalisation its tiny, sign-coherent gradient
+                # becomes a coherent +-lr move on every coordinate of a bucket
+                # (sketch step ~ coords/bucket * lr) and oscillates.  Applying
+                # lr * gamma_perp * grad directly keeps the sketch-space map
+                # contractive (observed 2026-09-04 smoke: perp 0.11 -> 1.8e3).
+                perp_grads = torch.autograd.grad(pen, [p for _, p in lora_b],
+                                                 allow_unused=True)
         grad_norm = math.sqrt(sum(float(p.grad.pow(2).sum()) for p in model.parameters()
                                   if p.grad is not None))
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
+        perp_step_norm = 0.0
+        if perp_grads is not None:
+            with torch.no_grad():
+                for (_, p), g in zip(lora_b, perp_grads):
+                    if g is None:
+                        continue
+                    upd = g.to(p.dtype) * (float(cfg.lr) * float(cfg.gamma_perp))
+                    perp_step_norm += float(upd.float().pow(2).sum())
+                    p.sub_(upd)
+            perp_step_norm = math.sqrt(perp_step_norm)
+        pen_after = float(penalty().item())
         step_rec = {
             "kind": "step", "step": step, "lambda": lam, "Lambda_mean": float(Lambda[chunk].mean()),
             "cmd_loss_mean": cmd_total / len(chunk), "probe_kl": kl_val,
             "probe_id": probes[(step - 1) % len(probes)]["id"] if probes else None,
-            "perp_penalty": pen_val, "grad_norm": grad_norm,
+            "perp_penalty": pen_val, "perp_penalty_after_step": pen_after,
+            "perp_step_norm": perp_step_norm, "grad_norm": grad_norm,
             "teacher_target_mass_mean": float(np.mean([r["teacher_target_mass"] for r in event_records])),
             "student_target_mass_mean": float(np.mean([r["student_target_mass"] for r in event_records])),
             "target_entropy_mean": float(np.mean([r["target_entropy"] for r in event_records])),
@@ -388,7 +426,7 @@ def main(argv=None) -> None:
         }
         emit(step_rec)
         print(f"[mirror] step {step}/{cfg.steps} cmd={step_rec['cmd_loss_mean']:.4f} "
-              f"probe_kl={kl_val:.4g} perp={pen_val:.3g} lambda={np.round(lam, 3).tolist()} "
+              f"probe_kl={kl_val:.4g} perp={pen_val:.3g}->{pen_after:.3g} lambda={np.round(lam, 3).tolist()} "
               f"T_mass={step_rec['teacher_target_mass_mean']:.3f} "
               f"J_win={np.round(est.value(), 3).tolist()} {step_rec['sec']:.1f}s "
               f"peak={step_rec['gpu_peak_gb']:.1f}GB", flush=True)

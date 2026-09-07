@@ -82,6 +82,35 @@ def truth_from_entry(entry: dict) -> list[dict]:
     return truth if isinstance(truth, list) else []
 
 
+def load_teacher_demos(root: Path) -> dict[str, object]:
+    """Official BFCL result files of the merged verified demo run: id -> result."""
+    demos: dict[str, object] = {}
+    if not root.is_dir():
+        return demos
+    for f in root.rglob("*_result.json"):
+        for line in f.read_text().splitlines():
+            if line.strip():
+                row = json.loads(line)
+                demos[row["id"]] = row.get("result")
+    return demos
+
+
+def demo_call_strings(result) -> list[str]:
+    """FC-model result [{name: json-args-string}] -> executable call strings."""
+    calls = []
+    for item in result if isinstance(result, list) else []:
+        if not isinstance(item, dict):
+            continue
+        for name, args in item.items():
+            try:
+                parsed = json.loads(args) if isinstance(args, str) else (args or {})
+            except json.JSONDecodeError:
+                parsed = {}
+            rendered = ", ".join(f"{k}={v!r}" for k, v in parsed.items())
+            calls.append(f"{name}({rendered})")
+    return calls
+
+
 def gt_call_strings(truth: list[dict]) -> list[str]:
     """Checker-format truth [{name: {arg: [choices]}}] -> executable call strings (first choice)."""
     calls = []
@@ -101,6 +130,8 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--gen", nargs="*", default=["data/bfcl_sft/gen_pool_v3.jsonl", "data/bfcl_sft/gen_pool_v4.jsonl"])
     parser.add_argument("--no-support", action="store_true")
+    parser.add_argument("--official-ids", default=None,
+                        help="JSON flat list of additional official task ids; use --no-support --gen to process only these ids")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--irrelevance", action="store_true",
                         help="also mine irrelevance tasks: correct = no tool call; a+ = abstain text "
@@ -118,6 +149,9 @@ def main() -> int:
                              "else a minimal flip: a fabricated call on abstain tasks / an abstention on call tasks)")
     parser.add_argument("--anchor-cap", type=int, default=40, help="max anchors per seed category")
     parser.add_argument("--out", default="data/bfcl_sft/events_single_v1.jsonl")
+    parser.add_argument("--teacher-demos", default="envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_demos_deepseek_v4_pro_FC",
+                        help="merged verified teacher demo result dir; official tasks take y^T from here (teacher = deepseek-v4-pro-FC); official tasks without a verified demo are skipped. Pass '' to fall back to oracle GT for support tasks (accounting-inconsistent, for ablation only); official_list events always require a demo, anchors do not")
+    parser.add_argument("--teacher-name", default="deepseek-v4-pro-FC")
     args = parser.parse_args()
 
     from bfas.adapters.bfcl import BFCLAdapter
@@ -138,9 +172,19 @@ def main() -> int:
                 except (json.JSONDecodeError, KeyError):
                     continue
     tasks: list[dict] = []
+    official_sources: list[tuple[str, list[str]]] = []
     if not args.no_support:
         split = json.loads((ROOT / "configs/bfcl_support_split.json").read_text())
-        for task_id in list(split["demand"]) + list(split["calibration"]):
+        # calibration ids are held out for certification and must never be trained on
+        # (2026-09-04: r3/r4 single-turn pools had leaked 3-4 calibration ids; fixed here)
+        official_sources.append(("support", list(split["demand"])))
+    if args.official_ids:
+        official_ids = json.loads((ROOT / args.official_ids).read_text())
+        if not isinstance(official_ids, list) or not all(isinstance(task_id, str) for task_id in official_ids):
+            parser.error("--official-ids must contain a flat JSON list of task id strings")
+        official_sources.append(("official_list", official_ids))
+    for source, task_ids in official_sources:
+        for task_id in task_ids:
             entry = entries.get(task_id)
             if not entry:
                 continue
@@ -151,7 +195,7 @@ def main() -> int:
                 continue
             populated = populate_test_cases_with_predefined_functions([json.loads(json.dumps(entry))])[0]
             tasks.append({
-                "id": task_id, "category": category, "source": "support",
+                "id": task_id, "category": category, "source": source,
                 "question": populated["question"], "function": populated.get("function") or [],
                 "truth": truth_from_entry({"ground_truth": answers.get(task_id)}),
             })
@@ -197,6 +241,9 @@ def main() -> int:
     anchors = open(args.anchors_out, "w", encoding="utf-8") if args.anchors_out else None
     anchor_counts: dict[str, int] = {}
     t0 = time.time()
+    teacher_demos = load_teacher_demos(ROOT / args.teacher_demos) if args.teacher_demos else None
+    if teacher_demos is not None:
+        print(f"[events1] teacher demos loaded: {len(teacher_demos)} verified ids from {args.teacher_demos}", flush=True)
     for task in tasks:
         stats["tasks"] += 1
         irrelevant = task["category"] in IRRELEVANCE or task.get("oos", False)
@@ -259,19 +306,41 @@ def main() -> int:
         if not wrong_replies:
             stats["all_pass"] += 1
             continue
-        if irrelevant:
+        teacher_label = "oracle_gt"
+        if task["source"] in {"support", "official_list"}:
+            # official task: y^T must be a paid teacher continuation, never the benchmark GT
+            if teacher_demos is None:
+                if task["source"] == "official_list":
+                    stats["skipped_no_teacher"] = stats.get("skipped_no_teacher", 0) + 1
+                    continue
+                target = None
+            elif task["id"] not in teacher_demos:
+                stats["skipped_no_teacher"] = stats.get("skipped_no_teacher", 0) + 1
+                continue
+            else:
+                res = teacher_demos[task["id"]]
+                target = res.strip() if (irrelevant and isinstance(res, str)) else target_block(demo_call_strings(res))
+                teacher_label = args.teacher_name
+            if target is None:
+                if irrelevant:
+                    target = abstain.get(task["id"]) or "I can't complete this request with the available functions."
+                else:
+                    target = target_block(gt_call_strings(task["truth"]))
+        elif irrelevant:
             target = abstain.get(task["id"]) or (
                 "I can't complete this request with the available functions."
             )
+            teacher_label = "teacher_authored_abstain"
         else:
             target = target_block(gt_call_strings(task["truth"]))
+            teacher_label = "teacher_authored_gt"  # generated task: the teacher wrote the answer
         if not target:
             stats["skipped_no_truth"] += 1
             continue
         stats["events"] += 1
         handle.write(json.dumps({
             "task_id": task["id"],
-            "teacher": "oracle_gt",
+            "teacher": teacher_label,
             "turn_index": 0,
             "prompt": prompt,
             "response": target,

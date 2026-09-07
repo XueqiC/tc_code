@@ -149,9 +149,9 @@ def main() -> int:
             if ev["side"][i] is not None:
                 side_tot += w[i]; call += w[i] * ev["side"][i]
         profile.append({"atom": k, "total_relevance": tot, "n_active": int((w > 1e-10).sum()),
-                        "top_categories": sorted(((c, round(v / tot, 3)) for c, v in by_cat.items()), key=lambda x: -x[1])[:4],
-                        "top_clusters": sorted(((int(c), round(v / tot, 3)) for c, v in by_cl.items()), key=lambda x: -x[1])[:4],
-                        "call_share": (call / side_tot) if side_tot > 0 else None})
+                        "top_categories": sorted(((c, round(float(v / tot), 3)) for c, v in by_cat.items()), key=lambda x: -x[1])[:4],
+                        "top_clusters": sorted(((int(c), round(float(v / tot), 3)) for c, v in by_cl.items()), key=lambda x: -x[1])[:4],
+                        "call_share": round(float(call / side_tot), 3) if side_tot > 0 else None})
         log(f"  atom {k:2d}: rel={tot:6.2f} active={profile[-1]['n_active']:3d} cats={profile[-1]['top_categories'][:3]} "
             f"clusters={profile[-1]['top_clusters'][:3]} call_share={profile[-1]['call_share']}", fh)
     # category purity of atoms vs k-means (analysis-only labels)

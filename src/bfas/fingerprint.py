@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -464,6 +465,49 @@ def merge_fingerprint_sets(paths: Sequence[str | Path], key: str = "psi") -> tup
     return np.concatenate(mats, 0), hashes, version
 
 
+def _base_task_id(task_id: str) -> str:
+    """Strip generator prefixes (gen_/genmt_/oos_) and a trailing _<n> variant
+    suffix: 'gen_live_parallel_multiple_10-9-0_1' -> 'live_parallel_multiple_10-9-0'."""
+    t = re.sub(r"^(gen|genmt|oos)_", "", task_id)
+    return re.sub(r"_\d+$", "", t)
+
+
+def calibration_indices(events: Sequence[Any], calibration_ids: Iterable[str]
+                        ) -> tuple[np.ndarray, np.ndarray]:
+    """(exact_idx, derived_idx): event rows whose task_id (or provenance.seed_task)
+    is one of the calibration ids, and rows whose task id is a generated/OOS
+    variant seeded from a calibration id (superset of exact)."""
+    ids = set(calibration_ids)
+    exact, derived = [], []
+    for i, ev in enumerate(events):
+        tid = ev["task_id"] if isinstance(ev, dict) else ev.task_id
+        prov = (ev.get("provenance", {}) if isinstance(ev, dict) else ev.provenance) or {}
+        seed = prov.get("seed_task")
+        if tid in ids or seed in ids:
+            exact.append(i)
+            derived.append(i)
+        elif _base_task_id(tid) in ids or (seed and _base_task_id(seed) in ids):
+            derived.append(i)
+    return np.asarray(exact, dtype=np.int64), np.asarray(derived, dtype=np.int64)
+
+
+def annotate_calibration(npz_path: str | Path, events: Sequence[Any],
+                         calibration_ids: Iterable[str]) -> tuple[np.ndarray, np.ndarray]:
+    """Re-save an existing npz with 'calibration_idx' (exact) and
+    'calibration_derived_idx' arrays; the event order must match state_hash."""
+    z = np.load(npz_path, allow_pickle=False)
+    data = {k: z[k] for k in z.files}
+    hashes = [str(h) for h in data["state_hash"]]
+    ev_hashes = [e["state_hash"] if isinstance(e, dict) else e.state_hash for e in events]
+    if hashes != ev_hashes:
+        raise ValueError("event order does not match the npz state_hash order")
+    exact, derived = calibration_indices(events, calibration_ids)
+    data["calibration_idx"] = exact
+    data["calibration_derived_idx"] = derived
+    np.savez(npz_path, **data)
+    return exact, derived
+
+
 def stamp_events(events: Sequence[Any], res: FingerprintResult, npz_path: str | Path) -> None:
     """Write fingerprint_version / fingerprint_path into UnifiedEvent records."""
     for ev, h in zip(events, res.state_hash):
@@ -495,6 +539,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--fisher-damping-rel", type=float, default=1e-3)
     ap.add_argument("--fisher", default=None, help="reuse fisher_<set>_<tag>.npz instead of re-estimating")
     ap.add_argument("--stamp", action="store_true", help="write fingerprint_version/path back into the events file")
+    ap.add_argument("--calibration-json", default=None,
+                    help="configs/bfcl_support_split.json; its 'calibration' ids are recorded as calibration_idx")
+    ap.add_argument("--annotate-only", action="store_true",
+                    help="only add calibration_idx to the existing npz (no GPU work)")
     args = ap.parse_args(argv)
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -503,6 +551,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     events = read_events(args.events)
     if args.limit:
         events = events[: args.limit]
+    calib_ids: list[str] = []
+    if args.calibration_json:
+        with open(args.calibration_json) as f:
+            calib_ids = list(json.load(f)["calibration"])
+    if args.annotate_only:
+        npz = Path(args.out_dir) / f"{args.set_name}_{args.tag}.npz"
+        exact, derived = annotate_calibration(npz, events, calib_ids)
+        print(f"[fp] {npz}: calibration_idx={exact.tolist()} calibration_derived_idx={derived.tolist()}", flush=True)
+        return 0
     cfg = FingerprintConfig(model_id=args.model, max_prompt_tok=args.max_prompt_tok,
                             max_resp_tok=args.max_resp_tok, proj_dim=args.proj_dim,
                             proj_seed=args.proj_seed, fisher_damping_rel=args.fisher_damping_rel)
@@ -517,6 +574,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"[fp] version: {res.fingerprint_version}")
     print(f"[fp] wrote {paths['npz']} ({res.psi.shape}), {paths['index']}, {paths['fisher']}; "
           f"{res.seconds_per_event:.2f}s/event", flush=True)
+    if args.calibration_json:
+        exact, derived = annotate_calibration(paths["npz"], events, calib_ids)
+        print(f"[fp] calibration_idx={exact.tolist()} calibration_derived_idx={derived.tolist()}", flush=True)
     if args.stamp:
         stamp_events(events, res, paths["npz"])
         if not args.limit:

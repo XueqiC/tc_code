@@ -90,20 +90,7 @@ for tag in "$@"; do
   out=$PROJ/results/bfcl_fast/$tag
   mkdir -p "$out"
   cp "$SCORE_SUB/data_overall.csv" "$out/" 2>/dev/null
-  PROXY_TAG=$tag PROXY_DIR=$out "$PROJ/.venv/bin/python" - <<'PY'
-import csv, os
-path = os.path.join(os.environ["PROXY_DIR"], "data_overall.csv")
-if not os.path.exists(path):
-    print(f"[fast] {os.environ['PROXY_TAG']} NO SCORE"); raise SystemExit
-row = list(csv.DictReader(open(path)))[0]
-axes = ["Overall Acc", "Non-Live AST Acc", "Live Acc", "Multi Turn Acc",
-        "Memory Acc", "Web Search Acc", "Relevance Detection",
-        "Irrelevance Detection"]
-parts = []
-for a in axes:
-    v = row.get(a, "N/A")
-    parts.append(f"{a.replace(' Acc','').replace(' Detection','')}={v}")
-print(f"[fast] {os.environ['PROXY_TAG']} PROXY " + "  ".join(parts))
-PY
+  "$PROJ/.venv/bin/python" "$PROJ/tools/bfcl_print_scores.py" \
+    "$out/data_overall.csv" "$tag" --prefix '[fast]' --proxy
 done
 echo "[fast] DONE"

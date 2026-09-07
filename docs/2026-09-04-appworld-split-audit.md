@@ -20,8 +20,8 @@ readable outputs in `results/analysis/appworld_audit_split.json` and
 | Legacy | `envs/appworld-venv`, `envs/appworld-data*`, `src/bfas/adapters/appworld.py` | in-house harness, superseded; not used |
 | Student | `Qwen/Qwen3.5-4B` in the HF cache; served with `envs/vllm-serve/.venv/bin/vllm` 0.27.1 | |
 
-Task counts: train 90, dev 57, test_normal 168, test_challenge 417 (= 732 listed ids
-+ 1 extra dir). Task metadata lives in `data/tasks/<id>/specs.json`
+Task counts: train 90, dev 57, test_normal 168, test_challenge 417 (732 listed ids,
+729 unique; `data/tasks` has 733 entries incl. the `_base_` template). Task metadata lives in `data/tasks/<id>/specs.json`
 (`instruction`, `supervisor` {name, email, phone}, `datetime`, `db_version`,
 `canary_string`) and `data/tasks/<id>/ground_truth/` (`metadata.json`: `difficulty`,
 `num_apps`, `num_apis`, `num_api_calls`, `num_solution_code_lines`, timing;
@@ -160,10 +160,65 @@ test id lists for counting.
 
 ## 4. Deterministic base-agent smoke (§11 P0 item 3)
 
-See section 4 results below (filled by the smoke run; raw data in
-`results/analysis/appworld_audit_smoke.json`).
+Raw data: `results/analysis/appworld_audit_smoke.json`; logs `logs/t4_appworld_smoke.log`,
+`logs/t4_appworld_vllm.log`, `logs/bfas/appworld_official/s0_smoke*.log`.
 
-SMOKE_RESULTS_PLACEHOLDER
+Setup: `bash tools/appworld_smoke.sh` -> vLLM 0.27.1 serving `Qwen/Qwen3.5-4B` as
+`bfas-policy` on GPU index 4 (UUID-pinned, `--gpu-memory-utilization 0.4`,
+`--max-model-len 32768`, `VLLM_USE_FLASHINFER_SAMPLER=0`, same flags as
+`bfas.run.VLLMServer`), port 8988; official scaffold through
+`AppWorldOfficialAdapter._run_official` (the `rollout()`/`evaluate()` code path),
+temperature 0, request seed 1, env `random_seed` 1, `--num-processes 1`, max 50
+steps; 3 train tasks from distinct scenarios, 2 repeats with a fresh adapter each
+(so seeds are identical). Server killed by the script's exit trap (GPU 4 back to
+3 MiB). Wall time 813 s per repeat.
+
+| task | scenario apps / difficulty | LM calls | env interactions | API calls | complete_task | tokens prompt+completion | eval (passes/num_tests) | success | run-to-run identical |
+|---|---|---|---|---|---|---|---|---|---|
+| 07b42fd_1 | spotify / 1 | 7 | 6 | 4 | no | 38,247 + 52,182 | 1/5 | no | yes |
+| 229360a_1 | spotify / 2 | 9 | 8 | 3 | no | 55,345 + 52,081 | 2/6 | no | yes |
+| 22cc237_1 | phone+simple_note+venmo / 3 | 35 | 35 | 34 | yes | 374,581 + 4,988 | 3/4 | no | yes |
+
+Results:
+
+- **Determinism: yes.** For all three tasks every prompt state, response text,
+  execution output, API-call URL sequence and evaluator verdict is byte-identical
+  across the two repeats (`all_identical = true`, no first divergence).
+- **Offline evaluator on train tasks: works.** `appworld evaluate <exp> <dataset>`
+  re-scored the kept outputs (rc 0, ~1 s for 3 tasks) and produced the same
+  `individual[<id>]` entries as the run-time evaluation: fields `success`,
+  `difficulty`, `num_tests`, `passes[]`, `failures[]` (each with `requirement`
+  text, `label`, and for failures a `trace`) -> the §7.3 "fraction and identity of
+  passed vs failed requirements" is available offline for train/dev.
+- **Base success 0/3 (TGC 0, SGC 0)**, but two distinct failure modes:
+  1. `07b42fd_1`, `229360a_1`: after a normal start the model emits a ~25k-token
+     response ("Wait, I need to check the API documentation..." repeated) twice;
+     the prompt then exceeds the 32,768-token context, vLLM returns HTTP 400 and
+     the agent terminates with `BREAKING_ERROR` (empty final call, no
+     `complete_task`). Cause: the Qwen3.5-4B chat template enables thinking by
+     default and the server was started without `--reasoning-parser`, so the
+     thinking stream is returned as `content` and, under greedy decoding, loops.
+  2. `22cc237_1` (difficulty 3): 35 short, well-formed steps, 34 API calls,
+     `complete_task()` called, 3 of 4 requirements pass; the one failure is a
+     content error (payment requests sent to 6 users instead of the 3 with
+     pending shares). Runtime errors along the way: 5 (`simple_note` API misuse,
+     recovered).
+- Errors recorded per interaction (`errors` list in the json): 1 / 3 / 5
+  execution tracebacks respectively.
+
+Decisions this forces before AW-1 (not changed here, adapter is out of scope):
+
+- Serve the student with `--reasoning-parser qwen3` (thinking goes to
+  `reasoning_content`, which the agent config already drops) or pass
+  `chat_template_kwargs: {"enable_thinking": false}`, and cap `max_tokens` in the
+  agent's `model_config` (e.g. 4096); otherwise the base burns ~50k completion
+  tokens per Spotify task and never finishes. The official scaffold's
+  `max_output_length`/`max_prompt_length` trimming is also off (`null`) in our
+  config; the official leaderboard runs use it.
+- Multi-process runs (`BFAS_APPWORLD_PROCESSES=4`) batch requests across tasks;
+  determinism was verified with 1 process only. Re-check with 4 before relying on
+  run-to-run identity for counterfactual branch comparisons.
+
 
 ## 5. Blockers for AW-1
 
@@ -177,4 +232,9 @@ SMOKE_RESULTS_PLACEHOLDER
 - Existing partial artefacts from the earlier collection lane
   (`experiments/outputs/simplified_react_code_agent/bfas/s0_*`, 30 verified
   gpt-5.4 demos in `results/bfas/appworld/`) are reusable as a fixed teacher pool
-  for offline replay.
+  for offline replay: `results/bfas/appworld/collect_shared/demos.json` holds 40
+  verified demos = the full demand set of `ours_s0/support_split.json`
+  (support 50 / demand 40 / calibration 10 over the 90 train ids, `complete: true`).
+- Base-agent config (thinking mode / max_tokens, see section 4) must be fixed
+  before AW-1 numbers mean anything; the 14% dev TGC recorded on 2026-09-01 was
+  obtained with the same server flags and is therefore also subject to this.

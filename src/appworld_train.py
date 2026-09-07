@@ -914,6 +914,9 @@ def smartad_weighted_loss(
 
 def distillation_config() -> dict[str, Any] | None:
     raw_mode = os.environ.get("AW_DISTILL", "").strip().lower()
+    if raw_mode == "pair_unit":
+        from bfas.pair_unit import configuration
+        return configuration()
     if not raw_mode:
         return None
     if raw_mode not in {"sad", "ddpo", "pbsd", "agentkd"}:
@@ -1816,6 +1819,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise RuntimeError("the visible CUDA device does not support bfloat16")
 
     distillation = distillation_config()
+    if (distillation is not None and distillation["mode"] == "pair_unit") or os.environ.get("AW_CC_PAIRS_PATH"):
+        import sys
+        from bfas.pair_unit import run
+        run(args, trainer=sys.modules[__name__])
+        return
     seed_everything(args.seed)
     rows = load_pool(POOL_PATH)
     teacher_filter = os.environ.get("AW_TEACHER", "").strip()
