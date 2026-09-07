@@ -1,8 +1,4 @@
-"""C26-E dispatch contracts, plus explicitly TEST-ONLY C26-F import-deny policy.
-
-The test guard below is not installed by production code. selector._check_import
-still needs the §7.3 item 10 edit; passing this suite never certifies that edit.
-"""
+"""Native C26-F registry, feedback and cooperative selector contracts."""
 import ast
 import builtins
 from copy import deepcopy
@@ -174,10 +170,11 @@ def test_evaluation_adapter_requires_common_guards_and_delegates(monkeypatch, se
     def evaluate(root, manifest, **kwargs):
         assert manifest is binding and not kwargs['output_root'].is_relative_to(directory)
         assert kwargs['tag'] == 'round-1' and kwargs['lock_timeout'] == 0
+        assert kwargs['lock_log_interval'] == .25 and callable(kwargs['on_lock_wait'])
         calls.append('campaign'); return result
     monkeypatch.setattr(alfworld_evaluation, 'evaluate', evaluate)
     p = registry.get_benchmark(c.config)
-    assert p.official_evaluation(c.root, directory, 1, lock_timeout=0) == result
+    assert p.official_evaluation(c.root, directory, 1, lock_timeout=0, lock_log_interval=.25) == result
     assert calls == ['hardware', 'harness', 'source', 'checkpoint_binding', 'campaign']
     assert json.loads((directory / 'evaluation-1.json').read_text()) == result
     saved['data_hash'] = 'changed'; put(directory / 'manifest.json', saved)
@@ -189,25 +186,9 @@ PRIVILEGED = {'registry', 'alfworld_config', 'alfworld_bank', 'alfworld_state',
               'alfworld_support', 'alfworld_rollout', 'alfworld_evaluation', 'alfworld_identity'}
 
 
-@pytest.fixture
-def proposed_import_guard(monkeypatch):
-    """Test-only executable specification for readiness §7.3 item 10.
-
-    Native cached-module imports currently bypass the three-name denylist.
-    Patch only this test invocation; no runtime monkeypatch in the CLI/registry.
-    """
-    original = selector._check_import
-    def check(name, fromlist=()):
-        original(name, fromlist)
-        if selector._active.get() is not None and (set(str(name).split('.')) | set(fromlist or ())) & PRIVILEGED:
-            selector._active.get().append({'kind': 'denied_import', 'resource': str(name)})
-            raise PermissionError('selector cannot import privileged ALFWorld modules (test-only C26-F policy)')
-    monkeypatch.setattr(selector, '_check_import', check)
-
-
 @pytest.mark.parametrize('module', sorted(PRIVILEGED))
 @pytest.mark.parametrize('route', ['cached', 'uncached', 'fromlist', 'relative'])
-def test_selector_cannot_import_privileged_alfworld_with_proposed_policy(module, route, proposed_import_guard):
+def test_selector_cannot_import_privileged_alfworld_with_native_policy(module, route):
     name = 'bfas.rtd.benchmarks.' + module
     importlib.import_module(name)  # Exercise cached imports, which audit hooks alone miss.
     saved = sys.modules.pop(name) if route == 'uncached' else None

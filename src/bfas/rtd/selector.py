@@ -68,7 +68,9 @@ _active = ContextVar("rtd_public_selector", default=None)
 def _check_import(name, fromlist=()):
     trace = _active.get()
     parts = set(str(name).split(".")) | set(fromlist or ())
-    if trace is not None and parts & {"broker", "bank", "ledger"}:
+    if trace is not None and parts & {"broker", "bank", "ledger", "alfworld_bank",
+            "alfworld_state", "alfworld_support", "alfworld_rollout", "alfworld_evaluation",
+            "alfworld_identity", "alfworld_config", "registry", "alfworld", "alfworld_eval"}:
         trace.append({"kind": "denied_import", "resource": str(name)})
         raise PermissionError("selector cannot import privileged RTD modules")
 

@@ -129,6 +129,8 @@ class RTDExperiment:
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
         self.config, self.manifest = config, manifest
+        from .benchmarks.registry import get_benchmark
+        self.providers = get_benchmark(config)
         self.directory, self.backend, self.support = Path(directory), backend, support
         self.device = next(iter(lora_parameters(backend.model).values())).device
         self.dtype = next(iter(lora_parameters(backend.model).values())).dtype
@@ -143,9 +145,15 @@ class RTDExperiment:
         self.ceilings = manifest['budget_ceilings']
         self.ledger = (Ledger.resume(self.ceilings[0], self.directory / 'teacher.jsonl') if resume else
                        Ledger(self.ceilings[0], self.directory / 'teacher.jsonl'))
-        self.broker = SealedReplayBroker(manifest['bank_path'], self.ledger, inner_parent_hashes=set(support.parents))
+        self.broker = self.providers.broker_builder(manifest['bank_path'], self.ledger, inner_parent_hashes=set(support.parents))
         if resume and self.store.pointer.exists():
             self.state = self.store.load(self.ledger, device=self.device)
+            if config.get('benchmark') == 'alfworld':
+                # Rehydrate only already-paid packages, in durable dependency
+                # order, before restoring the active fold. No new acquisition.
+                for event in self.ledger.events:
+                    if event['kind'] == 'reveal':
+                        self.broker.acquire(event['query_id'])
             for n, p in lora_parameters(backend.model).items():
                 with torch.no_grad():
                     p.copy_(self.state['parameters'][n])
@@ -203,13 +211,17 @@ class RTDExperiment:
 
     def sample_state(self, state):
         s = self.state
+        config = getattr(self, 'config', {})
         if state.parent_hash not in s['inner']:
             raise ValueError('source/feature state outside inner fold')
         if state.state_hash not in s['source_cache']:
             sources = []
             category = self.support.categories[self.support.parents[state.parent_hash]]
-            for sample_index in range(2):
-                with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
+            for sample_index in range(config.get('source_samples_per_state', 2)):
+                limit = (self.providers.action_limit(self.backend, category)
+                         if config.get('benchmark') == 'alfworld' else
+                         self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext())
+                with limit:
                     action = self.backend.sample_action(state.prompt, s['source'], self.sampling_rng)
                 source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
                                       action.eos_token_id, action.generation_logprob, truncated=action.truncated)
@@ -262,6 +274,9 @@ class RTDExperiment:
                     state = self.support.states[parent]
                     by_state[state.state_hash] = state
         for package in self.packages() if packages is None else packages:
+            if self.config.get('benchmark') == 'alfworld':
+                if package.query_id not in self.ledger.owned_ids or self.broker.acquire(package.query_id) != package:
+                    raise ValueError('teacher package must match purchased evidence')
             for behavior in package.behaviors:
                 if behavior.state.parent_hash not in self.state['inner']:
                     raise ValueError('teacher from feedback fold')
@@ -272,6 +287,14 @@ class RTDExperiment:
                 teachers[h][package.query_id, behavior.text] = behavior
         by_parent = defaultdict(list)
         ordered = sorted(by_state.items())
+        if self.config.get('benchmark') == 'alfworld':
+            # Ledger ownership includes a newly revealed pending package before
+            # the state machine merges it into s['owned'] at actual-only commit.
+            owned = dict(self.broker._purchased)
+            if set(owned) != self.ledger.owned_ids:
+                raise ValueError('incomplete owned package mapping')
+            self.support.protocol.guard_states([state for _, state in ordered], self.state['round'],
+                                               use='source', owned_packages=owned)
         pending = [(h, state) for h, state in ordered if h not in self.state['source_cache']
                    or h not in self.state['projection_cache']]
         for batch in self.batches(pending, 'source_states'):
@@ -298,6 +321,9 @@ class RTDExperiment:
 
     @property
     def slots(self):
+        if self.config.get('benchmark') == 'alfworld':
+            return (self.config.get('smoke_override', {}).get('slots', 8) if self.state['smoke']
+                    else self.config['slots_per_step'])
         return 2 if self.state['smoke'] else 8
 
     @property
@@ -342,10 +368,17 @@ class RTDExperiment:
     def feedback(self, parameters, label):
         s = self.state
         rollouts = []
+        alfworld = self.config.get('benchmark') == 'alfworld'
+        journal = self.journal
+        class FeedbackJournal:
+            def append(self, kind, **values):
+                return journal.append(kind, **(values | dict(round=s['round'], step=s['step'], role=label)))
+        context = (self.support.feedback_context(s['round'], self.backend, FeedbackJournal())
+                   if alfworld else self.checker)
         with self.scope(label):
             for parent, count in s['feedback_tasks']:
                 for _ in range(count):
-                    rollout = self.support.feedback(parent, self.backend, parameters, self.sampling_rng, self.checker)
+                    rollout = self.support.feedback(parent, self.backend, parameters, self.sampling_rng, context)
                     rollouts.append(rollout)
                     self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
                                         parent_hash=parent, rollout=asdict(rollout))
@@ -353,13 +386,33 @@ class RTDExperiment:
                 diagnostic_record=lambda rollout, index, diagnostic: self.journal.append('score_consistency',
                     **(diagnostic | dict(round=s['round'], step=s['step'], role=label,
                         task_id=rollout.task_id, action_index=index))),
-                baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task')
+                baseline='smoke_zero' if s['smoke'] and not alfworld else 'leave_one_out_same_task')
+        if alfworld:
+            result.metadata.update(all_zero=all(r.reward == 0 for r in rollouts),
+                all_one=all(r.reward == 1 for r in rollouts),
+                rollouts_per_task=dict((self.support.parents[p], count) for p, count in s['feedback_tasks']))
         self.journal.append('return_gradient', round=s['round'], step=s['step'], role=label,
                             parameter_hash=result.parameter_hash, metadata=result.metadata)
         return result
 
     def choose_feedback_tasks(self):
         s = self.state
+        # Baseline runners also use this public method on an object carrying
+        # only state/support/RNG. Keep that original BFCL contract and defaults.
+        config = getattr(self, 'config', {})
+        if config.get('benchmark') == 'alfworld':
+            parents = sorted(s['feedback'])
+            count = config['rollouts_per_meta_task']
+            limit = config['meta_tasks_per_feedback']
+            if s['smoke']:
+                override = config.get('smoke_override', {})
+                limit = override.get('parents_per_fold', 4)
+                count = override.get('rollouts', 2)
+            if len(parents) < limit or count < 2:
+                raise ValueError('ALFWorld feedback needs complete M parents and K>=2')
+            self.support.protocol.guard_tasks([self.support.parents[p] for p in parents],
+                                             s['round'], use='feedback')
+            return [(str(p), count) for p in self.rng.choice(parents, size=limit, replace=False)]
         groups = defaultdict(list)
         for parent in sorted(s['feedback']):
             tid = self.support.parents[parent]
@@ -367,8 +420,8 @@ class RTDExperiment:
                 groups[self.support.categories[tid].startswith('multi_turn')].append(parent)
         result = []
         for multi, group in sorted(groups.items()):
-            limit = 2 if s['smoke'] else (4 if multi else 8)
-            count = 1 if s['smoke'] else (2 if multi else 4)
+            limit = 2 if s['smoke'] else config.get('meta_tasks_multi_turn' if multi else 'meta_tasks_per_feedback', 4 if multi else 8)
+            count = 1 if s['smoke'] else config.get('rollouts_multi_turn' if multi else 'rollouts_per_meta_task', 2 if multi else 4)
             for parent in self.rng.choice(group, size=min(limit, len(group)), replace=False):
                 result.append((str(parent), count))
         if not result:
@@ -382,12 +435,14 @@ class RTDExperiment:
         if s['smoke']:
             # Stable content-hash slice of runnable single-turn parents; no labels.
             parents = set()
+            alfworld = self.config.get('benchmark') == 'alfworld'
+            count = self.config.get('smoke_override', {}).get('parents_per_fold', 4) if alfworld else 2
             for f in (0, 1):
                 possible = sorted(h for h in self.support.states if int(h, 16) % 2 == f
                                   and not self.support.categories[self.support.parents[h]].startswith('multi_turn'))
-                if len(possible) < 2:
-                    raise ValueError('smoke needs two single-turn parents per fold')
-                parents.update(possible[:2])
+                if len(possible) < count:
+                    raise ValueError('smoke needs its declared runnable parents per fold')
+                parents.update(possible[:count])
         s['inner'] = {h for h in parents if int(h, 16) % 2 == fold}
         s['feedback'] = parents - s['inner']
         self.broker.set_inner_parents(s['inner'])
@@ -442,7 +497,7 @@ class RTDExperiment:
         with self.scope('reference_gradient'):
             g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'])
             s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
-                exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g)
+                exact_noop=s['old_noop'], smoke=s['smoke'] and self.config.get('benchmark') != 'alfworld', old_gradient=g)
         if s['decision']:
             s['reference_feedback'] = self.feedback(s['reference'].updated, 'reference_feedback')
         self.transition('reference')
@@ -503,7 +558,7 @@ class RTDExperiment:
                 self.calibrate([package])
                 s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
                 s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
-                    exact_noop=True, smoke=s['smoke'])
+                    exact_noop=True, smoke=s['smoke'] and self.config.get('benchmark') != 'alfworld')
                 if s['reference_feedback'].parameter_hash != s['reference'].reference_hash:
                     raise ValueError('pilot changed the identity reference')
         self.transition('revealed')

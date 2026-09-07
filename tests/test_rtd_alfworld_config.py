@@ -130,13 +130,12 @@ def test_invalid_protocol_is_rejected(key, value):
         config.validate_config(value_config)
 
 
-def test_duplicate_yaml_and_bfcl_loader_refuse(tmp_path):
+def test_duplicate_yaml_and_common_loader_dispatch(tmp_path):
     p = tmp_path / 'bad.yaml'; p.write_text('benchmark: alfworld\nbenchmark: bfcl\n')
     with pytest.raises(ValueError, match='duplicate'):
         config.load_config(p)
     from bfas.rtd.cli import load_config
-    with pytest.raises(ValueError, match='frozen protocol'):
-        load_config(ROOT / 'configs/rtd/v1_alfworld_c26.yaml')
+    assert load_config(ROOT / 'configs/rtd/v1_alfworld_c26.yaml') == config.default_config()
 
 
 def test_manifest_section_determinism_and_cap_denominator(sealed_campaign):
@@ -184,7 +183,7 @@ def test_bank_corruption_and_train_identity_drift_rejected(sealed_campaign):
         config.bank_audit(c.root, c.config)
 
 
-def test_preparation_cli_never_starts_run_or_gpu(sealed_campaign, capsys):
+def test_preparation_cli_never_starts_run_or_gpu(sealed_campaign, capsys, monkeypatch):
     from tools.rtd_alfworld_experiment import main, smoke_plan
     c = sealed_campaign
     path = c.root / 'config.yaml'; path.write_text(yaml.safe_dump(c.config))
@@ -195,6 +194,9 @@ def test_preparation_cli_never_starts_run_or_gpu(sealed_campaign, capsys):
     assert len(plan['train_replays']) == 2
     assert plan['resources']['maximum_feedback_episodes'] == 16
     assert plan['resources']['rollouts_per_meta_task'] == 2
+    from bfas.rtd import cli
+    calls = []
+    monkeypatch.setattr(cli, 'main', lambda argv: calls.append(argv) or 0)
     for command in ('run', 'resume'):
-        assert main([command, '--config', '/missing/config']) == 2
-        assert 'not yet integrated: run/resume require the C26-F edits' in capsys.readouterr().out
+        assert main([command, '--config', '/missing/config', '--arm', 'R0']) == 0
+        assert calls[-1] == [command, '--arm', 'R0', '--config', '/missing/config']

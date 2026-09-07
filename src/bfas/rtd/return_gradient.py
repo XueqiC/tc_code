@@ -98,6 +98,10 @@ class TorchPolicyBackend:
         self.action_caps = dict(action_caps or {})
         if any(type(v) is not int or v < 1 for v in self.action_caps.values()):
             raise ValueError('positive action token caps required')
+        if set(self.action_caps) - {'single_turn', 'multi_turn', 'agent_action'}:
+            raise ValueError('unregistered action class')
+        if 'agent_action' in self.action_caps and self.action_caps != {'agent_action': 256}:
+            raise ValueError('ALFWorld requires only agent_action=256')
         self.score_tolerance = score_tolerance or ScoreTolerance(mean_abs=2e-6, max_abs=2e-5)
         self.backend_id = canonical_hash(dict(backend="rtd-torch-categorical-v1", base=base_checkpoint_hash,
             harness=harness_hash, tokenizer=tokenizer_hash, temperature=1., top_p=1.,
@@ -105,6 +109,21 @@ class TorchPolicyBackend:
 
     @contextmanager
     def action_limit(self, category):
+        if category == 'agent_action':
+            from .benchmarks.registry import get_benchmark
+            with get_benchmark({'benchmark': 'alfworld'}).action_limit(self, category):
+                yield
+            return
+        # BFCL categories are the frozen dataset names, including language/live
+        # variants. Reject arbitrary strings instead of assigning a single cap.
+        if (not isinstance(category, str) or not category.startswith(('multi_turn', 'memory', 'web_search'))
+                and category not in {'single_turn', 'simple', 'simple_python', 'simple_java',
+                    'simple_javascript', 'multiple', 'parallel', 'parallel_multiple',
+                    'irrelevance', 'relevance', 'live_simple', 'live_multiple', 'live_parallel',
+                    'live_parallel_multiple', 'live_irrelevance', 'live_relevance'}):
+            raise ValueError('unregistered action class: ' + str(category))
+        if 'agent_action' in self.action_caps:
+            raise ValueError('BFCL action class on ALFWorld backend')
         previous = self.max_action_tokens
         self.max_action_tokens = self.action_caps.get(
             'multi_turn' if category.startswith('multi_turn') else 'single_turn', previous)

@@ -280,11 +280,8 @@ def compare_base(base, result):
 
 
 def tag_lock_path(root, tag):
-    if not isinstance(tag, str) or not tag or tag in (".", "..") or "/" in tag or "\\" in tag:
-        raise ValueError("invalid ALFWorld campaign tag")
-    # One repository-wide namespace even when callers choose different output
-    # roots. BFCL keeps its original results/bfcl_std/.locks inode namespace.
-    return Path(root) / "results/alfworld_std/.locks" / digest(tag) / ".lock"
+    from ..evaluation_lock import tag_lock_path as common_tag_lock_path
+    return common_tag_lock_path(root, tag, benchmark='alfworld')
 
 
 def _records(artifacts, expected, identity, *, complete):
@@ -332,7 +329,8 @@ def validate_evaluation(directory, identity, expected, *, audited_hashes=None, m
 
 
 def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None, env_factory=None,
-             supplement=None, base_evaluation=None, lock_timeout=None):
+             supplement=None, base_evaluation=None, lock_timeout=None, lock_log_interval=None,
+             on_lock_wait=None):
     """Prepare, resume or reuse one campaign, without writing any training file.
 
     Injected backends are for CPU fixtures. The default backend checks the live
@@ -344,7 +342,8 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
         value = manifest["paths"].get(name)
         if value and directory.resolve().is_relative_to(Path(value).resolve()):
             raise ValueError("campaign output must be separate from input/training directories")
-    with evaluation_lock(lock, tag=f"alfworld/{tag}", timeout=lock_timeout):
+    with evaluation_lock(lock, tag=f"alfworld/{tag}", timeout=lock_timeout,
+                         log_interval=lock_log_interval, on_wait=on_lock_wait):
         if directory.exists() and any(p.name not in {"artifacts", "campaign.json", "audit.jsonl"}
                                       or p.is_symlink() for p in directory.iterdir()):
             raise ValueError("existing directory is not an ALFWorld campaign; choose a new output")

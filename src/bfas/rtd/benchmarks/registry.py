@@ -1,9 +1,9 @@
-"""C26-E dispatch contracts. Importing/resolving providers starts no experiment.
+"""Shared C26-F dispatch. Importing/resolving providers starts no experiment.
 
 BFCL providers are the original objects, imported lazily. ALFWorld adapters
 translate arguments/results only; the sole training state machine remains
 experiment.RTDExperiment and the sole return estimator is reinforce_gradient.
-The old entrypoints do not consult this registry until C26-F.
+The common CLI, runner and evaluation entrypoints use these same providers.
 """
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -181,7 +181,7 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
     call arguments are preserved; the native ALF campaign owns the tag lease.
     """
     _privileged()
-    from ..persistence import atomic_json, digest
+    from ..persistence import ComputeJournal, atomic_json, digest
     from ..hardware import hardware_identity, guard_hardware
     from ..identity import guard_harness, record_code_drift
     from .alfworld_config import data_identity, validate_config
@@ -201,9 +201,30 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
         model_path=saved['model_path'], hardware=hardware, run_directory=directory,
         round_number=round_number, environment_root=root / config['alfworld_environment_root'])
     # Separate sibling output, never a child of the training/input directory.
-    result = evaluate(root, binding, output_root=directory.parent / (directory.name + '-alfworld-evaluations'),
-        tag=f'round-{round_number}', hardware=hardware, base_evaluation=base_evaluation,
-        lock_timeout=lock_timeout)
+    journal = ComputeJournal(directory / 'compute.jsonl', cuda=False)
+    journal.append('evaluation_transport', round=round_number, benchmark='alfworld',
+        transport='TextWorld subprocess pipes', requested_port=port, port_used=False,
+        note='port argument has no effect; no HTTP server or port lease')
+    def record_wait(**event):
+        journal.append('evaluation_lock_wait', round=round_number, tag=f'alfworld/round-{round_number}',
+            accounting='idle', idle_seconds=event['wall_seconds'], gpu_seconds=0., gpu_reserved_seconds=0., **event)
+    completed = directory / f'evaluation-{round_number}.json'
+    output = directory.parent / (directory.name + '-alfworld-evaluations')
+    if completed.exists():
+        campaign = output / f'round-{round_number}' / 'campaign.json'
+        if not campaign.is_file() or json.loads(completed.read_text()) != json.loads(campaign.read_text()):
+            raise ValueError('training evaluation receipt differs from ALFWorld campaign')
+    # The native campaign lock handles the entire resume/reuse interval.
+    import time
+    start = time.monotonic()
+    begin = journal.append('evaluation_begin', round=round_number, benchmark='alfworld')
+    try:
+        result = evaluate(root, binding, output_root=output,
+            tag=f'round-{round_number}', hardware=hardware, base_evaluation=base_evaluation,
+            lock_timeout=lock_timeout, lock_log_interval=lock_log_interval, on_lock_wait=record_wait)
+    finally:
+        journal.append('evaluation_end', begin_sequence=begin, round=round_number,
+                       wall_seconds=time.monotonic() - start)
     atomic_json(directory / f'evaluation-{round_number}.json', result)
     return result
 

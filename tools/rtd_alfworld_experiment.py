@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CPU-only C26-E preparation. This entrypoint contains no RTD training loop."""
+"""ALFWorld CPU preparation; run/resume delegate to the common C26-F trainer."""
 import argparse
 import json
 from pathlib import Path
@@ -8,7 +8,6 @@ from bfas.rtd.benchmarks.alfworld_config import load_config, bank_audit, manifes
 from bfas.rtd.benchmarks.registry import get_benchmark
 
 ROOT = Path(__file__).resolve().parents[1]
-NOT_INTEGRATED = 'not yet integrated: run/resume require the C26-F edits'
 
 
 def smoke_plan(root, config):
@@ -33,7 +32,7 @@ def smoke_plan(root, config):
             successful_demo_commands=len(payload['commands']), reset_repetitions=2,
             failure_path='from a separate reset: fixed invalid raw action through existing parser; then 40 look actions or terminal',
             writes='new smoke directory only; never reseal the bank'))
-    return dict(status='plan only; ' + NOT_INTEGRATED, gpu_used=False, host='rai',
+    return dict(status='plan only; training delegates to tools/rtd_experiment.py', gpu_used=False, host='rai',
         inputs=dict(config_hash=manifest_config_hash(config), bank=bank.as_posix(),
                     sealed_manifest_sha256=audit['verification']['manifest_sha256'],
                     support_hash=audit['support_manifest_hash']),
@@ -74,22 +73,29 @@ def main(argv=None):
     for name in ('audit', 'smoke-plan', 'run', 'resume'):
         sub = commands.add_parser(name)
         sub.add_argument('--root', type=Path, default=ROOT)
-        sub.add_argument('--config', type=Path, default=Path('configs/rtd/v1_alfworld_c26.yaml'))
-    args = parser.parse_args(argv)
+        sub.add_argument('--config', type=Path, default=None if name == 'resume' else Path('configs/rtd/v1_alfworld_c26.yaml'))
+    args, extra = parser.parse_known_args(argv)
     if args.command in ('run', 'resume'):
-        print(NOT_INTEGRATED)
-        return 2
+        if args.root.resolve() != ROOT:
+            parser.error('training must run from its isolated checkout; --root is preparation-only')
+        from bfas.rtd.cli import main as runner_main
+        command = [args.command, *extra]
+        if args.config is not None:
+            command += ['--config', str(ROOT / args.config)]
+        return runner_main(command)
+    if extra:
+        parser.error('unrecognized arguments: ' + ' '.join(extra))
     root = args.root.resolve()
     try:
         config = load_config(root / args.config)
         if args.command == 'audit':
             section = manifest_section(root, config)
-            result = dict(status='passed', stage='C26-E preparation only', gpu_used=False,
-                environment_started=False, training_integrated=False, manifest_section=section)
+            result = dict(status='passed', stage='C26-F CPU preparation', gpu_used=False,
+                environment_started=False, training_integrated=True, manifest_section=section)
         else:
             result = smoke_plan(root, config)
     except (ValueError, OSError) as exc:
-        parser.exit(1, f'C26-E {args.command} failed: {exc}\n')
+        parser.exit(1, f'C26-F {args.command} failed: {exc}\n')
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
     return 0
 

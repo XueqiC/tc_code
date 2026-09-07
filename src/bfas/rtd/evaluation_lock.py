@@ -28,9 +28,14 @@ def wait_settings(timeout=None, log_interval=None):
     return timeout, log_interval
 
 
-def tag_lock_path(root, tag):
-    if not tag or tag in {'.', '..'} or '/' in tag:
+def tag_lock_path(root, tag, *, benchmark='bfcl'):
+    if not isinstance(tag, str) or not tag or tag in {'.', '..'} or '/' in tag or '\\' in tag:
         raise ValueError(f'invalid campaign tag: {tag!r}')
+    if benchmark == 'alfworld':
+        from .persistence import digest
+        return Path(root) / 'results/alfworld_std/.locks' / digest(tag) / '.lock'
+    if benchmark != 'bfcl':
+        raise ValueError('unknown evaluation benchmark')
     key = hashlib.sha256(tag.encode()).hexdigest()
     return Path(root) / 'results/bfcl_std/.locks' / key / '.lock'
 

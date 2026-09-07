@@ -132,11 +132,22 @@ def validate_config(value):
         raise ValueError("configuration must be a string-keyed mapping")
     if value.get("benchmark") != "alfworld":
         raise ValueError("explicit benchmark: alfworld required")
-    unknown = set(value) - set(DEFAULTS)
+    unknown = set(value) - set(DEFAULTS) - {'smoke_override'}
     if unknown:
         raise ValueError("unknown ALFWorld configuration keys: " + ", ".join(sorted(unknown)))
     config = default_config()
     config.update(deepcopy(value))
+    if 'smoke_override' in value:
+        smoke = value['smoke_override']
+        expected = dict(parents_per_fold=4, slots=8, rollouts=2, windows=1,
+                        baseline='leave_one_out_same_task', max_seconds=900)
+        if not isinstance(smoke, dict) or set(smoke) != set(expected):
+            raise ValueError('invalid ALFWorld partial smoke override')
+        if type(smoke['parents_per_fold']) is not int or smoke['parents_per_fold'] not in (2, 4):
+            raise ValueError('ALFWorld partial smoke requires two or four parents per fold')
+        expected['parents_per_fold'] = smoke['parents_per_fold']
+        if any(type(smoke[k]) is not type(v) or smoke[k] != v for k, v in expected.items()):
+            raise ValueError('ALFWorld partial smoke must retain eight slots and K=2 LOO')
     def same(actual, expected):
         if type(actual) is not type(expected):
             return False

@@ -2,6 +2,7 @@
 from copy import deepcopy
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -220,6 +221,8 @@ with warnings.catch_warnings():
 
 
 @integration
+@pytest.mark.skipif(os.environ.get("RTD_ALFWORLD_REAL_TESTS") != "1",
+                    reason="opt in with RTD_ALFWORLD_REAL_TESTS=1; real read-only assets")
 def test_real_environment_two_packages_replay_deterministically(tmp_path, monkeypatch):
     """Skip only unavailable prerequisites/worker startup, never a replay mismatch."""
     from tools.rtd_alfworld_verify import TOKENIZER

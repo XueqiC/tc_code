@@ -1,0 +1,266 @@
+{
+  "before_commit": "b5fc5285efaf184949944e2e41535df7d4434c22",
+  "manifest": {
+    "version": "rtd-v1.0.1-run",
+    "arm": "R1",
+    "smoke": false,
+    "config": {
+      "method": "rtd_v1",
+      "mode": "sealed_replay",
+      "training_seed": 0,
+      "same_hardware_required": true,
+      "harness_frozen": true,
+      "teacher_access": "text_only",
+      "support_split": "parent_hash_two_fold",
+      "certificate_isolation": "strict",
+      "rounds": 3,
+      "decision_steps_per_round": [
+        1,
+        4,
+        7,
+        10
+      ],
+      "max_new_packages_per_decision": 1,
+      "replay_is_explicit_choice": true,
+      "replay_prior_mass": 0.5,
+      "budget_checkpoints_bank_fraction": [
+        0.1,
+        0.25,
+        0.5
+      ],
+      "online_max_teacher_turns": 8,
+      "replay_request_lengths": "recorded_only",
+      "source_refresh": "round",
+      "source_samples_per_state": 2,
+      "source_temperature": 1.0,
+      "source_top_p": 1.0,
+      "loss": "positive_source_teacher_mixture",
+      "behavior_probability": "complete_action_with_termination",
+      "exposure_unit": "complete_source_action_slot",
+      "slots_per_step": 8,
+      "committed_steps_per_round": 12,
+      "gate": "linear_sigmoid",
+      "gate_hidden_projection_dim": 32,
+      "gate_initial_logit": 0.0,
+      "gate_ridge": 1.0,
+      "gate_learning_rate": 0.1,
+      "gate_gradient_scale": "running_rms_from_past_feedback_only",
+      "optimizer": "fixed_preconditioned_single_step",
+      "preconditioner": "train_only_rms_diagonal",
+      "preconditioner_refresh": "round",
+      "preconditioner_damping_relative": 0.01,
+      "preconditioner_mean_diagonal": 1.0,
+      "step_size_selection": "frozen_training_only_kl_pilot",
+      "pilot_kl_target_per_step": 0.005,
+      "meta_feedback_steps": [
+        1,
+        4,
+        7,
+        10
+      ],
+      "insertion_reference": "virtual_same_start",
+      "extra_reference_compute_accounting": "separate",
+      "meta_tasks_per_feedback": 8,
+      "rollouts_per_meta_task": 4,
+      "reward": "official_terminal_metric",
+      "baseline": "leave_one_out_same_task",
+      "acquisition": "bayesian_linear_posterior_sampling",
+      "acquisition_prior_precision": 1.0,
+      "acquisition_prior_noise_variance": 1.0,
+      "acquisition_entropy_temperature": 1.0,
+      "acquisition_value": "exposure_conserving_insertion",
+      "insertion_fraction": 0.25,
+      "acquisition_posterior_refresh": "round",
+      "hard_cost_reservation": true,
+      "benchmark": "bfcl",
+      "gate_projection_seed": 0,
+      "parameter_space": "lora_trainables",
+      "new_teacher_calls": false,
+      "new_teacher_tokens": 0,
+      "replay_bank_path": "data/rtd/v1_bfcl_c25",
+      "replay_public_cap_output_tokens_by_class": {
+        "demo_attempt": 65536,
+        "generator_item": 8192
+      },
+      "replay_cap_scope": "class_uniform_fallback_after_archived_configuration_audit",
+      "support_manifest": "configs/rtd/v1_bfcl_support.json",
+      "source_policy_generation": "same_backend_torch_categorical",
+      "historical_demo_output_tokens_exact": 1233607,
+      "historical_generation_output_tokens_estimated": 142727,
+      "feedback_scope": "rotating_meta_training",
+      "experiment_scope": "exploratory",
+      "support_parent_tasks_m": 40,
+      "protocol_version": "1.0.1",
+      "budget_basis": "usable_public_cap_sum",
+      "meta_tasks_multi_turn": 4,
+      "rollouts_multi_turn": 2,
+      "student": "Qwen/Qwen3.5-4B",
+      "model_local_files_only": true,
+      "output_root": "results/rtd_v1",
+      "max_action_tokens_by_benchmark": {
+        "bfcl": {
+          "single_turn": 512,
+          "multi_turn": 1024
+        }
+      },
+      "max_context_tokens": 32768,
+      "max_state_batch_size": 2,
+      "memory_peak_budget_gb": 38,
+      "memory_reserve_gb": 2,
+      "memory_state_estimate_gb": 16,
+      "pilot_eta_candidates": [
+        1e-06,
+        3e-06,
+        1e-05,
+        3e-05,
+        0.0001,
+        0.0003,
+        0.001
+      ],
+      "initial_eta": 1e-05,
+      "source_backend": "hf_generate",
+      "score_consistency_tolerance": {
+        "mean_abs": 0.05,
+        "max_abs": 1.0,
+        "max_abs_outlier_tokens": 2,
+        "max_abs_hard": 8.0
+      },
+      "lora_rank": 16,
+      "lora_alpha": 32,
+      "lora_target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ],
+      "evaluate_after_round": true,
+      "evaluation_temperature": 0.0
+    },
+    "config_hash": "96c08a0e77c1c260caf65cc4e5b8e761992ae8754e938e3af8fa2a23c0956d09",
+    "model_path": "<ROOT>/model",
+    "base_checkpoint_hash": "6c5738e77bafd001bccb42bacd4446c6529292a223b8b8374602f2dd8c645cae",
+    "tokenizer_hash": "862bad017ee82b597ad6ada01512103e57e24dbff7471eb0389941b6389f9352",
+    "harness_hash": "5c984863d7434a155d07d822255e83fae67f7492fe504bb5d6474e11636f18fb",
+    "evaluation_harness": {
+      "version": "bfcl-evaluation-harness-scoring-v4",
+      "leaderboard": "envs/bfcl/gorilla/berkeley-function-call-leaderboard",
+      "checkout_files": {
+        "bfcl_eval/utils.py": {
+          "size": 7,
+          "sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        }
+      },
+      "checkout_hash": "8cf7728b34399f0e1b6b1dc278ab81252ec62939588753a6733162c2b9318cbd",
+      "data_manifest": {
+        "bfcl_eval/data/tasks.json": {
+          "size": 2,
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        }
+      },
+      "data_hash": "d08303b124aacf70cb784d753dccb884fd3595e2783a027872b1dc8a970f2bf4",
+      "tools": {
+        "tools/behavior_atom/checker_bridge.py": "5c2827830118a5d5c35050da52cc42229ffd66e860dd6384ae1222d7003e6456",
+        "tools/bfcl_event_mine_single.py": "996db4d5e7dbe57f7944fdd4025a869e4df2ace9a9f32fe89c52f688cf023e55",
+        "tools/bfcl_std_campaign.sh": "66279841742a043566b960c20cc486718a6411157cf4f2f48c70a1e0272a9b22",
+        "tools/bfcl_generation_check.py": "2c947e2cf47d9618257bcab8f08eb9d92a77a339179f5f88d987f3ce5bfb16fa",
+        "tools/bfcl_hub_merge_export.py": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "src/bfas/rtd/evaluation.py": "a8897c3ae5df2911e072200f03322b4aa0a69ef36f95f2453d53b06fe8beda46",
+        "src/bfas/adapters/bfcl.py": "f6d6d341e937d3330a9ae2a1030713085a411c53ef727517cd6ac64c79ef677a"
+      },
+      "config": {
+        "evaluation_temperature": 0.0
+      }
+    },
+    "evaluation_harness_metadata": {},
+    "data_hash": "10c66f9376d76ac7acaf5b2f4b25131a0e7f738b5b7cd3d7e6dc5b542e224dc2",
+    "hardware": {
+      "version": "rtd-hardware-class-v1",
+      "hard": {
+        "gpu": "NVIDIA B200",
+        "capability": [
+          10,
+          0
+        ],
+        "memory": 192000000000,
+        "cuda": "13.0",
+        "driver": "580.95.05",
+        "versions": {
+          "torch": "fixture",
+          "transformers": "fixture",
+          "peft": "fixture",
+          "numpy": "fixture"
+        },
+        "python": "3.12.13",
+        "machine": "x86_64",
+        "host_class": "hpg-b200"
+      },
+      "metadata": {
+        "hostname": "c1100a-s25",
+        "uuid": "4200c43f-original",
+        "pci_bus_id": "0000:41:00.0",
+        "cuda_device_order": "PCI_BUS_ID"
+      }
+    },
+    "hardware_hash": "1f21486d0c88fa6d3a305f691747f452b91a2c7504d5e95e39a0514ddbd31b6d",
+    "bank_path": "<ROOT>/bank",
+    "bank_public_cap_sum": 100,
+    "budget_ceilings": [
+      10,
+      25,
+      50
+    ],
+    "recorded_bank_usage": {},
+    "available_packages": 1,
+    "m": 1,
+    "backend": "HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention",
+    "backend_rationale": "one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured",
+    "score_consistency": {
+      "tolerance": {
+        "mean_abs": 0.05,
+        "max_abs": 1.0,
+        "max_abs_outlier_tokens": 2,
+        "max_abs_hard": 8.0
+      },
+      "units": "nats/token including EOS",
+      "records": "compute.jsonl: score_consistency, per state/action, including failed checks",
+      "generation": "hf-generate-kv-categorical-v1",
+      "scoring": "torch-functional-teacher-forced-native-ce-v1",
+      "reinforce_likelihood": "same score_tokens native CE tensor as teacher forcing"
+    },
+    "resources": {
+      "new_teacher_calls": 0,
+      "new_teacher_tokens": 0,
+      "support_feedback": "rotating meta-training",
+      "controller_pretrained": false,
+      "certification_access": "evaluate only",
+      "historical_demo_output_exact": 1233607,
+      "historical_generator_output_estimated": 142727
+    },
+    "checkpoint_schedule": "cumulative 10/25/50 percent after rounds 1/2/3; four windows per round"
+  },
+  "scoring_hashes": {
+    "tools/behavior_atom/checker_bridge.py": "5c2827830118a5d5c35050da52cc42229ffd66e860dd6384ae1222d7003e6456",
+    "tools/bfcl_event_mine_single.py": "996db4d5e7dbe57f7944fdd4025a869e4df2ace9a9f32fe89c52f688cf023e55",
+    "tools/bfcl_generation_check.py": "2c947e2cf47d9618257bcab8f08eb9d92a77a339179f5f88d987f3ce5bfb16fa",
+    "src/bfas/rtd/evaluation.py": "a8897c3ae5df2911e072200f03322b4aa0a69ef36f95f2453d53b06fe8beda46",
+    "src/bfas/adapters/bfcl.py": "f6d6d341e937d3330a9ae2a1030713085a411c53ef727517cd6ac64c79ef677a",
+    "tools/bfcl_std_campaign.sh": "66279841742a043566b960c20cc486718a6411157cf4f2f48c70a1e0272a9b22"
+  },
+  "source_functions": {
+    "cli": {
+      "source": "def load_config(path):\n    config = yaml.safe_load(Path(path).read_text())\n    if not isinstance(config, dict):\n        raise ValueError('configuration must be a mapping')\n    if (config.get('protocol_version') != '1.0.1' or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}\n            or config.get('budget_basis') != 'usable_public_cap_sum'):\n        raise ValueError('use the v1.0.1 public-cap configuration')\n    canonical = yaml.safe_load((ROOT / 'configs/rtd/v1_bfcl_c25.yaml').read_text())\n    mutable = {'student', 'output_root', 'replay_bank_path', 'support_manifest', 'max_action_tokens',\n               'max_context_tokens', 'pilot_eta_candidates', 'initial_eta', 'model_local_files_only',\n               'evaluate_after_round', 'mode', 'gate', 'acquisition', 'preconditioner',\n               'score_consistency_tolerance', 'max_action_tokens_by_benchmark', 'max_state_batch_size',\n               'memory_peak_budget_gb', 'memory_reserve_gb', 'memory_state_estimate_gb'}\n    for key, expected in canonical.items():\n        if key not in mutable and config.get(key) != expected:\n            raise ValueError(f'frozen protocol value changed: {key}')\n    if config.get('gate') not in {'linear_sigmoid', 'scalar_sigmoid'}:\n        raise ValueError('supported gate components: linear_sigmoid/scalar_sigmoid')\n    if config.get('acquisition') not in {'bayesian_linear_posterior_sampling', 'random'}:\n        raise ValueError('unsupported acquisition component')\n    if config.get('preconditioner') not in {'train_only_rms_diagonal', 'identity'}:\n        raise ValueError('unsupported preconditioner component')\n    if config.get('gate_override') not in {None, 'fixed_half', 'teacher_only'}:\n        raise ValueError('unsupported fixed gate endpoint')\n    if config['mode'] == 'fixed_evidence' and not config.get('fixed_evidence_ids'):\n        # An empty source ledger is legal, and still retrains every cell.\n        if 'fixed_evidence_ids' not in config:\n            raise ValueError('fixed evidence mode needs an explicit ledger collection')\n    if config['mode'] == 'sealed_replay' and 'fixed_evidence_ids' in config:\n        raise ValueError('fixed collection must be labelled fixed_evidence')\n    if config['source_backend'] != 'hf_generate' or not config['model_local_files_only']:\n        raise ValueError('C25 uses cached local HF weights; no remote teacher/model calls')\n    config['score_consistency_tolerance'] = vars(ScoreTolerance.from_config(config))\n    caps = config.setdefault('max_action_tokens_by_benchmark', {})\n    if not isinstance(caps, dict):\n        raise ValueError('benchmark action caps must be a mapping')\n    caps.setdefault('bfcl', {})\n    for benchmark, limits in caps.items():\n        if not isinstance(benchmark, str) or not isinstance(limits, dict) or set(limits)-{'single_turn', 'multi_turn'}:\n            raise ValueError('benchmark action caps require single_turn/multi_turn limits')\n        if any(type(v) is not int or v < 1 for v in limits.values()):\n            raise ValueError('positive integer action caps required')\n    for kind, cap in [('single_turn', 512), ('multi_turn', 1024)]:\n        caps['bfcl'].setdefault(kind, cap)\n    for key in ('max_action_tokens', 'max_context_tokens'):\n        if key in config and (type(config[key]) is not int or config[key] < 1):\n            raise ValueError('positive integer token limits required')\n    for key, value in [('max_state_batch_size', 2), ('memory_peak_budget_gb', 38),\n                       ('memory_reserve_gb', 2), ('memory_state_estimate_gb', 16)]:\n        config.setdefault(key, value)\n    MemoryPolicy.from_config(config)\n    return config\n\n\ndef data_identity(root, config, bank):\n    root, bank = Path(root), Path(bank)\n    data = root / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data'\n    return digest(dict(public=file_hash(bank/'public/requests.json'), integrity=file_hash(bank/'sealed/integrity.json'),\n                       support=file_hash(root/config['support_manifest']), official=tree_hash(data)))\n\n\ndef make_manifest(config, arm, audit, *, smoke=False):\n    from tools.bfcl_hub_merge_export import _snapshot_for_model\n    model = Path(config['student'])\n    if not model.is_dir():\n        # Same local refs/main resolution as cc_three_arms' export. A usable\n        # weight snapshot need not contain unrelated Hub README/license files.\n        model = _snapshot_for_model(config['student'])\n    hardware = hardware_identity()\n    harness = evaluation_harness_identity(ROOT, config)\n    manifest = dict(version='rtd-v1.0.1-run', arm=arm, smoke=smoke, config=config, config_hash=digest(config),\n        model_path=str(model.resolve()), base_checkpoint_hash=tree_hash(model),\n        tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob('*'))\n                               if p.is_file() and any(k in p.name for k in ('token', 'vocab', 'merges', 'chat_template'))]),\n        harness_hash=digest(harness), evaluation_harness=harness, rtd_source=source_identity(ROOT),\n        evaluation_harness_metadata=evaluation_harness_metadata(ROOT),\n        data_hash=data_identity(ROOT, config, audit['bank_path']),\n        hardware=hardware, hardware_hash=digest(hardware['hard']), **{k: audit[k] for k in\n            ('bank_path', 'bank_public_cap_sum', 'budget_ceilings', 'recorded_bank_usage', 'available_packages', 'm')},\n        backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',\n        backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured',\n        # Keep declarations byte-stable on resume; effective defaults are journaled separately.\n        score_consistency=dict(tolerance=dict(config.get('score_consistency_tolerance', {})), units='nats/token including EOS',\n            records='compute.jsonl: score_consistency, per state/action, including failed checks',\n            generation='hf-generate-kv-categorical-v1', scoring='torch-functional-teacher-forced-native-ce-v1',\n            reinforce_likelihood='same score_tokens native CE tensor as teacher forcing'),\n        resources=dict(new_teacher_calls=0, new_teacher_tokens=0, support_feedback='rotating meta-training',\n                       controller_pretrained=False, certification_access='evaluate only',\n                       historical_demo_output_exact=1233607, historical_generator_output_estimated=142727),\n        checkpoint_schedule='cumulative 10/25/50 percent after rounds 1/2/3; four windows per round')\n    for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):\n        if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:\n            raise ValueError('fixed ledger source differs: ' + key)\n    return manifest\n",
+      "sha256": "36cb8b2d42373ef07c9b25a247bdda31d3713e0c3a12b8078d53bf07858d0f37"
+    },
+    "identity": {
+      "source": "def evaluation_harness_identity(root, config):\n    \"\"\"Only relative names and file/config contents; no git or install state.\"\"\"\n    root = Path(root)\n    files, data = _evaluation_harness_paths(root)\n    checkout, data_manifest = _content_manifest(files), _content_manifest(data)\n    return dict(version=CONTENT_VERSION, leaderboard=LEADERBOARD,\n                checkout_files=checkout, checkout_hash=digest(checkout),\n                data_manifest=data_manifest, data_hash=digest(data_manifest),\n                tools={p: scoring_hash(p, (root/p).read_bytes().decode('utf-8')) for p in EVALUATION_TOOLS},\n                config={k: v for k, v in config.items() if k.startswith('evaluation_')})\n",
+      "sha256": "5a43a191333522682adaeacd55611e95251ef37058d570b382f200edbc4f49bc"
+    },
+    "scoring_scope": {
+      "source": "def scoring_projection(name, content):\n    \"\"\"Return a portable hash input; fail closed on missing/ambiguous selectors.\"\"\"\n    if name == SHELL:\n        # Arguments that choose handler, weights, sampling, category population,\n        # evaluator and aggregate. Wrappers, endpoints, retries and logs excluded.\n        patterns = {\n            'model_directory': (r'^MODEL_DIR=.*$', 1),\n            'generation_arguments': (r'^  generate_args=\\([\\s\\S]*?\\)\\n', 1),\n            'local_weights': (r'^    generate_args\\+=\\(.*\\)$', 1),\n            'sampler': (r'^\\s*VLLM_USE_FLASHINFER_SAMPLER=.*?\\\\$', 2),\n            'generate': (r'^\\s*\"\\$BFCL\" generate .*?\\\\$', 2),\n            'evaluate': (r'^  if ! \"\\$BFCL\" evaluate .*?\\\\\\n    --result-dir .*?\\\\$', 1),\n            'aggregate': (r'^  overall=\\$\\(python3 -c .*?\\\\\\n    \"\\$out/data_overall.csv\"', 1),\n        }\n        result = {}\n        for label, (pattern, count) in patterns.items():\n            matches = re.findall(pattern, content, re.M)\n            if len(matches) != count:\n                raise ValueError(f'evaluation harness scope {name}:{label}: expected {count} selections')\n            if label == 'generation_arguments':\n                matches = [re.sub(r'--(?:num-gpus|num-threads|gpu-memory-utilization|result-dir) '\n                                  r'(?:\"[^\"\\n]*\"|[^\\s)]+)', '', s) for s in matches]\n            result[label] = ['\\n'.join(line.strip() for line in s.strip().splitlines() if line.strip()) for s in matches]\n        return result\n    if name not in PYTHON_SCOPES:\n        return None\n    tree = ast.parse(content, filename=name)\n    selected = []\n    for symbol in PYTHON_SCOPES[name]:\n        body = tree.body\n        parts = symbol.split('.')\n        if len(parts) == 2:\n            classes = [n for n in body if isinstance(n, ast.ClassDef) and n.name == parts[0]]\n            if len(classes) != 1:\n                raise ValueError(f'evaluation harness scope {name}:{symbol}: expected one class')\n            body = classes[0].body\n        nodes = [n for n in body if\n                 (isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == parts[-1]) or\n                 (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == parts[-1]\n                                                   for t in n.targets))]\n        if len(nodes) != 1:\n            raise ValueError(f'evaluation harness scope {name}:{symbol}: expected one definition')\n        selected.append(_ScientificAST(placement=symbol == '_flatten_adapter',\n                                      diagnostics=name.endswith('bfcl_generation_check.py')).visit(nodes[0]))\n    if name == 'tools/behavior_atom/checker_bridge.py':\n        # Pin worker dispatch, boolean validation and envelope contents, while\n        # excluding line IO/serialization and the diagnostic repr fallback.\n        workers = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'worker_main']\n        blocks = [n for worker in workers for n in ast.walk(worker) if isinstance(n, ast.Try)\n                  and any(isinstance(stmt, ast.Assign) and any(\n                      isinstance(t, ast.Name) and t.id == 'response' for t in stmt.targets)\n                          for stmt in n.body)]\n        if len(workers) != 1 or len(blocks) != 1:\n            raise ValueError('evaluation harness scope checker_bridge.py: expected one worker verdict block')\n        selected.append(_ScientificAST().visit(blocks[0]))\n    if name == 'src/bfas/rtd/evaluation.py':\n        # Score-reading and external Hub overlay invocation also affect results.\n        functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'evaluate']\n        if len(functions) != 1:\n            raise ValueError('evaluation harness scope requires evaluate')\n        nodes = list(ast.walk(functions[0]))\n        for label, predicate in (\n            ('aggregate', lambda n: isinstance(n, ast.With)\n             and any('data_overall.csv' in ast.unparse(i.context_expr) for i in n.items)),\n            ('aggregate_range', lambda n: isinstance(n, ast.If) and 'math.isfinite(score)' in ast.unparse(n.test)),\n            ('merge_command', lambda n: isinstance(n, ast.Call) and ast.unparse(n.func) == 'subprocess.run'\n             and n.args and 'tools/bfcl_hub_merge_export.py' in ast.unparse(n.args[0])),\n        ):\n            matches = [n for n in nodes if predicate(n)]\n            if len(matches) != 1:\n                raise ValueError(f'evaluation harness scope evaluation.py:{label}: expected one selection')\n            if label == 'aggregate':\n                calls = [n for n in ast.walk(matches[0]) if isinstance(n, ast.Call)\n                         and isinstance(n.func, ast.Name) and n.func.id == '_parse_percentage']\n                if calls:\n                    helpers = [n for n in tree.body if isinstance(n, ast.FunctionDef)\n                               and n.name == '_parse_percentage']\n                    if len(helpers) != 1:\n                        raise ValueError('evaluation harness scope requires one percentage parser')\n                    helper = _ScientificAST().visit(helpers[0])\n                    if ast.dump(helper) == ast.dump(ast.parse(_PERCENTAGE_PARSER).body[0]):\n                        for call in calls:\n                            call.func.id = 'float'\n                    else:\n                        selected.append(helper)\n            if label == 'aggregate_range':\n                test = matches[0].test\n                if (isinstance(test, ast.BoolOp) and isinstance(test.op, ast.And)\n                        and len(test.values) == 2 and ast.unparse(test.values[0]) == 'score is not None'):\n                    matches[0].test = test.values[1]\n            # Working directory and CPU environment are placement metadata.\n            selected.append(matches[0].args[0] if label == 'merge_command' else matches[0])\n    # Bind the module imports actually referenced by the selected code, so\n    # changing an import alias cannot silently change a projected function.\n    used = {n.id for item in selected for n in ast.walk(item) if isinstance(n, ast.Name)}\n    imports = []\n    for node in tree.body:\n        if isinstance(node, (ast.Import, ast.ImportFrom)):\n            names = [a for a in node.names if (a.asname or a.name.split('.')[0]) in used]\n            if names:\n                node.names = names\n                imports.append(node)\n    return [ast.dump(n, include_attributes=False) for n in imports + selected]\n\n\ndef scoring_hash(name, content):\n    projection = scoring_projection(name, content)\n    return (hashlib.sha256(content.encode()).hexdigest() if projection is None else digest(projection))\n",
+      "sha256": "ae309f4e725baed22167bc69df90232d0eab847cbe1651c0d93eb9993edca4c3"
+    }
+  }
+}

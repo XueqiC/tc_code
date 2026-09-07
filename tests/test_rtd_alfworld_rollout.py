@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import replace
 from itertools import product
 import json
+import os
 from pathlib import Path
 import warnings
 
@@ -602,6 +603,8 @@ with warnings.catch_warnings():
 
 
 @integration
+@pytest.mark.skipif(os.environ.get("RTD_ALFWORLD_REAL_TESTS") != "1",
+                    reason="opt in with RTD_ALFWORLD_REAL_TESTS=1; real read-only assets")
 def test_real_alfworld_train_task_with_sealed_expert_backend(tmp_path, monkeypatch):
     """One four-command sealed train task, CPU worker only, no model/teacher.
 

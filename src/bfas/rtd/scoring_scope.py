@@ -162,6 +162,11 @@ def scoring_projection(name, content):
     return [ast.dump(n, include_attributes=False) for n in imports + selected]
 
 
-def scoring_hash(name, content):
-    projection = scoring_projection(name, content)
+def benchmark_scoring_projection(name, content, *, benchmark="bfcl"):
+    from .benchmarks.registry import get_benchmark
+    return get_benchmark({'benchmark': benchmark}).scoring_projection(name, content)
+
+
+def scoring_hash(name, content, *, benchmark="bfcl"):
+    projection = benchmark_scoring_projection(name, content, benchmark=benchmark)
     return (hashlib.sha256(content.encode()).hexdigest() if projection is None else digest(projection))

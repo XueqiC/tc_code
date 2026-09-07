@@ -138,3 +138,13 @@ def affordability(records, payloads=None):
                      for i, step in enumerate((1, 4, 7, 10))],
             basis="sum of usable public caps; individual affordability at empty ownership; window capacities assume no prior spend"))
     return points
+
+
+def affordability_for(config, records, payloads=None):
+    from .benchmarks.registry import get_benchmark
+    return get_benchmark(config).affordability(records, payloads)
+
+
+def cap_policy_for(config):
+    from .benchmarks.registry import get_benchmark
+    return get_benchmark(config).cap_policy

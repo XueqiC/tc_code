@@ -1,6 +1,7 @@
 """Official campaign completeness, interruption, locks, reuse and CPU integration."""
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -391,6 +392,8 @@ with warnings.catch_warnings():
 
 
 @integration
+@pytest.mark.skipif(os.environ.get("RTD_ALFWORLD_REAL_TESTS") != "1",
+                    reason="opt in with RTD_ALFWORLD_REAL_TESTS=1; real read-only assets")
 def test_official_loop_two_real_valid_seen_tasks_with_scripted_backend(tmp_path, monkeypatch):
     """Two full CPU environment episodes; no policy model, teacher or GPU smoke."""
     from bfas.rtd.benchmarks.alfworld_support import FrozenRenderer

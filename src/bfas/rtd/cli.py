@@ -1,5 +1,6 @@
 """Command boundary for RTD. CPU commands never load a production model."""
 import argparse
+from contextlib import nullcontext
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ import yaml
 
 from .bank import build_bfcl_bank
 from .broker import SealedReplayBroker
-from .caps import PUBLIC_CLASS_CAPS, affordability
+from .caps import PUBLIC_CLASS_CAPS, affordability, affordability_for, cap_policy_for
 from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
 from .scoring import ScoreTolerance
@@ -28,6 +29,9 @@ def load_config(path):
     config = yaml.safe_load(Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
+    if config.get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_config import load_config as alfworld_load_config
+        return alfworld_load_config(path)
     if (config.get('protocol_version') != '1.0.1' or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}
             or config.get('budget_basis') != 'usable_public_cap_sum'):
         raise ValueError('use the v1.0.1 public-cap configuration')
@@ -83,6 +87,9 @@ def harness_hash(root, config):
 
 
 def data_identity(root, config, bank):
+    if config.get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_config import data_identity as alfworld_data_identity
+        return alfworld_data_identity(root, config, bank)
     root, bank = Path(root), Path(bank)
     data = root / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data'
     return digest(dict(public=file_hash(bank/'public/requests.json'), integrity=file_hash(bank/'sealed/integrity.json'),
@@ -90,6 +97,16 @@ def data_identity(root, config, bank):
 
 
 def bank_audit(config, *, build=False):
+    if config.get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_config import bank_audit as alfworld_bank_audit
+        if build:
+            raise ValueError('ALFWorld needs an explicitly replayed/sealed C26-B verified bank; --build-bank is inventory only')
+        audit = alfworld_bank_audit(ROOT, config)
+        print('| checkpoint | usable public-cap budget | affordable fold 0 / fold 1 |', flush=True)
+        for point in audit['affordability']:
+            folds = point['by_inner_fold']
+            print(f"| {point['percent']}% | {point['budget']} | {folds['0']} / {folds['1']} |", flush=True)
+        return audit
     bank = ROOT / config['replay_bank_path']
     if build:
         build_bfcl_bank(ROOT, bank)
@@ -97,9 +114,9 @@ def bank_audit(config, *, build=False):
     usable = [r for r in broker._records.values() if r.unavailable_reason is None]
     for record in usable:
         provenance = json.loads(record.spec.cap_provenance)
-        if record.spec.cost_upper_bound != PUBLIC_CLASS_CAPS[provenance['request_class']]:
+        if record.spec.cost_upper_bound != cap_policy_for(config)(provenance['request_class'])[0]:
             raise ValueError('bank uses stale/nonuniform C25 public caps; rebuild into a new directory')
-    points = affordability(list(broker._records.values()))
+    points = affordability_for(config, list(broker._records.values()))
     summary = json.loads((bank / 'sealed/audit.json').read_text())
     print('| checkpoint | cap budget | individually affordable demo/item | class capacity demo/item |', flush=True)
     for p in points:
@@ -122,34 +139,45 @@ def bank_audit(config, *, build=False):
 
 
 def make_manifest(config, arm, audit, *, smoke=False):
-    from tools.bfcl_hub_merge_export import _snapshot_for_model
-    model = Path(config['student'])
-    if not model.is_dir():
-        # Same local refs/main resolution as cc_three_arms' export. A usable
-        # weight snapshot need not contain unrelated Hub README/license files.
-        model = _snapshot_for_model(config['student'])
-    hardware = hardware_identity()
-    harness = evaluation_harness_identity(ROOT, config)
-    manifest = dict(version='rtd-v1.0.1-run', arm=arm, smoke=smoke, config=config, config_hash=digest(config),
-        model_path=str(model.resolve()), base_checkpoint_hash=tree_hash(model),
-        tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob('*'))
-                               if p.is_file() and any(k in p.name for k in ('token', 'vocab', 'merges', 'chat_template'))]),
-        harness_hash=digest(harness), evaluation_harness=harness, rtd_source=source_identity(ROOT),
-        evaluation_harness_metadata=evaluation_harness_metadata(ROOT),
-        data_hash=data_identity(ROOT, config, audit['bank_path']),
-        hardware=hardware, hardware_hash=digest(hardware['hard']), **{k: audit[k] for k in
-            ('bank_path', 'bank_public_cap_sum', 'budget_ceilings', 'recorded_bank_usage', 'available_packages', 'm')},
-        backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',
-        backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured',
-        # Keep declarations byte-stable on resume; effective defaults are journaled separately.
-        score_consistency=dict(tolerance=dict(config.get('score_consistency_tolerance', {})), units='nats/token including EOS',
-            records='compute.jsonl: score_consistency, per state/action, including failed checks',
-            generation='hf-generate-kv-categorical-v1', scoring='torch-functional-teacher-forced-native-ce-v1',
-            reinforce_likelihood='same score_tokens native CE tensor as teacher forcing'),
-        resources=dict(new_teacher_calls=0, new_teacher_tokens=0, support_feedback='rotating meta-training',
-                       controller_pretrained=False, certification_access='evaluate only',
-                       historical_demo_output_exact=1233607, historical_generator_output_estimated=142727),
-        checkpoint_schedule='cumulative 10/25/50 percent after rounds 1/2/3; four windows per round')
+    if config.get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_config import manifest_section
+        section = manifest_section(ROOT, config)
+        if smoke != ('smoke_override' in config):
+            raise ValueError('ALFWorld partial smoke override must be labelled smoke')
+        hardware = hardware_identity()
+        manifest = dict(section, version='rtd-v1.0.1-run', arm=arm, smoke=smoke,
+            hardware=hardware, hardware_hash=digest(hardware['hard']), rtd_source=source_identity(ROOT),
+            backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',
+            backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured')
+    else:
+        from tools.bfcl_hub_merge_export import _snapshot_for_model
+        model = Path(config['student'])
+        if not model.is_dir():
+            # Same local refs/main resolution as cc_three_arms' export. A usable
+            # weight snapshot need not contain unrelated Hub README/license files.
+            model = _snapshot_for_model(config['student'])
+        hardware = hardware_identity()
+        harness = evaluation_harness_identity(ROOT, config)
+        manifest = dict(version='rtd-v1.0.1-run', arm=arm, smoke=smoke, config=config, config_hash=digest(config),
+            model_path=str(model.resolve()), base_checkpoint_hash=tree_hash(model),
+            tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob('*'))
+                                   if p.is_file() and any(k in p.name for k in ('token', 'vocab', 'merges', 'chat_template'))]),
+            harness_hash=digest(harness), evaluation_harness=harness, rtd_source=source_identity(ROOT),
+            evaluation_harness_metadata=evaluation_harness_metadata(ROOT),
+            data_hash=data_identity(ROOT, config, audit['bank_path']),
+            hardware=hardware, hardware_hash=digest(hardware['hard']), **{k: audit[k] for k in
+                ('bank_path', 'bank_public_cap_sum', 'budget_ceilings', 'recorded_bank_usage', 'available_packages', 'm')},
+            backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',
+            backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured',
+            # Keep declarations byte-stable on resume; effective defaults are journaled separately.
+            score_consistency=dict(tolerance=dict(config.get('score_consistency_tolerance', {})), units='nats/token including EOS',
+                records='compute.jsonl: score_consistency, per state/action, including failed checks',
+                generation='hf-generate-kv-categorical-v1', scoring='torch-functional-teacher-forced-native-ce-v1',
+                reinforce_likelihood='same score_tokens native CE tensor as teacher forcing'),
+            resources=dict(new_teacher_calls=0, new_teacher_tokens=0, support_feedback='rotating meta-training',
+                           controller_pretrained=False, certification_access='evaluate only',
+                           historical_demo_output_exact=1233607, historical_generator_output_estimated=142727),
+            checkpoint_schedule='cumulative 10/25/50 percent after rounds 1/2/3; four windows per round')
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
@@ -157,11 +185,11 @@ def make_manifest(config, arm, audit, *, smoke=False):
 
 
 def run_command(args):
-    from .experiment import BFCLSupport, RTDExperiment
+    from .experiment import RTDExperiment
+    from .benchmarks.registry import get_benchmark
     from .runtime import load_backend
     from .functional_step import lora_parameters
     from ..behavior.deltas import tensor_state_hash
-    from tools.behavior_atom.checker_bridge import CheckerBridge
     started = time.monotonic()
     resume = args.command == 'resume'
     smoke = args.command == 'smoke'
@@ -174,11 +202,22 @@ def run_command(args):
         if args.arm != saved['arm']:
             raise ValueError('resume arm changed')
     config = resume_config(args.config, saved) if resume else load_config(args.config)
+    providers = get_benchmark(config)
+    alfworld = config.get('benchmark') == 'alfworld'
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     if smoke:
-        config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
-                     baseline='action-independent zero', max_seconds=900))
+        if alfworld:
+            parents = getattr(args, 'smoke_parents_per_fold', None)
+            if resume:
+                if parents is not None and parents != config['smoke_override']['parents_per_fold']:
+                    raise ValueError('resume smoke parent count changed')
+            else:
+                config = dict(config, smoke_override=dict(parents_per_fold=parents or 4, slots=8,
+                    rollouts=2, windows=1, baseline='leave_one_out_same_task', max_seconds=900))
+        else:
+            config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
+                         baseline='action-independent zero', max_seconds=900))
     audit = bank_audit(config)
     directory = Path(args.run_dir or ROOT / config['output_root'] / (args.arm + ('_smoke' if smoke else ''))).resolve()
     with exclusive_run(directory):
@@ -213,11 +252,12 @@ def run_command(args):
             if not saved:
                 manifest['initial_parameter_hash'] = initial_hash
                 atomic_json(directory/'manifest.json', manifest)
-            support = BFCLSupport(ROOT, config)
+            support = providers.support_protocol(ROOT, config)
             atomic_json(directory/'support_access.json', dict(parents=support.parents,
                 runnable_source_feedback_parents=sorted(support.states), unavailable=support.unavailable,
-                labels='official truth accessed only by feedback scorer', calibration_training_access=False))
-            with _checker_context() as checker:
+                labels=('ALFWorld train terminal won accessed only by feedback scorer' if alfworld else
+                        'official truth accessed only by feedback scorer'), calibration_training_access=False))
+            with nullcontext() if alfworld else _checker_context() as checker:
                 experiment = RTDExperiment(config, manifest, directory, backend, support, resume=resume,
                     smoke=smoke, checker=checker, journal=journal)
                 result = experiment.run(stop_after_round=args.through_round if args.training_worker else False)
@@ -242,6 +282,8 @@ def resume_config(path, saved):
         raise ValueError('saved config hash mismatch')
     if path is not None:
         supplied = yaml.safe_load(Path(path).read_text())
+        if config.get('benchmark') == 'alfworld' and saved.get('smoke') and 'smoke_override' not in supplied:
+            supplied = dict(load_config(path), smoke_override=config['smoke_override'])
         if supplied != config and load_config(path) != config:
             raise ValueError('resume config changed; omit --config to use the saved manifest')
     return config
@@ -336,7 +378,7 @@ def replay_ledger(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='RTD protocol v1.0.7 / v1.0.1 sealed BFCL replay. No teacher API path.')
+    parser = argparse.ArgumentParser(description='RTD protocol v1.0.7 / v1.0.1 sealed benchmark replay. No teacher API path.')
     subs = parser.add_subparsers(dest='command', required=True)
     for name in ('audit', 'audit-legacy', 'update-identity', 'update-hardware-identity', 'smoke', 'run', 'resume', 'replay-ledger', 'swap-component', 'evaluate', 'report'):
         p = subs.add_parser(name)
@@ -351,6 +393,9 @@ def main(argv=None):
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)
             p.add_argument('--expected-gpu-uuid', help=argparse.SUPPRESS)
             p.add_argument('--through-round', type=int, choices=[1,2,3], default=3, help=argparse.SUPPRESS)
+        if name in ('smoke', 'resume'):
+            p.add_argument('--smoke-parents-per-fold', type=int, choices=[2, 4],
+                           help='ALFWorld partial smoke only (default 4); retains eight slots and K=2')
         if name in ('smoke', 'run', 'resume', 'evaluate'):
             p.add_argument('--port', type=int, help='campaign port (default: job/GPU-derived with free-port fallback)')
             p.add_argument('--evaluation-lock-timeout', type=float,
@@ -385,6 +430,9 @@ def main(argv=None):
     elif args.command == 'audit-legacy':
         print(json.dumps(audit_legacy(ROOT, args.run_dir), indent=2, sort_keys=True))
     elif args.command == 'update-identity':
+        saved = json.loads((args.run_dir / 'manifest.json').read_text())
+        if saved.get('config', {}).get('benchmark') == 'alfworld':
+            raise ValueError('C26-F ALFWorld training harness is frozen; BFCL identity updates are not applicable')
         from .identity_update import IdentityUpdateRefused, update_identity
         try:
             result = update_identity(ROOT, args.run_dir)
@@ -407,6 +455,13 @@ def main(argv=None):
         return replay_ledger(args)
     elif args.command == 'swap-component':
         config = load_config(args.config)
+        if config.get('benchmark') == 'alfworld':
+            from .benchmarks.alfworld_config import validate_config
+            if args.component != 'gate':
+                raise ValueError('C26 ALFWorld only admits the scalar gate component swap')
+            config = validate_config(dict(config, gate=args.value))
+            args.out.write_text(yaml.safe_dump(config, sort_keys=False))
+            return 0
         choices = {'gate': {'scalar_sigmoid', 'linear_sigmoid'}, 'preconditioner': {'identity', 'train_only_rms_diagonal'},
                    'acquisition': {'random', 'bayesian_linear_posterior_sampling'}}
         if args.value not in choices[args.component] or config.get('component_swap'):
@@ -422,7 +477,11 @@ def main(argv=None):
             result = evaluate(ROOT, args.run_dir, args.round, port=args.port, base_evaluation=args.base_evaluation,
                               lock_timeout=args.evaluation_lock_timeout,
                               lock_log_interval=args.evaluation_lock_log_interval)
-        print(json.dumps({'overall_accuracy_percent': result['overall_accuracy_percent'], 'complete': True}))
+        if result.get('identity', {}).get('benchmark') == 'alfworld':
+            print(json.dumps(dict(success_rate=result['aggregate']['success_rate'],
+                success_percent=result['aggregate']['success_rate_percent'], complete=True)))
+        else:
+            print(json.dumps({'overall_accuracy_percent': result['overall_accuracy_percent'], 'complete': True}))
     else:
         from .evaluation import report
         report(args.run_dir, args.out)

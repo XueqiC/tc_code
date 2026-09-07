@@ -117,6 +117,11 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
              lock_timeout=None, lock_log_interval=None):
     root, directory = Path(root).resolve(), Path(directory).resolve()
     manifest = json.loads((directory / 'manifest.json').read_text())
+    if manifest['config'].get('benchmark') == 'alfworld':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(manifest['config']).official_evaluation(root, directory, round_number,
+            port=port, base_evaluation=base_evaluation, lock_timeout=lock_timeout,
+            lock_log_interval=lock_log_interval)
     checkpoint = directory / f'round-{round_number}'
     meta = verified_checkpoint(directory, manifest, round_number)
     if tree_hash(manifest['model_path']) != manifest['base_checkpoint_hash']:
@@ -291,6 +296,12 @@ def report(directories, output):
     rows = []
     for directory in map(Path, directories):
         manifest = json.loads((directory / 'manifest.json').read_text())
+        alfworld = manifest['config'].get('benchmark') == 'alfworld'
+        if alfworld:
+            from .cli import ROOT
+            from .benchmarks import alfworld_identity as alf_identity, alfworld_evaluation as alf_evaluation
+            from .identity import saved_identities
+            saved_identities(ROOT, directory, manifest)
         ledger = Ledger.resume(manifest['budget_ceilings'][0], directory / 'teacher.jsonl')
         trajectory = json.loads((directory / 'trajectory.json').read_text())
         journal = ComputeJournal(directory / 'compute.jsonl')
@@ -309,7 +320,20 @@ def report(directories, output):
                 raise ValueError('report checkpoint/manifest artifacts changed')
             p = directory / f'evaluation-{r}.json'
             result = json.loads(p.read_text()) if p.exists() else None
-            if result:
+            if result and alfworld:
+                binding = alf_identity.make_manifest(ROOT, manifest['config'],
+                    data_root=ROOT / manifest['config']['alfworld_data_root'], model_path=manifest['model_path'],
+                    hardware=manifest['hardware'], run_directory=directory, round_number=r,
+                    environment_root=ROOT / manifest['config']['alfworld_environment_root'])
+                if binding['harness_hash'] != manifest['harness_hash']:
+                    raise ValueError('ALFWorld report harness differs from training')
+                expected = alf_identity.checked_expectations(binding['evaluation_harness']['expected'])
+                out = directory.parent / (directory.name + '-alfworld-evaluations') / f'round-{r}'
+                checked = alf_evaluation.validate_evaluation(out, alf_identity.campaign_identity(binding),
+                    expected, manifest_hash=digest(binding))
+                if result != checked or result['identity']['round_checkpoint'] != checkpoint:
+                    raise ValueError('ALFWorld score belongs to another checkpoint/campaign')
+            elif result:
                 if result['identity']['checkpoint'] != checkpoint:
                     raise ValueError('score belongs to another checkpoint')
                 out = Path(result['output_directory'])
@@ -341,7 +365,7 @@ def report(directories, output):
                 public_bank_cap_sum=manifest['bank_public_cap_sum'], purchased_packages=len(ids),
                 actual_exact=sum(e['cost'] for e in charges if e['confidence']=='exact'),
                 actual_estimated=sum(e['cost'] for e in charges if e['confidence']=='estimated'),
-                historical_demo_output_exact=1233607, historical_generation_output_estimated=142727,
+                **({} if alfworld else dict(historical_demo_output_exact=1233607, historical_generation_output_estimated=142727)),
                 committed_schedule_steps=len(steps), parameter_updates=sum(not e['exact_noop'] for e in steps),
                 raw_slots=sum(e['raw_old_slots']+e['raw_new_slots'] for e in steps),
                 weighted_slots=sum(e['weighted_old_slots']+e['weighted_new_slots'] for e in steps),
@@ -368,22 +392,64 @@ def report(directories, output):
                     if e['kind'] == 'evaluation_lock_wait' and e['round'] <= r),
                 evaluation_status='complete' if result else 'missing',
                 code_drift=result.get('code_drift', []) if result else [],
-                official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
+                **({} if alfworld else dict(official_accuracy_percent=result['overall_accuracy_percent'] if result else None)),
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
                 hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
+            if alfworld:
+                from ..adapters.alfworld import _category, _ACTION_MARKER_RE
+                episodes = [e for e in journal.events if e['kind'] == 'alfworld_episode'
+                            and event_round(e) <= r]
+                gradients = [e for e in journal.events if e['kind'] == 'return_gradient' and e['round'] <= r]
+                per_category = defaultdict(list)
+                for tid, won in (result['aggregate']['verdicts'].items() if result else ()):
+                    per_category[_category(tid)].append(won)
+                rows[-1].update(benchmark='alfworld', gate=manifest['config']['gate'], smoke=manifest['smoke'],
+                    evaluation_scope='valid_seen exploratory; no independent certificate',
+                    code_drift=ComputeJournal(directory / 'code_drift.jsonl').events,
+                    success_rate=result['aggregate']['success_rate'] if result else None,
+                    success_percent=result['aggregate']['success_rate_percent'] if result else None,
+                    category_success={k: dict(tasks=len(v), successes=sum(v), success_rate=sum(v)/len(v),
+                        success_percent=100*sum(v)/len(v)) for k, v in per_category.items()},
+                    repairs=sum(v['repaired'] for v in result.get('repairs_damage', {}).values()) if result and 'repairs_damage' in result else None,
+                    damage=sum(v['damaged'] for v in result.get('repairs_damage', {}).values()) if result and 'repairs_damage' in result else None,
+                    historical_usage=manifest['recorded_bank_usage'],
+                    estimated_cost=sum(e['cost'] for e in charges if e['confidence'] == 'estimated'),
+                    missing_responses=manifest['recorded_bank_usage']['missing_responses'],
+                    missing_attempts=manifest['config']['historical_missing_attempts'],
+                    identifiable_feedback_blocks=sum(e['metadata']['identifiable'] for e in gradients),
+                    feedback_blocks=len(gradients), all_zero_feedback_blocks=sum(e['metadata']['all_zero'] for e in gradients),
+                    episode_steps=sum(e['sampled_steps'] for e in episodes),
+                    episode_failures=sum(e['excluded'] for e in episodes),
+                    unsuccessful_episodes=sum(not e['success'] for e in episodes if not e['excluded']),
+                    parser_fallbacks=sum(e['parser_fallbacks'] for e in episodes),
+                    action_marker_actions=sum(bool(_ACTION_MARKER_RE.search(s['action']['text'])) for e in episodes for s in e['steps']),
+                    cap_actions=sum(s['action']['truncated'] for e in episodes for s in e['steps']),
+                    sampled_action_tokens=sum(e['token_counts']['action'] for e in episodes),
+                    training_wall_seconds=sum(e['wall_seconds'] for e in outer
+                        if begin[e['begin_sequence']].get('round', 0) <= r),
+                    evaluation_wall_seconds=sum(e['wall_seconds'] for e in journal.events
+                        if e['kind'] == 'evaluation_end' and e['round'] <= r))
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    comparable = len({r['hardware_hash'] for r in rows}) <= 1
+    same_hardware = len({r['hardware_hash'] for r in rows}) <= 1
+    same_benchmark = len({r.get('benchmark', 'bfcl') for r in rows}) <= 1
+    comparable = same_hardware and same_benchmark
     atomic_json(output / 'budget_curve.json', dict(x_axis='actual recorded spend (exact + estimated flagged)',
-        same_hardware=comparable, comparison_status='matched' if comparable else 'hardware mismatch; no matched-arm comparison', rows=rows))
+        same_hardware=same_hardware, comparison_status='matched' if comparable else
+        'benchmark mismatch; no matched-arm comparison' if not same_benchmark else
+        'hardware mismatch; no matched-arm comparison', rows=rows))
     if rows:
         with (output / 'budget_curve.csv').open('w') as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
+            writer = csv.DictWriter(stream, fieldnames=list(dict.fromkeys(k for row in rows for k in row))); writer.writeheader(); writer.writerows(rows)
     lines = ['# RTD budget curves', '', 'The x-axis is actual recorded output-token spend; caps authorize purchases.', '',
              '| Arm | Round | Actual spend | Cap budget | Packages | Official accuracy (%) | Truncated rollouts (sampled / committed) | Malformed rollouts (sampled / committed) | Evaluation |',
              '|---|---:|---:|---:|---:|---:|---:|---:|---|']
+    if any(row.get('benchmark') == 'alfworld' for row in rows):
+        metric = 'Success (%)' if same_benchmark else 'Benchmark score (%)'
+        lines[4] = lines[4].replace('Official accuracy (%)', metric)
     for r in rows:
-        score = '—' if r['official_accuracy_percent'] is None else str(r['official_accuracy_percent'])
+        value = r.get('success_percent', r.get('official_accuracy_percent'))
+        score = '—' if value is None else str(value)
         lines.append(f"| {r['arm']} | {r['round']} | {r['actual_spend_x']} | {r['authorized_cap_budget']} | "
                      f"{r['purchased_packages']} | {score} | {r['sampled_truncated_rollouts']} / "
                      f"{r['committed_truncated_rollouts']} | {r['sampled_malformed_rollouts']} / "
@@ -405,7 +471,14 @@ def report(directories, output):
             exceptions = ', '.join(f'{name}: {count}' for name, count in sorted(window['malformed_exception_types'].items()))
             lines.append(f"| {run} | {window['round']} | {window['step']} | {window['malformed_rollouts']} | "
                          f"{window['malformed_actions']} | {exceptions or '—'} | {window['actual_feedback_reused']} |")
-    if not comparable:
+    if not same_hardware:
         lines.extend(['', 'Hardware hashes differ: these runs do not form a matched arm comparison.'])
+    if not same_benchmark:
+        lines.extend(['', 'Benchmarks differ: these runs do not form a matched arm comparison.'])
+    if any(row.get('benchmark') == 'alfworld' for row in rows):
+        atomic_json(output / 'historical_comparison_anchors.json', alf_evaluation.comparison_anchors(ROOT))
+        lines.extend(['', 'ALFWorld scores are success_percent (0–100); success_rate (0–1) is retained in JSON/CSV.',
+            'valid_seen is exploratory. Historical strong CE is a reference only; compare R0/R1 and strong CE trained on the same legal owned set.',
+            'ALFWorld spend is estimated retained output cost; missing responses/attempts and input/reasoning/retry costs remain unknown.'])
     (output / 'budget_curve.md').write_text('\n'.join(lines)+'\n')
     return rows

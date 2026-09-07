@@ -67,13 +67,17 @@ def _content_manifest(paths):
 
 def evaluation_harness_identity(root, config):
     """Only relative names and file/config contents; no git or install state."""
+    if config.get('benchmark') == 'alfworld':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(config).harness_identity(root, config)
     root = Path(root)
     files, data = _evaluation_harness_paths(root)
     checkout, data_manifest = _content_manifest(files), _content_manifest(data)
     return dict(version=CONTENT_VERSION, leaderboard=LEADERBOARD,
                 checkout_files=checkout, checkout_hash=digest(checkout),
                 data_manifest=data_manifest, data_hash=digest(data_manifest),
-                tools={p: scoring_hash(p, (root/p).read_bytes().decode('utf-8')) for p in EVALUATION_TOOLS},
+                tools={p: scoring_hash(p, (root/p).read_bytes().decode('utf-8'),
+                                      benchmark=config.get('benchmark', 'bfcl')) for p in EVALUATION_TOOLS},
                 config={k: v for k, v in config.items() if k.startswith('evaluation_')})
 
 
@@ -173,6 +177,8 @@ def audit_legacy(root, directory):
     manifest_stamp = _file_stamp(manifest_path)
     original = manifest_path.read_bytes()
     manifest = json.loads(original)
+    if manifest.get('config', {}).get('benchmark', 'bfcl') != 'bfcl':
+        raise ValueError('audit-legacy only supports BFCL')
     if {'evaluation_harness', 'rtd_source'} & manifest.keys():
         raise ValueError('manifest already carries a split identity; legacy audit refused')
     if (not isinstance(manifest.get('harness_hash'), str) or not manifest['harness_hash']
@@ -225,6 +231,15 @@ def audit_legacy(root, directory):
 
 
 def saved_identities(root, directory, manifest):
+    if manifest.get('config', {}).get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_config import validate_config
+        if (digest(manifest['config']) != manifest['config_hash']
+                or validate_config(manifest['config']) != manifest['config']
+                or digest(manifest.get('evaluation_harness')) != manifest.get('harness_hash')):
+            raise ValueError('ALFWorld training config/harness binding mismatch')
+        # C26-F deliberately admits no training continuity supplement. C25's
+        # legacy directory is never consulted for ALFWorld manifests.
+        return manifest
     path = Path(root)/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
     if 'evaluation_harness' in manifest:
         if digest(manifest['evaluation_harness']) != manifest['harness_hash']:
@@ -269,6 +284,10 @@ def saved_identities(root, directory, manifest):
 def guard_harness(root, directory, manifest, *, current=None):
     saved = saved_identities(root, directory, manifest)
     current = current or evaluation_harness_identity(root, manifest['config'])
+    if manifest.get('config', {}).get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_identity import audited_harness_hashes as alfworld_hashes
+        alfworld_hashes(manifest, current)
+        return saved
     if saved['evaluation_harness'] != current:
         if ('evaluation_harness' not in manifest
                 and saved['evaluation_harness'].get('version') == 'bfcl-evaluation-harness-v1'):
@@ -285,6 +304,10 @@ def audited_harness_hashes(manifest, identities):
     Only the supplement bound to this full original manifest can authorize
     historical hashes. Never collect identities from other run supplements.
     """
+    if manifest.get('config', {}).get('benchmark') == 'alfworld':
+        from .benchmarks.alfworld_identity import audited_harness_hashes as alfworld_hashes
+        return alfworld_hashes(manifest, identities['evaluation_harness'],
+                               None if identities == manifest else identities)
     hashes = [identities['harness_hash']]
     if identities == manifest:
         return hashes  # fresh split identity, without an audited supplement

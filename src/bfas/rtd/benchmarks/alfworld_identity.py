@@ -30,6 +30,9 @@ WORLD_NAMES = ("game.tw-pddl", "traj_data.json", "initial_state.pddl")
 # Missing/duplicate selectors fail closed. Imports referenced by selectors bind
 # too. No existing BFCL projection or version is extended or reinterpreted.
 SCOPES = {
+    "src/bfas/rtd/benchmarks/registry.py": (
+        "alfworld_action_limit", "alfworld_feedback_rollout", "alfworld_harness_identity",
+        "ALFWorldExperimentSupport.feedback_context", "ALFWorldExperimentSupport.feedback"),
     "src/bfas/adapters/alfworld.py": (
         "TEACHER_REACT_INSTRUCTION", "TEACHER_REACT_PROMPT", "TEACHER_REACT_EXAMPLES",
         "PROMPT", "_ACTION_MARKER_RE", "_GOAL_RE", "_goal_line", "_obs_with_goal",
@@ -87,6 +90,22 @@ def scoring_projection(name, content):
         if len(factories) != 1:
             raise ValueError("scoring scope requires one environment factory selection")
         selected.append(deepcopy(factories[0]))
+    if name == "src/bfas/rtd/benchmarks/registry.py":
+        wrappers = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'alfworld_evaluate']
+        if len(wrappers) != 1:
+            raise ValueError('scoring scope requires one ALFWorld evaluation adapter')
+        for symbol in ('make_manifest', 'evaluate'):
+            calls = [n for n in ast.walk(wrappers[0]) if isinstance(n, ast.Call)
+                     and isinstance(n.func, ast.Name) and n.func.id == symbol]
+            if len(calls) != 1:
+                raise ValueError('scoring scope requires one ' + symbol + ' invocation')
+            call = deepcopy(calls[0])
+            call.keywords = [k for k in call.keywords if k.arg not in
+                             {'lock_timeout', 'lock_log_interval', 'on_lock_wait', 'output_root', 'tag'}]
+            selected.append(call)
+        # Local provider imports choose the actual checkpoint and scorer.
+        selected.extend(deepcopy(n) for n in ast.walk(wrappers[0]) if isinstance(n, ast.ImportFrom)
+                        and n.module in {'alfworld_identity', 'alfworld_evaluation'})
     used = {n.id for item in selected for n in ast.walk(item) if isinstance(n, ast.Name)}
     imports = []
     for node in tree.body:

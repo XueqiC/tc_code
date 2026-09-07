@@ -243,6 +243,11 @@ def load_backend(config, manifest, journal):
     """Called only by run/smoke/resume, never by CPU audit/report/tests."""
     from peft import LoraConfig, get_peft_model
     from transformers import AutoModelForCausalLM, AutoTokenizer
+    from .benchmarks.registry import get_benchmark
+    get_benchmark(config)  # fail closed before allocating for an unknown benchmark
+    alfworld = config.get('benchmark') == 'alfworld'
+    if alfworld and config['max_action_tokens_by_benchmark']['alfworld'] != {'agent_action': 256}:
+        raise ValueError('ALFWorld requires agent_action=256')
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise RuntimeError('set CUDA_VISIBLE_DEVICES to exactly one available GPU')
     device = torch.device('cuda:0')  # relative to the verbatim inherited visibility
@@ -268,7 +273,7 @@ def load_backend(config, manifest, journal):
     return HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
         harness_hash=manifest['harness_hash'], tokenizer_hash=manifest['tokenizer_hash'], journal=journal,
         score_tolerance=ScoreTolerance.from_config(config),
-        max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
+        max_action_tokens=256 if alfworld else config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
         action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
             {'single_turn': 512, 'multi_turn': 1024}
             if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
