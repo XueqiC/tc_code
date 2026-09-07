@@ -4,12 +4,14 @@ The original manifest is immutable: recovery and round checkpoints hash it.
 Legacy supplements are audited, content-bound records, never inferred from a
 run directory name or silently initialized from the current environment.
 """
+from dataclasses import asdict
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import subprocess
 
 from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from .scoring import ScoreTolerance
 from .scoring_scope import scoring_hash
 
 
@@ -21,7 +23,7 @@ EVALUATION_TOOLS = ('tools/behavior_atom/checker_bridge.py',
                     'src/bfas/adapters/bfcl.py')
 SOURCE_PATHS = ('src', 'tools', 'scripts', *(LEADERBOARD+'/'+n for n in
                 ('pyproject.toml', 'setup.py', 'setup.cfg', 'requirements.txt')))
-CONTENT_VERSION = 'bfcl-evaluation-harness-scoring-v3'
+CONTENT_VERSION = 'bfcl-evaluation-harness-scoring-v4'
 
 
 def source_identity(root):
@@ -312,6 +314,11 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
     record_code_drift(root, directory, saved, context='training_resume' if training else 'evaluation_resume',
                       training=training,
                       acknowledge=acknowledge, current=current['rtd_source'], identities=identities)
+    # Record every accepted resume, even when source drift has already been acknowledged.
+    ComputeJournal(Path(directory)/'code_drift.jsonl').append('resume_score_consistency',
+        context='training_resume' if training else 'evaluation_resume', manifest_hash=digest(saved),
+        rtd_source_hash=current['rtd_source']['hash'],
+        tolerance=asdict(ScoreTolerance.from_config(saved['config'])))
 
 
 def verified_checkpoint(directory, manifest, round_number):

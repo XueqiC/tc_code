@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RTD v1.0.4 command entry point; identity audits need no visible GPU."""
+"""RTD v1.0.7 command entry point; identity audits need no visible GPU."""
 import argparse
 import json
 from pathlib import Path

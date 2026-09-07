@@ -156,7 +156,9 @@ def test_reaudit_cannot_rebind_existing_supplement_even_with_old_mtimes(legacy):
     identity.audit_legacy(c.root, c.directory)
     before = snapshot(c.path.parent)
     name = identity.EVALUATION_TOOLS[0]
-    put(c.root/name, 'different evaluation contents')
+    content = (c.root/name).read_text()
+    put(c.root/name, content.replace('handler = QwenFCHandler(model, 1., model, True)',
+                                    'handler = QwenFCHandler(model, 0., model, True)'))
     os.utime(c.root/name, ns=(c.mtimes[name], c.mtimes[name]))
     with pytest.raises(ValueError, match='refusing to overwrite'):
         cli.main(['audit-legacy', '--run-dir', str(c.directory)])

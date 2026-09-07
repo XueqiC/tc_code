@@ -1,4 +1,5 @@
 """C25j scoring scopes and audited updates; all production boundaries forbidden."""
+import ast
 import copy
 import json
 import os
@@ -14,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 from bfas.rtd import cli, identity, identity_update as update
 from bfas.rtd.persistence import atomic_json, digest, file_hash, tree_hash
-from bfas.rtd.scoring_scope import scoring_hash
+from bfas.rtd.scoring_scope import PYTHON_SCOPES, scoring_hash
 from rtd_identity_fixtures import put_tools
 
 
@@ -94,7 +95,8 @@ def test_plumbing_changes_only_source_metadata(run, path):
 
 
 @pytest.mark.parametrize('path,before,after,changes_score', [
-    ('tools/behavior_atom/checker_bridge.py', 'fixture', 'new checker', True),
+    ('tools/behavior_atom/checker_bridge.py', 'handler = QwenFCHandler(model, 1., model, True)',
+     'handler = QwenFCHandler(model, 0., model, True)', True),
     ('tools/bfcl_std_campaign.sh', 'Qwen/Qwen3.5-4B-FC', 'Qwen/different-FC', True),
     ('tools/bfcl_std_campaign.sh', '${BFCLSTD_TEMPERATURE:-0.001}', '${BFCLSTD_TEMPERATURE:-0.1}', True),
     ('tools/bfcl_std_campaign.sh', '["Overall Acc"]', '["Another Acc"]', True),
@@ -245,7 +247,8 @@ def test_reviewed_pre_manifest_sources_admit_plumbing_only_changes_without_git(r
     before = snapshot(c.directory)
     result = update.update_identity(c.root, c.directory)
     assert result['updated']
-    assert [r['path'] for r in result['audit']['changed_old_identity_files']] == ['tools/bfcl_std_campaign.sh']
+    assert [r['path'] for r in result['audit']['changed_old_identity_files']] == [
+        'tools/behavior_atom/checker_bridge.py', 'tools/bfcl_std_campaign.sh']
     supplement = json.loads(path.read_text())
     assert supplement['audit'] == saved['audit'] and supplement['identity_migrations'] == saved['identity_migrations']
     assert identity.guard_harness(c.root, c.directory, manifest) == supplement
@@ -270,3 +273,131 @@ def test_mixed_manifest_without_supplement_records_unrecoverable_inventory(run):
     result = update.update_identity(c.root, c.directory)
     assert result['audit']['old_inventory_unavailable'] and result['audit']['old_identity_files_checked'] == 0
     assert identity.guard_harness(c.root, c.directory, manifest)['rtd_source']['files'] is None
+
+
+BRIDGE = 'tools/behavior_atom/checker_bridge.py'
+
+
+def raw_bridge_run(c):
+    """Recreate v3: prior scopes active, bridge bound to historical raw bytes."""
+    bundle = json.loads((ROOT/update.EVIDENCE_PATH).read_text())
+    row, = [r for r in bundle['files'] if r['path'] == BRIDGE]
+    put(c.root/BRIDGE, row['content'])
+    old = identity.evaluation_harness_identity(c.root, c.manifest['config'])
+    old['version'] = 'bfcl-evaluation-harness-scoring-v3'
+    old['tools'][BRIDGE] = row['sha256']
+    manifest = dict(c.manifest, evaluation_harness=old, harness_hash=digest(old))
+    ns = max(r['observed_at_ns'] for r in bundle['files']) + 10**9
+    atomic_json(c.directory/'manifest.json', manifest)
+    os.utime(c.directory/'manifest.json', ns=(ns, ns))
+    checkpoint = c.directory/'round-1/checkpoint.json'
+    meta = json.loads(checkpoint.read_text())
+    atomic_json(checkpoint, dict(meta, manifest_hash=digest(manifest)))
+    dest = c.root/update.EVIDENCE_PATH
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT/update.EVIDENCE_PATH, dest)
+    put(c.root/BRIDGE, (ROOT/BRIDGE).read_text())
+    return manifest, row, ns
+
+
+def test_c25r_raw_v3_bridge_update_binds_resume_and_evaluation_guards(run):
+    c = run
+    manifest, historical, _ = raw_bridge_run(c)
+    before = snapshot(c.directory)
+    current = identity.evaluation_harness_identity(c.root, manifest['config'])
+    with pytest.raises(ValueError, match='update-identity'):
+        identity.guard_harness(c.root, c.directory, manifest)
+    result = update.update_identity(c.root, c.directory)
+    assert result['updated'] and result['created']
+    evidence = result['audit']['scoring_file_evidence'][BRIDGE]
+    assert evidence['basis'] == 'reviewed-pre-manifest-source-projection'
+    assert evidence['conclusion'] == 'scoring projection unchanged'
+    assert evidence['historical_file_sha256'] == historical['sha256']
+    assert evidence['historical_scoring_sha256'] == current['tools'][BRIDGE]
+    change, = result['audit']['changed_old_identity_files']
+    assert change['path'] == BRIDGE and change['hash_kind'] == 'file'
+    assert change['old_sha256'] == historical['sha256']
+    # Resume supplies a freshly built identity; evaluation lets the guard build it.
+    resume = identity.guard_harness(c.root, c.directory, manifest, current=current)
+    assert identity.guard_harness(c.root, c.directory, manifest) == resume
+    supplement = Path(result['supplement_path'])
+    saved = supplement.read_bytes()
+    assert not update.update_identity(c.root, c.directory)['updated']
+    assert supplement.read_bytes() == saved and snapshot(c.directory) == before
+
+
+@pytest.mark.parametrize('already_scoped', [False, True])
+def test_c25r_multi_turn_content_change_refused_even_with_backdated_mtime(run, already_scoped):
+    c = run
+    manifest, _, ns = raw_bridge_run(c)
+    path = c.root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+    if already_scoped:
+        update.update_identity(c.root, c.directory)
+    original = path.read_bytes() if path.exists() else None
+    p = c.root/BRIDGE
+    content = p.read_text()
+    assert 'handler = QwenFCHandler(model, 1., model, True)' in content
+    put(p, content.replace('handler = QwenFCHandler(model, 1., model, True)',
+                           'handler = QwenFCHandler(model, 0., model, True)', 1))
+    os.utime(p, ns=(ns-1, ns-1))
+    before = snapshot(c.directory)
+    with pytest.raises(update.IdentityUpdateRefused) as caught:
+        update.update_identity(c.root, c.directory)
+    assert any(row.get('path') == BRIDGE for row in caught.value.evidence['refusals'])
+    with pytest.raises(ValueError, match='evaluation harness differs'):
+        identity.guard_harness(c.root, c.directory, manifest)
+    assert (path.read_bytes() if path.exists() else None) == original
+    assert snapshot(c.directory) == before
+
+
+@pytest.mark.parametrize('symbol', PYTHON_SCOPES[BRIDGE])
+def test_bridge_projection_pins_each_verdict_symbol(symbol):
+    content = (ROOT/BRIDGE).read_text()
+    tree = ast.parse(content)
+    body = tree.body
+    parts = symbol.split('.')
+    if len(parts) == 2:
+        body = next(n for n in body if isinstance(n, ast.ClassDef) and n.name == parts[0]).body
+    node = next(n for n in body if
+                (isinstance(n, ast.FunctionDef) and n.name == parts[-1]) or
+                (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == parts[-1]
+                                                  for t in n.targets)))
+    if isinstance(node, ast.Assign):
+        node.value = ast.Constant('changed scoring binding')
+    else:
+        node.body.append(ast.parse('return False').body[0])
+    assert scoring_hash(BRIDGE, ast.unparse(tree)) != scoring_hash(BRIDGE, content)
+
+
+@pytest.mark.parametrize('symbol', ['_stop_process', '_diagnostic_repr', 'CheckerBridgeError',
+    '_WorkerFailure', 'CheckerBridge._start', 'CheckerBridge._stop', 'CheckerBridge._exchange',
+    'CheckerBridge.close', 'CheckerBridge.__enter__', 'CheckerBridge.__exit__'])
+def test_bridge_projection_excludes_transport_and_diagnostic_symbols(symbol):
+    content = (ROOT/BRIDGE).read_text()
+    tree = ast.parse(content)
+    body = tree.body
+    parts = symbol.split('.')
+    if len(parts) == 2:
+        body = next(n for n in body if isinstance(n, ast.ClassDef) and n.name == parts[0]).body
+    node = next(n for n in body if isinstance(n, (ast.ClassDef, ast.FunctionDef)) and n.name == parts[-1])
+    node.body = ast.parse('raise RuntimeError("changed transport")').body
+    assert scoring_hash(BRIDGE, ast.unparse(tree)) == scoring_hash(BRIDGE, content)
+
+
+def test_bridge_worker_dispatch_is_scoring_but_serialization_is_not():
+    content = (ROOT/BRIDGE).read_text()
+    assert scoring_hash(BRIDGE, content.replace('encoded + "\\n"', 'encoded + "\\r\\n"')) == scoring_hash(
+        BRIDGE, content)
+    assert scoring_hash(BRIDGE, content.replace('verdict = _check_multi_turn(request)',
+        'verdict = {"valid": True}')) != scoring_hash(BRIDGE, content)
+
+
+def test_c25r_reviewed_evidence_preserves_c25j_and_binds_historical_bridge():
+    assert file_hash(ROOT/update.EVIDENCE_PATH) == update.EVIDENCE_SHA256
+    bundle = json.loads((ROOT/update.EVIDENCE_PATH).read_text())
+    previous = json.loads((ROOT/'configs/rtd/identity_evidence/c25j.json').read_text())
+    assert bundle['files'][:-1] == previous['files']
+    old = bundle['files'][-1]
+    assert old['path'] == BRIDGE
+    assert old['sha256'] == '10926354526279ccb71e8c1d05153b82fd47e627cf778e88f990595508b0a195'
+    assert scoring_hash(BRIDGE, old['content']) == scoring_hash(BRIDGE, (ROOT/BRIDGE).read_text())

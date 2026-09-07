@@ -261,6 +261,23 @@ class CheckerBridge:
         self.close()
 
 
+def _diagnostic_repr(value):
+    """JSON fallback for live BFCL state; never coerce JSON-native verdict values.
+
+    json.dumps applies this recursively inside dicts/lists. Simulator objects
+    such as Directory already have useful reprs; remove process-specific object
+    addresses and sort unordered sets so their diagnostic strings are stable.
+    """
+    try:
+        if isinstance(value, (set, frozenset)):
+            return type(value).__name__ + "(" + ", ".join(sorted(
+                _diagnostic_repr(item) for item in value)) + ")"
+        text = repr(value)
+    except Exception:
+        text = f"<{type(value).__module__}.{type(value).__qualname__}: unrepresentable>"
+    return re.sub(r" at 0x[0-9a-fA-F]+(?=>)", "", text)
+
+
 def worker_main():
     protocol_out = sys.stdout
     with redirect_stdout(sys.stderr):
@@ -288,7 +305,9 @@ def worker_main():
             response = {**verdict, "error": verdict.get("error"), "checker_version": version}
         except Exception as exc:
             response = {"valid": None, "error": f"{type(exc).__name__}: {exc}", "checker_version": version}
-        protocol_out.write(json.dumps(response, ensure_ascii=False) + "\n")
+        with redirect_stdout(sys.stderr):
+            encoded = json.dumps(response, ensure_ascii=False, default=_diagnostic_repr)
+        protocol_out.write(encoded + "\n")
         protocol_out.flush()
     return 0
 

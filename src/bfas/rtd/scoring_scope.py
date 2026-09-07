@@ -1,4 +1,4 @@
-"""Protocol 1.0.2 projections of mixed scoring/operational source files.
+"""Protocol 1.0.7 projections of mixed scoring/operational source files.
 
 These are source projections, never imports or executions of audited code.
 The exact selectors and excluded device-placement keywords are protocol, not
@@ -12,6 +12,12 @@ from .persistence import digest
 
 
 PYTHON_SCOPES = {
+    'tools/behavior_atom/checker_bridge.py': (
+        'ROOT', 'BFCL', '_load_direct', '_content_hash', '_checker_version',
+        '_language_name', '_check_multi_turn', '_check_relevance',
+        'CheckerBridge.__init__', 'CheckerBridge.check', 'CheckerBridge.__call__',
+        'CheckerBridge.check_multi_turn', 'CheckerBridge.check_relevance',
+        'CheckerBridge.check_many', 'CheckerBridge._request'),
     'tools/bfcl_event_mine_single.py': ('language_for',),
     'tools/bfcl_generation_check.py': ('check_generation',),
     'src/bfas/rtd/evaluation.py': ('official_expectations', 'validate_evaluation', '_flatten_adapter'),
@@ -80,11 +86,32 @@ def scoring_projection(name, content):
     tree = ast.parse(content, filename=name)
     selected = []
     for symbol in PYTHON_SCOPES[name]:
-        nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == symbol]
+        body = tree.body
+        parts = symbol.split('.')
+        if len(parts) == 2:
+            classes = [n for n in body if isinstance(n, ast.ClassDef) and n.name == parts[0]]
+            if len(classes) != 1:
+                raise ValueError(f'evaluation harness scope {name}:{symbol}: expected one class')
+            body = classes[0].body
+        nodes = [n for n in body if
+                 (isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == parts[-1]) or
+                 (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == parts[-1]
+                                                   for t in n.targets))]
         if len(nodes) != 1:
             raise ValueError(f'evaluation harness scope {name}:{symbol}: expected one definition')
         selected.append(_ScientificAST(placement=symbol == '_flatten_adapter',
                                       diagnostics=name.endswith('bfcl_generation_check.py')).visit(nodes[0]))
+    if name == 'tools/behavior_atom/checker_bridge.py':
+        # Pin worker dispatch, boolean validation and envelope contents, while
+        # excluding line IO/serialization and the diagnostic repr fallback.
+        workers = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'worker_main']
+        blocks = [n for worker in workers for n in ast.walk(worker) if isinstance(n, ast.Try)
+                  and any(isinstance(stmt, ast.Assign) and any(
+                      isinstance(t, ast.Name) and t.id == 'response' for t in stmt.targets)
+                          for stmt in n.body)]
+        if len(workers) != 1 or len(blocks) != 1:
+            raise ValueError('evaluation harness scope checker_bridge.py: expected one worker verdict block')
+        selected.append(_ScientificAST().visit(blocks[0]))
     if name == 'src/bfas/rtd/evaluation.py':
         # Score-reading and external Hub overlay invocation also affect results.
         functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'evaluate']

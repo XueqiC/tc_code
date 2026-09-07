@@ -141,7 +141,8 @@ def make_manifest(config, arm, audit, *, smoke=False):
             ('bank_path', 'bank_public_cap_sum', 'budget_ceilings', 'recorded_bank_usage', 'available_packages', 'm')},
         backend='HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention',
         backend_rationale='one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured',
-        score_consistency=dict(tolerance=vars(ScoreTolerance.from_config(config)), units='nats/token including EOS',
+        # Keep declarations byte-stable on resume; effective defaults are journaled separately.
+        score_consistency=dict(tolerance=dict(config.get('score_consistency_tolerance', {})), units='nats/token including EOS',
             records='compute.jsonl: score_consistency, per state/action, including failed checks',
             generation='hf-generate-kv-categorical-v1', scoring='torch-functional-teacher-forced-native-ce-v1',
             reinforce_likelihood='same score_tokens native CE tensor as teacher forcing'),
@@ -335,7 +336,7 @@ def replay_ledger(args):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='RTD protocol v1.0.6 / v1.0.1 sealed BFCL replay. No teacher API path.')
+    parser = argparse.ArgumentParser(description='RTD protocol v1.0.7 / v1.0.1 sealed BFCL replay. No teacher API path.')
     subs = parser.add_subparsers(dest='command', required=True)
     for name in ('audit', 'audit-legacy', 'update-identity', 'update-hardware-identity', 'smoke', 'run', 'resume', 'replay-ledger', 'swap-component', 'evaluate', 'report'):
         p = subs.add_parser(name)

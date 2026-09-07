@@ -1,4 +1,4 @@
-"""RTD v1.0.6 sampling/teacher-forcing comparisons (spec 4.2), in nats/token."""
+"""RTD v1.0.7 sampling/teacher-forcing comparisons (spec 4.2), in nats/token."""
 from dataclasses import asdict, dataclass
 import math
 

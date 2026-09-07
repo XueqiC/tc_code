@@ -93,7 +93,9 @@ def test_each_content_component_changes_identity(checkout, change):
     elif change == 'data-delete':
         data.unlink()
     elif change == 'tool':
-        put(checkout/identity.EVALUATION_TOOLS[0], 'changed')
+        p = checkout/identity.EVALUATION_TOOLS[0]
+        put(p, p.read_text().replace('handler = QwenFCHandler(model, 1., model, True)',
+                                   'handler = QwenFCHandler(model, 0., model, True)'))
     else:
         config['evaluation_temperature'] = 1.
     assert digest(identity.evaluation_harness_identity(checkout, config)) != digest(before)

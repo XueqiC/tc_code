@@ -12,8 +12,8 @@ from .persistence import atomic_json, digest, file_hash, tree_hash
 from .scoring_scope import PYTHON_SCOPES, SHELL, scoring_hash
 
 
-EVIDENCE_PATH = 'configs/rtd/identity_evidence/c25j.json'
-EVIDENCE_SHA256 = '9225827e4a3806572310f005f7f7d65f5061b1cff74616aaf5da73a08383d578'
+EVIDENCE_PATH = 'configs/rtd/identity_evidence/c25r.json'
+EVIDENCE_SHA256 = '959e79cf5321467d09d5c24517b3dea27e956dcbfb162f6a49a150c4ed7a2598'
 
 
 class IdentityUpdateRefused(ValueError):
@@ -37,11 +37,17 @@ def _historical_sources(root):
 
 
 def _old_files(harness):
+    # C25j/v3 projected the existing mixed files but hashed the bridge RAW.
+    # Interpret saved hashes by their historical format, never today's scopes.
+    scoped = {*PYTHON_SCOPES, SHELL}
+    if harness.get('version') == 'bfcl-evaluation-harness-scoring-v3':
+        scoped.remove('tools/behavior_atom/checker_bridge.py')
+    elif harness.get('version') != ids.CONTENT_VERSION:
+        scoped = set()
     result = {ids.LEADERBOARD+'/'+n: dict(sha256=row['sha256'], kind='file')
               for field in ('checkout_files', 'data_manifest')
               for n, row in harness.get(field, {}).items()}
-    result.update({n: dict(sha256=sha, kind='scoring_projection' if
-        harness.get('version') == ids.CONTENT_VERSION and n in {*PYTHON_SCOPES, SHELL} else 'file')
+    result.update({n: dict(sha256=sha, kind='scoring_projection' if n in scoped else 'file')
         for n, sha in harness.get('tools', {}).items()})
     return result
 
@@ -164,6 +170,7 @@ def update_identity(root, directory):
             if (historical_hash == row['sha256'] and
                     (not prior or prior['kind'] != 'file' or archived['sha256'] == prior['sha256'])):
                 item.update(basis='reviewed-pre-manifest-source-projection',
+                            conclusion='scoring projection unchanged',
                             historical_file_sha256=archived['sha256'],
                             historical_scoring_sha256=historical_hash,
                             observed_at_ns=archived['observed_at_ns'], evidence_bundle=EVIDENCE_PATH,
@@ -171,7 +178,7 @@ def update_identity(root, directory):
                 continue
         refusals.append(dict(path=name, reason='scoring continuity lacks pre-manifest evidence',
                              mtime_ns=ns, manifest_mtime_ns=cutoff))
-    audit = dict(task='C25j', method='scoring-scope-and-pre-manifest-evidence-v1',
+    audit = dict(task='C25r', method='scoring-scope-and-pre-manifest-evidence-v1',
                  recorded_at=datetime.now(timezone.utc).isoformat(), manifest_hash=manifest_hash,
                  manifest_mtime_ns=cutoff, current_manifest_mtime_ns=stamp[0],
                  previous_identity=dict(harness_hash=saved['harness_hash'], evaluation_harness=saved.get('evaluation_harness')),

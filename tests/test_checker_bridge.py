@@ -287,5 +287,6 @@ def test_driver_closes_worker_when_run_fails(tmp_path, fake_worker, force_subpro
         raise RuntimeError("injected driver failure")
     monkeypatch.setattr(driver, "_run", fail)
     with pytest.raises(RuntimeError, match="injected driver failure"):
-        driver.run("pilot", {}, {}, {}, tmp_path, student_factory=lambda _: student)
+        driver.run("pilot", {}, {"micro_update": {"device": "cpu"}}, {}, tmp_path,
+                   student_factory=lambda _: student)
     assert checker._closed and proc.poll() == 0

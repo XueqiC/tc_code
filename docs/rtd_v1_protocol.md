@@ -1,3 +1,91 @@
+# RTD protocol v1.0.7 — C25r checker diagnostic serialization and C25q-b resume compatibility (2026-09-07)
+
+## Changelog
+
+C25q-b fixes resume refusal after C25q added the default tolerance fields
+`max_abs_outlier_tokens: 2` and `max_abs_hard: 8.0`. `make_manifest` now copies
+`config['score_consistency_tolerance']` into `score_consistency.tolerance`,
+preserving exactly its declared keys, order and numeric representation. Saved
+configs with only `mean_abs` and `max_abs` reproduce their original manifest
+tolerance; the updated C25 YAMLs record all four explicitly declared fields.
+This removes the tolerance mismatch for rai_R0, rai_R1, rai_R1s and HPG R0/R1
+without editing run directories. `validate_resume` still hard-compares the
+entire `score_consistency` block, including generation and scoring backends.
+
+Each successful resume validation appends a `resume_score_consistency` event
+to `code_drift.jsonl`, with the effective `tolerance` (including code defaults),
+resume context, original manifest hash and current RTD source hash. This event
+is recorded even when source drift is unchanged or was already acknowledged.
+Every `compute.jsonl` score comparison also retains its effective tolerance
+via `asdict(tolerance)`. Original manifests and config/checkpoint bindings
+remain unchanged; training source drift still requires acknowledgement.
+
+HPG `results/rtd_v1/R1` crashed at round 2, step 1 after BFCL returned
+`valid: false`, `error_type: multi_turn:instance_state_mismatch`. Its
+`model_instance_state` and ground-truth attributes contained live
+GorillaFileSystem `Directory` objects. The worker's `json.dumps(response)`
+raised `TypeError: Object of type Directory is not JSON serializable`; replay
+then exhausted the bridge's single restart. The same failure could affect
+rai_R0, rai_R1, rai_R1s and HPG R0/R1.
+
+The worker now supplies a diagnostic `repr` fallback to JSON encoding, applied
+recursively to unsupported values inside dicts/lists. Object addresses are
+removed, sets are sorted, and a failing `repr` gets a stable type label. Every
+verdict key is retained, including `valid`, `error`, `error_type`,
+`error_message`, details and `checker_version`. JSON-native values retain the
+same encoding; scores and boolean verdicts are unchanged. The conversion runs
+after verdict validation and envelope construction. It renders diagnostic
+objects for transport and makes no scoring decision.
+
+The scoring identity is now `bfcl-evaluation-harness-scoring-v4`. The bridge
+uses explicit `PYTHON_SCOPES` selectors for `_load_direct`, `_content_hash`,
+`_checker_version`, `_language_name`, `_check_multi_turn`, `_check_relevance`,
+and `CheckerBridge.check`, `check_multi_turn`, `check_relevance`, `check_many`,
+`_request`. `ROOT`, `BFCL`, `__init__` and the `__call__` binding are also pinned
+to preserve paths, checker defaults and dispatch. The worker's verdict block
+pins request dispatch, boolean validation, version stamping and error-envelope
+contents. Referenced imports remain bound. Excluded content comprises worker
+serialization/line IO, `_diagnostic_repr`, `_stop_process`, `_start`, `_stop`,
+`_exchange`, `close`, `__enter__`, `__exit__` and the bridge exception classes.
+Changing `_check_multi_turn` verdict content still refuses identity migration
+and fails `guard_harness`.
+
+C25j's explicit audit mechanism remains in use. Historical v3 identities still
+mean a **raw** bridge hash and the original projections for other tools. The
+new reviewed bundle `configs/rtd/identity_evidence/c25r.json` preserves C25j's
+rows verbatim and adds the bridge's pre-edit git HEAD content, raw SHA-256,
+pre-edit file mtime and saved raw-hash bindings. Its complete SHA-256 is pinned
+by `EVIDENCE_SHA256` in `identity_update.py`. The existing mtime corroborates
+pre-manifest existence; the three saved rai raw hashes independently bind the
+archived bytes. Git HEAD identifies the reviewed source, not a pre-manifest
+commit date. Continuity requires equality of the old and new scoring
+projections, with audit basis `reviewed-pre-manifest-source-projection` and
+conclusion `scoring projection unchanged`; raw-hash matching alone is
+insufficient. C25j's evidence limitations and race/checkpoint/model checks
+continue to apply.
+
+Run `update-identity` for each affected run after syncing source and evidence:
+
+```bash
+for run in rai_R0 rai_R1 rai_R1s; do
+  CUDA_VISIBLE_DEVICES='' .venv/bin/python tools/rtd_experiment.py update-identity --run-dir "results/rtd_v1/$run" || break
+done
+# On HPG, from its project root:
+for run in R0 R1; do
+  CUDA_VISIBLE_DEVICES='' .venv/bin/python tools/rtd_experiment.py update-identity --run-dir "results/rtd_v1/$run" || break
+done
+```
+
+The command writes only audited supplements under
+`configs/rtd/legacy_identities/<original-manifest-hash>.json`. Resume and
+evaluation use the same `guard_harness` binding after that update. Manifests,
+saved scientific config v1.0.1 and checkpoint bindings remain immutable;
+training code drift still requires `--acknowledge-code-drift`. Existing Python
+processes retain their loaded modules; newly started bridge workers load the
+serialization fix. Fresh resume/evaluation processes load the new identity
+projection. The C25q score-consistency record format retains its `1.0.6` tag
+because this hotfix does not change that diagnostic schema or its tolerances.
+
 # RTD protocol v1.0.6 — C25q score-consistency outliers (2026-09-07)
 
 ## Changelog
