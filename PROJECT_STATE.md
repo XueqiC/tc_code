@@ -1334,3 +1334,11 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 22:37Z hpg ALFWorld 三臂全部 RUNNING:R0 41335248、R1 41335249、R1s 41336055(B200;48h 上限)。
 - 9/9 22:58Z rai R1s 三轮完成:r3 Overall 46.12(NL 80.04/Live 77.72/MT 50.25/Mem 23.87/Irrel 82.93/Rel 75.00/Web 11.00);曲线 45.71→46.07→46.12,base 46.74;总支出 1,603 tok/7 包;report 已生成。GPU1 空出。
 - 9/9 22:58Z rai R1s 反馈 rollout 格式错误逐轮 0/10/50(hpg R1 为 0/12/36)——跨臂一致的采样格式退化趋势,v1.1 必报健康指标。
+- 9/9 22:59Z ALFWorld smoke 在空闲 GPU1(同 RTX PRO 6000 类)resume 续跑(logs results/c26f/rai_smoke_g_resume.log),目标完成一个完整决策窗口。
+- 9/9 23:00Z hpg ALFWorld B200 吞吐:40 步 episode 生成 ≈ 320s(8 s/步),env 3.5s;估算每决策窗口 ~1.5h、每轮 7–9h、每次 greedy 评测(140 题×≤40 步)~10–12h → 每臂 ~60–70h > 48h walltime → 为三臂各提交 afterany 接力 resume 作业。
+- 9/9 23:00Z hpg ALFWorld 接力作业:R0 41337284、R1 41337285、R1s 41337286(afterany)。hpg 队列:5 个 pending 全是依赖持有的接力作业(用户要求 B200 并行)。
+- 9/9 23:31Z ⚠️ hpg ALFWorld R0/R1 在 round 1 step 1 reference 阶段失败(~1h 后):acquisition.from_public 'missing source features'(C26-F 分派未给 ALFWorld 包填充采购候选特征);R1s 与接力作业全部 scancel;rai smoke resume 已终止(GPU1 空)。Codex C26-H 修复中(worktree,pid 957932)。
+- 9/9 23:32Z hpg 失败的 ALFWorld run 目录移至 results/c26f/_failed_c26f_v1/(hpg-R0/R1/R1s);BFCL 作业不受影响(R0 resume、R1s run 运行 3h08m)。
+- 9/9 07:25Z(报告)hpg R0 r2 s10、hpg R1s r2 s7、rai R1 r2 s7;rai R0 等 GPU2;C26-H 进行中;GPU1 空闲。
+- 9/9 23:47Z 用户:'按照我们之前要求的来吧'、'尽量规范标准' → ALFWorld 不缩减(3 轮 + 140 题完整 greedy 评测),BFCL 保持官方全量;v1.1 批准与否已再次询问,等答复。
+- 9/9 23:56Z 用户:先别做,汇总 + v1.1 详细建议写成文档 → docs/2026-09-09-rtd-v1-summary-and-v1-1-recommendations-zh.md 已发(含采购分布诊断:R1/R1s 熵比≈R0、empty≈50%、成本未约束;追加'价值信号可靠性'判定实验;§2.6 五项待拍板)。
