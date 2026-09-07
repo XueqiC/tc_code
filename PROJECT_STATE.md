@@ -1318,3 +1318,14 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 21:02Z rai R0 第 2 轮官方分 45.79(NL 79.58/Live 77.42/MT 50.00/Mem 24.52/Irrel 82.81/Rel 75.00/Web 9.50;spend 491/5 包);第 1 轮 46.81、base 46.74,噪声内;进入 round 3(GPU2)。
 - 9/9 21:09Z rai R0 round 3 启动时 CUDA OOM:GPU2(Ada 48 GB)被 bolin 新起的 vllm 占 33 GB(非我们的)。挂 GPU2 空出自动 resume 监视(logs/rtd_resume_rai_R0_r3.log);hpg R0(B200)承担该臂。
 - 9/9 21:16Z hpg R0 第 1 轮官方分 45.53(NL 80.29/Live 77.79/MT 49.62/Mem 23.66/Irrel 83.06/Rel 75.00/Web 9.00;spend 188/2 包);与 rai R0 r1 46.81 同购买轨迹,机器效应 −1.28;进入 round 2(B200)。
+- 9/9 21:28Z C26-F 完成(worktree 提交 1be9dff;912 passed/0 failed;报告 docs/rtd_alfworld_c26f_report_zh.md)。rai GPU4 上起 ALFWorld smoke(results/c26f/rai-R1-window-p2-k2,日志 results/c26f/rai_smoke.log);部署到 hpg /blue/.../hq/tc-alignment-alf(代码 + 封存 bank;envs/.venv 软链到主目录)。
+- 9/9 21:32Z hpg ALFWorld audit失败:support manifest 冻结了 rai 的环境身份(venv 文件哈希,py3.11)与 hpg(py3.12)不同 → 在 hpg 提交 CPU 作业重跑 C26-B verify,生成 hpg 绑定的 bank data/rtd/v1_alfworld_c26_hpg + configs/rtd/v1_alfworld_support_c26_hpg.json;之后建 hpg 版 YAML 再提交 R0/R1。tokenizer snapshot 两机相同(851bf6e8)。
+- 9/9 21:34Z rai ALFWorld smoke 失败:BoundedEnvBridge 的 episode_timeout=120s 是整场 episode 的墙钟(含学生采样),40 步 × 4B 采样不可能 120s 内完成 → 第 8 步 EnvironmentUnavailable → IncompleteFeedbackError。Codex C26-G:env 侧时间预算(只计 bridge 调用)+ 宽松 hang 守卫 + 配置键 + 计时日志 + 一次有界重试 + 测试。hpg 端:C26-B verify 作业 41332623 排队/运行中。
+- 9/9 21:37Z hpg C26-B verify 重提 41332860(从 /tmp 调用;归档源 data/teacher_ledger、results/alf_records 等 1.7G 已同步到 hpg alf 目录)。首次 41332623 因'须从 /tmp 运行'失败。
+- 9/9 05:25Z hpg R1s round 1 训练完成(~1h/轮)进入评测;hpg R0 round 2 step 1;rai R1s r3 评测 82%;rai R1 round 2 step 4;rai R0 等 GPU2;C26-G 进行中;hpg verify 41332860 运行中。
+- 9/9 21:47Z hpg verify 再提 41333334(之前 41332860 缺 results/bfas/alfworld/ours_s0/support_split.json 等归档文件;已从主目录 rsync 9.5G 归档(含 alfabl_CE adapter、alf_records)到 hpg alf 目录)。
+- 9/9 21:54Z hpg verify 41333334 因 'archive input escapes root'(envs 软链解析到主目录)失败 → hpg alf 目录改为真实拷贝 envs/alfworld(9.3G),重提 41333731。
+- 9/9 22:07Z hpg C26-B verify 41333731 COMPLETED(12 min):107/107 usable(hpg 环境),support manifest hash 720ae918…,bank data/rtd/v1_alfworld_c26_hpg,报告 results/c26f/hpg/bank_audit_hpg/。待 C26-G 完成后建 hpg 版 YAML(bank/support 路径)→ audit → 提交 ALFWorld R0/R1/R1s(B200)。
+- 9/9 22:11Z hpg R1s 第 1 轮官方分 45.91(NL 79.21/Live 77.65/MT 50.37/Mem 24.52/Irrel 83.10/Rel 75.00/Web 9.50;spend 197/2 包);进入 round 2。
+- 9/9 22:22Z C26-G 交付并提交(78603af;956 测试):env 侧 600s 预算(不含生成)+ 3600s wall guard + 30s IO + 计时 + 一次重试。rai GPU4 重跑 smoke(results/c26f/rai-R1-window-p2-k2-g)。hpg 版 YAML(v1_alfworld_c26_hpg / _scalar_gate_hpg)audit 均 passed;提交 ALFWorld R0/R1 B200 作业(48h,64G)。
+- 9/9 22:23Z hpg ALFWorld R0 41335248 / R1 41335249 均 RUNNING(B200)。
