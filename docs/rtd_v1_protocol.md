@@ -1,6 +1,40 @@
-# RTD protocol v1.0.7 — C25r checker diagnostic serialization and C25q-b resume compatibility (2026-09-07)
+# RTD protocol v1.0.7 — C25r-b audited evaluation reuse, C25r checker serialization and C25q-b resume compatibility (2026-09-07)
 
 ## Changelog
+
+C25r-b fixes completed evaluation reuse after a scoring-continuity audit.
+`evaluate` accepts the stored `evaluation_harness_hash` when it matches the
+current audited hash or belongs to this run's full-manifest-bound supplement
+chain: `identity_updates` (`previous_identity.harness_hash` to
+`new_harness_hash`), C25g `identity_migrations` (`previous_harness_hash` to
+`content_harness_hash`), and the manifest's original `harness_hash`. The same
+chain drives historical campaign lookup. Unknown hashes, disconnected audit
+links and supplements bound to another manifest remain refusals. Checkpoint,
+config, data, expected tasks, hardware, tokenizer, evaluation temperature and
+base checkpoint identities, including missing/extra keys, still match strictly;
+`artifacts_hash` and complete evaluation validation remain mandatory.
+
+Each successful reuse through a historical hash appends one
+`evaluation_reuse_via_audited_identity` event to `compute.jsonl` with stored and
+current hashes, supplement path, round/tag and zero GPU spend, and prints one
+`[rtd]` line. The stored evaluation identity is retained. Existing code-drift
+and hardware-class metadata refresh behavior is unchanged; otherwise
+`evaluation-N.json` is not rewritten. Runs without a supplement retain exact
+identity matching. The evaluate subcommand and resume coordinator use this
+same path; report retains its checkpoint and artifact checks.
+
+The read-only CPU check below loads each original manifest, evaluation and
+bound supplement and reports hash membership without changing run artifacts:
+
+```bash
+CUDA_VISIBLE_DEVICES='' .venv/bin/python tools/rtd_check_evaluation_identity.py \
+  results/rtd_v1/rai_R1s results/rtd_v1/rai_R0 results/rtd_v1/rai_R1
+```
+
+All three round-1 evaluations store `f0faf0ac081c…`, which belongs to their
+audited continuity chains ending at `29bd15951405…`. This check establishes
+hash membership; normal evaluation reuse also verifies all identity fields
+and artifacts. The scoring projection and scientific config remain unchanged.
 
 C25q-b fixes resume refusal after C25q added the default tolerance fields
 `max_abs_outlier_tokens: 2` and `max_abs_hard: 8.0`. `make_manifest` now copies

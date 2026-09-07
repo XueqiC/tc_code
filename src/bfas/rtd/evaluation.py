@@ -13,7 +13,8 @@ import time
 
 from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
 from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
-from .identity import evaluation_harness_metadata, guard_harness, record_code_drift, verified_checkpoint
+from .identity import (audited_harness_hashes, evaluation_harness_metadata, guard_harness,
+                       record_code_drift, verified_checkpoint)
 from .hardware import guard_hardware, instance, comparison_hash
 
 
@@ -100,20 +101,7 @@ def _completed_campaign_identity(root, manifest, identity, identities, round_num
     tag = tag_for(identity)
     if (root / 'results/bfcl_std' / tag / 'data_overall.csv').is_file():
         return tag, identity
-    # guard_harness/saved_identities has checked these updates and their full
-    # manifest/model binding. C25g migrations connect the earlier v1 identity.
-    hashes = [identity['evaluation_harness_hash']]
-    for note in reversed(identities.get('identity_updates', [])):
-        previous = note['previous_identity']
-        if previous.get('evaluation_harness') is not None:
-            hashes.append(previous['harness_hash'])
-    for note in reversed(identities.get('identity_migrations', [])):
-        if (note.get('content_harness_hash') not in hashes
-                or note.get('previous_harness_hash') != digest(note.get('previous_evaluation_harness'))
-                or note.get('verified_manifest_data_hash') != manifest['data_hash']):
-            raise ValueError('historical campaign identity migration binding mismatch')
-        hashes.append(note['previous_harness_hash'])
-    for harness_hash in hashes:
+    for harness_hash in audited_harness_hashes(manifest, identities):
         candidate = dict(identity, evaluation_harness_hash=harness_hash)
         # C25e omitted these explicit fields; its verified checkpoint still
         # binds the full immutable manifest, including base/tokenizer hashes.
@@ -175,13 +163,26 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
         # export/copy path, including invocations outside the RTD coordinator.
         if completed.exists():
             result = json.loads(completed.read_text())
-            if result['identity'] != identity or result['artifacts_hash'] != tree_hash(out):
+            stored_hash = result['identity'].get('evaluation_harness_hash')
+            current_hash = identity['evaluation_harness_hash']
+            # Compare every other key (including missing/extra fields) exactly.
+            # Continuity authorizes reuse, never a rewrite of the scored identity.
+            if (dict(result['identity'], evaluation_harness_hash=current_hash) != identity
+                    or stored_hash not in audited_harness_hashes(manifest, identities)
+                    or result['artifacts_hash'] != tree_hash(out)):
                 raise ValueError('evaluation identity/artifacts changed')
             validate_evaluation(expected, out / 'resultdir', out / 'scoredir')
             if result.get('code_drift') != drift or result.get('hardware_class_hash') != class_hash:
                 result['code_drift'] = drift
                 result.update(hardware_class=hardware_binding['hard'], hardware_class_hash=class_hash)
                 atomic_json(completed, result)
+            if stored_hash != current_hash:
+                supplement = root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+                journal.append('evaluation_reuse_via_audited_identity', round=round_number, tag=tag,
+                               stored_harness_hash=stored_hash, current_harness_hash=current_hash,
+                               supplement_path=str(supplement), gpu_seconds=0., gpu_reserved_seconds=0.)
+                print(f'[rtd] evaluation reuse via audited identity round={round_number} '
+                      f'stored={stored_hash} current={current_hash} supplement={supplement}', flush=True)
             return result
         stage = root / 'results/appworld_students' / tag
         binding = stage / 'rtd_binding.json'

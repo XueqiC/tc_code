@@ -119,6 +119,18 @@ def drift(c):
     put(c.root/'src/bfas/rtd/experiment.py', 'changed RTD')
 
 
+def harness_drift(c, path):
+    if path == 'tools/behavior_atom/checker_bridge.py':
+        # C25r projects the bridge AST: keep valid Python while changing a
+        # scoring selector, so this tests drift refusal rather than parsing.
+        content = (c.root/path).read_text()
+        before = 'handler = QwenFCHandler(model, 1., model, True)'
+        assert before in content
+        put(c.root/path, content.replace(before, 'handler = QwenFCHandler(model, 0., model, True)', 1))
+    else:
+        put(c.root/path, 'changed harness')
+
+
 def test_percentage_parser_with_real_format_csv_row():
     # Full BFCL export layout; synthetic aggregate reproduces job 41264649.
     row = next(csv.DictReader(io.StringIO((ROOT/'tests/fixtures/bfcl/data_overall.csv').read_text())))
@@ -198,7 +210,7 @@ def test_source_drift_evaluates_without_ack_and_reuses_bound_score(campaign):
     identity.LEADERBOARD+'/bfcl_eval/utils.py', identity.LEADERBOARD+'/bfcl_eval/data/tasks.json'])
 def test_harness_drift_is_hard_even_with_training_ack(campaign, path):
     c = campaign
-    put(c.root/path, 'changed harness')
+    harness_drift(c, path)
     with pytest.raises(ValueError, match='evaluation harness'):
         evaluation.evaluate(c.root, c.directory, 1)
     current = cli.make_manifest(None)
@@ -474,7 +486,7 @@ def test_another_arm_evaluates_while_first_tag_is_locked(campaign):
 def test_changes_during_campaign_are_recorded_or_rejected(campaign, source_only):
     c = campaign
     c.after_campaign.append(lambda: drift(c) if source_only else
-                            put(c.root/'tools/behavior_atom/checker_bridge.py', 'changed during evaluation'))
+                            harness_drift(c, 'tools/behavior_atom/checker_bridge.py'))
     if source_only:
         result = evaluation.evaluate(c.root, c.directory, 1, port=0)
         assert result['code_drift'][-1]['files'] == ['src/bfas/rtd/experiment.py']

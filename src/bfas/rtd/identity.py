@@ -279,6 +279,34 @@ def guard_harness(root, directory, manifest, *, current=None):
     return saved
 
 
+def audited_harness_hashes(manifest, identities):
+    """Newest-first continuity hashes from guard_harness/saved_identities.
+
+    Only the supplement bound to this full original manifest can authorize
+    historical hashes. Never collect identities from other run supplements.
+    """
+    hashes = [identities['harness_hash']]
+    if identities == manifest:
+        return hashes  # fresh split identity, without an audited supplement
+    if (identities.get('manifest_hash') != digest(manifest)
+            or identities.get('legacy_harness_hash') != manifest['harness_hash']):
+        raise ValueError('historical evaluation identity supplement binding mismatch')
+    for note in reversed(identities.get('identity_updates', [])):
+        if note.get('new_harness_hash') != hashes[-1]:
+            raise ValueError('historical evaluation identity update chain mismatch')
+        hashes.append(note['previous_identity']['harness_hash'])
+    for note in reversed(identities.get('identity_migrations', [])):
+        if (note.get('content_harness_hash') != hashes[-1]
+                or note.get('previous_harness_hash') != digest(note.get('previous_evaluation_harness'))
+                or note.get('verified_manifest_data_hash') != manifest['data_hash']):
+            raise ValueError('historical campaign identity migration binding mismatch')
+        hashes.append(note['previous_harness_hash'])
+    # The legacy audit binds the original combined hash even when its split
+    # evaluation inventory could not be reconstructed from that manifest.
+    hashes.append(manifest['harness_hash'])
+    return list(dict.fromkeys(hashes))
+
+
 def record_code_drift(root, directory, manifest, *, context, training=False,
                       acknowledge=False, current=None, identities=None):
     identities = identities or saved_identities(root, directory, manifest)
