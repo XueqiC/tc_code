@@ -17,6 +17,7 @@ from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
 from .scoring import ScoreTolerance
 from .memory import MemoryPolicy
+from .source_estimator import validate_source_config
 from .identity import (audit_legacy, evaluation_harness_identity, evaluation_harness_metadata,
                        source_identity, validate_resume, verified_checkpoint)
 from .hardware import hardware_identity, instance, device_class, comparison_hash
@@ -36,7 +37,8 @@ def load_config(path):
                'max_context_tokens', 'pilot_eta_candidates', 'initial_eta', 'model_local_files_only',
                'evaluate_after_round', 'mode', 'gate', 'acquisition', 'preconditioner',
                'score_consistency_tolerance', 'max_action_tokens_by_benchmark', 'max_state_batch_size',
-               'memory_peak_budget_gb', 'memory_reserve_gb', 'memory_state_estimate_gb'}
+               'memory_peak_budget_gb', 'memory_reserve_gb', 'memory_state_estimate_gb',
+               'source_samples_per_state'}
     for key, expected in canonical.items():
         if key not in mutable and config.get(key) != expected:
             raise ValueError(f'frozen protocol value changed: {key}')
@@ -75,6 +77,11 @@ def load_config(path):
                        ('memory_reserve_gb', 2), ('memory_state_estimate_gb', 16)]:
         config.setdefault(key, value)
     MemoryPolicy.from_config(config)
+    estimator, _, _ = validate_source_config(config)
+    # Explicit legacy defaults serialize exactly as an omitted v1.1 option.
+    if estimator == 'hard2':
+        config.pop('source_estimator', None)
+        config.pop('cv_cs_mode', None)
     return config
 
 

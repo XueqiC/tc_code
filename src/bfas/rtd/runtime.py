@@ -160,12 +160,18 @@ def slot_loss(target, chi, phi, backend, parameters, *, gate='linear_sigmoid'):
     return positive_mixture_loss(source_score, teacher_score, a.reshape(1))
 
 
-def streamed_gradient(targets, chi, phi, backend, parameters, *, gate='linear_sigmoid'):
+def streamed_gradient(targets, chi, phi, backend, parameters, *, gate='linear_sigmoid',
+                      source_estimator='hard2', source_parameters=None, cv_cs_mode='loo',
+                      source_controls=None, diagnostic_gradients=None):
     """One complete-action graph at a time, including the two sides of a slot.
 
     Retain only detached LoRA gradients. Weight each side before backward (as
     in slot_loss), then accumulate the slot mean in parameter precision.
     """
+    if source_estimator != 'hard2':
+        return _estimated_gradient(targets, chi, phi, backend, parameters, gate=gate,
+            source_estimator=source_estimator, source_parameters=source_parameters,
+            cv_cs_mode=cv_cs_mode, source_controls=source_controls, diagnostic_gradients=diagnostic_gradients)
     if len(targets) != len(chi) or not targets:
         raise ValueError('aligned nonempty slots required')
     _matching(lora_parameters(backend.model), parameters)
@@ -202,7 +208,8 @@ def _side_gradient(score, parameters, weight):
     return {n: g.detach() for n, g in gradients(loss, parameters).items()}
 
 
-def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate='linear_sigmoid'):
+def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate='linear_sigmoid',
+                      source_estimator='hard2', source_parameters=None, cv_cs_mode='loo', source_controls=None):
     """Exact equation (5) contracted with the frozen sigmoid feature Jacobian.
 
     Phi only weights the loss, never the LM. Thus d_phi g_theta is exactly
@@ -210,6 +217,10 @@ def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *,
     fused attention/linear-attention backward kernels is needed. This remains
     matrix-free and agrees with the general autograd gate_vjp oracle.
     """
+    if source_estimator != 'hard2':
+        return _estimated_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, gate=gate,
+            source_estimator=source_estimator, source_parameters=source_parameters,
+            cv_cs_mode=cv_cs_mode, source_controls=source_controls)
     value = torch.zeros_like(phi)
     if len(targets) != len(chi) or not targets:
         raise ValueError('aligned nonempty slots required')
@@ -236,6 +247,78 @@ def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *,
             backend.journal.append('gate_vjp_evaluation', context=backend.context, slots=1,
                                    reduction_weight=1/len(targets), create_graph=False,
                                    implementation='exact frozen-sigmoid Jacobian contraction')
+    return value.detach()
+
+
+def _estimator_sides(targets, backend, parameters, source_parameters):
+    from .source_scoring import source_gradient_pair
+    if source_parameters is None:
+        raise ValueError('frozen source_parameters required for soft/CV scoring')
+    for source, teacher in targets:
+        hard, soft, metadata = source_gradient_pair(backend, source, parameters, source_parameters)
+        teacher_g = ({n: torch.zeros_like(p) for n, p in parameters.items()} if teacher is None else
+                     _side_gradient(backend.score_behavior(teacher, parameters), parameters,
+                                    next(iter(parameters.values())).new_ones(())))
+        yield hard, soft, teacher_g, metadata
+
+
+def _estimated_gradient(targets, chi, phi, backend, parameters, *, gate, source_estimator,
+                        source_parameters, cv_cs_mode, source_controls, diagnostic_gradients):
+    from .source_estimator import estimator_coefficients, gradient_norm
+    weights, cs = estimator_coefficients(targets, chi, phi.detach(), gate=gate,
+        source_estimator=source_estimator, cs_mode=cv_cs_mode, controls=source_controls)
+    result = {n: torch.zeros_like(p) for n, p in parameters.items()}
+    totals = ({key: {n: torch.zeros_like(p) for n, p in parameters.items()} for key in ('hard2', 'soft', 'cv')}
+              if diagnostic_gradients is not None else None)
+    for i, (hard, soft, teacher, metadata) in enumerate(_estimator_sides(targets, backend, parameters, source_parameters)):
+        h, c, a = weights[i]
+        actual = {n: h*hard[n] + c*soft[n] + a*teacher[n] for n in parameters}
+        comparisons = {'hard2': {n: (1-a)*hard[n]+a*teacher[n] for n in parameters},
+                       'soft': {n: (1-a)*soft[n]+a*teacher[n] for n in parameters}, 'cv': actual}
+        for n in parameters:
+            result[n].add_(actual[n] / len(targets))
+        if totals is not None:
+            for key in totals:
+                for n in parameters:
+                    totals[key][n].add_(comparisons[key][n] / len(targets))
+        if getattr(backend, 'journal', None):
+            backend.journal.append('source_estimator_slot', context=backend.context, slot_index=i,
+                source_estimator=source_estimator, cv_cs_mode=cv_cs_mode, c_s=float(cs[i]),
+                state_hash=targets[i][0].behavior.state.state_hash, source_id=targets[i][0].frozen_snapshot_id,
+                hard_gradient_norm=gradient_norm(comparisons['hard2']),
+                soft_gradient_norm=gradient_norm(comparisons['soft']), cv_gradient_norm=gradient_norm(actual),
+                hard_source_gradient_norm=gradient_norm(hard), soft_source_gradient_norm=gradient_norm(soft),
+                reduction_weight=1/len(targets), **metadata)
+    if diagnostic_gradients is not None:
+        diagnostic_gradients.append(totals)
+    return result
+
+
+def _estimated_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate,
+                       source_estimator, source_parameters, cv_cs_mode, source_controls):
+    """Differentiate the NEW update weights, including auxiliary c_s gates.
+
+    LM-side gradients are independent of phi. Contract them first, then use
+    autograd on the small coefficient graph; no LM second derivatives needed.
+    This also includes cross-draw LOO terms absent from the v1 VJP.
+    """
+    from .source_estimator import estimator_coefficients
+    control = phi.detach().clone().requires_grad_(True)
+    weights, _ = estimator_coefficients(targets, chi, control, gate=gate,
+        source_estimator=source_estimator, cs_mode=cv_cs_mode, controls=source_controls)
+    contractions = []
+    for hard, soft, teacher, _ in _estimator_sides(targets, backend, parameters, source_parameters):
+        # Match FrozenStep.update's eta*P multiplication before promotion to
+        # the gradient dtype (also matters for mixed-precision CPU oracles).
+        contractions.append(torch.stack([sum((g[n]*(step.eta*step.diagonal[n].detach())*
+                                              feedback.gradient[n].detach()).sum()
+                                              for n in parameters) for g in (hard, soft, teacher)]))
+    outer = -(weights * torch.stack(contractions).detach()).sum() / len(targets)
+    value, = torch.autograd.grad(outer, control)
+    if getattr(backend, 'journal', None):
+        backend.journal.append('gate_vjp_evaluation', context=backend.context, slots=len(targets),
+            source_estimator=source_estimator, cv_cs_mode=cv_cs_mode, create_graph=False,
+            implementation='v1.1 autograd through estimator weights including c_s')
     return value.detach()
 
 

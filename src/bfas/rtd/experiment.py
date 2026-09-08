@@ -27,6 +27,7 @@ from .ledger import Ledger
 from .persistence import ComputeJournal, StateStore, atomic_json, digest, file_hash, fsync_directory, tree_hash
 from .return_gradient import ActionTrace, GateController, bfcl_task_rollout, reinforce_gradient
 from .runtime import streamed_gate_vjp, streamed_gradient
+from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
@@ -129,6 +130,10 @@ class RTDExperiment:
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
         self.config, self.manifest = config, manifest
+        estimator, mode, _ = validate_source_config(config)
+        if self.gate == 'linear_sigmoid' and (estimator == 'soft' or
+                (estimator == 'cv' and mode == 'fixed_one_minus_a')):
+            raise ValueError('soft/fixed_one_minus_a requires a fixed/scalar gate; use cv with loo/independent')
         self.directory, self.backend, self.support = Path(directory), backend, support
         self.device = next(iter(lora_parameters(backend.model).values())).device
         self.dtype = next(iter(lora_parameters(backend.model).values())).dtype
@@ -201,14 +206,14 @@ class RTDExperiment:
         return [self.broker.acquire(q) for q in self.state['owned']
                 if self.broker._records[q].parent_hash in self.state['inner']]
 
-    def sample_state(self, state):
+    def sample_state(self, state, *, refresh=False, cache=True):
         s = self.state
         if state.parent_hash not in s['inner']:
             raise ValueError('source/feature state outside inner fold')
-        if state.state_hash not in s['source_cache']:
+        if refresh or not cache or state.state_hash not in s['source_cache']:
             sources = []
             category = self.support.categories[self.support.parents[state.parent_hash]]
-            for sample_index in range(2):
+            for sample_index in range(getattr(self, 'config', {}).get('source_samples_per_state', 2)):
                 with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
                     action = self.backend.sample_action(state.prompt, s['source'], self.sampling_rng)
                 source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
@@ -228,14 +233,18 @@ class RTDExperiment:
                 self.journal.append('source_sample', round=s['round'], state_hash=state.state_hash,
                     parent_hash=state.parent_hash, source_id=s['source_id'], action=asdict(action),
                     teacher_forced_logprob=score, score_discrepancy=error)
-            s['source_cache'][state.state_hash] = tuple(sources)
+            sources = tuple(sources)
+            if cache:
+                s['source_cache'][state.state_hash] = sources
+        else:
+            sources = s['source_cache'][state.state_hash]
         if state.state_hash not in s['projection_cache']:
             initial_id = self.backend.identity(s['initial'])
             hidden = self.backend.initial_hidden(state.prompt, s['initial'], initial_snapshot_id=initial_id)
             projection = FrozenProjection(hidden.numel(), initial_snapshot_id=initial_id,
                                            seed=self.config['gate_projection_seed'])
             s['projection_cache'][state.state_hash] = projection(hidden, snapshot_id=initial_id)
-        return s['source_cache'][state.state_hash]
+        return sources
 
     def feature(self, source):
         state = source.behavior.state
@@ -287,13 +296,31 @@ class RTDExperiment:
         if not parents:
             raise ValueError('no legal source states')
         targets = []
+        controls, groups = [], {}
+        cv = self.config.get('source_estimator', 'hard2') == 'cv'
+        mode = self.config.get('cv_cs_mode', 'loo')
         for _ in range(self.slots):
             parent = parents[int(self.rng.integers(len(parents)))]
             states = pool[parent]
             state, teachers = states[int(self.rng.integers(len(states)))]
-            source = self.state['source_cache'][state.state_hash][int(self.rng.integers(2))]
+            if cv and state.state_hash not in groups:
+                # Fresh independent draws for each new update. The coefficient
+                # pool is sampled before exposure selection, never reconstructed
+                # from replacement slots or cached previous-update outcomes.
+                sources = self.sample_state(state, refresh=True)
+                auxiliary = self.sample_state(state, cache=False) if mode == 'independent' else sources
+                groups[state.state_hash] = (sources, auxiliary,
+                    torch.stack([self.chi(sample) for sample in auxiliary]))
+            sources = groups[state.state_hash][0] if cv else self.state['source_cache'][state.state_hash]
+            index = int(self.rng.integers(len(sources)))
+            source = sources[index]
+            if cv:
+                _, auxiliary, auxiliary_chi = groups[state.state_hash]
+                controls.append(SourceControl(auxiliary, auxiliary_chi, index if mode == 'loo' else None))
             slot = TransportSlot(source, teachers)
             targets.append((source, slot.sample_teacher(self.slot_rng)))
+        if cv:
+            self.state['draw_controls'] = tuple(controls)
         return tuple(targets), torch.stack([self.chi(source) for source, _ in targets])
 
     @property
@@ -308,17 +335,24 @@ class RTDExperiment:
     def fixed(self):
         return self.config['mode'] == 'fixed_evidence'
 
-    def gradient(self, targets, chi, parameters, *, pilot=False):
+    def estimator_options(self, controls=None):
+        if self.config.get('source_estimator', 'hard2') == 'hard2':
+            return {}  # Keep legacy calls and checkpoint state unchanged.
+        return dict(source_estimator=self.config['source_estimator'], source_parameters=self.state['source'],
+                    cv_cs_mode=self.config.get('cv_cs_mode', 'loo'), source_controls=controls)
+
+    def gradient(self, targets, chi, parameters, *, pilot=False, controls=None):
         return streamed_gradient(targets, chi, self.state['phi'], self.backend, parameters,
-                                 gate='fixed_half' if pilot else self.gate)
+                                 gate='fixed_half' if pilot else self.gate, **self.estimator_options(controls))
 
     def calibrate(self, packages):
         s = self.state
         targets, chi = self.draw_slots(packages, package_only=True)
+        controls = s.pop('draw_controls', None)
         parameters = s['parameters']
         with self.scope('kl_pilot'):
             with self.scope('pilot_gradient'):
-                g = self.gradient(targets, chi, parameters, pilot=True)
+                g = self.gradient(targets, chi, parameters, pilot=True, controls=controls)
             # Linear proxy has exactly the streamed gradient, without retaining
             # multiple full-sequence graphs. kl_pilot differentiates it once.
             def loss(alpha):
@@ -433,6 +467,8 @@ class RTDExperiment:
         s['selected'], s['label'], s['new_targets'], s['new_chi'] = None, None, None, None
         s['owned_before'] = tuple(s['owned'])
         s['old_targets'], s['old_chi'] = self.draw_slots()
+        if self.config.get('source_estimator') == 'cv':
+            s['old_controls'] = s.pop('draw_controls')
         # no-op tests availability in the actual sampled finite loss, not merely
         # whether some other state in the owned pool has a teacher response.
         s['old_noop'] = is_exact_noop(has_teacher_evidence=any(t is not None for _, t in s['old_targets']),
@@ -440,7 +476,8 @@ class RTDExperiment:
         s['feedback_tasks'] = self.choose_feedback_tasks() if s['decision'] else []
         s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
         with self.scope('reference_gradient'):
-            g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'])
+            g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'],
+                                                       controls=s.get('old_controls'))
             s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
                 exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g)
         if s['decision']:
@@ -495,6 +532,8 @@ class RTDExperiment:
                                            if e['kind'] == 'reveal' and e['query_id'] == package.query_id))
             with self.scope('pending_source_sampling'):
                 s['new_targets'], s['new_chi'] = self.draw_slots([package], package_only=True)
+                if self.config.get('source_estimator') == 'cv':
+                    s['new_controls'] = s.pop('draw_controls')
             if not s['calibrated']:
                 if not s['old_noop']:
                     # A round with no inner teacher carries eta as specified.
@@ -513,7 +552,7 @@ class RTDExperiment:
         ref = s['reference']
         if s['selected']:
             with self.scope('new_package_gradient'):
-                gq = self.gradient(s['new_targets'], s['new_chi'], ref.start)
+                gq = self.gradient(s['new_targets'], s['new_chi'], ref.start, controls=s.get('new_controls'))
                 actual, label, accounting = ref.insert(s['selected'], None, s['reference_feedback'],
                     label_type=LabelType.PENDING_NEW, owned_before=s['owned_before'], pending_ids={s['selected']},
                     new_slots=self.slots, new_gradient=gq)
@@ -540,10 +579,12 @@ class RTDExperiment:
                     vjp = torch.zeros_like(s['phi'])
                     if not s['old_noop']:
                         vjp = streamed_gate_vjp(s['old_targets'], s['old_chi'], s['phi'], self.backend,
-                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate)
+                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate,
+                                                **self.estimator_options(s.get('old_controls')))
                     if s['selected']:
                         vjp = .75*vjp + .25*streamed_gate_vjp(s['new_targets'], s['new_chi'], s['phi'], self.backend,
-                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate)
+                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate,
+                                                **self.estimator_options(s.get('new_controls')))
                     s['next_phi'], meta = s['controller'].update(s['phi'], vjp)
                 self.journal.append('gate_update', round=s['round'], step=s['step'], vjp=vjp.tolist(),
                     next_phi=s['next_phi'].detach().tolist(), identifiable=feedback.metadata['identifiable'], **meta)
