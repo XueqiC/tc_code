@@ -17,31 +17,38 @@ The following subsections answer these questions in turn.
 
 \begin{table}[t]
 \centering
-\caption{Main comparison with distillation baselines. All methods spend
-the same token budget from the same teacher (DeepSeek-V4-Pro, Qwen3.5-4B
-student, three seeds, mean$\pm$std). Each benchmark uses its official
-metric. $\Delta$ is the change over the untrained base student, averaged
-over available columns.}
+\caption{Main comparison with distillation baselines (DeepSeek-V4-Pro
+teacher, Qwen3.5-4B student). The agent harness, tools, prompts, and
+decoding are fixed per benchmark and only the student backbone changes.
+Teacher-using methods share the same teacher budget cap $B$ per
+benchmark, with actual spend reported in Appendix~\ref{app:details};
+STaR uses no teacher call. Trained rows are mean$\pm$std over three
+training runs; the initial pretrained student is a single reference
+evaluation (Appendix~\ref{app:details}). AppWorld reports TGC on the
+\texttt{dev40} subset (24 steps), BFCL~v4 the official overall
+accuracy, ALFWorld the \texttt{valid\_seen} success rate, all in
+percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
+points over the initial student across the three columns and is only
+computed for rows with all three. Cells marked $\cdot$ are pending.}
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccc r@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Method} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
-& \textbf{Macro} & $\Delta$\\
+\textbf{Method} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
 \midrule
-\rowcolor{rowhead}Teacher & $0.569$ & -- & -- & -- & -- & --\\
-\rowcolor{rowhead}Base student & $0.248_{\pm.035}$ & $0.439_{\pm.004}$ & -- & -- & -- & --\\
+\rowcolor{rowhead}Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$ & --\\
+\rowcolor{rowhead}Initial pretrained student & $0.0$ & $46.27$ & $7.14$ & --\\
 \midrule
-Vanilla SFT & $0.215_{\pm.031}$ & $0.380_{\pm.016}$ & -- & -- & -- & --\\
-Structured AD & $0.215_{\pm.031}$ & $0.346_{\pm.028}$ & -- & -- & -- & --\\
-Agent distillation & $0.199_{\pm.003}$ & $0.391_{\pm.026}$ & -- & -- & -- & --\\
-BB on-policy & $0.197_{\pm.000}$ & $0.410_{\pm.025}$ & -- & -- & -- & --\\
-dDPO & $0.200_{\pm.006}$ & $0.402_{\pm.025}$ & -- & -- & -- & --\\
-PBSD & $0.209_{\pm.021}$ & $0.407_{\pm.002}$ & -- & -- & -- & --\\
-STaR & $\underline{0.246}_{\pm.026}$ & $\mathbf{0.452}_{\pm.008}$ & -- & -- & -- & --\\
+Trajectory SFT & $0.0_{\pm0.0}$ & $36.4_{\pm3.7}$ & $\cdot$ & $\cdot$\\
+Span-weighted SFT (SAD adapt.) & $0.0_{\pm0.0}$ & $36.9_{\pm2.2}$ & $\cdot$ & $\cdot$\\
+On-policy teacher correction + SFT & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SFT + teacher-ranked DPO (dDPO) & $2.5_{\pm4.3}$ & $35.1_{\pm2.8}$ & $\cdot$ & $\cdot$\\
+Offline teacher--student pref. (PBSD-insp.) & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
+PBSD --- agent adaptation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+STaR w/o rationalization (0 teacher) & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
-\rowcolor{rowours}\textbf{Ours} & $\mathbf{0.330}_{\pm.054}$ & $\underline{0.425}_{\pm.020}$ & -- & -- & -- & --\\
+\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}
