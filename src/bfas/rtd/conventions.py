@@ -5,6 +5,7 @@ deliberately absent: each student draws fresh actions from its own round model.
 """
 from collections import Counter
 import json
+import math
 from pathlib import Path
 
 from .persistence import atomic_json, digest, file_hash
@@ -29,7 +30,7 @@ def schedule_path(path):
     return path/'exposure_schedule.json' if path.is_dir() else path
 
 
-def arm_config(config, arm=None, replay_schedule=None):
+def arm_config(config, arm=None, replay_schedule=None, **replay_options):
     """A first-class arm selects every coupled setting before validation/hash."""
     arm = arm or config.get('arm') or ('V2' if 'gate_mode' in config else 'R1')
     if arm not in ARMS:
@@ -39,6 +40,7 @@ def arm_config(config, arm=None, replay_schedule=None):
     if config.get('protocol_version') != '1.1.0':
         raise ValueError('V0/V1/V2 require v1.1')
     result = config | ARMS[arm] | dict(arm=arm, source_estimator='alpha_d', source_samples_per_state=2)
+    result.update({k: v for k, v in replay_options.items() if v is not None})
     if arm != 'V0' and 'acquisition_value_mode' in config:
         result['acquisition_value_mode'] = config['acquisition_value_mode']
     path = replay_schedule or result.get('replay_schedule')
@@ -46,6 +48,18 @@ def arm_config(config, arm=None, replay_schedule=None):
         if not path:
             raise ValueError('V1 requires --replay-schedule <V0 run dir>')
         path = schedule_path(path).resolve()
+        mode = result.get('replay_mode', 'complete')
+        if mode not in {'complete', 'streaming'}:
+            raise ValueError('replay_mode must be complete or streaming')
+        if mode == 'streaming':
+            for key, default in [('replay_poll_seconds', 60.), ('replay_timeout_seconds', 36*3600.)]:
+                value = result.setdefault(key, default)
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                    raise ValueError(f'{key} must be positive finite seconds')
+            if result.get('replay_schedule_hash') is not None:
+                raise ValueError('streaming replay cannot use a complete-mode config hash')
+            result.update(replay_schedule=str(path), replay_mode=mode)
+            return result, arm
         expected = result.get('replay_schedule_hash')
         actual = file_hash(path)
         if expected is not None and expected != actual:
@@ -53,6 +67,8 @@ def arm_config(config, arm=None, replay_schedule=None):
         result.update(replay_schedule=str(path), replay_schedule_hash=actual)
     elif path:
         raise ValueError('only V1 may replay an exposure schedule')
+    elif any(k in result for k in ('replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds')):
+        raise ValueError('only V1 may configure exposure replay')
     return result, arm
 
 
@@ -65,6 +81,15 @@ def record_identity(record, weight):
 def repetition_counts(records):
     counts = Counter((r['query_id'], r['record_index'], r['state_hash']) for r in records)
     return [r | dict(repetition_count=counts[r['query_id'], r['record_index'], r['state_hash']]) for r in records]
+
+
+def step_content(row):
+    return {k: v for k, v in row.items() if k != 'content_hash'}
+
+
+def hashed_step(row):
+    content = step_content(row)
+    return content | dict(content_hash=digest(content))
 
 
 def exposure_step(state):
@@ -101,12 +126,18 @@ def load_schedule(config, manifest, support, *, smoke=False):
     expected = [(1, 1)] if smoke else [(r, s) for r in range(1, config['rounds']+1) for s in range(1, 13)]
     if [(r['round'], r['step']) for r in data['steps']] != expected:
         raise ValueError('exposure schedule has missing/duplicate/out-of-order steps')
-    return {(r['round'], r['step']): r for r in data['steps']}
+    # Historical complete schedules without step hashes remain supported.
+    for row in data['steps']:
+        if 'content_hash' in row and row['content_hash'] != digest(step_content(row)):
+            raise ValueError('replay step content hash changed')
+    return {(r['round'], r['step']): step_content(r) for r in data['steps']}
 
 
 def export_schedule(engine):
     s = engine.state
-    rows = [r['exposure_schedule'] for r in s['steps']]
+    # Hash only export metadata: durable training rows and RNGs are unchanged.
+    rows = [(hashed_step(r['exposure_schedule']) if engine.manifest['arm'] in {'V0', 'V1'} else r['exposure_schedule'])
+            for r in s['steps']]
     atomic_json(engine.directory/'exposure_schedule.json', dict(version='rtd-v11-exposure-v1',
         arm=engine.manifest['arm'], smoke=s['smoke'], identity=schedule_identity(engine.manifest, engine.config, engine.support),
         complete=len(rows) == (1 if s['smoke'] else 12*s['rounds']), steps=rows))

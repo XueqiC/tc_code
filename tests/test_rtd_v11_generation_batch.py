@@ -212,7 +212,10 @@ def test_config_opt_in_identity_and_unchanged_outlier_guard(backend):
     v10 = load_config(root/'configs/rtd/v1_bfcl_c25.yaml')
     v11 = load_config(root/'configs/rtd/v1_1_bfcl.yaml', arm='V0')
     assert 'generation_batch' not in v10
-    assert v11['generation_batch'] == dict(prompts_per_batch=8, max_batch_tokens=16384, forward_prompts_per_batch=8)
+    # Production disabled D13 forward batching after the bf16 benchmark;
+    # normalization omits the explicit zero while retaining D12 generation.
+    assert v11['generation_batch'] == dict(prompts_per_batch=8, max_batch_tokens=16384)
+    assert GenerationBatch.from_config(v11).forward_prompts_per_batch == 0
     assert ScoreTolerance.from_config(v11) == ScoreTolerance(.05, 1., 2, 8.)
     legacy_args = dict(base_checkpoint_hash='tiny-qwen35', harness_hash='d12', tokenizer_hash='integer-vocab',
                        max_action_tokens=8, max_context_tokens=512)

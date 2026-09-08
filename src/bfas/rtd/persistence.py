@@ -14,6 +14,17 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
+def manifest_hash(manifest):
+    """Streaming V1 binds immutable identity; its journal binds replay progress.
+
+    Every historical/complete/V0/V2 binding remains the full manifest digest.
+    """
+    if manifest.get('arm') == 'V1' and manifest.get('replay_mode') == 'streaming':
+        manifest = {k: v for k, v in manifest.items()
+                    if k not in {'replay_consumed_steps', 'replay_schedule_hash'}}
+    return digest(manifest)
+
+
 def file_hash(path):
     h = hashlib.sha256()
     with Path(path).open('rb') as stream:
@@ -60,7 +71,7 @@ class StateStore:
     def __init__(self, directory, manifest):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.binding = digest(manifest)
+        self.binding = manifest_hash(manifest)
         self.pointer = self.directory / 'latest.json'
 
     def save(self, state, ledger):

@@ -121,7 +121,10 @@ class BatchExperimentMixin:
                 policy.last_decision = dict(selected=list(selected), query_ids=list(rows),
                     sampled_values=[0.]*len(rows), predicted_additive_gain=0., predicted_cost=None,
                     budget_binding=False, stop_reason='exposure_schedule_replay',
-                    replay_schedule_hash=self.config['replay_schedule_hash'])
+                    replay_schedule_hash=self.config.get('replay_schedule_hash'))
+                if self.config.get('replay_mode') == 'streaming':
+                    from .persistence import digest
+                    policy.last_decision.update(replay_mode='streaming', replay_step_hash=digest(replay))
             else:
                 selected, trace = select_public_batch(candidates, lambda public: policy.choose_batch(public, rows,
                     remaining_budget=quota, exposure_slots=40 if self.alpha_d else self.slots, max_new_packages=self.max_new_packages,

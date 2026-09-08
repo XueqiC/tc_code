@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
 from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
 from .identity import (audited_harness_hashes, evaluation_harness_metadata, guard_harness,
                        record_code_drift, verified_checkpoint)
@@ -305,7 +305,7 @@ def report(directories, output):
         for checkpoint in trajectory['checkpoints']:
             r = checkpoint['round']
             checkpoint_dir = directory / f'round-{r}'
-            if (checkpoint['manifest_hash'] != digest(manifest)
+            if (checkpoint['manifest_hash'] != manifest_hash(manifest)
                     or json.loads((checkpoint_dir/'checkpoint.json').read_text()) != checkpoint
                     or tree_hash(checkpoint_dir/'lora') != checkpoint['adapter_hash']
                     or file_hash(checkpoint_dir/'round_state.pt') != checkpoint['round_state_hash']):

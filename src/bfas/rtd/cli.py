@@ -31,12 +31,12 @@ from .conventions import (arm_config, BASE_CHECKPOINT, ADAPTIVE_EFFECT, CORE_CON
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def load_config(path, *, arm=None, replay_schedule=None):
+def load_config(path, *, arm=None, replay_schedule=None, **replay_options):
     config = yaml.safe_load(Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
-    if config.get('arm') or arm or replay_schedule:
-        config, _ = arm_config(config, arm, replay_schedule)
+    if config.get('arm') or arm or replay_schedule or replay_options:
+        config, _ = arm_config(config, arm, replay_schedule, **replay_options)
     v11 = config.get('protocol_version') == '1.1.0'
     if (config.get('protocol_version') not in {'1.0.1', '1.1.0'} or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}
             or config.get('budget_basis') != (V11_BUDGET_BASIS if v11 else 'usable_public_cap_sum')):
@@ -258,6 +258,8 @@ def make_manifest(config, arm, audit, *, smoke=False):
                                 '1': dict(inner=56, feedback=79, available_packages=44)},
                 alfworld_excluded_probe_groups=4),
             uncertainty_scope='reprojected trajectory contributions; excludes feedback staleness bias')
+        if arm == 'V1' and config.get('replay_mode') == 'streaming':
+            manifest.update(replay_mode='streaming', replay_consumed_steps=[], replay_schedule_hash=None)
         if 'crcd' in str(config['student']).lower():
             raise ValueError('v1.1 base must be the issuer checkpoint, without project bank adaptation')
         support_path = ROOT/config['support_manifest']
@@ -284,6 +286,8 @@ def run_command(args):
     resume = args.command == 'resume'
     smoke = args.command == 'smoke'
     saved = None
+    replay_options = {k: getattr(args, k) for k in ('replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds')
+                      if getattr(args, k, None) is not None}
     if resume:
         if args.run_dir is None:
             raise ValueError('resume requires --run-dir')
@@ -294,17 +298,18 @@ def run_command(args):
         args.arm = saved['arm']
     if resume:
         config = resume_config(args.config, saved)
-    elif args.arm in {'V0', 'V1', 'V2'} or getattr(args, 'replay_schedule', None):
-        config = load_config(args.config, arm=args.arm, replay_schedule=getattr(args, 'replay_schedule', None))
+    elif args.arm in {'V0', 'V1', 'V2'} or getattr(args, 'replay_schedule', None) or replay_options:
+        config = load_config(args.config, arm=args.arm, replay_schedule=getattr(args, 'replay_schedule', None),
+                             **replay_options)
     else:
         config = load_config(args.config)
     if resume:
-        if getattr(args, 'replay_schedule', None):
-            candidate, _ = arm_config(config, args.arm, args.replay_schedule)
+        if getattr(args, 'replay_schedule', None) or replay_options:
+            candidate, _ = arm_config(config, args.arm, getattr(args, 'replay_schedule', None), **replay_options)
             if candidate != config:
                 raise ValueError('resume replay schedule changed')
     else:
-        config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None))
+        config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None), **replay_options)
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     smoke_deadline_seconds = getattr(args, 'smoke_deadline_seconds', 900)
@@ -376,7 +381,8 @@ def resume_config(path, saved):
     if path is not None:
         supplied = yaml.safe_load(Path(path).read_text())
         if supplied != config:
-            loaded = (load_config(path, arm=saved['arm'], replay_schedule=config.get('replay_schedule'))
+            replay_options = {k: config[k] for k in ('replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds') if k in config}
+            loaded = (load_config(path, arm=saved['arm'], replay_schedule=config.get('replay_schedule'), **replay_options)
                       if saved.get('arm') in {'V0', 'V1', 'V2'} else load_config(path))
             if loaded != config:
                 raise ValueError('resume config changed; omit --config to use the saved manifest')
@@ -410,6 +416,11 @@ def run_campaign(args, config):
                 validate_resume(ROOT, directory, saved, current,
                                 acknowledge=getattr(args, 'acknowledge_code_drift', False),
                                 training=not all((directory/f'round-{r}').exists() for r in range(1, config.get('rounds', 3)+1)))
+                if saved.get('replay_mode') == 'streaming' and saved['arm'] == 'V1':
+                    # Completed campaigns skip the training worker entirely.
+                    # They must still revalidate the consumed source schedule.
+                    from .streaming_replay import validate_saved_replay
+                    validate_saved_replay(directory, saved)
         for round_number in range(1, config.get('rounds', 3)+1):
             checkpoint = directory/f'round-{round_number}'
             if checkpoint.exists():
@@ -425,6 +436,10 @@ def run_campaign(args, config):
                     worker += ['--config', str(Path(args.config).resolve())]
                     if config.get('replay_schedule'):
                         worker += ['--replay-schedule', config['replay_schedule']]
+                        if config.get('replay_mode') == 'streaming':
+                            worker += ['--replay-mode', 'streaming',
+                                       '--replay-poll-seconds', str(config['replay_poll_seconds']),
+                                       '--replay-timeout-seconds', str(config['replay_timeout_seconds'])]
                 if command == 'resume' and getattr(args, 'acknowledge_code_drift', False):
                     worker += ['--acknowledge-code-drift']
                 subprocess.run(worker, check=True, cwd=ROOT, env=worker_env)
@@ -496,6 +511,12 @@ def main(argv=None):
             p.add_argument('--smoke-deadline-seconds', type=positive_seconds, default=900,
                            help='smoke time limit in seconds (default: 900; resume must match the saved config)')
             p.add_argument('--replay-schedule', type=Path, help='V1: V0 run directory or exposure_schedule.json')
+            p.add_argument('--replay-mode', choices=['complete', 'streaming'],
+                           help='V1 schedule mode (default: complete; resume uses saved mode)')
+            p.add_argument('--replay-poll-seconds', type=float,
+                           help='streaming V1 poll interval (default: 60 seconds)')
+            p.add_argument('--replay-timeout-seconds', type=float,
+                           help='streaming V1 overall timeout per execution attempt (default: 129600 seconds / 36 hours)')
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)
             p.add_argument('--expected-gpu-uuid', help=argparse.SUPPRESS)
             p.add_argument('--through-round', type=int, choices=[1,2,3], default=3, help=argparse.SUPPRESS)

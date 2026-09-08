@@ -96,8 +96,8 @@ def collect(root, *, runs=None, campaigns=None, base_overall=None, controls=()):
         arm = next((a for a in arms if a['arm'] == report['arm']), None)
         if arm is None or arm['manifest'] is None:
             raise ValueError('controls require their source arm manifest')
-        from bfas.rtd.persistence import digest
-        if report['manifest_hash'] != digest(arm['manifest']):
+        from bfas.rtd.persistence import manifest_hash
+        if report['manifest_hash'] != manifest_hash(arm['manifest']):
             raise ValueError('controls belong to a different run manifest')
         diagnostics.append(report)
     base = base_score(manifests, base_overall)

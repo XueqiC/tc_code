@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
 from .scoring import ScoreTolerance
 from .scoring_scope import scoring_hash
 
@@ -333,6 +333,10 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
     from .hardware import bound_hardware, guard_hardware
     ignored = {'initial_parameter_hash', 'harness_hash', 'evaluation_harness',
                'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash'}
+    if saved.get('arm') == 'V1' and saved.get('replay_mode') == 'streaming':
+        # The engine checks the frozen schedule identity against its initialized
+        # model/support and revalidates journal-bound progress before training.
+        ignored |= {'replay_schedule_identity', 'replay_consumed_steps', 'replay_schedule_hash'}
     if ({k: v for k, v in saved.items() if k not in ignored}
             != {k: v for k, v in current.items() if k not in ignored}):
         raise ValueError('resume config/data/base metadata changed')
@@ -352,7 +356,7 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
 def verified_checkpoint(directory, manifest, round_number):
     checkpoint = Path(directory)/f'round-{round_number}'
     meta = json.loads((checkpoint/'checkpoint.json').read_text())
-    if (meta['round'] != round_number or meta['manifest_hash'] != digest(manifest)
+    if (meta['round'] != round_number or meta['manifest_hash'] != manifest_hash(manifest)
             or meta['config_hash'] != manifest['config_hash']
             or digest(manifest['config']) != manifest['config_hash']
             or meta['adapter_hash'] != tree_hash(checkpoint/'lora')

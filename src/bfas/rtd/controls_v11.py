@@ -16,7 +16,7 @@ from .functional_step import lora_parameters, snapshot
 from .joint_surrogate import control, execute_update, objective, replacement_batch, validate_pair
 from .metrics_v11 import (ESTIMATORS, action_scope, generator_for, gradient_variance, greedy_success,
                           paired_correlations, parse_battery, repair_damage, task_rows)
-from .persistence import atomic_json, digest, file_hash
+from .persistence import atomic_json, digest, file_hash, manifest_hash
 from .transport import Behavior, SourceSample
 
 SCHEMA = 'rtd-v11-frozen-window-rev31-1'
@@ -54,7 +54,7 @@ def save_window(experiment):
     root = experiment.directory/'controls/windows'
     root.mkdir(parents=True, exist_ok=True)
     path = root/f'r{payload["round"]}-s{payload["step"]:02d}.pt'
-    binding = dict(schema=SCHEMA, manifest_hash=digest(experiment.manifest),
+    binding = dict(schema=SCHEMA, manifest_hash=manifest_hash(experiment.manifest),
                    start_hash=payload['batch'].start_hash, selection_feedback_batch=payload['selection_feedback_batch'],
                    frozen_input_hash=window_identity(payload))
     if path.exists() and path.with_suffix('.json').exists():
@@ -81,7 +81,7 @@ def load_window(path, *, device='cpu'):
         raise ValueError('frozen window archive hash/schema mismatch')
     # E x parameter directions and per-trajectory scores MUST remain on CPU.
     payload = torch.load(path, map_location='cpu', weights_only=False)
-    if (digest(payload['manifest']) != binding['manifest_hash'] or payload['batch'].start_hash != binding['start_hash'] or
+    if (manifest_hash(payload['manifest']) != binding['manifest_hash'] or payload['batch'].start_hash != binding['start_hash'] or
             window_identity(payload) != binding['frozen_input_hash']):
         raise ValueError('frozen checkpoint binding mismatch')
     validate_window(payload)
@@ -297,7 +297,7 @@ def run_controls(payload, backend, support, checker, journal, *, R=4, seed=0, z_
     if resident != tensor_state_hash(lora_parameters(backend.model)):
         raise AssertionError('paired diagnostics mutated the resident checkpoint')
     report = dict(schema='rtd-v11-controls-rev31-1', arm=p['manifest']['arm'], round=p['round'], step=p['step'],
-        window_id=p['window_id'], start_hash=ref.start_hash, manifest_hash=digest(p['manifest']),
+        window_id=p['window_id'], start_hash=ref.start_hash, manifest_hash=manifest_hash(p['manifest']),
         fixed_task_set=fixed, before_greedy=before, pairs=pairs, shuffling=shuffling, controller=controller,
         gradient_variance=variance, source_estimator_diagnostics=diagnostic_rows, correlations=paired_correlations(pairs),
         independent_insertion_control=p['independent_insertion_control'],
