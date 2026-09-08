@@ -6,14 +6,15 @@
 To establish that the method delivers on its goal, we organize the
 evaluation around five research questions.
 \textbf{RQ1} asks whether the full method improves few-shot agent
-specialization under matched teacher budgets. \textbf{RQ2} asks
-whether task-extraneous update geometry predicts when teacher-target
-distillation will hurt. \textbf{RQ3} asks how much task-aware
-acquisition contributes when training is held fixed. \textbf{RQ4}
-asks how much student-provenance distillation contributes on identical
-purchased data. \textbf{RQ5} asks which components are necessary and
-how efficiently the teacher budget is converted into task capability.
-The following subsections answer these questions in turn.
+specialization under a common teacher budget cap. \textbf{RQ2} asks
+whether the return-chosen replacement beats the uniform transfer at
+equal teacher mass on identical purchased data. \textbf{RQ3} asks how
+much acquisition by the joint-update surrogate contributes when the
+training procedure is held fixed. \textbf{RQ4} asks how much the
+distillation procedure contributes on identical purchased data.
+\textbf{RQ5} asks which components are necessary and how efficiently
+the teacher budget is converted into task capability. The following
+subsections answer these questions in turn.
 
 \begin{table}[t]
 \centering
@@ -60,40 +61,42 @@ benchmark every teacher-using method draws its evidence from the same
 sealed candidate pool under a common budget cap, and every row is
 compared with the initial pretrained student evaluated on the same
 machine, which is the number that matters most in this setting.
-\todo{fill the pending cells as the unified-budget runs land.} The pattern is simple. Methods that clone teacher demonstrations pick
-up the teacher's surface style and lose part of what the base model
-could already do, so they end up below the base student. Our training
-signal keeps the student's own verified behavior and adds the
-teacher's on top, and ours is the only method that ends up above the
-base student across the panel.
-
+\todo{fill the pending cells as the unified-budget runs land.} 
 
 \begin{figure}[t]
 \centering
-\todo{mechanism figure: round-0 $R_{\mathrm{ext}}$ of each
-supervision format against its post-training change in task
-performance, across baselines, student scales, and data volumes.}
-\caption{Task-extraneous update geometry predicts distillation
-damage. Each point is one supervision format; the horizontal axis is
-the measured task-extraneous ratio of its expected update before any
-training, and the vertical axis is the resulting change over the base
-student.}
-\label{fig:rext}
+\todo{mechanism figure: per decision window, realized paired gain of
+the learned replacement over the uniform transfer ($d^\star$ vs
+$d=0$, same $\alpha$, same evidence, same source samples), with the
+predicted gain $\hat z^{\top}d^\star$ on the horizontal axis and the
+realized return difference on held-out feedback tasks on the vertical
+axis; symmetry and shuffled-pairing controls as reference lines.}
+\caption{The replacement decision is what the return sees. Each point
+is one decision window; the horizontal axis is the surrogate's
+predicted gain of the learned replacement over the uniform transfer
+and the vertical axis the realized return difference of the two
+independently executed updates on a feedback batch that did not choose
+$d$.}
+\label{fig:mechanism}
 \end{figure}
 
-\subsection{RQ2, does update geometry predict degradation}
+\subsection{RQ2, does the return-chosen replacement beat the uniform transfer}
 \label{sec:rq2}
-The mechanism claim of Section~\ref{sec:atoms} is that damage from a
-supervision source is carried by the component of its expected update
-outside the estimated task-demand subspace. We measure
-$R_{\mathrm{ext}}$ for every supervision format at round zero and
-compare it against the observed change in task performance.
-\todo{fill once the T-series mechanism runs land; the qualitative
-ordering from the completed panel is that every teacher-target format
-sinks while the two student-provenance formats do not.} The
-diagnostic is falsifiable, since a supervision format with high
-measured $R_{\mathrm{ext}}$ that nonetheless improved the student
-would refute the mechanism.
+The mechanism claim of Section~\ref{sec:distill} is that, at equal
+teacher mass, choosing which student behavior gives way by the
+learning return improves on replacing both uniformly. We test it with
+paired interventions on frozen checkpoints and fixed window evidence
+(Appendix~\ref{app:details}): the learned $d^\star$ against $d=0$
+with the same $\alpha$, weights, teacher records, and source samples;
+the same update with $Y_1$ and $Y_2$ swapped, which must flip the
+sign of $d$ and leave the update unchanged; and the learned $d$
+against a shuffled source pairing that keeps the multiset of gate
+values and teacher targets. \todo{fill from the embedded paired
+controls of the V2 windows.} The test is falsifiable in both
+directions, since a realized gain indistinguishable from the shuffled
+pairing would show that the selection carries no information beyond
+the injection, and a negative correlation between $\hat z$ and the
+realized gain would refute the surrogate.
 
 \begin{table}[t]
 \centering
@@ -127,15 +130,19 @@ LLM2LLM & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \end{tabular*}
 \end{table}
 
-\subsection{RQ3, value of task-aware acquisition}
+\subsection{RQ3, value of acquisition by the joint-update surrogate}
 \label{sec:rq3}
 Table~\ref{tab:cross} fixes our distillation and varies only how the
-training data is acquired. \todo{fill from the completed selection
-matrix; the controlled-suite column is largely in hand.} Two things stand out. First, every acquisition baseline gets better
-when paired with our distillation, so the training-side gain is not
-tied to our own purchases. Second, switching to our purchasing rule improves the result further;
-its budget-efficiency side, including the wasted fraction, is measured
-separately in Section~\ref{sec:rq5}.
+evidence is acquired. The primary contrast is between the random
+acquisition of the control arm, which draws packages under the same
+budget, cap, and cost model, and the surrogate posterior, which
+predicts each candidate's marginal gain to the full update from
+public features and the pre-purchase training context; the selection
+and generation baselines listed in Appendix~\ref{app:details} are
+run under the same cap. \todo{fill from V0, V1, and V2 and the
+selection matrix.} The budget-efficiency side of the same question,
+including actual spend against the cap, is measured in
+Section~\ref{sec:rq5}.
 
 \begin{table}[t]
 \centering
@@ -166,81 +173,70 @@ STaR w/o rationalization (0 teacher) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 
 \subsection{RQ4, value of the training channel on identical data}
 \label{sec:rq4}
-Table~\ref{tab:distill} feeds the identical acquired dataset to every
-distillation baseline from Table~\ref{tab:main} and to ours. Whatever difference remains can only come from the training procedure.
-\todo{fill; existing AppWorld evidence pre-populates most rows: plain
-cloning of the same corpus scores 0.197--0.215, an isolated preference
-stage collapses, token-selective masking is ineffective, and the
-anchored stratified objective reaches 0.284$\pm$.037.} The ordering matches the mechanism the method is built on.
-Supervision helps where the student's own policy fails, and it has to
-arrive together with the student's verified behavior. Procedures that
-clone everything, or that apply preference pressure without that
-anchor, lose the base model's competence before they finish absorbing
-the teacher's.
+Table~\ref{tab:distill} feeds the identical purchased evidence to
+every distillation baseline of Table~\ref{tab:main} and to ours, so
+whatever difference remains can only come from the training
+procedure. The fixed-purchased-data control of the protocol serves the
+same purpose in the other direction: it trains our procedure on the
+random control arm's purchases. \todo{fill from the distillation
+matrix on the frozen purchased set.} The comparison the mechanism
+predicts is that procedures that replace the student's behaviors
+wholesale lose part of what the initial student could do before they
+finish absorbing the teacher, while the transfer with fixed teacher
+mass and a return-chosen replacement keeps it.
 
 \begin{table}[t]
 \centering
-\caption{Component ablation. Each row adds one component to the
-previous one; $\Delta$ is the change from the row above.}
+\caption{Component ablation on BFCL~v4 at the 25\% budget point. Each
+row changes one component of the previous one; $\Delta$ is the change
+from the row above in percentage points.}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cc@{}}
 \toprule
-\textbf{Configuration} & AppWorld & $\Delta$\\
+\textbf{Configuration} & BFCL v4 & $\Delta$\\
 \midrule
-Cloning baseline & $0.215_{\pm.031}$ & --\\
-Verified self-rollouts, clipped IS & \todo{} & \todo{}\\
-\quad with first-divergence preference & \todo{} & \todo{}\\
-+ guided contexts after unguided failure & \todo{} & \todo{}\\
-+ marginal acquisition (full method) & \todo{} & \todo{}\\
+Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $\cdot$ & --\\
+\quad learned $\alpha$, $d=0$ & $\cdot$ & $\cdot$\\
+\quad learned $\alpha$, independent $d$ (no interaction term) & $\cdot$ & $\cdot$\\
+\quad learned $\alpha$, joint $d$ (V1, replays V0's purchases) & $\cdot$ & $\cdot$\\
++ acquisition by the joint-update surrogate (V2, full method) & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}
 
 \subsection{RQ5, components and budget conversion}
 \label{sec:rq5}
-Table~\ref{tab:ablation} builds the method one component at a time
-and also reports the one component we tested and removed. The
-preference row is indented because it is not part of the final
-method; adding a first-divergence preference term to the verified
-self-rollout objective lowers both the mean and the number of fully
-completed tasks, for the mechanism reasons given in
-Section~\ref{sec:distill} and Appendix~\ref{app:method}.
-\todo{fill from the v3 ladder once the method freezes; measured so
-far: with-pref 0.326$\pm$.062 over five seeds with 12/200 fully
-completed vs no-pref 0.330$\pm$.054 over three seeds with 15/120;
-means are statistically indistinguishable, the robust differences
-are the doubled full-completion rate and the tighter variance
-without the term.} Every retained addition either raises the mean or tightens the
-variance, and no step introduces a tuned constant. The full method is
-a stack of individually verified decisions, not a jointly tuned
-pipeline.
+Table~\ref{tab:ablation} builds the method one component at a time.
+The first three rows change only the training procedure on the same
+purchased evidence, so they separate the injection gate from the
+replacement decision and the joint decision from its independent
+counterpart; the last row adds the surrogate acquisition. \todo{fill
+once the two budget rounds and the embedded controls land.} No step
+introduces a tuned constant beyond $\lambda$, which is scale free by
+construction.
 
 \begin{figure}[t]
 \centering
-\todo{figure panel: (a) budget-to-target curves $B^{*}(\tau)$ per
-method; (b) wasted-fraction bars; (c) coupling case study, cot loss
-change $+.38 \to -.40$ with ten anchor rows.}
-\caption{Where the budget goes. (a)~Budget needed to reach target
-performance. (b)~Wasted fraction of purchased tokens. (c)~The two-view
-coupling forecast and the anchor neutralization case study.}
+\todo{figure panel: (a) official score against actual teacher spend
+for every method at the 10\% and 25\% authorization points, with the
+cap marked; (b) purchases, spend, and remaining authorization per
+decision window for V0 and V2; (c) correlation of the surrogate
+marginal values $\hat V$ with realized paired gains on held-out
+feedback tasks.}
+\caption{Where the budget goes. (a)~Score against actual spend under
+the common cap. (b)~Purchase trajectory per decision window.
+(c)~Surrogate values against realized paired gains.}
 \label{fig:budget}
 \end{figure}
 
 The second half of this question asks where the budget actually goes.
-\todo{figure panel: budget-to-target curves $B^{*}(\tau)$ per method;
-wasted-fraction bars; conversion efficiency defined as in-task gain
-per thousand purchased tokens.} Our method reaches target performance with a fraction of the
-baselines' budgets and wastes 2--4\% of purchased tokens, about half
-the waste of the strongest generator baseline. The same accounting explains what happens off-task. When two tasks
-share almost no capability atoms, purchases never cross the boundary,
-and off-task residue stays at zero with no in-task cost. When two
-tasks share response-view atoms, training one side moves the other,
-and the two-view coupling forecast predicts the direction before any
-money is spent. A case study
-\todo{cot neutralization figure: destructive coupling turned from a
-loss increase of $+.38$ into a decrease of $-.40$ by ten anchor
-demonstrations} shows that a handful of anchor rows is enough to neutralize the
-destructive case, which ties the coupling geometry directly to the
-training rule.
+The cap is an authorization, not an amount to be spent, so every
+method is plotted at its actual spend, and the acquisition arm is
+judged on the score it reaches per token actually billed, including
+failed completions. \todo{fill from the ledgers of V0, V1, and V2 and
+the baseline pools.} The surrogate is judged separately by whether its
+marginal values track realized paired gains measured on feedback
+batches that did not choose the update, which is the only sense in
+which the acquisition model is validated rather than assumed.
