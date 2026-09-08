@@ -1350,3 +1350,11 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 00:25Z(报告)hpg R0/R1s r2 评测中;rai R1 r2 s10;rai R0 等 GPU2;ALFWorld hpg R0(C26-H)33 min 未到 reference;smoke 循环运行中。
 - 9/9 00:50Z hpg R0 第 2 轮官方分 46.02(NL 79.38/Live 77.50/MT 48.75/Mem 24.09/Irrel 82.87/Rel 75.00/Web 13.00;5 包/491 tok,与 rai R0 同轨迹,机器效应 +0.23);进入 round 3。
 - 9/9 01:01Z hpg R1s 第 2 轮官方分 45.98(NL 79.71/Live 77.35/MT 49.75/Mem 25.38/Irrel 82.76/Rel 75.00/Web 10.00;3 包/249 tok);进入 round 3。
+- 9/9 01:17Z hpg ALFWorld R0(C26-H)通过 reference→selected(真实模型验证通过);提交 ALFWorld R1、R1s(B200,48h)。
+- 9/9 01:17Z hpg ALFWorld R1 41346437 / R1s 41346438 提交;R0 接力(afterany)已排。
+- 9/9 02:25Z(报告)hpg R0 r3 s10、hpg R1s r3 s4;rai R1 r2 训练完成进评测;rai R0 等 GPU2(6h);ALFWorld hpg R0 窗口 1 actual(11 ep),R1 运行 18 min,R1s 排队;smoke 循环 step 1。
+- 9/9 01:38Z hpg ALFWorld R1s 41346438 RUNNING(三臂全部在 B200 上)。
+- 9/9 02:09Z hpg ALFWorld R0 第 1 个决策窗口 committed(整条 ALFWorld 路径在真实模型上跑通一个窗口;窗口 1 含加载/来源采样约 3h)。R0 阶段监视改为粗粒度(轮界/错误)。
+- 9/9 02:27Z hpg ALFWorld R1 通过 reference→selected;R1 接力(afterany)已排。
+- 9/9 02:27Z hpg ALFWorld R1 接力作业 id 41351395;粗粒度监视覆盖 R0/R1/R1s + 两个接力。
+- 9/9 02:30Z hpg R0 三轮完成(41328394 COMPLETED 6h07m):r3 Overall 46.75(NL 79.73/Live 77.13/MT 50.37/Mem 27.53/Irrel 82.51/Rel 75.00/Web 11.00);曲线 45.53→46.02→46.75,base 46.74;7 包/686 tok;格式错误 0/18/51(随机臂同样逐轮上升)。
