@@ -1,0 +1,109 @@
+{
+  "audit": {
+    "driver_basis": "local-driver-version",
+    "driver_was_recorded": false,
+    "limitation": "Legacy driver version and PCI order were not recorded. Driver is established at migration, not proven historically; missing instance metadata remains null. Saved model, capability, memory and software fields are preserved; the full live class is checked before GPU work.",
+    "method": "immutable-manifest-device-class-projection-v1",
+    "new_hardware_hash": "47d1750200b88c67f5ad628b323379e07210d2c7e08e961b1a3a602a58409a72",
+    "observations": {
+      "matching_devices": [
+        {
+          "gpu": "NVIDIA RTX 6000 Ada Generation",
+          "pci_bus_id": "0000:41:00.0",
+          "uuid": "20b20454-ae9f-7860-6801-430d68842a27"
+        }
+      ],
+      "software": {
+        "cuda": "13.0",
+        "machine": "x86_64",
+        "python": "3.12.13",
+        "versions": {
+          "numpy": "2.5.2",
+          "peft": "0.20.0",
+          "torch": "2.13.0",
+          "transformers": "5.14.1"
+        }
+      }
+    },
+    "protocol_version": "1.0.4",
+    "recorded_at": "2026-09-07T07:34:29.938508+00:00",
+    "retained_hard_fields": [
+      "gpu",
+      "capability",
+      "memory",
+      "cuda",
+      "versions",
+      "python",
+      "machine"
+    ],
+    "task": "C25n",
+    "verified_checkpoints": {
+      "round-1": {
+        "actual_spend": 188,
+        "adapter_hash": "e5ab727990cc9168086efc3aaefee7ef1e4578a58d250c238a8c360731f2d826",
+        "authorized_budget": 825753,
+        "config_hash": "e2802e3d38b8ecdf310df9bbe068b155a8142740bf501561701bd3284a2a0465",
+        "manifest_hash": "6b5b84b47cac8e2dddc26e71aeec5004ad175ad1e0f3cf2b40aff60f08c32c26",
+        "owned": [
+          "b40d2e8a2f1793275757f92da69655f3ec2569f0f30a4ff8cce2d15ac5ff21e8",
+          "c142de75ef27bbddd31d4f32b3505af203be54c72e69c2d6013f509240b79355"
+        ],
+        "parameter_hash": "9eb7f6281faae541717aa3b8f3f3feb52852e9d3f362c0b6b49f44c54d056494",
+        "round": 1,
+        "round_state_hash": "f0cb4c1664d2b8d2e8da94a0cf4518bf3b1b07265243f68a3520cafc4f5f81fb",
+        "source_id": "becef0c595503c4e7195fed93ee0c76b9baf1234079ebeb86d969a522e3a22b9"
+      }
+    }
+  },
+  "hardware": {
+    "hard": {
+      "capability": [
+        8,
+        9
+      ],
+      "cuda": "13.0",
+      "driver": "580.95.05",
+      "gpu": "NVIDIA RTX 6000 Ada Generation",
+      "host_class": "sn4622122543",
+      "machine": "x86_64",
+      "memory": 50865307648,
+      "python": "3.12.13",
+      "versions": {
+        "numpy": "2.5.2",
+        "peft": "0.20.0",
+        "torch": "2.13.0",
+        "transformers": "5.14.1"
+      }
+    },
+    "metadata": {
+      "cuda_device_order": null,
+      "hostname": "sn4622122543",
+      "pci_bus_id": null,
+      "uuid": "20b20454-ae9f-7860-6801-430d68842a27"
+    },
+    "version": "rtd-hardware-class-v1"
+  },
+  "hardware_hash": "47d1750200b88c67f5ad628b323379e07210d2c7e08e961b1a3a602a58409a72",
+  "manifest_hash": "6b5b84b47cac8e2dddc26e71aeec5004ad175ad1e0f3cf2b40aff60f08c32c26",
+  "old_hardware": {
+    "capability": [
+      8,
+      9
+    ],
+    "cuda": "13.0",
+    "gpu": "NVIDIA RTX 6000 Ada Generation",
+    "hostname": "sn4622122543",
+    "machine": "x86_64",
+    "memory": 50865307648,
+    "python": "3.12.13",
+    "uuid": "20b20454-ae9f-7860-6801-430d68842a27",
+    "versions": {
+      "numpy": "2.5.2",
+      "peft": "0.20.0",
+      "torch": "2.13.0",
+      "transformers": "5.14.1"
+    }
+  },
+  "old_hardware_hash": "6acfed4f7c951b76bed0b1842ec456b97a75e56ffdfd9f34f048126c075e6554",
+  "version": "rtd-hardware-class-v1"
+}

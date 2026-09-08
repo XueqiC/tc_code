@@ -1,0 +1,13 @@
+# Optional full plan grid, same independent development schedule for all 24 trials.
+version: c27-tuning-v1
+seed: 0
+pool: A1
+view: slots
+development_seed: 20000
+recipes: [b1, b2, b3_sft, b3_mix, b4]
+grids:
+  b1: {lr: [0.000003, 0.00001, 0.00003], commits: [36, 72]}
+  b2: {lr: [0.000001, 0.000005, 0.00001], commits: [36, 72]}
+  b3_sft: {lr: [0.000001, 0.000003, 0.00001], commits: [36]}
+  b3_mix: {lr: [0.000001, 0.000003, 0.00001], commits: [36]}
+  b4: {eta_multiplier: [0.3, 1.0, 3.0], meta_lr: [0.03, 0.1], commits: [36]}

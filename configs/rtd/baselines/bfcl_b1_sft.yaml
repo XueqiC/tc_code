@@ -1,0 +1,8 @@
+# B1-replay-L1: strong teacher-available pT, complete-sequence summed CE.
+recipe: b1
+optimizer: adamw
+lr: 0.00001
+commits: 36
+slots: 288
+distribution: strong
+new_teacher_calls: false

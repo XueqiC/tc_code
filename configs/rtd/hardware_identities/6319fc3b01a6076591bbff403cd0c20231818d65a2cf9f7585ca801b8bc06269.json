@@ -1,0 +1,109 @@
+{
+  "audit": {
+    "driver_basis": "local-driver-version",
+    "driver_was_recorded": false,
+    "limitation": "Legacy driver version and PCI order were not recorded. Driver is established at migration, not proven historically; missing instance metadata remains null. Saved model, capability, memory and software fields are preserved; the full live class is checked before GPU work.",
+    "method": "immutable-manifest-device-class-projection-v1",
+    "new_hardware_hash": "c274542763fc7c6b8a273eeb71d8f2b4b204b6093f09aad196f839c4eb27d4df",
+    "observations": {
+      "matching_devices": [
+        {
+          "gpu": "NVIDIA A100 80GB PCIe",
+          "pci_bus_id": "0000:61:00.0",
+          "uuid": "8b270cf8-6bb4-cee0-7060-88eba83d2fb0"
+        }
+      ],
+      "software": {
+        "cuda": "13.0",
+        "machine": "x86_64",
+        "python": "3.12.13",
+        "versions": {
+          "numpy": "2.5.2",
+          "peft": "0.20.0",
+          "torch": "2.13.0",
+          "transformers": "5.14.1"
+        }
+      }
+    },
+    "protocol_version": "1.0.4",
+    "recorded_at": "2026-09-07T07:34:32.534145+00:00",
+    "retained_hard_fields": [
+      "gpu",
+      "capability",
+      "memory",
+      "cuda",
+      "versions",
+      "python",
+      "machine"
+    ],
+    "task": "C25n",
+    "verified_checkpoints": {
+      "round-1": {
+        "actual_spend": 177,
+        "adapter_hash": "1563d3eafca87c0c89247b137d3e0ddd47d4fc4f9bbf4c1c7e3cd7c38270b2e0",
+        "authorized_budget": 825753,
+        "config_hash": "1253d78f08d03f7800e425d1d253741a07096c5487e762e762046cbe729f0f5e",
+        "manifest_hash": "6319fc3b01a6076591bbff403cd0c20231818d65a2cf9f7585ca801b8bc06269",
+        "owned": [
+          "c2b3b4b652fdbb18bbae7bcc5089224c52e477fc802d8179da6091c840c55321",
+          "e88a95a9ad1a09b971c18d5d1e223a2ea1d70c3b3f25c23c86a9ce8c5b77133c"
+        ],
+        "parameter_hash": "7a201beeb148a4748241f06515b8ddaa6fa0f825e95d9e374e00272070b2f141",
+        "round": 1,
+        "round_state_hash": "70a899cabbb2389c19197011257b4462dc1bd18723bb01ccd091cd3cf8d95a38",
+        "source_id": "c9db437bfabc1335526a5a2bd322ed7bdb47e53627f9b3e948d5da326d91d629"
+      }
+    }
+  },
+  "hardware": {
+    "hard": {
+      "capability": [
+        8,
+        0
+      ],
+      "cuda": "13.0",
+      "driver": "580.95.05",
+      "gpu": "NVIDIA A100 80GB PCIe",
+      "host_class": "sn4622122543",
+      "machine": "x86_64",
+      "memory": 85094825984,
+      "python": "3.12.13",
+      "versions": {
+        "numpy": "2.5.2",
+        "peft": "0.20.0",
+        "torch": "2.13.0",
+        "transformers": "5.14.1"
+      }
+    },
+    "metadata": {
+      "cuda_device_order": null,
+      "hostname": "sn4622122543",
+      "pci_bus_id": null,
+      "uuid": "8b270cf8-6bb4-cee0-7060-88eba83d2fb0"
+    },
+    "version": "rtd-hardware-class-v1"
+  },
+  "hardware_hash": "c274542763fc7c6b8a273eeb71d8f2b4b204b6093f09aad196f839c4eb27d4df",
+  "manifest_hash": "6319fc3b01a6076591bbff403cd0c20231818d65a2cf9f7585ca801b8bc06269",
+  "old_hardware": {
+    "capability": [
+      8,
+      0
+    ],
+    "cuda": "13.0",
+    "gpu": "NVIDIA A100 80GB PCIe",
+    "hostname": "sn4622122543",
+    "machine": "x86_64",
+    "memory": 85094825984,
+    "python": "3.12.13",
+    "uuid": "8b270cf8-6bb4-cee0-7060-88eba83d2fb0",
+    "versions": {
+      "numpy": "2.5.2",
+      "peft": "0.20.0",
+      "torch": "2.13.0",
+      "transformers": "5.14.1"
+    }
+  },
+  "old_hardware_hash": "fde46ea0f50bb91e2d287bad344326737675858a66e3ca3bbd41ca0e54b346d9",
+  "version": "rtd-hardware-class-v1"
+}

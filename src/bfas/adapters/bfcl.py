@@ -14,15 +14,30 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from ..adapter import BenchmarkAdapter, Demo, PolicyRef, Rollout, TaskRef, Turn
-from ..protocol import SAMPLING_TEMPERATURE
+from ..adapter import (
+    BenchmarkAdapter,
+    Demo,
+    PolicyRef,
+    Rollout,
+    TaskRef,
+    TeacherEpisode,
+    Turn,
+)
+from ..protocol import SAMPLING_TEMPERATURE, SupportSplit, make_support_split
 
 
 ROOT = Path(__file__).resolve().parents[3]
 BFCL_ROOT = ROOT / "envs/bfcl/gorilla/berkeley-function-call-leaderboard"
 BFCL_DATA = BFCL_ROOT / "bfcl_eval/data"
 BFCL_BIN = ROOT / "envs/bfcl/.venv/bin/bfcl"
+VLLM_BIN_DIR = ROOT / "envs/vllm-serve/.venv/bin"
+MERGE_EXPORT = ROOT / "tools/bfcl_hub_merge_export.py"
 MODEL_NAME = "Qwen/Qwen3.5-4B-FC"
+# The official benchmark has no runnable "memory" category: BFCL_v4_memory.json
+# is a group that expands into one runnable category per backend, with task ids
+# rewritten (memory_3-x -> memory_kv_3-x) and a prerequisite write-phase chain
+# hung off depends_on. Loading it as a flat file yields KeyError: MemoryAPI_.
+MEMORY_BACKENDS = ("kv", "vector", "rec_sum")
 GUIDE_HEADER = (
     "Worked example from an expert on this exact task. Study the approach, "
     "then solve the task yourself:\n"
@@ -140,6 +155,7 @@ extract_bfcl_verdicts = extract_verdicts
 
 class BFCLAdapter(BenchmarkAdapter):
     name = "bfcl"
+    needs_server = False
 
     def __init__(self, seed: int = 0, port: int = 8901, mt_training: bool = False):
         self.seed = seed
@@ -147,6 +163,8 @@ class BFCLAdapter(BenchmarkAdapter):
         self.mt_training = mt_training
         self._entries: dict[str, dict[str, Any]] | None = None
         self._categories: dict[str, str] | None = None
+        self._memory_prereqs: dict[str, list[str]] = {}
+        self._prereq_ids: set[str] = set()
         self._handler_instance: Any = None
 
     def _load_entries(self) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
@@ -156,6 +174,9 @@ class BFCLAdapter(BenchmarkAdapter):
         categories: dict[str, str] = {}
         for path in sorted(BFCL_DATA.glob("BFCL_v4_*.json")):
             category = path.stem.replace("BFCL_v4_", "")
+            if category == "memory":
+                # handled below via the official per-backend expansion
+                continue
             with path.open(encoding="utf-8") as handle:
                 for line in handle:
                     if not line.strip():
@@ -171,8 +192,45 @@ class BFCLAdapter(BenchmarkAdapter):
                     if isinstance(row, dict) and isinstance(row.get("id"), str):
                         entries[row["id"]] = row
                         categories[row["id"]] = category
+        self._load_memory_entries(entries, categories)
         self._entries, self._categories = entries, categories
         return entries, categories
+
+    def _load_memory_entries(
+        self,
+        entries: dict[str, dict[str, Any]],
+        categories: dict[str, str],
+    ) -> None:
+        """Register memory tasks under their runnable per-backend categories.
+
+        Also records each task's prerequisite write-phase chain so a selective
+        generation run can carry it along; without the chain the task runs
+        against an empty memory store and fails silently.
+        """
+        if str(BFCL_ROOT) not in sys.path:
+            sys.path.insert(0, str(BFCL_ROOT))
+        from bfcl_eval.utils import is_memory_prereq, load_dataset_entry
+
+        self._memory_prereqs = {}
+        self._prereq_ids = set()
+        for backend in MEMORY_BACKENDS:
+            category = f"memory_{backend}"
+            try:
+                rows = load_dataset_entry(category)
+            except Exception:
+                continue
+            for row in rows:
+                task_id = row.get("id")
+                if not isinstance(task_id, str):
+                    continue
+                entries[task_id] = row
+                categories[task_id] = category
+                if is_memory_prereq(task_id):
+                    self._prereq_ids.add(task_id)
+                else:
+                    self._memory_prereqs[task_id] = [
+                        dep for dep in row.get("depends_on", []) if isinstance(dep, str)
+                    ]
 
     def _handler(self) -> Any:
         if self._handler_instance is None:
@@ -190,10 +248,22 @@ class BFCLAdapter(BenchmarkAdapter):
 
     def task_pool(self) -> list[TaskRef]:
         _, categories = self._load_entries()
-        return [TaskRef(task_id, category) for task_id, category in sorted(categories.items())]
+        return [
+            TaskRef(task_id, category)
+            for task_id, category in sorted(categories.items())
+            if task_id not in self._prereq_ids
+        ]
 
     def task_categories(self) -> dict[str, str]:
         return dict(self._load_entries()[1])
+
+    def support_split(self) -> "SupportSplit":
+        # BFCL categories differ in size by two orders of magnitude, so the
+        # size-weighted default spends the probe budget on the axes the student
+        # already handles and leaves memory / web search / parallel with too
+        # few tasks to measure.  Measure every axis evenly; decide where to
+        # spend from the measured deficit, not from category size.
+        return make_support_split(self.task_pool(), coverage_floor=True)
 
     def official_eval_split_disjoint(self) -> bool:
         return False
@@ -233,7 +303,16 @@ class BFCLAdapter(BenchmarkAdapter):
         categories = self.task_categories()
         by_category: dict[str, list[str]] = {}
         for task_id in task_ids:
-            by_category.setdefault(categories[task_id], []).append(task_id)
+            category = categories[task_id]
+            selected = by_category.setdefault(category, [])
+            # A memory task only makes sense together with the write-phase turns
+            # it depends on; official loading filters the id file, so the chain
+            # has to be listed explicitly or the store stays empty.
+            for prereq in self._memory_prereqs.get(task_id, []):
+                if prereq not in selected:
+                    selected.append(prereq)
+            if task_id not in selected:
+                selected.append(task_id)
         return by_category
 
     def _patch_guidance(
@@ -270,13 +349,131 @@ class BFCLAdapter(BenchmarkAdapter):
                 path.write_text("\n".join(output) + "\n")
         return backups
 
+    def _subprocess_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        env.pop("LOCAL_SERVER_ENDPOINT", None)
+        env["LOCAL_SERVER_PORT"] = str(self.port)
+        env["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
+        env["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        env["PATH"] = os.pathsep.join(
+            part for part in (str(VLLM_BIN_DIR), env.get("PATH")) if part
+        )
+        return env
+
+    @staticmethod
+    def _trained_checkpoint(policy_ref: PolicyRef | None) -> Path | None:
+        if policy_ref is None:
+            return None
+        checkpoint = Path(str(policy_ref))
+        if not (checkpoint / "model.safetensors").is_file():
+            return None
+        return checkpoint.resolve()
+
+    @staticmethod
+    def _remove_merged_checkpoint(checkpoint: Path, merged: Path) -> None:
+        expected = checkpoint.parent / "hub_merged"
+        try:
+            expected.relative_to(ROOT.resolve())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"refusing BFCL merged cleanup outside project: {merged}"
+            ) from exc
+        if merged != expected or merged.name != "hub_merged":
+            raise RuntimeError(f"refusing unsafe BFCL merged cleanup: {merged}")
+        if merged.is_symlink() or not merged.is_dir():
+            raise RuntimeError(f"refusing non-directory BFCL merged cleanup: {merged}")
+        shutil.rmtree(merged)
+
+    def _export_trained_checkpoint(self, checkpoint: Path) -> Path:
+        merged = checkpoint.parent / "hub_merged"
+        if merged.exists() or merged.is_symlink():
+            trash_root = ROOT / "_trash"
+            trash_root.mkdir(parents=True, exist_ok=True)
+            trash = trash_root / (
+                f"hub_merged_{checkpoint.parent.name}_{uuid.uuid4().hex}"
+            )
+            shutil.move(str(merged), str(trash))
+        subprocess.run(
+            [
+                str(ROOT / ".venv/bin/python"),
+                str(MERGE_EXPORT),
+                "--adapter", str(checkpoint),
+                "--out", str(merged),
+                "--verify",
+            ],
+            cwd=ROOT,
+            check=True,
+        )
+        if not (merged / "model.safetensors.index.json").is_file():
+            raise RuntimeError(f"BFCL merge export did not produce a shard index: {merged}")
+        return merged
+
+    @staticmethod
+    def _run_evaluate(
+        command: Sequence[str], env: Mapping[str, str], score_dir: Path
+    ) -> None:
+        """Run the official evaluator, tolerating leaderboard-CSV failures.
+
+        The official checkers write per-category ``*_score.json`` first and
+        only then aggregate a leaderboard CSV.  On a single-task selective
+        pass that aggregation raises (``stdev`` needs two latency points),
+        which would otherwise discard a perfectly scored teacher episode.
+        The scores themselves are still the official ones.
+        """
+        outcome = subprocess.run(command, cwd=BFCL_ROOT, env=dict(env))
+        if outcome.returncode == 0:
+            return
+        if score_dir.exists() and any(score_dir.rglob("*_score.json")):
+            return
+        raise subprocess.CalledProcessError(outcome.returncode, command)
+
+    def _run_generate(
+        self,
+        args: Sequence[str],
+        policy_ref: PolicyRef | None = None,
+    ) -> dict[str, str]:
+        env = self._subprocess_env()
+        command = [str(BFCL_BIN), "generate", *args]
+        # API-served teacher models (e.g. deepseek-v4-pro-FC) must not get
+        # local vllm server args; they need the OpenAI-compatible creds for
+        # the Ollama endpoint instead.
+        is_api_model = "--model" in args and any(
+            "deepseek" in str(a) or str(a).startswith("gpt-")
+            for a in args
+        )
+        if is_api_model:
+            env["OPENAI_BASE_URL"] = os.environ.get(
+                "OLLAMA_BASE_URL", "https://ollama.com"
+            ).rstrip("/") + "/v1"
+            key = os.environ.get("OLLAMA_API_KEY", "")
+            if not key:
+                key_file = Path.home() / ".ollama_api_key2"
+                if key_file.exists():
+                    key = key_file.read_text().strip()
+            env["OPENAI_API_KEY"] = key
+        else:
+            command.extend([
+                "--backend", "vllm",
+                "--num-gpus", "1",
+                "--gpu-memory-utilization", os.environ.get("GPU_UTIL") or "0.85",
+            ])
+        checkpoint = self._trained_checkpoint(policy_ref)
+        merged = None
+        if checkpoint is not None:
+            merged = self._export_trained_checkpoint(checkpoint)
+            command.extend(["--local-model-path", str(merged)])
+        subprocess.run(command, cwd=BFCL_ROOT, env=env, check=True)
+        if checkpoint is not None and merged is not None:
+            self._remove_merged_checkpoint(checkpoint, merged)
+        return env
+
     def _official_pass(
         self,
         model_name: str,
         task_ids: Sequence[str],
         temperature: float,
         guided_demos: Mapping[str, Demo] | None = None,
-        local_server: bool = True,
+        policy_ref: PolicyRef | None = None,
     ) -> tuple[list[dict[str, Any]], Path, Path]:
         token = f"bfas_{uuid.uuid4().hex}"
         result_name = f"result_{token}"
@@ -284,28 +481,23 @@ class BFCLAdapter(BenchmarkAdapter):
         selection_path = BFCL_ROOT / "test_case_ids_to_generate.json"
         selection_backup = selection_path.read_bytes() if selection_path.exists() else None
         data_backups: list[tuple[Path, bytes]] = []
-        env = os.environ.copy()
-        env["LOCAL_SERVER_ENDPOINT"] = "localhost"
-        env["LOCAL_SERVER_PORT"] = str(self.port)
         try:
             selection_path.write_text(
                 json.dumps(self._selective_file(task_ids), indent=1) + "\n"
             )
             data_backups = self._patch_guidance(guided_demos or {})
             generate = [
-                str(BFCL_BIN), "generate", "--model", model_name, "--run-ids",
+                "--model", model_name, "--run-ids",
                 "--temperature", str(temperature), "--num-threads", "4",
                 "--result-dir", result_name,
             ]
-            if local_server:
-                generate.append("--skip-server-setup")
             evaluate = [
                 str(BFCL_BIN), "evaluate", "--model", model_name,
                 "--result-dir", result_name, "--score-dir", score_name,
                 "--partial-eval",
             ]
-            subprocess.run(generate, cwd=ROOT / "envs/bfcl", env=env, check=True)
-            subprocess.run(evaluate, cwd=ROOT / "envs/bfcl", env=env, check=True)
+            env = self._run_generate(generate, policy_ref)
+            self._run_evaluate(evaluate, env, BFCL_ROOT / score_name)
             result_dir = BFCL_ROOT / result_name
             score_dir = BFCL_ROOT / score_name
             results: list[dict[str, Any]] = []
@@ -391,27 +583,19 @@ class BFCLAdapter(BenchmarkAdapter):
             ))
         return output
 
-    def _official_full_evaluation(self) -> tuple[Path, Path]:
+    def _official_full_evaluation(self, policy_ref: PolicyRef) -> tuple[Path, Path]:
         token = f"bfas_{uuid.uuid4().hex}"
         result_name = f"result_{token}"
         score_name = f"score_{token}"
-        env = os.environ.copy()
-        env["LOCAL_SERVER_ENDPOINT"] = "localhost"
-        env["LOCAL_SERVER_PORT"] = str(self.port)
-        subprocess.run(
+        env = self._run_generate(
             [
-                str(BFCL_BIN),
-                "generate",
                 "--model", MODEL_NAME,
                 "--test-category", "all",
                 "--temperature", "0",
                 "--num-threads", "8",
                 "--result-dir", result_name,
-                "--skip-server-setup",
             ],
-            cwd=ROOT / "envs/bfcl",
-            env=env,
-            check=True,
+            policy_ref,
         )
         subprocess.run(
             [
@@ -422,7 +606,7 @@ class BFCLAdapter(BenchmarkAdapter):
                 "--result-dir", result_name,
                 "--score-dir", score_name,
             ],
-            cwd=ROOT / "envs/bfcl",
+            cwd=BFCL_ROOT,
             env=env,
             check=True,
         )
@@ -435,9 +619,8 @@ class BFCLAdapter(BenchmarkAdapter):
         temperature: float,
         guided_demos: Mapping[str, Demo] | None = None,
     ) -> list[Rollout]:
-        del policy
         results, result_dir, score_dir = self._official_pass(
-            MODEL_NAME, task_ids, temperature, guided_demos, local_server=True
+            MODEL_NAME, task_ids, temperature, guided_demos, policy_ref=policy
         )
         try:
             return self._rollouts_from_pass(task_ids, results, score_dir, guided_demos)
@@ -458,7 +641,6 @@ class BFCLAdapter(BenchmarkAdapter):
                 model,
                 remaining,
                 0.0 if attempt == 0 else SAMPLING_TEMPERATURE,
-                local_server=False,
             )
             try:
                 categories = self.task_categories()
@@ -493,9 +675,55 @@ class BFCLAdapter(BenchmarkAdapter):
                 shutil.rmtree(score_dir, ignore_errors=True)
         return demos
 
+    def teacher_episode(
+        self, task_id: str, attempt_index: int, temperature: float
+    ) -> TeacherEpisode:
+        model = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
+        results, result_dir, score_dir = self._official_pass(
+            model, [task_id], temperature
+        )
+        try:
+            category = self.task_categories()[task_id]
+            verdicts = extract_verdicts(score_dir, {task_id: category})
+            result = next(
+                (item for item in results if str(item.get("id")) == task_id),
+                None,
+            )
+            target = self._target(result.get("result")) if result else ""
+            demo = None
+            if verdicts.get(task_id) is True and result is not None:
+                context = {
+                    "messages": self._messages(task_id),
+                    "functions": self._functions(task_id),
+                }
+                turns: list[Turn] = []
+                if not category.startswith(("multi_turn", "web_search", "memory")):
+                    turns.append(Turn(
+                        self._render(context["messages"], context["functions"]),
+                        target,
+                        context,
+                    ))
+                demo = Demo(
+                    task_id,
+                    turns,
+                    target[:4000],
+                    {
+                        "attempt": attempt_index + 1,
+                        "checker_verified": True,
+                    },
+                )
+            return TeacherEpisode(
+                task_id=task_id,
+                verified=demo is not None,
+                demo=demo,
+                response_texts=(target,) if target else (),
+            )
+        finally:
+            shutil.rmtree(result_dir, ignore_errors=True)
+            shutil.rmtree(score_dir, ignore_errors=True)
+
     def evaluate(self, policy_ref: PolicyRef, out_dir: Path) -> dict[str, Any]:
-        del policy_ref
-        result_dir, score_dir = self._official_full_evaluation()
+        result_dir, score_dir = self._official_full_evaluation(policy_ref)
         try:
             support = set(self.support_split().support)
             categories = self.task_categories()

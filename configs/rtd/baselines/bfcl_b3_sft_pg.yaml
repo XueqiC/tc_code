@@ -1,0 +1,7 @@
+recipe: b3_sft
+optimizer: adamw
+lr: 0.000003
+lambda_pg: 1.0
+commits: 36
+slots: 288
+distribution: strong

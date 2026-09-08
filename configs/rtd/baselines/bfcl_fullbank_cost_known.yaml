@@ -1,0 +1,9 @@
+# Separate retrospective protocol; never use these prices as sealed public caps.
+version: c27-acquisition-v1
+protocol: historical_cost_public
+seed: 0
+replay_length: 1
+windows_per_round: 4
+max_new_packages: 1
+empty_prior: 0.5
+new_teacher_calls: false

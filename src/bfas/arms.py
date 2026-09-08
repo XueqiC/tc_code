@@ -173,3 +173,123 @@ def trainer_environment(arm: str) -> dict[str, str]:
     if arm in DISTILL_MODES:
         env["AW_DISTILL"] = DISTILL_MODES[arm]
     return env
+
+
+def pair_unit_margins(logp_plus, base_plus, logp_minus=None, base_minus=None,
+                      *, beta: float = 0.1):
+    """Sequence-summed, base-centred margins; absent rejects contribute zero.
+
+    Tensors have a final dimension of two (the two states). For mixed missing
+    rejects, callers supply zero policy/base log-probs at the missing positions.
+    """
+    import math
+
+    if not math.isfinite(beta) or beta <= 0:
+        raise ValueError("beta must be finite and positive")
+    if (logp_minus is None) != (base_minus is None):
+        raise ValueError("rejected policy and base log-probs must be supplied together")
+    delta = logp_plus - base_plus
+    if logp_minus is not None:
+        delta = delta - (logp_minus - base_minus)
+    return beta * delta
+
+
+def pair_unit_loss(margins, *, gamma: float = 1.0, reduction: str = "worst",
+                   side_weights=None):
+    """Return one squared-hinge loss per pair, without reducing the batch."""
+    import math
+
+    if not math.isfinite(gamma) or gamma < 0:
+        raise ValueError("gamma must be finite and non-negative")
+    if margins.ndim == 0 or margins.shape[-1] != 2:
+        raise ValueError("pair_unit requires exactly two side margins")
+    losses = (gamma - margins).clamp_min(0).square()
+    if side_weights is not None:
+        losses = losses * side_weights
+    if reduction == "worst":
+        return losses.amax(dim=-1)
+    if reduction == "sum":
+        return losses.sum(dim=-1)
+    raise ValueError("pair_unit reduction must be 'worst' or 'sum'")
+
+
+def pair_side_rows(pairs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Flatten normalized CC pairs without changing any prompt or label."""
+    rows = []
+    for pair in pairs:
+        for index, side in enumerate(pair["sides"]):
+            row = dict(side)
+            row.update(response=side["y_plus"],
+                       _cc_pair_id=pair["pair_id"], _cc_side=index,
+                       _cc_type=pair["type"],
+                       _cc_seed_function=side["seed_function"])
+            row.setdefault("task_id", f"{pair['pair_id']}:{index}")
+            row.setdefault("teacher", "historical_teacher")
+            row.setdefault("turn_index", 0)
+            row.setdefault("token_hint", max(len(side["y_plus"]) // 4, 1))
+            row.pop("_rejected", None)
+            if side.get("y_minus"):
+                row["_rejected"] = side["y_minus"]
+            rows.append(row)
+    return rows
+
+
+def shuffle_pair_sides(pairs: Sequence[Mapping[str, Any]], *, seed: int = 0
+                       ) -> list[dict[str, Any]]:
+    """Permute entire right sides within type, preferring cross-seed matching.
+
+    First require different seed functions and original pair IDs. If no perfect
+    matching exists, retry the entire type with only different original pair
+    IDs required. Neither attempt duplicates, drops, or changes any side.
+    """
+    import copy
+    import random
+
+    rng = random.Random(seed)
+    result = copy.deepcopy(list(pairs))
+    groups: dict[str, list[int]] = {}
+    for i, pair in enumerate(pairs):
+        groups.setdefault(str(pair["type"]), []).append(i)
+    for group, members in sorted(groups.items()):
+        for different_seed in (True, False):
+            edges = {}
+            for i in members:
+                edges[i] = [j for j in members
+                            if pairs[i]["pair_id"] != pairs[j]["pair_id"]
+                            and (not different_seed or
+                                 pairs[i]["sides"][0]["seed_function"] !=
+                                 pairs[j]["sides"][1]["seed_function"])]
+                rng.shuffle(edges[i])
+            owner: dict[int, int] = {}
+
+            def match(i, seen):
+                for j in edges[i]:
+                    if j in seen:
+                        continue
+                    seen.add(j)
+                    if j not in owner or match(owner[j], seen):
+                        owner[j] = i
+                        return True
+                return False
+
+            order = list(members)
+            rng.shuffle(order)
+            if all(match(i, set()) for i in order):
+                break
+        else:
+            raise ValueError(f"type {group!r}: no complete different-pair-id derangement exists")
+        for j, i in owner.items():
+            result[i]["sides"][1] = copy.deepcopy(pairs[j]["sides"][1])
+            result[i]["source_pair_ids"] = [pairs[i]["pair_id"], pairs[j]["pair_id"]]
+            result[i]["pairing"] = "shuffled"
+    return result
+
+
+def same_seed_pair_counts(pairs: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    """Count same-seed side pairings per type, including types with zero counts."""
+    counts: dict[str, int] = {}
+    for pair in pairs:
+        group = str(pair["type"])
+        counts[group] = counts.get(group, 0) + int(
+            pair["sides"][0]["seed_function"] == pair["sides"][1]["seed_function"])
+    return counts

@@ -10,7 +10,7 @@ _MODULES = {
     "ALFWorldAdapter": ".alfworld",
     "AppWorldAdapter": ".appworld",
     "BFCLAdapter": ".bfcl",
-    "Tau2Adapter": ".tau2_stub",
+    "Tau2Adapter": ".tau2",
 }
 
 

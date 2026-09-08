@@ -43,6 +43,97 @@ DTYPE = torch.bfloat16
 EPOCHS = 3
 GRADIENT_ACCUMULATION = 8
 LEARNING_RATE = 1e-4
+
+
+def training_epochs() -> int:
+    """Epoch count, overridable for update-strength probes.
+
+    Distillation on a couple of hundred rows drifts the student's behaviour far
+    enough to cost abstention and multi-turn termination, so how hard the update
+    is pushed is a variable worth measuring rather than a fixed constant. The
+    default is unchanged, so every existing arm trains exactly as before.
+    """
+    raw = os.environ.get("AW_EPOCHS")
+    if raw is None:
+        return EPOCHS
+    try:
+        epochs = int(raw)
+    except ValueError:
+        raise ValueError(f"AW_EPOCHS must be a positive integer; got {raw!r}")
+    if epochs <= 0:
+        raise ValueError(f"AW_EPOCHS must be a positive integer; got {raw!r}")
+    return epochs
+
+
+_CLUSTER_MAP = None
+
+
+def cluster_failure_for(task_id: str):
+    """Failure rate of the capability cluster this task belongs to, or None.
+
+    AW_CLUSTER_FILE points at the assignment file tools/cluster_pool.py writes.
+    When set, the advantage weight is computed at the capability level: evidence
+    about one task in a cluster informs every task in it. A cluster with no
+    outcome-labelled member yields None and the caller falls back to the row's
+    own per-task rate, so partial labelling degrades gracefully rather than
+    silently zeroing weights.
+    """
+    global _CLUSTER_MAP
+    path = os.environ.get("AW_CLUSTER_FILE")
+    if not path:
+        return None
+    if _CLUSTER_MAP is None:
+        import json as _json
+        with open(path) as handle:
+            data = _json.load(handle)
+        _CLUSTER_MAP = (data["assignments"], data["cluster_fail"])
+        known = sum(1 for value in data["cluster_fail"].values()
+                    if value == value)  # NaN != NaN
+        print(f"[train][cluster] {len(data['assignments'])} tasks, "
+              f"k={data['k']}, {known} clusters carry outcomes", flush=True)
+    assignments, fail = _CLUSTER_MAP
+    cluster = assignments.get(task_id)
+    if cluster is None:
+        return None
+    value = fail.get(str(cluster))
+    if value is None or value != value:
+        return None
+    return float(value)
+
+
+def curriculum_rows(rows, epoch: int, total_epochs: int):
+    """Temporal curriculum over turn depth (TCOD-style), env-gated.
+
+    AW_CURRICULUM=turn trains epoch e on the rows whose turn_index falls at or
+    below the e/E quantile of the pool's turn_index distribution, so early
+    epochs see short, stable prefixes and the final epoch sees everything.
+    Thresholds come from the data's own distribution -- no fixed depths.
+    Unset (the default) trains every row every epoch, exactly as before.
+    """
+    if os.environ.get("AW_CURRICULUM") != "turn":
+        return rows
+    depths = sorted(int(r.get("turn_index") or 0) for r in rows)
+    fraction = epoch / total_epochs
+    cutoff = depths[min(int(fraction * len(depths)) - 1, len(depths) - 1)] \
+        if fraction < 1.0 else depths[-1]
+    kept = [r for r in rows if int(r.get("turn_index") or 0) <= cutoff]
+    print(f"[train][curriculum] epoch={epoch}/{total_epochs} "
+          f"turn_index<={cutoff} rows={len(kept)}/{len(rows)}", flush=True)
+    return kept
+
+
+def training_lr() -> float:
+    """Learning rate, overridable alongside AW_EPOCHS. Default unchanged."""
+    raw = os.environ.get("AW_LR")
+    if raw is None:
+        return LEARNING_RATE
+    try:
+        lr = float(raw)
+    except ValueError:
+        raise ValueError(f"AW_LR must be a positive float; got {raw!r}")
+    if lr <= 0:
+        raise ValueError(f"AW_LR must be a positive float; got {raw!r}")
+    return lr
 MAX_PROMPT_TOKENS = 640
 MAX_RESPONSE_TOKENS = 512
 
@@ -172,6 +263,50 @@ def attach_response_token_counts(tokenizer: Any, rows: list[dict[str, Any]]) -> 
         )
 
 
+def prompt_truncation_config() -> tuple[int, str]:
+    raw_cap = os.environ.get("AW_MAX_PROMPT_TOKENS", str(MAX_PROMPT_TOKENS))
+    try:
+        cap = int(raw_cap)
+    except ValueError as exc:
+        raise ValueError(
+            f"AW_MAX_PROMPT_TOKENS must be a positive integer; got {raw_cap!r}"
+        ) from exc
+    if cap <= 0:
+        raise ValueError(
+            f"AW_MAX_PROMPT_TOKENS must be a positive integer; got {raw_cap!r}"
+        )
+    side = os.environ.get("AW_TRUNCATE_SIDE", "head").strip().lower()
+    if side not in {"head", "tail"}:
+        raise ValueError(
+            f"AW_TRUNCATE_SIDE must be 'head' or 'tail'; got {side!r}"
+        )
+    return cap, side
+
+
+def prompt_token_ids(tokenizer: Any, row: dict[str, Any]) -> list[int]:
+    if row.get("messages"):
+        prompt_text = tokenizer.apply_chat_template(
+            row["messages"], add_generation_prompt=True, tokenize=False
+        )
+    else:
+        prompt_text = row["prompt"]
+    return tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+
+
+def log_prompt_truncation(
+    tokenizer: Any, rows: Sequence[dict[str, Any]]
+) -> None:
+    cap, side = prompt_truncation_config()
+    rows_over_cap = sum(
+        len(prompt_token_ids(tokenizer, row)) > cap for row in rows
+    )
+    print(
+        f"[train][trunc] rows_over_cap={rows_over_cap}/{len(rows)} "
+        f"cap={cap} side={side}",
+        flush=True,
+    )
+
+
 def encode(
     tokenizer: Any, row: dict[str, Any], device: str = DEVICE
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -180,14 +315,12 @@ def encode(
     AppWorld SFT prompts are already serialized multi-turn transcripts ending
     at the assistant marker, so they must not be wrapped in another chat turn.
     """
-    if row.get("messages"):
-        prompt_text = tokenizer.apply_chat_template(
-            row["messages"], add_generation_prompt=True, tokenize=False
-        )
+    max_prompt_tokens, truncate_side = prompt_truncation_config()
+    prompt_ids = prompt_token_ids(tokenizer, row)
+    if truncate_side == "tail":
+        prompt_ids = prompt_ids[-max_prompt_tokens:]
     else:
-        prompt_text = row["prompt"]
-    prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
-    prompt_ids = prompt_ids[:MAX_PROMPT_TOKENS]
+        prompt_ids = prompt_ids[:max_prompt_tokens]
     response_ids = tokenizer(row["response"], add_special_tokens=False)["input_ids"]
     response_ids = response_ids[:MAX_RESPONSE_TOKENS] + [tokenizer.eos_token_id]
     input_ids = torch.tensor([prompt_ids + response_ids], device=device)
@@ -218,7 +351,16 @@ def build_base_model(student: str, seed: int) -> Any:
 
 
 def build_lora_model(student: str, seed: int) -> Any:
-    return get_peft_model(build_base_model(student, seed), lora_config())
+    model = get_peft_model(build_base_model(student, seed), lora_config())
+    # AW_GRAD_CKPT=1 recomputes activations in backward so cap-4096 AppWorld
+    # rows fit a 97GB rai GPU (2026-09-01 awb4_cp_s1 OOM at epoch 3); the
+    # arithmetic is unchanged, only memory-for-time.
+    if os.environ.get("AW_GRAD_CKPT") == "1":
+        model.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs={"use_reentrant": False})
+        model.enable_input_require_grads()
+        print("[train] gradient checkpointing enabled", flush=True)
+    return model
 
 
 def take_ranked_prefix(
@@ -772,6 +914,9 @@ def smartad_weighted_loss(
 
 def distillation_config() -> dict[str, Any] | None:
     raw_mode = os.environ.get("AW_DISTILL", "").strip().lower()
+    if raw_mode == "pair_unit":
+        from bfas.pair_unit import configuration
+        return configuration()
     if not raw_mode:
         return None
     if raw_mode not in {"sad", "ddpo", "pbsd", "agentkd"}:
@@ -980,6 +1125,77 @@ def completion_log_prob(
     return -token_nll.float().sum()
 
 
+def _ddpo_event_weight(row: dict[str, Any]) -> float:
+    """CRCD utility weighting w = f(dU) (AW_DDPO_WEIGHT = none | du | tanh | pos | conf).
+
+    Weights are pre-normalised to mean 1 over the pool by ddpo_prepare_weights so
+    the effective step size stays comparable across weighting modes."""
+    return float(row.get("_ddpo_weight", 1.0))
+
+
+def ddpo_prepare_weights(rows: list[dict[str, Any]]) -> None:
+    mode = os.environ.get("AW_DDPO_WEIGHT", "none").strip().lower()
+    if mode in {"", "none"}:
+        return
+    tau = float(os.environ.get("AW_DDPO_TAU", "0.5"))
+    raw = []
+    for row in rows:
+        d_u = float(row.get("_event_dU", 1.0))
+        if mode == "du":
+            w = max(d_u, 0.0)
+        elif mode == "tanh":
+            w = math.tanh(max(d_u, 0.0) / tau)
+        elif mode == "pos":
+            w = 1.0 if d_u > 0 else 0.0
+        elif mode == "conf":
+            # posterior P(dU > 0) from the two Beta(1,1)-smoothed branch means
+            # u = (wins + 1) / (k + 2): recover win counts and Monte-Carlo the posterior
+            k = int(row.get("_event_k", 0) or 0)
+            if k <= 0:
+                w = 1.0 if d_u > 0 else 0.0
+            else:
+                wg = round(float(row.get("_event_u_plus", 0.0)) * (k + 2) - 1)
+                wb = round(float(row.get("_event_u_minus", 0.0)) * (k + 2) - 1)
+                rng_ = random.Random(hash(row.get("_traj", "")) & 0xFFFF)
+                hits = sum(
+                    rng_.betavariate(wg + 1, k - wg + 1) > rng_.betavariate(wb + 1, k - wb + 1)
+                    for _ in range(400)
+                )
+                w = hits / 400.0
+        else:
+            raise ValueError(f"unknown AW_DDPO_WEIGHT={mode!r}")
+        if row.get("_anchor"):
+            w = 1.0  # retention anchors carry dU=0 by construction; keep unit weight
+        raw.append(w)
+    # controls (user 2026-09-03): AW_DDPO_WEIGHT_PERMUTE = global | category permutes the
+    # weight multiset across events (globally, or within _seed_category) so the total dose and
+    # weight distribution are identical but weights are no longer event-aligned.
+    perm = os.environ.get("AW_DDPO_WEIGHT_PERMUTE", "").strip().lower()
+    if perm in {"global", "category"}:
+        prng = random.Random(int(os.environ.get("AW_DDPO_PERM_SEED", "0")))
+        if perm == "global":
+            idx = list(range(len(raw)))
+            prng.shuffle(idx)
+            raw = [raw[i] for i in idx]
+        else:
+            groups: dict[str, list[int]] = {}
+            for i, row in enumerate(rows):
+                groups.setdefault(str(row.get("_seed_category", "")), []).append(i)
+            new_raw = list(raw)
+            for members in groups.values():
+                vals = [raw[i] for i in members]
+                prng.shuffle(vals)
+                for i, v in zip(members, vals):
+                    new_raw[i] = v
+            raw = new_raw
+        print(f"[train][ddpo] weights PERMUTED ({perm}, seed {os.environ.get('AW_DDPO_PERM_SEED', '0')})", flush=True)
+    mean = sum(raw) / max(len(raw), 1)
+    for row, w in zip(rows, raw):
+        row["_ddpo_weight"] = (w / mean) if mean > 0 else 0.0
+    print(f"[train][ddpo] event weights mode={mode} mean_raw={mean:.3f} "
+          f"min={min(raw):.3f} max={max(raw):.3f}", flush=True)
+
+
 def ddpo_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         row
@@ -1039,6 +1255,7 @@ def train_ddpo(
     if not preference_rows:
         print("[train][ddpo] skipped: no rows carry a non-empty _rejected", flush=True)
         return 0
+    ddpo_prepare_weights(preference_rows)
     for row in preference_rows:
         if (
             "_ddpo_ref_chosen_logp" not in row
@@ -1054,37 +1271,136 @@ def train_ddpo(
     )
     rng = np.random.default_rng(seed)
     optimizer_steps = 0
+    ref_free = os.environ.get("AW_DDPO_REF_FREE", "0") == "1"
+
+    span_only = os.environ.get("AW_DDPO_SPAN_ONLY", "0") == "1"
+
+    def _span_mask(c_ids, c_labels, r_ids, r_labels):
+        """CRCD minimal-edit variant (user prompt 16.5): keep the preference signal only on the
+        token span where chosen and rejected differ (common prefix / suffix of the two
+        responses are masked out of both label tensors)."""
+        c_pos = (c_labels[0] != -100).nonzero(as_tuple=True)[0]
+        r_pos = (r_labels[0] != -100).nonzero(as_tuple=True)[0]
+        if len(c_pos) == 0 or len(r_pos) == 0:
+            return c_labels, r_labels
+        c_tok = c_ids[0, c_pos].tolist()
+        r_tok = r_ids[0, r_pos].tolist()
+        pre = 0
+        while pre < min(len(c_tok), len(r_tok)) and c_tok[pre] == r_tok[pre]:
+            pre += 1
+        suf = 0
+        while (suf < min(len(c_tok), len(r_tok)) - pre
+               and c_tok[-1 - suf] == r_tok[-1 - suf]):
+            suf += 1
+        # always keep at least one token per side (the EOS position if fully identical)
+        c_keep = c_pos[pre: max(pre + 1, len(c_pos) - suf)]
+        r_keep = r_pos[pre: max(pre + 1, len(r_pos) - suf)]
+        c_new = torch.full_like(c_labels, -100)
+        r_new = torch.full_like(r_labels, -100)
+        c_new[0, c_keep] = c_labels[0, c_keep]
+        r_new[0, r_keep] = r_labels[0, r_keep]
+        return c_new, r_new
+
+    def pair_loss(row: dict[str, Any], scale: float) -> torch.Tensor:
+        chosen_ids, chosen_labels = encode(tokenizer, row)
+        rejected_ids, rejected_labels = encode(tokenizer, rejected_row(row))
+        if span_only:
+            chosen_labels, rejected_labels = _span_mask(
+                chosen_ids, chosen_labels, rejected_ids, rejected_labels
+            )
+        policy_margin = completion_log_prob(
+            model, chosen_ids, chosen_labels
+        ) - completion_log_prob(model, rejected_ids, rejected_labels)
+        reference_margin = (
+            float(row["_ddpo_ref_chosen_logp"])
+            - float(row["_ddpo_ref_rejected_logp"])
+        )
+        if ref_free:
+            # CRCD ablation: reference-free pairwise objective
+            # (is the frozen-base trust region doing the work?)
+            reference_margin = 0.0
+        return -F.logsigmoid(beta * (policy_margin - reference_margin)) * scale
+
+    # CRCD risk-triggered preservation (AW_ANCHOR_ADAPTIVE=1): anchors are NOT mixed
+    # into the pool; per boundary side k (call / abstain) a held-out probe set of the
+    # base's own correct replies is re-scored every PROBE_EVERY steps, D_k = mean
+    # log-prob change vs base, and a dual variable lambda_k = [lambda_k + eta(-eps - D_k)]_+
+    # gates how many anchor pairs of that side enter the next chunks (weighted by lambda_k).
+    adaptive = os.environ.get("AW_ANCHOR_ADAPTIVE", "0") == "1"
+    train_rows = preference_rows
+    anchors_by_side: dict[str, list[dict[str, Any]]] = {"call": [], "abstain": []}
+    probes_by_side: dict[str, list[dict[str, Any]]] = {"call": [], "abstain": []}
+    lam = {"call": 0.0, "abstain": 0.0}
+    if adaptive:
+        n_probe = int(os.environ.get("AW_ANCHOR_PROBES", "12"))
+        events = [r for r in preference_rows if not r.get("_anchor")]
+        anchors = [preference_rows[int(i)] for i in rng.permutation(len(preference_rows))
+                   if preference_rows[int(i)].get("_anchor")]
+        for r in anchors:
+            side = "call" if "<tool_call>" in str(r.get("response", "")) else "abstain"
+            (probes_by_side if len(probes_by_side[side]) < n_probe else anchors_by_side)[side].append(r)
+        train_rows = events
+        print(f"[train][ddpo][adaptive] events={len(events)} anchors="
+              f"{ {k: len(v) for k, v in anchors_by_side.items()} } probes="
+              f"{ {k: len(v) for k, v in probes_by_side.items()} }", flush=True)
+    probe_every = int(os.environ.get("AW_ANCHOR_PROBE_EVERY", "8"))
+    eps = float(os.environ.get("AW_ANCHOR_EPS", "1.0"))
+    eta = float(os.environ.get("AW_ANCHOR_ETA", "0.5"))
+    lam_max = float(os.environ.get("AW_ANCHOR_LAM_MAX", "4.0"))
+    trace: list[dict[str, Any]] = []
+
+    def probe_drift() -> dict[str, float]:
+        drift = {}
+        model.eval()
+        with torch.no_grad():
+            for side, probes in probes_by_side.items():
+                if not probes:
+                    continue
+                deltas = []
+                for r in probes:
+                    ids, labels = encode(tokenizer, r)
+                    deltas.append(float(completion_log_prob(model, ids, labels)) - float(r["_ddpo_ref_chosen_logp"]))
+                drift[side] = sum(deltas) / len(deltas)
+        model.train()
+        return drift
+
     try:
         optimizer.zero_grad(set_to_none=True)
         for epoch in range(epochs):
-            order = rng.permutation(len(preference_rows))
+            order = rng.permutation(len(train_rows))
             for start in range(0, len(order), GRADIENT_ACCUMULATION):
                 chunk = order[start : start + GRADIENT_ACCUMULATION]
                 for row_index in chunk:
-                    row = preference_rows[int(row_index)]
-                    chosen_ids, chosen_labels = encode(tokenizer, row)
-                    rejected_ids, rejected_labels = encode(
-                        tokenizer, rejected_row(row)
-                    )
-                    policy_margin = completion_log_prob(
-                        model, chosen_ids, chosen_labels
-                    ) - completion_log_prob(model, rejected_ids, rejected_labels)
-                    reference_margin = (
-                        float(row["_ddpo_ref_chosen_logp"])
-                        - float(row["_ddpo_ref_rejected_logp"])
-                    )
-                    loss = -F.logsigmoid(
-                        beta * (policy_margin - reference_margin)
-                    ) / len(chunk)
-                    loss.backward()
+                    row = train_rows[int(row_index)]
+                    pair_loss(row, _ddpo_event_weight(row) / len(chunk)).backward()
+                if adaptive:
+                    for side, lam_k in lam.items():
+                        pool = anchors_by_side[side]
+                        if lam_k <= 0 or not pool:
+                            continue
+                        for _ in range(min(2, math.ceil(lam_k))):
+                            arow = pool[int(rng.integers(len(pool)))]
+                            pair_loss(arow, lam_k / len(chunk)).backward()
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 optimizer_steps += 1
+                if adaptive and optimizer_steps % probe_every == 0:
+                    drift = probe_drift()
+                    for side, d in drift.items():
+                        lam[side] = min(lam_max, max(0.0, lam[side] + eta * (-eps - d)))
+                    trace.append({"step": optimizer_steps, "drift": drift, "lambda": dict(lam)})
+                    print(f"[train][ddpo][adaptive] step={optimizer_steps} drift="
+                          f"{ {k: round(v, 3) for k, v in drift.items()} } lambda="
+                          f"{ {k: round(v, 3) for k, v in lam.items()} }", flush=True)
             print(
                 f"[train][ddpo] epoch={epoch + 1}/{epochs} "
                 f"optimizer_steps={optimizer_steps}",
                 flush=True,
             )
+        if adaptive:
+            trace_path = os.environ.get("AW_ANCHOR_TRACE")
+            if trace_path:
+                Path(trace_path).write_text(json.dumps(trace, indent=1))
     finally:
         del optimizer
     model.config.use_cache = True
@@ -1108,7 +1424,7 @@ def train_student(
     model.train()
     optimizer = torch.optim.AdamW(
         [parameter for parameter in model.parameters() if parameter.requires_grad],
-        lr=LEARNING_RATE,
+        lr=training_lr(),
     )
     rng = np.random.default_rng(seed)
     optimizer_steps = 0
@@ -1117,12 +1433,13 @@ def train_student(
     pbsd_nll_ema: float | None = None
     try:
         optimizer.zero_grad(set_to_none=True)
-        for epoch in range(EPOCHS):
-            order = rng.permutation(len(rows))
+        for epoch in range(training_epochs()):
+            epoch_rows = curriculum_rows(rows, epoch + 1, training_epochs())
+            order = rng.permutation(len(epoch_rows))
             for start in range(0, len(order), GRADIENT_ACCUMULATION):
                 chunk = order[start : start + GRADIENT_ACCUMULATION]
                 for row_index in chunk:
-                    row = rows[int(row_index)]
+                    row = epoch_rows[int(row_index)]
                     training_row = (
                         agentkd_row(row) if distill_mode == "agentkd" else row
                     )
@@ -1160,10 +1477,31 @@ def train_student(
                         # positive weight (1 - p-hat) vanishes exactly
                         # where the student is already reliable, so
                         # converged tasks stop contributing without a
-                        # separate stopping rule
+                        # separate stopping rule.
+                        #
+                        # That weight alone only buys what is missing, and
+                        # says nothing about holding on to what the student
+                        # already does. Where the base model is competent
+                        # (BFCL's multi-turn and abstention, say) an update
+                        # driven purely by deficit overwrites the very
+                        # behaviour that made it competent, and the axis
+                        # collapses. AW_PRESERVE adds mass back on the rows
+                        # the student already gets right, making preservation
+                        # an explicit term rather than something hoped for:
+                        #   weight = (1 - p-hat) + preserve * p-hat
+                        # 0 reproduces the deficit-only behaviour exactly.
                         advantage = 1.0
+                        preserve = float(os.environ.get("AW_PRESERVE", "0"))
                         if row.get("_task_phat") is not None:
-                            advantage = max(1.0 - float(row["_task_phat"]), 0.0)
+                            phat = float(row["_task_phat"])
+                            cluster_fail = cluster_failure_for(
+                                str(row.get("task_id")))
+                            if cluster_fail is not None:
+                                # capability-level credit assignment: the
+                                # deficit is the cluster's, not the query's
+                                phat = 1.0 - cluster_fail
+                            advantage = (max(1.0 - phat, 0.0)
+                                         + preserve * max(phat, 0.0))
                         loss = advantage * w * loss_mean / len(chunk)
                         raw_nll = float(loss_mean.item())
                         _AW_NLL_EMA = (raw_nll if _AW_NLL_EMA is None
@@ -1332,7 +1670,7 @@ def train_student(
                 optimizer.zero_grad(set_to_none=True)
                 optimizer_steps += 1
             print(
-                f"[train] epoch={epoch + 1}/{EPOCHS} optimizer_steps={optimizer_steps}",
+                f"[train] epoch={epoch + 1}/{training_epochs()} optimizer_steps={optimizer_steps}",
                 flush=True,
             )
             if _v3_stats["w_n"]:
@@ -1433,8 +1771,9 @@ def write_manifest(
         "seed": args.seed,
         "student": args.student,
         "training": {
-            "epochs": EPOCHS,
-            "learning_rate": LEARNING_RATE,
+            "epochs": training_epochs(),
+            "learning_rate": training_lr(),
+            "preserve": float(os.environ.get("AW_PRESERVE", "0")),
             "gradient_accumulation": GRADIENT_ACCUMULATION,
             "dtype": "bfloat16",
             "lora": {
@@ -1480,6 +1819,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         raise RuntimeError("the visible CUDA device does not support bfloat16")
 
     distillation = distillation_config()
+    if (distillation is not None and distillation["mode"] == "pair_unit") or os.environ.get("AW_CC_PAIRS_PATH"):
+        import sys
+        from bfas.pair_unit import run
+        run(args, trainer=sys.modules[__name__])
+        return
     seed_everything(args.seed)
     rows = load_pool(POOL_PATH)
     teacher_filter = os.environ.get("AW_TEACHER", "").strip()
@@ -1489,6 +1833,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             raise ValueError(f"AW_TEACHER={teacher_filter!r} matches no rows")
         print(f"[pool] teacher filter {teacher_filter}: {len(rows)} rows")
     tokenizer = load_tokenizer(args.student)
+    log_prompt_truncation(tokenizer, rows)
     attach_response_token_counts(tokenizer, rows)
     selected, details = select_rows(args, tokenizer, rows)
 
@@ -1510,14 +1855,20 @@ def main(argv: Sequence[str] | None = None) -> None:
     model = build_lora_model(args.student, args.seed)
     if distillation is not None and distillation["mode"] == "ddpo":
         cache_ddpo_reference_log_probs(model, tokenizer, selected)
-    sft_optimizer_steps = train_student(
-        model,
-        tokenizer,
-        selected,
-        args.seed,
-        smartad=args.selection == "smartad_std",
-        distillation=distillation,
-    )
+    if os.environ.get("AW_SFT_SKIP") == "1":
+        # CRCD B3 arm: preference-only distillation on (a+, a-) events, no
+        # SFT stage; only meaningful with AW_DISTILL=ddpo (2026-09-02).
+        print("[train] AW_SFT_SKIP=1: skipping the SFT stage", flush=True)
+        sft_optimizer_steps = 0
+    else:
+        sft_optimizer_steps = train_student(
+            model,
+            tokenizer,
+            selected,
+            args.seed,
+            smartad=args.selection == "smartad_std",
+            distillation=distillation,
+        )
     ddpo_optimizer_steps = 0
     if distillation is not None and distillation["mode"] == "ddpo":
         ddpo_optimizer_steps = train_ddpo(

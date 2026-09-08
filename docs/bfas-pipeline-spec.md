@@ -104,8 +104,11 @@ appworld_train AW_DISTILL modes), star (self rows, plain), base
   unseen-split evaluation, train games as pool. Teacher-as-agent runs
   through the same chat client (`appworld_teacher.generate_reply`)
   with an ALFWorld prompt loop mirroring `src/alfworld_eval.py`.
-- tau2 adapter: defer to a stub raising NotImplementedError with the
-  planned interface documented (user-sim complexities; phase 3).
+- tau2 adapter: wraps the vendored official `tau2 run` CLI for airline,
+  retail, and telecom. The student is addressed through the pipeline-owned
+  OpenAI-compatible vLLM endpoint; both teacher-agent and user-simulator use
+  the metered DeepSeek endpoint. Native verbose request logs are rendered by
+  the student tokenizer, and native episode rewards provide verdicts.
 
 ## CLI (`bfas/run.py`)
 
@@ -150,3 +153,56 @@ harness sees exactly the artifact class it documents. The
 export-identity audit (Addendum 1) then verifies the whole chain.
 Custom pre-started servers are allowed ONLY where the benchmark's own
 docs prescribe pointing at an external endpoint.
+
+## Addendum 3 (2026-08-29, user insight): mechanism completeness for the
+## deficit frontier
+
+The advantage weight only acts on tasks that already have verified
+trajectories; tasks with p-hat near zero and no verified data receive
+zero effective training mass despite maximal deficit, silently. Two
+requirements close this hole:
+
+1. Deficit-directed acquisition: the collection budget allocator
+   distributes teacher attempts and guided rounds in proportion to
+   remaining deficit mass among tasks lacking verified data, until
+   either a verified trajectory exists or the teacher itself has
+   failed its attempt budget, in which case the task is marked
+   infeasible-at-budget in the decision trace (an explicit
+   certificate, never a silent skip).
+2. Coverage invariant (build-time audit): after pool construction,
+   every support task must either contribute training mass
+   commensurate with its deficit or carry an explicit exclusion
+   record with a machine-readable reason. The audit fails on any
+   high-deficit category whose pool contribution is zero without
+   certificates.
+
+## Addendum 4 (2026-08-29, user directive): teacher-API economy — the
+## purchase ledger
+
+Teacher tokens are the scarce resource; no task may be purchased twice.
+
+1. A single persistent ledger (data/teacher_ledger/<benchmark>.jsonl,
+   append-only, one record per teacher episode) stores per
+   (benchmark, task_id, teacher, attempt_index): verified flag, the
+   demo payload when verified, tokens spent, temperature, timestamp.
+   Atomic appends; a compaction view keyed by task gives the current
+   best demo and cumulative attempts/tokens.
+2. Every teacher purchase anywhere in the pipeline (demo collection,
+   probes, pool builders) goes through one gateway that consults the
+   ledger first: a verified demo is returned from the ledger, never
+   re-purchased; a task whose attempt budget is exhausted is returned
+   as infeasible-at-budget, never silently retried. Escalation beyond
+   the attempt budget must be explicit (deficit-directed acquisition,
+   Addendum 3) and is itself recorded.
+3. Teacher demos depend only on the FIXED support set, not on the
+   seed: the demo phase moves from collect_s<seed>/ to a
+   benchmark-level shared store; seeds share demos. (Cuts demo cost by
+   the seed count.)
+4. The ledger doubles as the budget accounting for the paper's B:
+   per-benchmark spend is the sum of its ledger tokens, including
+   failed attempts (charged per the problem setting).
+5. A soft rate limiter paces gateway calls to stay under the
+   provider's burst limits, so retries are not wasted on 429s.
+6. For two-sided benchmarks such as tau2, user-simulator usage is stored in
+   the same ledger with `purpose="user_sim"`; those records count toward
+   spend but do not consume teacher-agent attempts or qualify as demos.

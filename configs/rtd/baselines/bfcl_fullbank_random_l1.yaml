@@ -1,0 +1,10 @@
+# Procurement primitive config, not a prepared BaselineConfig.
+# A final full-bank training export still needs the later procurement coordinator.
+version: c27-acquisition-v1
+protocol: sealed_random_L1
+seed: 0
+replay_length: 1
+windows_per_round: 4
+max_new_packages: 1
+empty_prior: 0.5
+new_teacher_calls: false

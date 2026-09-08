@@ -1,0 +1,13 @@
+{"task_id":"irrelevance_117","teacher":"deepseek-v4-pro-FC","attempt_index":0,"temperature":0.0,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:14:44.276499Z"}
+{"task_id":"irrelevance_117","teacher":"deepseek-v4-pro-FC","attempt_index":1,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:14:47.578635Z"}
+{"task_id":"irrelevance_117","teacher":"deepseek-v4-pro-FC","attempt_index":2,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:14:50.838358Z"}
+{"task_id":"irrelevance_154","teacher":"deepseek-v4-pro-FC","attempt_index":0,"temperature":0.0,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:14:54.210975Z"}
+{"task_id":"irrelevance_154","teacher":"deepseek-v4-pro-FC","attempt_index":1,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:14:57.496683Z"}
+{"task_id":"irrelevance_154","teacher":"deepseek-v4-pro-FC","attempt_index":2,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:00.815685Z"}
+{"task_id":"irrelevance_16","teacher":"deepseek-v4-pro-FC","attempt_index":0,"temperature":0.0,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:04.089185Z"}
+{"task_id":"irrelevance_16","teacher":"deepseek-v4-pro-FC","attempt_index":1,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:08.138037Z"}
+{"task_id":"irrelevance_16","teacher":"deepseek-v4-pro-FC","attempt_index":2,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:11.489036Z"}
+{"task_id":"irrelevance_174","teacher":"deepseek-v4-pro-FC","attempt_index":0,"temperature":0.0,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:14.898778Z"}
+{"task_id":"irrelevance_174","teacher":"deepseek-v4-pro-FC","attempt_index":1,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:18.315715Z"}
+{"task_id":"irrelevance_174","teacher":"deepseek-v4-pro-FC","attempt_index":2,"temperature":0.7,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:21.623965Z"}
+{"task_id":"irrelevance_207","teacher":"deepseek-v4-pro-FC","attempt_index":0,"temperature":0.0,"verified":false,"tokens_spent":0,"purpose":"teacher","timestamp":"2026-08-30T11:15:24.904622Z"}

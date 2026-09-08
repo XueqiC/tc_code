@@ -1,0 +1,109 @@
+{
+  "audit": {
+    "driver_basis": "local-driver-version",
+    "driver_was_recorded": false,
+    "limitation": "Legacy driver version and PCI order were not recorded. Driver is established at migration, not proven historically; missing instance metadata remains null. Saved model, capability, memory and software fields are preserved; the full live class is checked before GPU work.",
+    "method": "immutable-manifest-device-class-projection-v1",
+    "new_hardware_hash": "01008afbb023230fcc71c30c6a1aa9be6fe0fb8a27c1daef61f14ef15aec25e1",
+    "observations": {
+      "matching_devices": [
+        {
+          "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+          "pci_bus_id": "0000:23:00.0",
+          "uuid": "97762062-28db-d85e-cb46-294b082f94df"
+        }
+      ],
+      "software": {
+        "cuda": "13.0",
+        "machine": "x86_64",
+        "python": "3.12.13",
+        "versions": {
+          "numpy": "2.5.2",
+          "peft": "0.20.0",
+          "torch": "2.13.0",
+          "transformers": "5.14.1"
+        }
+      }
+    },
+    "protocol_version": "1.0.4",
+    "recorded_at": "2026-09-07T07:34:35.429806+00:00",
+    "retained_hard_fields": [
+      "gpu",
+      "capability",
+      "memory",
+      "cuda",
+      "versions",
+      "python",
+      "machine"
+    ],
+    "task": "C25n",
+    "verified_checkpoints": {
+      "round-1": {
+        "actual_spend": 225,
+        "adapter_hash": "46fa93290959ef463b030df438040fd678c3f4698e02c7507c2e84d8f534a434",
+        "authorized_budget": 825753,
+        "config_hash": "eda6c35f845027c52701c84fe8475bd8ed77c7fd2146e179f8a90f1b762dc001",
+        "manifest_hash": "e95096df2105cf399819a8066445fe439147d26094cea06ddccc309af34c5459",
+        "owned": [
+          "c313fecb8cac154894ba0a09babefa5f9dfb19fb0e26dd6fda1498241f39b43d",
+          "ecb9faf772e1e642047c6c9c67e2e9e1d0aae83908b3fb0b99a3e167ba0dbc02"
+        ],
+        "parameter_hash": "da037c21ca0b809af3c4683907a11a12d3635f9c478ac9e9fe96d480a1494ce4",
+        "round": 1,
+        "round_state_hash": "f11c4be22636f7156a586abd66fe42f36ecc9170d61f5e1d358bb3c82dce3f28",
+        "source_id": "27b678ff4c968f38171ee90fc5a9fc13586a13d390252f1c0ef2fa9030bdcdf2"
+      }
+    }
+  },
+  "hardware": {
+    "hard": {
+      "capability": [
+        12,
+        0
+      ],
+      "cuda": "13.0",
+      "driver": "580.95.05",
+      "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+      "host_class": "sn4622122543",
+      "machine": "x86_64",
+      "memory": 101971722240,
+      "python": "3.12.13",
+      "versions": {
+        "numpy": "2.5.2",
+        "peft": "0.20.0",
+        "torch": "2.13.0",
+        "transformers": "5.14.1"
+      }
+    },
+    "metadata": {
+      "cuda_device_order": null,
+      "hostname": "sn4622122543",
+      "pci_bus_id": null,
+      "uuid": "97762062-28db-d85e-cb46-294b082f94df"
+    },
+    "version": "rtd-hardware-class-v1"
+  },
+  "hardware_hash": "01008afbb023230fcc71c30c6a1aa9be6fe0fb8a27c1daef61f14ef15aec25e1",
+  "manifest_hash": "e95096df2105cf399819a8066445fe439147d26094cea06ddccc309af34c5459",
+  "old_hardware": {
+    "capability": [
+      12,
+      0
+    ],
+    "cuda": "13.0",
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+    "hostname": "sn4622122543",
+    "machine": "x86_64",
+    "memory": 101971722240,
+    "python": "3.12.13",
+    "uuid": "97762062-28db-d85e-cb46-294b082f94df",
+    "versions": {
+      "numpy": "2.5.2",
+      "peft": "0.20.0",
+      "torch": "2.13.0",
+      "transformers": "5.14.1"
+    }
+  },
+  "old_hardware_hash": "38966a3c99fc773e4e8c334091a473bdfc56b5179759f229e47903c445286ac5",
+  "version": "rtd-hardware-class-v1"
+}

@@ -1,23 +1,24 @@
 Language-model agents are deployed for narrow jobs that are specified,
 in practice, by a few dozen example queries, a task-level success
 check, and metered access to a stronger teacher that charges for every
-token. We study few-shot agent specialization under exactly these
-terms. Our first finding is negative. Across seven current
-distillation baselines spanning the labeling, feedback,
-self-knowledge, and on-policy branches, every method that uses teacher
-tokens as training targets ends below the untrained student.
-Maximum-likelihood imitation provably descends the divergence between
-teacher and student behavior distributions, and we find empirically
-that the induced task-extraneous drift offsets useful transfer while
-eroding abilities the student already has. We therefore propose
-budgeted verifier-guided self-distillation. Purchased demonstrations
-enter only the student's context, where they raise the probability
-that the student discovers successful behavior by itself, by an order
-of magnitude in our experiments, and the verifier determines how the
-student's own trajectories contribute to learning. A gradient-space
-representation of task demand prices each candidate purchase by the
-self-supervision it is expected to unlock per teacher token, and
-spending stops endogenously when no candidate retains positive
-utility. Under matched budgets on agent benchmarks, our method is the
-only one that consistently improves on its base student.
+token and exposes only text. We study few-shot agent specialization
+under exactly these terms. Distillation from such a teacher faces one
+question that imitation cannot answer: a purchased demonstration says
+what the teacher would do, but not which of the student's own
+behaviors it should replace, and maximum-likelihood imitation replaces
+them wholesale. We propose return-targeted distillation. Each
+supervised state receives a fixed amount of teacher probability mass
+through a legal probability transfer, and the mass is taken from
+whichever of two freshly sampled student behaviors the student's own
+learning return says should give way, so that the shared component of
+the two behaviors cancels and only their difference is decided. The
+replacement is the solution of a small joint problem whose
+interaction term charges evidence that pushes the update in the same
+direction, and the same problem prices every candidate purchase by
+the marginal gain it adds to the full update of the evidence already
+owned, under a hard ledger that bills failed completions. Under a
+common teacher budget cap on agent benchmarks, with the harness fixed
+and only the student backbone changing, we compare the method with
+implementation-faithful distillation baselines and isolate the
+mechanism with paired controls on identical purchased data.
 \todo{finalize headline numbers at freeze.}

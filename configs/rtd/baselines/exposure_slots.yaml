@@ -1,0 +1,5 @@
+# Standalone example; prepare expands each recipe/view into a self-contained YAML.
+recipe: b1
+view: slots
+slots: 288
+commits: 36

@@ -1,0 +1,8 @@
+# No fabricated final-run target. prepare binds source costs, run freezes its own sources.
+# Z = sum_j p_j/c_j;  q_i = (p_i/c_i)/Z;  rho_i = p_i/q_i = Z*c_i
+recipe: b1
+view: tokens
+token_cost: prompt_plus_action
+token_relative_tolerance: 0.01
+update_tokens: []
+pg_reserved_tokens: []
