@@ -1383,3 +1383,6 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 04:25Z(报告)ALFWorld hpg R0/R1 r1 s10、R1s s7;rai R1 r2 评测 84%;GPU2 仍被占 9h;Codex D1(7 文件)/D2D3(21 文件)运行 24 min。
 - 9/9 04:43Z 用户附件:把核心机制定为 α(注入量)+d(来源选择)的合法概率转移、ĝ_d 估计器、由更新后回报方向导数 z 决定 d 的有限步下界、采购价值=联合边际收益;要求修改 v1.1 使之成为 ICLR 级创新。开始改写方法文档(rev 2)。
 - 9/9 04:46Z v1.1 rev 2 方法文档已发:α+d 合法概率转移、ĝ_d、z 与有限步下界、联合边际收益采购、三臂 + 三组配对对照、实现分段 D8(α+d)/D9(联合控制器)。
+- 9/9 04:56Z 用户 04:53Z 执行修正(同批参考、冻结曝光权重、d 求解器、采购代理、归因/测试)→ 方法文档 rev 3 提交;D8b/D9/D6/D7 任务文本已按 rev 3 更新;运行中的 D8(rev 2)完成后接 D8b。
+- 9/9 04:58Z 用户批准 rev 3 并要求按此跑。D2/D3 交付(v11b:acquisition/broker/caps/cli/experiment/insertion/ledger/persistence/selector 修改 + bank_v11/config_v11/experiment_v11/value_feedback 新模块 + tools/rtd_v11_build_bank.py + configs/rtd/v1_1_bfcl.yaml;929 passed);复核测试中。D8 进行中。
+- 9/9 04:59Z v1.1 bank 已构建 data/rtd/v1_1_bfcl(420 包;exact 21,203 + estimated 34,167 = 55,370;类 cap 证书 caa729a7…);configs/rtd/v1_1_bfcl.yaml 改为 2 轮(10/25%)并提交(v11b d9954f0)。D2/D3 提交 24f5fca。
