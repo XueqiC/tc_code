@@ -1358,3 +1358,8 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 02:27Z hpg ALFWorld R1 通过 reference→selected;R1 接力(afterany)已排。
 - 9/9 02:27Z hpg ALFWorld R1 接力作业 id 41351395;粗粒度监视覆盖 R0/R1/R1s + 两个接力。
 - 9/9 02:30Z hpg R0 三轮完成(41328394 COMPLETED 6h07m):r3 Overall 46.75(NL 79.73/Live 77.13/MT 50.37/Mem 27.53/Irrel 82.51/Rel 75.00/Web 11.00);曲线 45.53→46.02→46.75,base 46.74;7 包/686 tok;格式错误 0/18/51(随机臂同样逐轮上升)。
+- 9/9 03:25Z(报告)hpg R1s r3 训练完成进评测;rai R1 r2 评测 77%;rai R0 等 GPU2(7h);hpg R0 接力空跑完成;ALFWorld hpg R0 r1 s4(24 ep)、R1 s4(10 ep)、R1s s1(7 ep)。
+- 9/9 02:36Z 停止 rai GPU1 上冗余的 ALFWorld smoke 循环(hpg 已在真实模型上跑通完整窗口);GPU1 释放。
+- 9/9 02:53Z hpg ALFWorld R1s 通过 reference→selected;R1s 接力(afterany)已排。三臂均通过首窗关键阶段。
+- 9/9 02:53Z hpg ALFWorld R1s 接力作业 id 41354221;粗粒度监视覆盖三臂 + 三个接力。
+- 9/9 02:55Z hpg R1s 三轮完成(41328395 COMPLETED 6h30m):r3 Overall 46.53(NL 80.35/Live 77.72/MT 49.62/Mem 29.25/Irrel 82.87/Rel 75.00/Web 8.50);曲线 45.91→45.98→46.53;6 包/523 tok;格式错误 46/53/89。hpg matched 三臂齐:R0 46.75 / R1 47.31 / R1s 46.53(base 46.74)。
