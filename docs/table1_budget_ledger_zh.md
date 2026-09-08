@@ -134,6 +134,52 @@ acquired_B<cap>_seed<k>.json 保存完整冻结顺序、逐步累计成本、下
 
 对已采购的非空训练池，使用 `AW_POOL_PATH` 和 **--selection full**。src/appworld_train.py 的 --budget 按学生 tokenizer 计算被选训练行 response tokens；不能代替教师调用费用，也不应再按行重做预算选择。此次只检查输入格式，不执行训练。
 
+### 5.1 BFCL dDPO 排名补采工具（待用户运行）
+
+新增 `tools/table1_ddpo_rank.py`，本次仅实现工具和 CPU fake-client 测试，**没有运行 GPU 或教师 API，也没有更新真实池的 fallback 状态**。§4–§5 的表格仍是补采前快照。5 条旧缓存 rank 不复用。
+
+在当前 worktree、`table1-audit` 分支运行：
+
+```bash
+export PYTHONPATH=src:.
+export PYTHONDONTWRITEBYTECODE=1
+PY=.venv/bin/python
+$PY tools/table1_ddpo_rank.py sample --cap 13843 --repeats 4 --gpu <uuid> --port auto
+$PY tools/table1_ddpo_rank.py rank --cap 13843 --key-file ~/.ollama_api_key --max-calls 40 --max-output-tokens 64
+```
+
+`sample` 使用三个 manifest 共同的 `tasks_covered`（22 个官方父任务），并核验三份 SFT 内容 hash、采购 ID、初始 checkpoint 和费用一致。94 行中包含 `gen_` / `oos_` 生成任务；它们不是额外要采样的官方 task ID。初始模型固定为 `Qwen/Qwen3.5-4B`、无 adapter，temperature=1.0，默认每题 4 次，共 88 行。只调用本地 GPU 服务，不加载教师 key、不调用教师。模型/tokenizer 从已有本地缓存加载，离线模式禁止自动下载。
+
+旧 K 次 unguided 采样入口是 `tools/bfcl_roll_pass.sh base <gpu> <port> 4`（旧 temperature=0.7）；`bfcl_teacher_demos.sh` 是教师示范采集，`bfcl_demo_pool.py` 和 `bfcl_gen_rows.py` 是行构建。本工具复用旧入口的 vLLM + 官方 BFCL CLI 路径，改为 temperature=1.0，并用 `BFCL_PROJECT_ROOT` 隔离写目录。实际命令如下（`RUN=results/table1_audit/bfcl/ddpo_sample_B13843`，运行时展开为绝对路径；`PORT` 为自动选择的空闲端口，`r=0..3`）：
+
+```bash
+CUDA_VISIBLE_DEVICES=<uuid> envs/vllm-serve/.venv/bin/vllm serve Qwen/Qwen3.5-4B \
+  --served-model-name Qwen/Qwen3.5-4B --host 127.0.0.1 --port "$PORT" \
+  --gpu-memory-utilization 0.85 --max-model-len 32768
+BFCL_PROJECT_ROOT="$RUN" LOCAL_SERVER_ENDPOINT=127.0.0.1 LOCAL_SERVER_PORT="$PORT" \
+  envs/bfcl/.venv/bin/bfcl generate --model Qwen/Qwen3.5-4B-FC --run-ids \
+  --skip-server-setup --temperature 1.0 --num-threads 4 --include-input-log \
+  --result-dir "$RUN/result_r$r"
+BFCL_PROJECT_ROOT="$RUN" envs/bfcl/.venv/bin/bfcl evaluate --model Qwen/Qwen3.5-4B-FC \
+  --result-dir "$RUN/result_r$r" --score-dir "$RUN/score_r$r" --partial-eval
+```
+
+用户只需执行上面的 `sample` 子命令；服务启动、端口、清理与子进程环境均由它管理。入口 Python 为 `$PY`，BFCL/vLLM 子命令使用旧脚本对应的专用环境。完整展开命令保存在 `RUN/run.json` 并输出到终端。selection、result、score、锁、日志和运行缓存都放在 `results/table1_audit`，不改共享 `data/`、`envs/` 或旧 selection 文件，不加载共享 `.env`。每次 repeat 先检查全部结果，再用现有 `extract_verdicts` 核对官方 score 总数和失败补集；缺失 checker 文件不被当作通过。最终 `bfcl/ddpo_samples_B13843.jsonl` 包含 `task_id, sample_index`（0-based）、`response, verified`，另存官方 handler 的 `prompt, messages` 供排名偏好行复现上下文。重复运行保留已完成 repeat 和官方部分结果。
+
+`rank` 对每个有至少两个不同 response 的已购父任务调用一次 `deepseek-v4-pro`，强制 think=false、temperature=0，使用旧 `RANK_PROMPT` / `last_two_numbers`，展示全部去重候选及完整官方 prompt，不按 checker 正误预筛选。不把生成子任务的 prompt 当作父任务上下文，也不把 SFT 教师答案当候选。成功排名后以学生 best/worst 组成旧格式的 `teacher='rank'` 行：`task_id, teacher, turn_index, messages, prompt, response, _rejected, token_hint`；`token_hint` 仍只是学生答案的训练提示长度，不用于排名费用。
+
+教师客户端原先只返回文本，Ollama usage 被丢弃。本次为 `appworld_teacher.generate_reply` 添加可选 `usage_out`，在解析 content 前暴露 provider usage；原调用者仍获得字符串。排名优先按 `completion_tokens` / `output_tokens` 记 `tokens_spent`、`confidence='exact'`，不使用输入或 total tokens。若没有 usage，用本地 Qwen tokenizer 对教师回复计数并标 `estimated`；空回复但 usage 缺失至少记 1，不能推断免费。索引解析失败不产偏好行，仍将调用、原回复和费用写入账本，且不再次请求该任务；只有 provider 明确报告 output=0 时才可零收费跳过。没有返回文本也没有 usage 的传输/配额错误记 `tokens_spent=null, confidence='unknown'`，manifest 标 `incomplete_ranking_costs`，保留未知 call ID，不能假称已精确结算。fallback tokenizer 失败时也保留回复并标未知费用。
+
+新账本为 `results/table1_audit/bfcl/ddpo_rank_ledger.jsonl`，保留原 BFCL ledger 的 `task_id, teacher, attempt_index, temperature, verified, tokens_spent, purpose='rank', timestamp`，补充 `call_id`、provider usage、候选、回复、解析状态和 preference row。`verified=false` 表示排名调用不是通过官方 checker 的教师示范；学生样本的官方 verdict 在 samples 文件中。三个训练 seed 共享同一次排名及 call ID，不三次付费。
+
+`--max-calls` 是该已购任务集**跨恢复运行累计的 HTTP attempt 上限**，包含失败和 429 重试；调大此参数可继续尚未处理的任务。关闭客户端隐藏重试及备用 key 轮换；只使用指定 key-file，`OLLAMA_BASE_URL` 如未设置默认 `https://ollama.com`。每次运行遇到 429 至多重试两次（该任务本轮总计三次，间隔 1/2 秒），耗尽后终止整个运行；配额恢复后可重跑，之前的尝试仍计入累计 max-calls。其他 API 错误立即终止，若该任务曾发生非 429 API 错误，需先核对并结算该记录再继续。已返回排名（包括解析失败）不重呼叫。文件锁防止两个进程同时购买；每次请求前 fsync 写 `ddpo_rank_attempts.jsonl`，回复结算后 fsync 追加 ledger。若进程在请求与记账之间崩溃，下一次会拒绝自动重试、列出未结算 call ID，需根据真实 provider 记录补齐 ledger 后恢复；不能删除意图日志来把潜在收费调用变成免费。
+
+每次正常停止（含 max-calls/配额停止）均重建三个 seed 的 `pool_ddpo.jsonl = 原审计 pool_sft + 每个成功排名任务一行`，同时更新 `arms.ddpo` 的 `ranking_call_ids, teacher_call_ids, pool_sha256, rows, ranking_cost, C_m`。完成且至少有一个偏好行时 `status` / `trainer_status='ready'`；未处理完为 `partial_ranking`，没有可用偏好为 `no_rankable_preferences`，未知费用为 `incomplete_ranking_costs`。manifest 同时列出解析失败、候选不足、尚未处理和未知费用的任务/调用。非 ready 返回退出码 2；部分结果仍保存。
+
+**费用不受剩余 67 tokens 截断：**`C_m(ddpo) = 13,776 + Σ所有相关排名 attempt 的 output tokens`，失败/弃用回复同样收费；B=13,843 限制原证据采购，不阻止已授权的排名补采。超过 cap 时 `exceeds_cap=true`、`over_cap_tokens>0`、`remaining_budget<0`，不丢任务以适配预算。22 个可排名任务、无重试且每次最多 64 output tokens 时排名上限为 1,408，总额至多 15,184；真实是否超 cap 以 provider usage 为准。顶层采购 C_m/余额、其他臂和历史账本保持原值；未知费用时所列 C_m 仅含已知费用，`ranking_cost_complete=false`。完成后不要再次运行旧 `table1_pool_from_sealed.py` 覆盖新 dDPO manifest；排名账本是恢复来源。
+
+CPU 验证命令：`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_table1_ddpo_rank.py tests/test_table1_audit.py`。覆盖去重/恢复、跨运行调用上限、失败与零/未知 usage、429 有界重试、旧 rank 行格式、三个 manifest 及超 cap 费用、官方 score 完整性、采样命令隔离，以及真实 94 行/22 个官方父任务的只读核验。
+
 ## 6. RTD 交叉核对与 Table 1 合规性
 
 | 项目 | 核实事实 | 影响 |

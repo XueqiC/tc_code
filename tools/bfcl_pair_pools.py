@@ -25,8 +25,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import appworld_teacher as at  # noqa: E402
 
-at.MAX_COMPLETION_TOKENS = 512
-
 RANK_PROMPT = (
     "You are ranking candidate answers for a function-calling task.\n"
     "Task:\n{question}\n\nCandidates:\n{cands}\n\nReply with exactly "
@@ -68,6 +66,7 @@ def last_two_numbers(text: str) -> tuple[int, int] | None:
 
 
 def main() -> int:
+    at.MAX_COMPLETION_TOKENS = 512
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repeats", type=int, default=4)
     ap.add_argument("--tag", default="ds")
