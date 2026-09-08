@@ -4,25 +4,40 @@
 %% (iii) implementation details. Details in Appendix~\ref{app:details}.
 
 \paragraph{Benchmarks, baselines, and evaluation.}
-We evaluate on four agent benchmarks under their official harnesses
-and metrics, namely \textbf{AppWorld} \citep{trivedi2024appworld}
-(unit-test pass ratio), \textbf{BFCL~v4} (overall accuracy),
-\textbf{$\tau^2$-bench} \citep{yao2024taubench}
-(pass\textsuperscript{1}), and \textbf{ALFWorld}
-\citep{shridhar2021alfworld} (unseen-split success rate); benchmark
-details are given in Appendix~\ref{app:details}.
-\todo{finalize the frozen AppWorld protocol numbers.}
-Following the black-box branches of the distillation taxonomy of
-\citet{xu2024kdsurvey}, the baselines are \emph{Vanilla SFT}
-\citep{mukherjee2023orca}, \emph{Structured Agent Distillation}
-\citep{liu2025structured}, the agent distiller of
-\citet{kang2025distilling}, \emph{dDPO} \citep{tunstall2023zephyr},
-\emph{PBSD} \citep{pbsd2026}, \emph{STaR} \citep{zelikman2022star},
-and \emph{Black-Box On-Policy Distillation} \citep{ye2025bbopd}, all
-consuming the same budget from the same teacher. Every number is
-mean$\pm$std over three seeds with the change against the untrained
-base student explicit; budget efficiency and off-task residue metrics
-are defined in Appendix~\ref{app:details}.
+The main table uses three agent benchmarks under their official
+harnesses, with every method deployed through the same tools, prompts,
+action retries, and decoding, so that only the 4B backbone changes:
+\textbf{AppWorld} \citep{trivedi2024appworld} (task goal completion,
+TGC, on a fixed 40-task development subset with a 24-step cap;
+unit-test pass ratio is reported as a diagnostic), \textbf{BFCL~v4}
+(official overall accuracy over the full 5{,}217-entry suite), and
+\textbf{ALFWorld} \citep{shridhar2021alfworld} (success rate on the
+140-task \texttt{valid\_seen} split). $\tau^2$-bench
+\citep{yao2024taubench} is excluded from the main table because its
+simulated user consumes an order of magnitude more teacher tokens per
+episode than any supervision budget studied here; protocols and task
+counts are in Appendix~\ref{app:details}. The baselines are named by
+what they implement (Appendix~\ref{app:baselines} gives losses, data,
+and the original methods they adapt): \emph{Trajectory SFT}
+\citep{mukherjee2023orca}, \emph{Span-weighted SFT} (adapting
+Structured Agent Distillation, \citealp{liu2025structured}),
+\emph{On-policy teacher correction + SFT} (the supervised core of
+black-box on-policy distillation, \citealp{ye2025bbopd}, without its
+discriminator), \emph{SFT + teacher-ranked DPO} (dDPO,
+\citealp{tunstall2023zephyr}), \emph{Offline teacher--student
+preference training} (PBSD-inspired, \citealp{pbsd2026}), and
+\emph{STaR without rationalization} \citep{zelikman2022star}.
+Teacher-using methods share the same teacher budget cap $B$ on a
+benchmark, and every teacher output token they consume, including
+discarded failures, ranking calls, and on-policy corrections, is
+charged against it; STaR uses no teacher call and is reported as the
+zero-teacher reference. Each trained row is mean$\pm$std over three
+training seeds (data order, adapter initialization, and the student's
+own sampling) with greedy evaluation; the \emph{initial pretrained
+student} row is a single reference evaluation of the released
+checkpoint, whose evaluation-repeat spread is stated in
+Appendix~\ref{app:details}, and improvements are reported in
+percentage points over it on the full fixed column set.
 
 \paragraph{Few-shot setup.}
 Each benchmark instantiates Definition~\ref{def:setting}
