@@ -85,6 +85,27 @@ class ALFWorldExperimentSupport:
             if len(json.loads(state.history_json)) != 1:
                 raise ValueError('support must start at a full reset')
             self.states[h] = state
+        # Feedback uses one deterministic trial per parent. Purchase requests
+        # may refer to other trials, each with its own audited public reset hash.
+        self._candidate_resets = {}
+        for tid in manifest['training_task_ids']:
+            if tid in resets:
+                state = FullState(**resets[tid])
+                self._candidate_resets[state.state_hash] = state
+
+    def candidate_states(self, candidates, round_number):
+        """Resolve exact public request states, never parent/prompt aliases or prefixes."""
+        _privileged()
+        states = {}
+        for spec in candidates:
+            state = self._candidate_resets.get(spec.state_hash)
+            if state is None:
+                raise ValueError('candidate missing audited public reset: ' + spec.query_id)
+            if len(json.loads(state.history_json)) != 1:
+                raise ValueError('candidate features require a public reset, never a teacher prefix')
+            states[state.state_hash] = state
+        ordered = tuple(states[h] for h in sorted(states))
+        return self.protocol.guard_states(ordered, round_number, use='candidate')
 
     def feedback_context(self, round_number, backend, journal):
         """C26-F feedback dispatch supplies a fresh explicit per-window context."""

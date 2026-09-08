@@ -5,7 +5,9 @@ parser, complete action scoring, LOO, pilot, VJP, ledger and StateStore are real
 """
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 import torch
 
 from bfas.rtd.functional_step import lora_parameters
@@ -90,3 +92,72 @@ class RunnerEnv(EnumerableEnv):
 
 def feedback_context(self, round_number, backend, journal):
     return ALFWorldFeedbackContext(self.protocol, round_number, render, RunnerEnv, journal)
+
+
+@pytest.fixture
+def multi_trial_window(tmp_path, monkeypatch):
+    """Four parents, two public trials each; only the second trial has a package.
+
+    Use the real verified-bank auditor with tiny counts instead of the production
+    135-parent/data-installation audit. All runner/provider/math paths are real.
+    """
+    from bfas.rtd.benchmarks import alfworld_bank as bank, alfworld_config, registry
+    from bfas.rtd.benchmarks.alfworld_state import canonical_hash, parent_hash
+    from bfas.rtd.benchmarks.alfworld_support import (
+        audit_verified_bank, freeze_support, seal_verified_bank, verify_package,
+    )
+    from bfas.rtd.experiment import RTDExperiment
+    from bfas.rtd.persistence import digest
+    from test_rtd_alfworld_state import make_payload
+
+    groups = {0: [], 1: []}
+    for i in range(32):
+        tid = f'pick_and_place_simple-Apple-None-Table-{i}/trial-1'
+        fold = int(parent_hash(tid), 16) % 2
+        if len(groups[fold]) < 2:
+            groups[fold].append(tid)
+    tids = sorted(t for group in groups.values() for first in group
+                  for t in (first, first.replace('trial-1', 'trial-2')))
+    atomic_json(tmp_path / bank.SUPPORT, dict(demand=tids, calibration=[]))
+    (tmp_path / bank.PROBE).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / bank.PROBE).write_text('')
+    (tmp_path / bank.LEDGER).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / bank.LEDGER).write_text(''.join(json.dumps(dict(task_id=t)) + '\n' for t in tids))
+    for tid in tids:
+        world = tmp_path / 'envs/alfworld/data/json_2.1.1/train' / tid
+        atomic_json(world / 'game.tw-pddl', dict(grammar={'task': [{'rhs': 'Your task is to: put apple on table.'}]}))
+        atomic_json(world / 'traj_data.json', dict(task_id=tid))
+        (world / 'initial_state.pddl').write_text('unique world ' + tid)
+    environment = dict(fixture='C26-H CPU environment', max_episode_steps=40)
+    environment['environment_hash'] = canonical_hash(environment)
+    support = freeze_support(tmp_path, environment)
+    records, payloads, requests, resets = [], {}, {}, {}
+    for tid in tids:
+        request = support['tasks'][tid]['request']
+        payload = verify_package(make_payload(request), request, FakeStepper(request), render)
+        assert payload['status'] == 'usable'
+        resets[tid] = payload['verification']['states'][0]
+        if tid.endswith('trial-2'):
+            q = payload['query_id']
+            records.append(bank.public_record(q, request))
+            payloads[q], requests[q] = payload, request
+    directory = tmp_path / 'bank'
+    archive = bank.Archive(records, payloads, requests, [], dict(source_files=[]))
+    seal_verified_bank(directory, archive, support, payloads, resets)
+    audit = audit_verified_bank(directory)
+    assert audit['usable_packages'] == 4
+    monkeypatch.setattr(alfworld_config, 'bank_audit', lambda root, config: dict(audit, bank_path=str(directory)))
+    monkeypatch.setattr(registry.ALFWorldExperimentSupport, 'feedback_context', feedback_context)
+    monkeypatch.setattr(torch.cuda, '_lazy_init', lambda *a, **k: pytest.fail('CPU window initialized CUDA'))
+    config = dict(alfworld_config.default_config(), smoke_override=dict(parents_per_fold=2,
+        slots=8, rollouts=2, windows=1, baseline='leave_one_out_same_task', max_seconds=900))
+
+    def engine(name, *, resume=False, after_save=None, arm='R1', gate='linear_sigmoid', seed=1):
+        cfg = dict(config, gate=gate, training_seed=seed)
+        manifest = dict(bank_path=str(directory), budget_ceilings=[4 * 1310720] * 3,
+                        arm=arm, config_hash=digest(cfg))
+        providers = registry.get_benchmark(cfg)
+        return RTDExperiment(cfg, manifest, tmp_path / 'results' / name, RunnerBackend(),
+            providers.support_protocol(tmp_path, cfg), smoke=True, resume=resume, after_save=after_save)
+
+    return SimpleNamespace(engine=engine, bank=directory, support=support, payloads=payloads)

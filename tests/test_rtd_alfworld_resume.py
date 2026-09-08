@@ -15,7 +15,7 @@ from bfas.rtd.functional_step import lora_parameters
 from bfas.rtd.persistence import atomic_json
 from rtd_alfworld_evaluation_fixtures import campaign
 from test_rtd_alfworld_config import sealed_campaign
-from rtd_alfworld_runner_fixtures import RunnerBackend, feedback_context
+from rtd_alfworld_runner_fixtures import RunnerBackend, feedback_context, multi_trial_window
 
 
 PHASES = ('reference', 'selected', 'revealed', 'actual', 'feedback', 'committed')
@@ -47,7 +47,8 @@ def scientific_state(engine):
         'source_cache', 'projection_cache', 'standardizer', 'diagonal', 'eta', 'calibrated',
         'owned', 'owned_before', 'selected', 'label', 'phi', 'controller', 'posterior',
         'cost_model', 'support_return', 'steps', 'old_targets', 'new_targets', 'old_chi',
-        'new_chi', 'reference_feedback', 'actual_feedback', 'actual', 'next_phi', 'selection')
+        'new_chi', 'reference_feedback', 'actual_feedback', 'actual', 'next_phi', 'selection',
+        'candidate_specs', 'selected_features', 'reference', 'step_rule', 'trace', 'audit_passed')
     return comparable({k: engine.state[k] for k in keys if k in engine.state})
 
 
@@ -72,12 +73,14 @@ def integrated(sealed_campaign, monkeypatch):
 
 
 @pytest.mark.parametrize('phase', PHASES)
-def test_resume_after_every_durable_phase(integrated, phase):
-    c = integrated
+@pytest.mark.parametrize('fixture_name', ['integrated', 'multi_trial_window'])
+def test_resume_after_every_durable_phase(request, fixture_name, phase):
+    c = request.getfixturevalue(fixture_name)
     clean = c.engine('clean')
     snapshots = {}
     clean.after_save = lambda current: snapshots.update({current: scientific_state(clean)})
     clean.run()
+    assert clean.ledger.owned_ids, 'resume must cover a paid insertion and actual update'
     class Interrupted(Exception):
         pass
     broken = c.engine('interrupted')
@@ -97,7 +100,8 @@ def test_resume_after_every_durable_phase(integrated, phase):
     assert resumed.ledger.spent == clean.ledger.spent
     assert not resumed.ledger.reservations
     assert len(resumed.state['steps']) == 1 and resumed.slots == 8
-    assert len(resumed.state['inner']) == len(resumed.state['feedback']) == 4
+    parents = resumed.config['smoke_override']['parents_per_fold']
+    assert len(resumed.state['inner']) == len(resumed.state['feedback']) == parents
     for engine in (resumed, clean):
         for row in engine.journal.events:
             if row['kind'] == 'alfworld_episode':
@@ -112,7 +116,7 @@ def test_resume_after_every_durable_phase(integrated, phase):
                                for row in e.journal.events if row['kind'] == kind])
         assert events(resumed) == events(clean), kind
     results = [r['metadata'] for r in resumed.journal.events if r['kind'] == 'return_gradient']
-    assert results and all(r['tasks'] == 4 and r['rollouts'] == 8 and
+    assert results and all(r['tasks'] == parents and r['rollouts'] == parents * 2 and
                           r['baseline'] == 'leave_one_out_same_task' for r in results)
     # Completed resume consumes no RNG, repeats no episodes, and commits nothing.
     again = c.engine('interrupted', resume=True)
@@ -122,9 +126,10 @@ def test_resume_after_every_durable_phase(integrated, phase):
     assert again.ledger.charges == clean.ledger.charges
 
 
-def test_crash_between_reveal_and_phase_save_keeps_paid_prefix_and_rng(integrated, monkeypatch):
+@pytest.mark.parametrize('fixture_name', ['integrated', 'multi_trial_window'])
+def test_crash_between_reveal_and_phase_save_keeps_paid_prefix_and_rng(request, fixture_name, monkeypatch):
     from bfas.rtd.ledger import Ledger
-    c = integrated
+    c = request.getfixturevalue(fixture_name)
     clean = c.engine('clean'); clean.run()
     assert clean.ledger.owned_ids, 'fixture must exercise a purchase, not replay only'
     original = Ledger.settle

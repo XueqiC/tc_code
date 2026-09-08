@@ -212,3 +212,69 @@ C26-G 验收补记：新增定向测试 **44 passed**；修正既有断言后的
 补上运行目录后，原 17 个 BFCL 失败用例定向复验为 **17 passed，37 deselected，21.64 秒**（`results/c26g/pytest-bfcl-locks.log`）。完整指定套件 `PYTHONPATH=src:. $PY -m pytest tests/test_rtd_*.py tests/test_checker_bridge*.py -q -p no:cacheprovider` 随后独立重跑完成：**956 passed，4 skipped，0 failed，6 warnings，684.27 秒（11分24秒），退出码 0**，共 960 项，日志 `results/c26g/pytest-full.log`。6 项 warning 来自既有 torch 标量转换和 tiny PEFT 配置，4 项 skip 为真实环境 opt-in；各组检查有重叠，不相加为独立通过数。
 
 最终 `git diff --check` 通过。C26-G 的 `git status --short` 与 `git diff --stat` 分别保存在 `results/c26g/git-status.txt`、`results/c26g/git-diff-stat.txt`；默认 diff stat 不计尚未跟踪的新测试文件。工作树保留未提交状态；本次未使用 GPU，未改动 live tree、只读数据/环境或既有 smoke 产物。
+
+## 7. C26-H：非首选 trial 的购买候选缺少 source features（2026-09-07）
+
+本节在隔离目录 `/home/xueqi/hq/projects/tc-alignment-alf`、分支 `alfworld-c26f`、起始 HEAD `5b8b0ff` 上完成。仅 CPU fake backend 验证；没有写入 live tree、`data/` / `envs/` symlink 目标，没有提交、部署或重新执行 GPU 作业。以下更新取代上文对 C26-F fixture 覆盖范围过宽的解释。
+
+### 根因与复现证据
+
+用户提供的 HPG R0 journal 摘要为 `source_sample=158`、`generated_tokens=413`、`score_consistency=413`、`feedback_rollout=8`、`alfworld_episode=8`，随后在 round 1 / step 1 的 `reference()` → `PrePurchaseFeatures.from_public()` 抛出 `ValueError('missing source features; run legal source sampling first')`；R1、R1s 和 rai smoke 同样失败。HPG bank/journal 本次不在本地，以上远端计数按用户提供的证据记录，未声称重新读取远端产物。
+
+本地只读检查 `data/rtd/v1_alfworld_c26/public/{support,reset_states,requests}.json`：135 个训练 parent、138 个训练 trial、142 条 public reset、107 个可用 package。**3 个可用 package 的 reset hash 不属于其 parent 的 selected trial；fold 0 有 2 个，fold 1 有 1 个。三者均能在 public reset 表找到精确匹配。** 例如 query `01a3d1eff4d8566e2824a6388a09f188ffad1f17aba654b0dd7ad4d1d4efffa2` 使用 `pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002434_086261`，该 parent 的 selected trial 则为 `trial_T20190908_002335_756186`。
+
+`freeze_support()` 为 feedback 固定每个 parent 字典序最小的 trial；`ALFWorldExperimentSupport.states` 只保存这些 selected reset，`pool()` 因而只对这些 reset 和已购 teacher states 采样。银行 public request 的 `state_hash` 正确绑定**各购买请求自己的完整 reset**。`reference()` 用 `source_cache` 生成 `StudentSnapshot.state_features`，broker 按 `spec.state_hash` 查询，非首选 trial 得到空 `PublicFeatures()`。这不是 source sampling 没运行，也不是 `features.py` 漏掉统一记录调用；是 **parent → selected reset** 与 **request → exact trial reset** 两种索引覆盖范围不同。即使两个 trial 的 prompt 一样，也不能复用对方的 state hash。
+
+新增 tiny fixture 有 4 个 parent（每折 2 个）、每个 parent 两个 trial，只有 `trial-2` 有可用 package；public reset 全部经 fake 环境重放后 seal，调用真实 `audit_verified_bank()`。只替换生产 135-parent / 本机环境安装审计入口为已通过真实小银行审计的结果，以及 backend/environment 两个外部边界；broker、providers、RTDExperiment、所有数学与持久化均实际运行。修复前，三个 arm 都在已经完成 source sampling 和 reference feedback 后，于上述同一调用链抛出**完全相同错误**：`results/c26h/pytest-reproduce.log`，**3 failed，16 deselected，3.59 秒**。保留失败日志，最终测试本身要求成功完成窗口，不使用 xfail 或吞掉异常。
+
+### 修复、特征定义与隔离
+
+生产代码只增加两处 ALF 分支：
+
+- `registry.py` 的 ALF support 保存训练 trial 的 public reset hash 索引，并提供 `candidate_states()`。只接受精确 hash；先验证完整 reset、训练任务/世界绑定与当前 candidate fold，再返回确定顺序的去重状态。未知 hash、feedback fold、teacher prefix 均明确拒绝；不按 parent/prompt 回退，也不读 sealed payload 来补状态。
+- `experiment.py::reference()` 在原候选特征构造前，先由原 broker 按 inner fold、ownership、availability、dependency 和 hard cap 列出合法候选，对缺少 source/projection cache 的 public reset 使用原 `sample_state()` 分批采样，记录 `candidate_source_sampling` / `source_sample` / `score_consistency`。然后完整执行原 `feature()` → `StudentSnapshot` → broker → `from_public()` → acquisition 路径。已有 source/projection 不重采；下一轮 source cache 按原规则清空，initial projection 继续缓存。
+
+特征仍为 `features.py` 的 frozen initial-student 32 维投影，加当前 frozen source 的第一个完整 action 的 logprob 和长度；购买向量继续加 public L、coverage、progress、support_return、intercept，共 39 维。没有加入 teacher command、success、历史实际 cost、hidden reason 或 sealed state。新增候选采样只补购买特征，不将未购买轨迹加入 teacher pool，不重拟合本轮 normalizer / RMS P，不改变 parent/slot 抽样池。选中后，已付款 package 的完整 states 才按原 `pool()` ownership guard 进入 pending sampling / frozen chi transform / pilot / insertion。
+
+BFCL 的原有行、provider 对象、broker、`features.py`、acquisition 和数学实现没有修改；runner 新逻辑严格位于 `benchmark == 'alfworld'` 分支。BFCL frozen manifest/scoring oracle 测试文件和 oracle 本身未改动。额外 AST 核验确认：去掉唯一新增 ALF 分支后，整个 `experiment.py` 与 HEAD 的 AST 完全一致；registry 的 ALF evaluation scoring projection 与 HEAD 一致。只读银行核验的逐 request 证据保存在 `results/c26h/public-reset-audit.json`。
+
+### 为什么已有验收没有发现
+
+旧 `sealed_campaign` 集成 fixture 虽有 135 个 parent 和 219 次请求，却每个 parent **只有一个 trial**；因此每个可购 reset hash 都天然等于 `support.states[parent]` 的 hash。旧完整 36-step campaign 和六阶段 resume 的确执行过数学路径，但没有覆盖非首选 trial。较早 support contract fixture 有同 parent 两个 trial，只检查分组、fold、prefix guards 和 broker 合同，没有把这种结构送入 `RTDExperiment.reference()` 的购买特征构造。真实 CPU demo replay 验证状态重放，也不执行 acquisition。接口签名、属性存在、单次 source event，以及单独的多 trial 合同都不能证明所有候选的 feature table 完整。
+
+新增验收固定 seed 0/1，覆盖 R0/R1/R1s 的购买与 empty 分支，明确核对 39 维特征、相同 prompt 下不同 trial 的完整 state/source 绑定、候选特征构造与选择期间无 sealed 读取、normalizer/P 未变、posterior beta、插入标签、8 槽 × .25 暴露、KL pilot、actual 参数变化、LOO feedback、gate VJP、posterior/cost 拟合和 commit。启动时既有 privileged bank audit 不属于 selector/feature 计算。R1/R1s 的购买用例有非零 insertion value；不要求所有反馈或 gate 梯度非零，零回报仍合法。另有 unknown hash / feedback state / teacher prefix 在采样前拒绝的负例。
+
+`test_rtd_alfworld_resume.py` 对旧 fixture 和新多 trial fixture 都执行 reference、selected、revealed、actual、feedback、committed 六个 checkpoint 的中断/恢复，以及 ledger 已 durable settle、phase 尚未 save 的崩溃恢复。比较范围新增 candidate specs、selected features、reference、step rule 和 selector audit，保留三类 RNG、source/projection、参数、P/eta/normalizer、posterior/cost、owned/spend 和轨迹。恢复后只收费/提交一次；从 complete 再 resume 不消耗 RNG、不重复 episode。
+
+### experiment.py 全阶段 dispatch 审计
+
+表中“真实失败运行”仅指用户本次提供的 round 1 / step 1 故障证据；CPU 覆盖不等于已经获得真实模型结果。
+
+| 阶段 / 所调用路径 | ALFWorld 分派与本次审计结果 | 真实失败运行覆盖边界 |
+|---|---|---|
+| `__init__` / resume、`save` / `transition` | registry support/broker；ALF 按 durable ledger 顺序重建 paid packages，再恢复 active fold、模型和 RNG。新旧 fixture 检查 checkpoint 与 ledger 超前恢复；没有新 state schema。 | 初始化已到达；远端 mid-window 恢复未在本次执行。 |
+| `round_start` | parent hash 两折轮换、source snapshot refresh、posterior reset；`pool → sample_state → feature → FrozenStandardizer / rms_diagonal` 使用合法 selected resets + owned states。action cap 走 ALF provider。保留该 geometry 范围。 | round 1 source 和 geometry 已经过；首次无 inner teacher 时 pilot 合法延后。 |
+| `step_start` | 8 槽，same-start reference / exact-noop，ALF feedback context → 完整 episode → `TaskRollout` → 同任务 K=2 LOO。不会进入 BFCL truth/checker。 | reference feedback 已完成 8 episodes；真实 HF generation/scoring、TextWorld worker 和 wall-time 只在真实运行才能核验。 |
+| `reference` | 本次补全所有合法购买 trial 的 source features；原 coverage / 39 维向量 / posterior sampling 或 R0 random / public selector audit 不变。负例在采样前拒绝。 | 故障点；补丁后的 candidate sampling、posterior choice 和 selected save 尚无真实 GPU 验证。 |
+| `selected` | 原 hard-cap reserve/reveal、request→ledger link；ALF paid mapping + protocol guard 校验完整 prefix，pending source、frozen chi 和首次 KL pilot。 | 故障运行未到达；新 fixture 已实际购买非首选 trial 并跑完。 |
+| `revealed` | 共用 streamed gradient、same-start `InsertionReference.insert` / `empty`；标签绑定 query/round/start/reference，8 槽和 epsilon=.25 未变。 | 未到达；CPU 验证非零 insertion value 和 actual 更新。 |
+| `actual` | 相同参数复用 reference feedback，否则重新走 ALF full-episode feedback；R0 固定 gate，R1/R1s 共用相应 VJP/controller。 | 未到达；CPU 覆盖 fresh/reused feedback、linear/scalar/fixed gates。 |
+| `feedback` → `feedback_commit` | actual-only `commit_step`，合并 owned，按已保存 public features 和 revealed cost 更新 posterior/cost model；预算、fold、曝光、audit invariants。 | 未到达；CPU 核对实际参数、成本、标签和唯一 commit。 |
+| `committed` | 落盘 step artifact、释放有限更新对象、按 1/4/7/10 调度下一步；replay 非决策步沿原路径执行。 | 未到达；既有三臂完整 CPU campaign 覆盖 36 步 / 12 窗口。 |
+| `round_end` | 共用 LoRA/tokenizer + round state 原子落盘、hash、trajectory、下一轮折轮换。官方 evaluation 在 CLI worker 外由 ALF provider 调度，不在 experiment 内调用 BFCL evaluator。 | 未到达；CPU campaign 覆盖三轮 worker/resume 和完整 synthetic 140-task evaluation/report；真实模型保存/评估未重跑。 |
+| `initialize_fixed` | 当前 ALF config 只接受 `sealed_replay`，此分支不属于已支持入口；不能因共用 runner 有此方法就声称 ALF fixed-evidence 已验收。 | 不适用；保持既有不支持状态。 |
+| 共用辅助路径 | `packages/pool/draw_slots/chi/gradient/calibrate/feedback/choose_feedback_tasks/scope/batches` 逐项检查：只有 ALF 专用 guard、cap、feedback context 需要分派，其余用共用数学/ledger/memory；`draw_slots` 的 2 samples 和正式 8 slots 与 frozen config 一致。 | 大模型 memory batching、long context、HF source KL/backward 与 GPU 数值/性能仍需要真实模型验证。 |
+
+**剩余风险与运行边界：** 本次没有发现 supported `sealed_replay` 各阶段的其他 ALF dispatch 缺口，但新测试不证明真实 Qwen/LoRA 在 post-reference 阶段无 OOM、数值/score tolerance、长轨迹或 worker 故障。真实故障运行没有到达 reveal、pilot、insertion、actual feedback/VJP、commit、round checkpoint 或 evaluation；这些不可标为真实模型已通过。新增缺失 reset 每轮需要最多两条完整 source action（每个状态两条，非每个 request 两条），增加生成时间；15 分钟 smoke 总时限仍可能不足。生产 HPG bank 不在本地，必须在原已绑定 bank 上验证其 public resets 完整性；缺失/非法 reset 会显式失败，不读 sealed 来绕过。
+
+恢复测试证明保存于 `reference` 的旧形状状态可由新增逻辑补候选特征；从保存的 `selected` 及以后恢复不重新做选择。此次补丁改变训练 source identity；生产 CLI 对旧运行仍要求现有 `--acknowledge-code-drift` 并检查 config/data/base/hardware/harness，不重写原 manifest、不自动接受漂移。本次没有替操作者执行远端恢复。由于新增采样消耗 saved sampling RNG，补丁后的后续采样按修复后的算法继续，不能声称等于不存在此修复的反事实随机轨迹。
+
+### C26-H 验证记录
+
+使用指定 `PY=/home/xueqi/hq/projects/tc-alignment/.venv/bin/python`、`PYTHONPATH=src:.`、`PYTHONDONTWRITEBYTECODE=1`、`CUDA_VISIBLE_DEVICES=''`、三个 CPU 线程变量均为 1，以及 `BFCL_PROJECT_ROOT=$PWD/results/c26h/bfcl-test-runtime`。后者只将 BFCL lock/output 放入可写目录，保持数据与环境只读。定向新增验收：**16 passed，24 deselected，18.45 秒**（`results/c26h/pytest-targeted.log`）。
+
+第一组指定命令 `PYTHONPATH=src:. $PY -m pytest tests/test_rtd_alfworld_*.py tests/test_rtd_bfcl_c26f_regression.py -q -p no:cacheprovider`：**422 passed，4 skipped，0 failed，464.19 秒，退出码 0**。日志：`results/c26h/pytest-alfworld.log`。其中 BFCL regression 的 5 项原 oracle 检查全部通过；4 项 skip 是未启用的真实环境 opt-in 测试。
+
+随后完整执行 `PYTHONPATH=src:. $PY -m pytest tests/test_rtd_*.py tests/test_checker_bridge*.py -q -p no:cacheprovider`：**972 passed，4 skipped，0 failed，6 warnings，678.16 秒（11分18秒），退出码 0**，共 976 项。日志：`results/c26h/pytest-full.log`。6 项 warning 来自既有 torch 标量转换与 tiny PEFT 配置/保存检查；4 项 skip 仍为真实环境 opt-in。两组测试包含重叠用例，不累加为独立通过数。
+
+最终 `git diff --check` 通过；`git status --short` 和 `git diff --stat` 保存于 `results/c26h/git-status.txt`、`results/c26h/git-diff-stat.txt`。共修改 6 个已跟踪文件，其中生产代码仅 registry 增加 21 行、experiment 增加 14 行，其余为测试与本报告；未提交。真实模型 post-reference 窗口与 HPG/rai 恢复仍按上面的运行边界标为未执行。

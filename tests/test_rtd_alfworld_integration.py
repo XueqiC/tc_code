@@ -1,10 +1,12 @@
 """CPU acceptance of the shared CLI, evaluation dispatcher and native report."""
 from copy import deepcopy
+from dataclasses import replace
 import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import numpy as np
 import torch
 import yaml
 
@@ -14,7 +16,130 @@ from bfas.rtd.persistence import ComputeJournal, digest
 from rtd_alfworld_evaluation_fixtures import campaign, FakeBackend, FakeEnv, ROOT, put
 from test_rtd_alfworld_config import sealed_campaign
 from test_rtd_alfworld_resume import integrated
-from rtd_alfworld_runner_fixtures import RunnerBackend, feedback_context
+from rtd_alfworld_runner_fixtures import RunnerBackend, feedback_context, multi_trial_window
+
+
+@pytest.mark.parametrize('arm,gate', [('R0', 'linear_sigmoid'), ('R1', 'linear_sigmoid'), ('R1', 'scalar_sigmoid')])
+@pytest.mark.parametrize('seed', [0, 1])
+def test_nonselected_trial_full_decision_window(multi_trial_window, monkeypatch, arm, gate, seed):
+    """C26-H: source sampling a parent's first trial cannot feature its other trials."""
+    from bfas.behavior.deltas import tensor_state_hash
+    from bfas.rtd.acquisition import PrePurchaseFeatures
+    from bfas.rtd.features import FrozenProjection
+    from test_rtd_alfworld_resume import comparable
+    engine = multi_trial_window.engine('window', arm=arm, gate=gate, seed=seed)
+    phases = []
+    engine.after_save = phases.append
+    engine.round_start()
+    engine.step_start()
+    assert engine.state['phase'] == 'reference'
+    assert any(e['kind'] == 'source_sample' for e in engine.journal.events)
+    assert sum(e['kind'] == 'feedback_rollout' for e in engine.journal.events) == 4
+    hashes = {r.spec.state_hash for r in engine.broker._records.values()
+              if r.parent_hash in engine.state['inner']}
+    assert hashes.isdisjoint(engine.state['source_cache'])
+    geometry = comparable((engine.state['standardizer'], engine.state['diagonal']))
+    selected_resets = {s.state_hash for p, s in engine.support.states.items() if p in engine.state['inner']}
+    # Before the fix this raises exactly:
+    # ValueError('missing source features; run legal source sampling first').
+    original_read = Path.read_text
+    with monkeypatch.context() as patch:
+        def public_read(path, *args, **kwargs):
+            assert not path.is_relative_to(multi_trial_window.bank / 'sealed'), 'pre-purchase sealed read'
+            return original_read(path, *args, **kwargs)
+        patch.setattr(Path, 'read_text', public_read)
+        engine.reference()
+    s = engine.state
+    assert set(s['source_cache']) == hashes | selected_resets
+    assert comparable((s['standardizer'], s['diagonal'])) == geometry
+    assert set(s['standardizer'].training_state_hashes) == selected_resets
+    assert not engine.ledger.owned_ids and not engine.ledger.reservations
+    for spec in s['candidate_specs'].values():
+        sources = s['source_cache'][spec.state_hash]
+        assert len(sources) == 2
+        state = sources[0].behavior.state
+        assert all(src.behavior.state == state and src.frozen_snapshot_id == s['source_id'] for src in sources)
+        assert json.loads(state.task_json)['task_id'].endswith('trial-2')
+        assert len(json.loads(state.history_json)) == 1
+        first = engine.support.states[state.parent_hash]
+        assert state.prompt == first.prompt and state.state_hash != first.state_hash
+        initial_id = engine.backend.identity(s['initial'])
+        hidden = engine.backend.initial_hidden(state.prompt, s['initial'], initial_snapshot_id=initial_id)
+        projection = FrozenProjection(hidden.numel(), initial_snapshot_id=initial_id,
+                                      seed=engine.config['gate_projection_seed'])(hidden, snapshot_id=initial_id)
+        assert spec.features.projection == projection
+        assert spec.features.source_logprob == sources[0].logprob
+        assert spec.features.source_length == sources[0].length
+        row = PrePurchaseFeatures.from_public(spec, round_id='r1', coverage=0., progress=0., support_return=0.)
+        assert len(row.values) == 39 and np.isfinite(row.values).all()
+    selection = s['selection']
+    assert selection['query_ids'][0] is None and len(selection['probabilities']) == 3
+    assert sum(selection['probabilities']) == pytest.approx(1.)
+    assert (selection['beta'] is None) == (arm == 'R0')
+    assert selection['pending_new_observations'] == 0
+    assert s['audit_passed'] and engine.broker.assert_no_hidden_access(s['trace']).passed
+    result = engine.run()
+    assert result['passed'] and result['steps'] == result['decision_windows'] == 1
+    assert phases == ['step_start', 'reference', 'selected', 'revealed', 'actual',
+                      'feedback', 'committed', 'round_end', 'complete']
+    step, = s['steps']
+    q = step['selected']
+    assert step['audit_passed'] and s['phase'] == 'complete'
+    assert tensor_state_hash(s['parameters']) == step['actual_hash']
+    assert not engine.ledger.reservations
+    if q:
+        assert engine.ledger.owned_ids == {q} == set(s['owned'])
+        assert sum(e['kind'] == 'reveal' for e in engine.ledger.events) == 1
+        assert step['actual_hash'] != step['start_hash']
+        assert step['raw_new_slots'] == 8 and step['weighted_new_slots'] == 2
+        assert step['label']['query_id'] == q and step['label']['label_type'] == 'pending_new'
+        assert np.isfinite(step['label']['value']) and s['calibrated']
+        assert set(s['posterior'].observations) == {q} == set(s['cost_model'].observations)
+        assert not np.array_equal(s['posterior'].model.precision, np.eye(39))
+        assert s['cost_model'].observations[q]['confidence'] == 'estimated'
+        assert any(e['kind'] == 'kl_pilot' for e in engine.journal.events)
+        assert any(len(json.loads(srcs[0].behavior.state.history_json)) > 1 for srcs in s['source_cache'].values())
+        if arm == 'R1':
+            assert step['label']['value'] != 0.
+    else:
+        assert step['exact_noop'] and step['actual_hash'] == step['start_hash']
+        assert step['label'] is None and engine.ledger.spent == 0 and not s['owned']
+        assert not s['posterior'].observations and not s['cost_model'].observations
+        assert any(e['kind'] == 'feedback_reused' for e in engine.journal.events)
+    if arm == 'R1':
+        assert bool(q) == bool(seed)  # fixed seeds exercise both posterior outcomes
+        gate_update, = [e for e in engine.journal.events if e['kind'] == 'gate_update']
+        assert len(gate_update['vjp']) == (1 if gate == 'scalar_sigmoid' else 35)
+    feedback = [e for e in engine.journal.events if e['kind'] == 'return_gradient']
+    assert {e['role'] for e in feedback} == ({'reference_feedback', 'actual_feedback'} if q else {'reference_feedback'})
+    assert all(e['metadata']['baseline'] == 'leave_one_out_same_task' and
+               e['metadata']['tasks'] == 2 and e['metadata']['rollouts'] == 4 for e in feedback)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'feedback', 'prefix'])
+def test_candidate_features_reject_illegal_states_before_sampling(multi_trial_window, monkeypatch, fault):
+    from bfas.rtd.transport import FullState
+    engine = multi_trial_window.engine('illegal')
+    engine.round_start(); engine.step_start()
+    spec = next(r.spec for r in engine.broker._records.values() if r.parent_hash in engine.state['inner'])
+    if fault == 'missing':
+        spec = replace(spec, state_hash='f' * 64)
+        message = 'missing audited public reset'
+    elif fault == 'feedback':
+        spec = next(r.spec for r in engine.broker._records.values() if r.parent_hash in engine.state['feedback'])
+        message = 'rejected'
+    else:
+        state = FullState(**multi_trial_window.payloads[spec.query_id]['behaviors'][1]['state'])
+        engine.support._candidate_resets[state.state_hash] = state
+        spec = replace(spec, state_hash=state.state_hash)
+        message = 'never a teacher prefix'
+    monkeypatch.setattr(engine.broker, 'list_candidates', lambda *a: [spec])
+    monkeypatch.setattr(engine, 'sample_state', lambda *a: pytest.fail('sampled an illegal candidate'))
+    before = engine.sampling_rng.get_state().clone()
+    with pytest.raises(ValueError, match=message):
+        engine.reference()
+    assert torch.equal(before, engine.sampling_rng.get_state())
+    assert not engine.ledger.owned_ids
 
 
 @pytest.mark.parametrize('parents', [2, 4])

@@ -506,6 +506,20 @@ class RTDExperiment:
         s = self.state
         s['trace'] = []
         if s['decision'] and not self.fixed:
+            if self.config.get('benchmark') == 'alfworld':
+                # A parent's feedback seed is only its first trial. Other legal
+                # purchase trials need their own source features, keyed by the
+                # full public reset hash. Keep round geometry/slot pools frozen.
+                view = StudentSnapshot(s['source_id'], frozenset(s['inner']))
+                candidates = self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)
+                states = self.support.candidate_states(candidates, s['round'])
+                pending = [state for state in states if state.state_hash not in s['source_cache']
+                           or state.state_hash not in s['projection_cache']]
+                if pending:
+                    with self.scope('candidate_source_sampling'):
+                        for batch in self.batches(pending, 'candidate_source_states'):
+                            for state in batch:
+                                self.sample_state(state)
             features = tuple((h, self.feature(sources[0]).features) for h, sources in s['source_cache'].items())
             view = StudentSnapshot(s['source_id'], frozenset(s['inner']), features)
             candidates = self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)
