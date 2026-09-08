@@ -1374,3 +1374,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 03:43Z v1.0 汇总已发(docs/2026-09-09-rtd-v1-final-summary-zh.md + 曲线图;提交 4273e17)。直接结论已先发:v1.0 无信号是协议结构性原因(采购量 ~1%、价值未改变分布、反馈更新副作用);改进五条。强对照已撤;v1.1 等批复。
 - 9/9 03:48Z 用户核对:格式错误上升不应归因于 REINFORCE 步。核实:无 RL 步更新骨干(回报梯度只进 gate_vjp/插入价值);机制为传输目标自身质量项对温度 1 自采样(未过滤格式)的似然最大化。汇总 §2.3/§3.3 已修正(27de76f)并重发;v1.1 需加自采样格式过滤/门控处理。
 - 9/9 04:05Z v1.1 详细计划已发(docs/2026-09-09-rtd-v1-1-detailed-plan-zh.md):核实价值后验每轮重置;base crcd_r3_union_s0 与 bank 大量重叠(157 prompt / 145 响应 / 369 同任务,共 698 条);三臂 V0/V1/V2、软来源/CV 估计器、批量采购 E=40/K≤20、跨轮后验;§9 五项待拍板(基座 A/B 最关键)。
+- 9/9 04:07Z 更正:RTD 六 run 基座 = 原始 Qwen/Qwen3.5-4B(manifest model_path 851bf6e8),官方 46.06(hpg 40886321;rai 同模型 46.27);'base 46.74' 是 crcd_r3_union_t_s0 的分数,标错。基座未见 bank(无泄漏);CRCD checkpoint 与 bank 重叠 157/145/369,禁用作基座。两份文档已改并重发(2108243)。以后 rtd_v1_collect_report 的 --base-overall 用 46.06(hpg)/46.27(rai)。
