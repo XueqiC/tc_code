@@ -348,7 +348,13 @@ def test_launcher_argv_cache_and_resume_relay_without_launching_gpu(tmp_path):
     out = subprocess.check_output(['bash', str(script), 'V1', '--replay-schedule', str(tmp_path/'V0')], env=env, text=True)
     row = json.loads(out)
     assert row['args'][1:4] == ['run', '--arm', 'V1'] and '--replay-schedule' in row['args']
+    assert '--smoke-deadline-seconds' not in row['args']
     assert row['hf'].endswith('/hf-cache/hub') and row['cache'].startswith(str(ROOT))
     env['RTD_COMMAND'] = 'resume'
     row = json.loads(subprocess.check_output(['bash', str(script), 'V1'], env=env, text=True))
     assert row['args'][1] == 'resume' and '--config' not in row['args']
+    assert '--smoke-deadline-seconds' not in row['args']
+    env['RTD_COMMAND'] = 'smoke'
+    row = json.loads(subprocess.check_output(['bash', str(script), 'V0'], env=env, text=True))
+    assert row['args'][1] == 'smoke'
+    assert row['args'][row['args'].index('--smoke-deadline-seconds')+1] == '7200'

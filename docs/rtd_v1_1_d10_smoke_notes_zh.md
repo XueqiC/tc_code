@@ -83,3 +83,79 @@ PYTHONPATH=src:. CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 \
 最终完整 `tests/test_rtd_v11_*.py`：**174 passed、1 warning，176.32 s，exit 0**；没有 skip/xfail。完整日志：`logs/rtd_v11_d10_tests.log`。原 v1.0 `test_hard2_config_manifest_and_reference_gradient_are_byte_identical` 通过，ALFWorld 79/56角色断言通过，真实BFCL及40记录20/20 fixture 的 manifest 输出检查通过。警告仍是上述已有 tensor 转 scalar。
 
 生产改动仅限 `fold_roles`；v1.0配置、运算及历史字节 oracle 均未修改。`git diff --check` 通过；所有 configs 与 ALFWorld support/config/state 文件均无 diff。最终 `git status --short` 为两项 tracked 修改（conventions 与测试）、新 D10 笔记，以及开始时已有的未跟踪 `.venv`。tracked `git diff --stat`：2 files changed、49 insertions、2 deletions；未跟踪笔记不在该 stat 中。没有暂存或提交。
+
+## 4. D10b：可配置 smoke 时限与阶段耗时（2026-09-08；无 GPU 执行）
+
+**后续 rai 真实尝试已通过 manifest / hardware identity、bank audit，并完成4笔 acquisition 与 pilot 的80次来源动作采样，但仍未完成 pilot 校准和第一个 commit。** 本节补充上文较早的设备不可见记录。此次只在 `tc-alignment-v11run` / `rtd-v11-run` 修改代码和文档、执行小规模 CPU 检查；`data/`、`envs/` 和 `.venv` 目标只读，没有操作其他 worktree，没有暂存或提交。开始时已有未跟踪 `.cache/`，保持原样。
+
+原始证据保持原样：
+
+```text
+_trash/rtd_v11_d10_smoke_timeout/smoke_V0/compute.jsonl
+_trash/rtd_v11_d10_smoke_timeout/rtd_v11_smoke_V0.log
+```
+
+compute.jsonl SHA256：`bbc0bc4ba69d1ad565138f8498493fde683dd3c82fb76cb1d492db2cfaadd584`。旧异常是 `TimeoutError('smoke exceeded 15 minutes; resume state retained')`，由 CLI 的900秒 SIGALRM 触发。日志有40个 `role=pilot` 的 `alpha_d_source_pair`（80个来源动作），但 `alpha_d_pilot` 的结束状态为 **failed**；822.913秒是超时前累计耗时，不是成功完成校准的耗时。校准的 reference 构建中断，不能把已有80次采样当作 pilot 或 commit 完成。
+
+### 时限与 journal 修改
+
+- CLI 增加正整数 `--smoke-deadline-seconds`，默认 **900**。同一值写入 `smoke_override.max_seconds`，用于从 `run_command` 开始计时的绝对 deadline、SIGALRM、journal 入口超时检查和最终 elapsed 检查；超时消息显示配置的秒数。默认 smoke 的原有 override 数值保持不变。
+- `scripts/rtd_v11_run_hpg.slurm` 在 `RTD_COMMAND=smoke` 时传入 **7200**；run/resume 不自动加此参数。v1.1 的 E=40单元/80来源动作、独立 pilot、三种 feedback 角色，以及 V1/V2 的 validation 工作量显著高于 v1.0 的小型 smoke，900秒不能覆盖此次真实执行；7200秒仅放宽运行时限，不改变任何曝光、采样或反馈规则，也不保证共享 GPU 上一定按时完成。
+- resume 仍要求配置与保存的 manifest 一致；恢复以7200秒启动的 smoke 时需显式传 `--smoke-deadline-seconds 7200`。本任务没有修改已归档900秒 manifest 或绕过 resume 身份/配置检查，没有执行真实 smoke 重跑。
+- `ComputeJournal.measure()` 已统一把 `operation` 从 begin 写入 end；旧证据的 **226条 compute_end 均有 operation，且与 begin_sequence 指向的 begin 一致**。`alpha_d_pilot`、`generation`、`source_teacher_forced_pair`、`teacher_forced_forward`、`acquisition_reference_feedback`、`same_batch_reference_feedback`、`post_commit_feedback` 及 `validation_*` 已有对应 scope。此次为 alpha-d 和旧 v1.1 batch 分支的实际学生参数安装补充 `operation=commit` scope；alpha-d scope 还包含参数快照、commit 事件及保存到 `actual` 恢复点。v1.0 执行路径不增加此 scope。
+- 新工具 `tools/rtd_v11_phase_times.py <run dir>` 仅以标准库只读解析 JSONL，按 operation 汇总次数、wall/gpu 秒数和 allocated/reserved 内存峰值；不实例化可能修复 torn journal 的 `ComputeJournal`。
+
+实际执行的汇总命令：
+
+```bash
+PY=.venv/bin/python
+PYTHONPATH=src:. PYTHONDONTWRITEBYTECODE=1 CUDA_VISIBLE_DEVICES='' \
+  "$PY" tools/rtd_v11_phase_times.py _trash/rtd_v11_d10_smoke_timeout/smoke_V0
+```
+
+| operation | n | wall s | gpu s | peak allocated GiB | peak reserved GiB |
+|---|---:|---:|---:|---:|---:|
+| alpha_d_pilot | 1 | 822.913 | 822.913 | 9.906 | 10.100 |
+| generation | 84 | 488.136 | 488.136 | 8.631 | 8.766 |
+| initial_hidden | 4 | 1.477 | 1.477 | 8.537 | 8.557 |
+| model_load | 1 | 4.018 | 4.018 | 7.913 | 7.922 |
+| round_sources_and_geometry | 1 | 42.037 | 42.037 | 9.036 | 9.225 |
+| source_preconditioner | 1 | 13.530 | 13.530 | 9.036 | 9.225 |
+| source_sampling | 1 | 27.089 | 27.089 | 8.537 | 8.576 |
+| source_teacher_forced_pair | 30 | 101.714 | 101.714 | 9.773 | 9.932 |
+| teacher_forced_forward | 103 | 97.863 | 97.863 | 9.694 | 9.758 |
+
+计数包含失败尝试；表中唯一失败项是 `alpha_d_pilot`。wall 是包含子 scope 的耗时，嵌套行不能直接相加；CUDA journal 的 gpu 秒数等于同步边界下的 wall 秒数，**不是 CUDA kernel 活跃时间或 GPU 利用率**。内存列对各次记录取最大值，GiB=2^30 bytes。旧尝试没有进入三种 feedback、validation 或 commit，因此表中没有这些行，不能填0或推断完成。V0 本身也按现有协议不执行 paired validation。
+
+### 观测吞吐与 batch size 的决定位置（只报告）
+
+84次 `generation` 共记录 **6,394 action tokens / 488.136秒 = 13.10 tokens/s**；平均 **76.12 tokens/调用、5.81秒/调用**。其中 source sampling 为4次、162 tokens、15.857秒；pilot 为80次、6,232 tokens、472.279秒，即77.90 tokens/调用、5.90秒/调用、13.20 tokens/s。此约13 tokens/s 是各次单序列调用的累计 token/累计 generation scope 时间，包含该 scope 的调用开销，不能代表整步吞吐。按此次运行背景，GPU 当时与另一用户的作业共享；本任务未重新测量独占 GPU 性能。
+
+source sampling 和 pilot generation 的 **实际 HF generation batch size 都是1**，决定位置为：
+
+- `src/bfas/rtd/runtime.py` → `HFGenerateBackend.sample_action()`：`num_return_sequences=1`，`input_ids=torch.tensor([prompt_ids])`，attention mask 形状 `(1, len(prompt_ids))`，每次 `model.generate()` 只有一个 prompt。
+- `src/bfas/rtd/experiment.py` → `sample_state()`：按 `source_samples_per_state` 顺序调用 `sample_action()`，当前为2次独立调用；`pool()` 在 `batches(..., 'source_states')` 内仍逐状态调用 `sample_state()`。
+- `src/bfas/rtd/experiment_alpha_d.py` → `alpha_calibrate()` / `alpha_draw_pairs()`：pilot 顺序遍历40个 exposure records，每条执行 `sample_state(..., refresh=True, cache=False)` 获取2个新动作，没有把80个动作组成一次 generation batch。
+- `src/bfas/rtd/memory.py` → `MemoryPolicy` / `memory_batch_size()` / `memory_batches()` 决定外层状态调度块大小；它与 HF generation batch 是不同层次。旧 journal 的两条 `source_states` memory_batch 均为1，四条 `preconditioner_sources` 也均为1。首条状态调度记录虽设置 `max_batch_size=2`，但可用预算28,560,522,240 bytes、单状态估计16,000,000,000 bytes，只能选1。
+
+没有修改这些生成/调度文件、配置、RNG、协议或 batching；上述位置供后续任务评估。
+
+### CPU 验证
+
+首批 **27 passed，7.30秒**：CLI 默认/覆盖/非法值，900与7200秒的 config/journal/alarm 一致性及消息，journal 过期检查，只读 helper 的累计耗时/失败计数/内存最大值，launcher 的 smoke 参数、现有 HF generation/phase-memory 检查，以及真实 CPU executor 的 pilot、三种 feedback、四种 validation 和 commit 的 compute_end 名称。包含两个 v1.0 回归：`test_hard2_config_manifest_and_reference_gradient_are_byte_identical` 与 `test_v10_one_window_byte_identical_to_prechange_cpu_fixture`。日志：`/tmp/rtd-v11-d10b-tests.log`。
+
+```bash
+PY=.venv/bin/python
+export PYTHONPATH=src:. PYTHONDONTWRITEBYTECODE=1 CUDA_VISIBLE_DEVICES=''
+export BFCL_PROJECT_ROOT=/tmp/rtd-v11-d10b-bfcl XDG_CACHE_HOME=/tmp/rtd-v11-d10b-cache
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+"$PY" -m pytest -q -p no:cacheprovider \
+  tests/test_rtd_v11_smoke_deadline.py \
+  tests/test_rtd_v11_alpha_d.py::test_runner_acquire_freeze_sample_same_batch_commit_then_alpha_feedback \
+  tests/test_rtd_v11_conventions.py::test_launcher_argv_cache_and_resume_relay_without_launching_gpu \
+  tests/test_rtd_capped_sampling.py \
+  tests/test_rtd_v11_source_estimator.py::test_hard2_config_manifest_and_reference_gradient_are_byte_identical \
+  tests/test_rtd_v11_acquisition.py::test_v10_one_window_byte_identical_to_prechange_cpu_fixture
+```
+
+追加 commit/recovery 检查 **10 passed，17.66秒**（同一 CPU 环境）：`test_resume_preserves_same_draws_single_commit_and_posterior` 的6个恢复点，以及 `test_batch_estimator_commit_and_vjp_use_identical_exposure_and_controls` 的4个旧 v1.1 estimator 组合。日志：`/tmp/rtd-v11-d10b-recovery-tests.log`。合计 **37 passed**，没有启动模型服务或真实 GPU 工作。归档 helper 输出如上；`bash -n scripts/rtd_v11_run_hpg.slurm`、`git diff --check` 通过。最终使用 `git status --short` / `git diff --stat` 检查；新增 helper 和专项测试未暂存，因而不计入普通 tracked diff stat。

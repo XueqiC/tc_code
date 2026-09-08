@@ -36,6 +36,9 @@ export TORCH_HOME="$XDG_CACHE_HOME/torch" TORCHINDUCTOR_CACHE_DIR="$XDG_CACHE_HO
 export CUDA_CACHE_PATH="$XDG_CACHE_HOME/nv" NUMBA_CACHE_DIR="$XDG_CACHE_HOME/numba"
 export IPYTHONDIR="$XDG_CACHE_HOME/ipython" MPLCONFIGDIR="$XDG_CACHE_HOME/matplotlib"
 args=("$RTD_COMMAND" --arm "$RTD_ARM" --run-dir "$RTD_RUN_DIR")
+if [[ $RTD_COMMAND == smoke ]]; then
+  args+=(--smoke-deadline-seconds 7200)
+fi
 # Resume uses its saved config; relay jobs may omit RTD_CONFIG entirely.
 if [[ $RTD_COMMAND != resume ]]; then
   args+=(--config "${RTD_CONFIG:-configs/rtd/v1_1_bfcl.yaml}")

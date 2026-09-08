@@ -326,12 +326,13 @@ class AlphaDExperimentMixin:
         self.journal.append('alpha_d_solver', round=s['round'], step=s['step'], **s['alpha_d_control'])
         # Install once BEFORE post-update return estimation and alpha update.
         # On recovery from this phase __init__ restores this exact student.
-        commit_step(self.backend.model, s['actual'], expected_start_hash=ref.start_hash)
-        s['alpha_start'] = s['parameters']
-        s['parameters'] = snapshot(lora_parameters(self.backend.model))
-        self.journal.append('alpha_d_student_commit', round=s['round'], step=s['step'],
-            parameter_hash=tensor_state_hash(s['parameters']), alpha_stop_gradient=True, d_stop_gradient=True)
-        self.transition('actual')
+        with self.scope('commit'):
+            commit_step(self.backend.model, s['actual'], expected_start_hash=ref.start_hash)
+            s['alpha_start'] = s['parameters']
+            s['parameters'] = snapshot(lora_parameters(self.backend.model))
+            self.journal.append('alpha_d_student_commit', round=s['round'], step=s['step'],
+                parameter_hash=tensor_state_hash(s['parameters']), alpha_stop_gradient=True, d_stop_gradient=True)
+            self.transition('actual')
 
     def alpha_acquisition_labels(self):
         """Paid-only labels at the virtual old reference; never actual feedback."""
