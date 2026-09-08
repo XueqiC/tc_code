@@ -19,6 +19,8 @@ from ..behavior.deltas import tensor_state_hash
 from ..cc_pairs import render_prompt, thinking_off
 from .acquisition import AcquisitionPolicy, CostRegressor, PrePurchaseFeatures, ValuePosterior, LegacyValuePosterior
 from .experiment_v11 import BatchExperimentMixin
+from .experiment_alpha_d import AlphaDExperimentMixin
+from .alpha_d import enabled as alpha_d_enabled, validate_config as validate_alpha_d_config, validate_arm
 from .bank import parent_hash
 from .broker import SealedReplayBroker
 from .features import FeatureRow, FrozenProjection, FrozenStandardizer
@@ -111,7 +113,12 @@ def assert_run_invariants(state, ledger, *, complete=False):
     if any(e['inner_fold'] != (e['round']-1) % 2 for e in steps):
         raise AssertionError('fold rotation mismatch')
     for e in steps:
-        if e.get('acquisition_protocol') == 'batch_common_reference_v1':
+        if e.get('acquisition_protocol') == 'alpha_d_historical_additive_surrogate':
+            if (e['source_actions'] != 2*e['slots'] or e['raw_new_slots'] > 20 or
+                    e['exposure_units']+e['source_only_placeholders'] != e['slots'] or
+                    abs(sum(r['weight'] for r in e['exposure_records'])-1) > 1e-7):
+                raise AssertionError('alpha/d exposure-unit accounting mismatch')
+        elif e.get('acquisition_protocol') == 'batch_common_reference_v1':
             m, E = len(e['selected']), e['slots']
             if (m > e['max_new_packages'] or m > E or e['raw_new_slots'] != m
                     or e['weighted_new_slots'] != m or e['old_coefficient'] != 1-m/E):
@@ -136,10 +143,13 @@ def assert_run_invariants(state, ledger, *, complete=False):
                 packages=len(ledger.owned_ids), actual_spend=ledger.spent, authorized_budget=ledger.budget)
 
 
-class RTDExperiment(BatchExperimentMixin):
+class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
         self.config, self.manifest = config, manifest
+        validate_alpha_d_config(config)
+        validate_arm(config, manifest['arm'])
+        self.alpha_d = alpha_d_enabled(config)
         estimator, mode, _ = validate_source_config(config)
         if self.gate == 'linear_sigmoid' and (estimator == 'soft' or
                 (estimator == 'cv' and mode == 'fixed_one_minus_a')):
@@ -188,6 +198,10 @@ class RTDExperiment(BatchExperimentMixin):
             if self.v11:
                 self.state.update(rounds=config.get('rounds', 3), batch_schema_version=1,
                     drift_measurements={}, previous_decision_model=None)
+            if self.alpha_d:
+                self.state['phi'] = torch.full((1 if config.get('gate') == 'scalar_sigmoid' else 33,),
+                    config.get('gate_initial_logit', 0.), device=self.device, dtype=self.dtype, requires_grad=True)
+                self.state['alpha_window_index'] = 0
             self.save()
 
     def save(self):
@@ -339,6 +353,8 @@ class RTDExperiment(BatchExperimentMixin):
 
     @property
     def slots(self):
+        if self.alpha_d:
+            return self.config.get('slots_per_step', 40)
         if self.v11:
             return self.config.get('exposure_slots_per_window', 40)
         return 2 if self.state['smoke'] else 8
@@ -362,6 +378,8 @@ class RTDExperiment(BatchExperimentMixin):
                                  gate='fixed_half' if pilot else self.gate, **self.estimator_options(controls))
 
     def calibrate(self, packages):
+        if self.alpha_d:
+            return self.alpha_calibrate(packages)
         s = self.state
         targets, chi = self.draw_slots(packages, package_only=True)
         controls = s.pop('draw_controls', None)
@@ -389,7 +407,7 @@ class RTDExperiment(BatchExperimentMixin):
         self.journal.append('kl_pilot', round=s['round'], metadata=metadata,
                             source_slots=len(actions), source_action_tokens=sum(len(a.action_ids) for a in actions))
 
-    def feedback(self, parameters, label):
+    def feedback(self, parameters, label, *, trajectory_scores=None):
         s = self.state
         rollouts = []
         with self.scope(label):
@@ -403,7 +421,11 @@ class RTDExperiment(BatchExperimentMixin):
                 diagnostic_record=lambda rollout, index, diagnostic: self.journal.append('score_consistency',
                     **(diagnostic | dict(round=s['round'], step=s['step'], role=label,
                         task_id=rollout.task_id, action_index=index))),
-                baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task')
+                baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task',
+                **(dict(trajectory_scores=trajectory_scores) if trajectory_scores is not None else {}))
+        if self.alpha_d:
+            result.metadata.update(return_objective='temperature_1_stochastic_policy_expected_return',
+                                   temperature=1., feedback_role=label)
         self.journal.append('return_gradient', round=s['round'], step=s['step'], role=label,
                             parameter_hash=result.parameter_hash, metadata=result.metadata)
         if self.v11:
@@ -488,6 +510,8 @@ class RTDExperiment(BatchExperimentMixin):
         self.transition('step_start')
 
     def step_start(self):
+        if self.alpha_d:
+            return self.alpha_step_start()
         s = self.state
         s['decision'] = s['step'] in (1, 4, 7, 10)
         s['selected'], s['label'], s['new_targets'], s['new_chi'] = None, None, None, None
@@ -585,6 +609,8 @@ class RTDExperiment(BatchExperimentMixin):
         self.transition('revealed')
 
     def revealed(self):
+        if self.alpha_d:
+            return self.alpha_revealed()
         if self.v11:
             return self.batch_revealed()
         s = self.state
@@ -602,6 +628,8 @@ class RTDExperiment(BatchExperimentMixin):
         self.transition('actual')
 
     def actual(self):
+        if self.alpha_d:
+            return self.alpha_actual()
         if self.v11:
             return self.batch_actual()
         s = self.state
@@ -636,6 +664,8 @@ class RTDExperiment(BatchExperimentMixin):
         self.transition('feedback')
 
     def feedback_commit(self):
+        if self.alpha_d:
+            return self.alpha_feedback_commit()
         if self.v11:
             return self.batch_feedback_commit()
         s = self.state
@@ -718,6 +748,10 @@ class RTDExperiment(BatchExperimentMixin):
             for key in ('feedback_rollouts', 'batch_targets', 'batch_chi', 'batch_gradients', 'batch_rows',
                         'batch_specs', 'value_statistics', 'reliability_check',
                         'old_controls', 'batch_controls', 'draw_controls'):
+                s.pop(key, None)
+        if self.alpha_d:
+            for key in ('alpha_pairs', 'alpha_chi', 'alpha_start', 'd_reference', 'd_reference_feedback',
+                        'd_solution', 'alpha_d_control'):
                 s.pop(key, None)
         print(f"[rtd] {self.manifest['arm']} round={s['round']} step={s['step']} "
               f"package={row['selected']} spend={self.ledger.spent}/{self.ledger.budget}", flush=True)

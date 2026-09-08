@@ -1,5 +1,6 @@
 """Versioned batch configuration; obsolete empty-prior keys are rejected."""
 from .caps import V11_CLASS_CAPS, V11_BUDGET_BASIS
+from .alpha_d import ALPHA_D_DEFAULTS, enabled, validate_config
 
 REMOVED_KEYS = {'max_new_packages_per_decision', 'replay_prior_mass', 'insertion_fraction',
                 'acquisition_entropy_temperature'}
@@ -17,11 +18,16 @@ def v11_config(config, canonical):
     result = dict(config)
     for key, value in V11_DEFAULTS.items():
         result.setdefault(key, value)
+    if enabled(result):
+        for key, value in ALPHA_D_DEFAULTS.items():
+            result.setdefault(key, value)
+        result.setdefault('source_estimator', 'alpha_d')
     # slots_per_step is the actual reference/replay exposure, not a dead alias.
     if 'slots_per_step' not in config:
         result['slots_per_step'] = result['exposure_slots_per_window']
     E, K, rounds = result['exposure_slots_per_window'], result['max_new_packages_per_window'], result.get('rounds', 3)
-    if type(E) is not int or E < 1 or type(K) is not int or not 0 <= K <= E or result['slots_per_step'] != E:
+    if (type(E) is not int or E < 1 or type(K) is not int or not 0 <= K <= E or
+            (not enabled(result) and result['slots_per_step'] != E)):
         raise ValueError('positive E, 0 <= K <= E, and slots_per_step=E required')
     if type(rounds) is not int or rounds not in (2, 3):
         raise ValueError('v1.1 supports rounds 2 or 3')
@@ -35,4 +41,8 @@ def v11_config(config, canonical):
     if not 0 < result['value_noise_floor'] <= 1:
         raise ValueError('positive finite insertion noise floor <= 1 required')
     frozen = {k: v for k, v in canonical.items() if k not in REMOVED_KEYS} | V11_DEFAULTS
+    if enabled(result):
+        validate_config(result)
+        frozen.update(source_estimator='alpha_d', exposure_unit='state_teacher_record_plus_two_source_actions',
+                      loss='alpha_d_single_step_estimator')
     return result, frozen

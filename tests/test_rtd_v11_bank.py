@@ -132,11 +132,15 @@ def test_v11_config_defaults_schedule_and_obsolete_key_rejection(tmp_path):
     assert config['slots_per_step'] == config['exposure_slots_per_window'] == 40
     assert config['max_new_packages_per_window'] == 20 and config['rounds'] == 2
     for change in [dict(replay_prior_mass=.5), dict(max_new_packages_per_decision=1),
-                   dict(rounds=1), dict(rounds=3), dict(slots_per_step=8),
+                   dict(rounds=1), dict(rounds=3),
                    dict(exposure_slots_per_window=4, max_new_packages_per_window=5)]:
         path.write_text(yaml.safe_dump(raw | change))
         with pytest.raises(ValueError):
             cli.load_config(path)
+    # Rev 3.1 explicitly permits a smaller, manifest-labelled random exposure
+    # variant; the canonical E=40 capacity is unchanged.
+    path.write_text(yaml.safe_dump(raw | dict(slots_per_step=8)))
+    assert cli.load_config(path)['slots_per_step'] == 8
     legacy = yaml.safe_load((ROOT/'configs/rtd/v1_bfcl_c25.yaml').read_text())
     path.write_text(yaml.safe_dump(legacy | dict(exposure_slots_per_window=40)))
     with pytest.raises(ValueError, match='1.1.0'):

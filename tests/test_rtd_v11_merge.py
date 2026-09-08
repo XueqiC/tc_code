@@ -140,4 +140,7 @@ def test_canonical_v11_config_combines_source_and_batch_options():
     assert config['max_new_packages_per_window'] == 20
     assert config['replay_bank_path'] == 'data/rtd/v1_1_bfcl'
     assert config['acquisition_posterior_refresh'] == 'persistent'
-    assert (config['source_estimator'], config['cv_cs_mode'], config['gate']) == ('cv', 'loo', 'linear_sigmoid')
+    # The canonical entry point advanced from M1's CV placeholder to D8. The
+    # preceding tests still exercise every historical D1/M1 diagnostic path.
+    assert (config['source_estimator'], config['gate_mode'], config['d_mode']) == ('alpha_d', 'learned_alpha', 'learned')
+    assert 'cv_cs_mode' not in config

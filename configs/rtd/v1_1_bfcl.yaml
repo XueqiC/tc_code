@@ -1,5 +1,8 @@
-# RTD v1.1 M1: canonical two-round D1 + D2/D3 configuration.
-# D8 is absent from the supplied branch; this CV gate is not the rev 3 alpha/d mechanism.
+# RTD v1.1 rev 3.1: two-round state-only alpha + joint d control.
+# V0: gate_mode=fixed_alpha, fixed_alpha=.5, d_mode=zero, acquisition=random.
+# V1/V2: learned_alpha + learned d; D7 owns V1's complete V0 exposure replay.
+# Full E=40 commits require paid inner-fold old evidence to fill the E-K units.
+# Empty old pools are rejected; explicit slots_per_step<40 is random exposure.
 method: rtd_v1_1
 mode: sealed_replay
 training_seed: 0
@@ -17,14 +20,14 @@ online_max_teacher_turns: 8
 replay_request_lengths: recorded_only
 
 source_refresh: round
-source_estimator: cv
-cv_cs_mode: loo
+source_estimator: alpha_d
 source_samples_per_state: 2
 source_temperature: 1.0
 source_top_p: 1.0
-loss: positive_source_teacher_mixture
+loss: alpha_d_single_step_estimator
 behavior_probability: complete_action_with_termination
-exposure_unit: complete_source_action_slot
+exposure_unit: state_teacher_record_plus_two_source_actions
+microbatch_states: 4
 slots_per_step: 40
 exposure_slots_per_window: 40
 max_new_packages_per_window: 20
@@ -33,6 +36,15 @@ value_noise_floor: 1.0e-8
 committed_steps_per_round: 12
 
 gate: linear_sigmoid
+gate_mode: learned_alpha
+fixed_alpha: 0.5
+d_mode: learned
+d_lambda: 1.0
+d_warmup_windows: 1
+z_error_mode: loo
+d_solver_tolerance: 1.0e-8
+d_solver_max_iterations: 10000
+d_redundancy_cosine_threshold: 0.9
 gate_hidden_projection_dim: 32
 gate_initial_logit: 0.0
 gate_ridge: 1.0

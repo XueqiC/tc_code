@@ -82,7 +82,7 @@ class BatchExperimentMixin:
         s = self.state
         s['trace'] = []
         s['batch_rows'], s['batch_specs'] = {}, {}
-        if s['decision']:
+        if s['decision'] and not self.alpha_d:
             self.remeasure_owned()
         if s['decision'] and not self.fixed:
             features = tuple((h, self.feature(sources[0]).features) for h, sources in s['source_cache'].items())
@@ -93,8 +93,8 @@ class BatchExperimentMixin:
             rows = self.batch_features(candidates)
             policy = BatchAcquisitionPolicy(s['posterior'], s['cost_model'], rng=self.rng)
             selected, trace = select_public_batch(candidates, lambda public: policy.choose_batch(public, rows,
-                remaining_budget=quota, exposure_slots=self.slots, max_new_packages=self.max_new_packages,
-                random_control=self.manifest['arm'] == 'R0' or self.config.get('acquisition') == 'random',
+                remaining_budget=quota, exposure_slots=40 if self.alpha_d else self.slots, max_new_packages=self.max_new_packages,
+                random_control=self.manifest['arm'] in {'R0', 'V0'} or self.config.get('acquisition') == 'random',
                 previous_model=s['previous_decision_model']))
             s['selected'], s['trace'], s['selection'] = list(selected), trace, policy.last_decision
             s['batch_rows'], s['batch_specs'] = rows, {c.query_id: c for c in candidates}
@@ -134,22 +134,8 @@ class BatchExperimentMixin:
                 self.journal.append('request_reveal_link', round=s['round'], step=s['step'], query_id=q,
                     window_id=s['window_id'], ledger_reveal_sequence=next(e['sequence'] for e in self.ledger.events
                         if e['kind'] == 'reveal' and e['query_id'] == q))
-                with self.scope('pending_source_sampling'):
-                    targets, chi = self.draw_slots([package], package_only=True, count=1)
-                # Save this draw's controls before the pilot samples its own
-                # independent group. Never reconstruct LOO from exposure slots.
-                if self.config.get('source_estimator') == 'cv':
-                    s.setdefault('batch_controls', {})[q] = s.pop('draw_controls')
-                s['batch_targets'][q], s['batch_chi'][q] = targets, chi
-                if not s['calibrated']:
-                    if not s['old_noop']:
-                        raise ValueError('first-purchase pilot would change a nonidentity reference')
-                    self.calibrate([package])
-                    s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
-                    s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
-                                                       exposure_slots=self.slots, exact_noop=True)
-                    if s['reference_feedback'].parameter_hash != s['reference'].reference_hash:
-                        raise ValueError('pilot changed the identity reference')
+                if not self.alpha_d:
+                    self.batch_prepare_package(package)
                 s['cost_model'].observe_revealed(s['batch_specs'][q], s['batch_rows'][q], cost=package.cost,
                     confidence=package.cost_confidence, revealed_ids=self.ledger.owned_ids)
                 s['pending_ids'].append(q)
@@ -166,9 +152,31 @@ class BatchExperimentMixin:
         ids, values = s['selection'].get('query_ids', []), s['selection'].get('sampled_values', [])
         s['selection']['planned_predicted_additive_gain'] = s['selection']['predicted_additive_gain']
         value_by_id = dict(zip(ids, values))
-        s['selection']['predicted_additive_gain'] = sum(value_by_id[q]/self.slots for q in s['selected'])
-        s['new_targets'] = tuple(t for q in s['selected'] for t in s['batch_targets'][q])
+        s['selection']['predicted_additive_gain'] = sum(value_by_id[q]/(40 if self.alpha_d else self.slots) for q in s['selected'])
+        if not self.alpha_d:
+            s['new_targets'] = tuple(t for q in s['selected'] for t in s['batch_targets'][q])
         self.transition('revealed')
+
+    def batch_prepare_package(self, package):
+        # Historical D1/D2 path; rev 3 freezes the whole evidence batch
+        # after all purchases instead of drawing here.
+        s, q = self.state, package.query_id
+        with self.scope('pending_source_sampling'):
+            targets, chi = self.draw_slots([package], package_only=True, count=1)
+        # Save this draw's controls before the pilot samples its own
+        # independent group. Never reconstruct LOO from exposure slots.
+        if self.config.get('source_estimator') == 'cv':
+            s.setdefault('batch_controls', {})[q] = s.pop('draw_controls')
+        s['batch_targets'][q], s['batch_chi'][q] = targets, chi
+        if not s['calibrated']:
+            if not s['old_noop']:
+                raise ValueError('first-purchase pilot would change a nonidentity reference')
+            self.calibrate([package])
+            s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
+            s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
+                                               exposure_slots=self.slots, exact_noop=True)
+            if s['reference_feedback'].parameter_hash != s['reference'].reference_hash:
+                raise ValueError('pilot changed the identity reference')
 
     def batch_revealed(self):
         s, gs = self.state, {}

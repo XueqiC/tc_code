@@ -17,6 +17,12 @@ CS_MODES = {'loo', 'independent', 'fixed_one_minus_a'}
 
 def validate_source_config(config):
     """Validate without inserting defaults into historical manifest configs."""
+    if config.get('source_estimator') == 'alpha_d':
+        from .alpha_d import validate_config
+        validate_config(config)
+        if 'gate_mode' not in config:
+            raise ValueError('alpha_d requires gate_mode')
+        return 'alpha_d', None, 2
     estimator = config.get('source_estimator', 'hard2')
     mode = config.get('cv_cs_mode', 'loo')
     count = config.get('source_samples_per_state', 2)

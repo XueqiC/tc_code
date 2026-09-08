@@ -392,7 +392,7 @@ class ReturnGradient:
 
 
 def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_rtol=None,
-                       baseline='leave_one_out_same_task', diagnostic_record=None):
+                       baseline='leave_one_out_same_task', diagnostic_record=None, trajectory_scores=None):
     if not rollouts:
         raise ValueError("complete feedback rollouts required")
     rewards = next(iter(parameters.values())).new_tensor([r.reward for r in rollouts]).detach()
@@ -406,6 +406,8 @@ def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_
     # One action graph at a time; both trajectory actions and observations are
     # fixed. Weight is per ROLLOUT, never per action/token or success subset.
     for rollout, advantage in zip(rollouts, advantages):
+        if trajectory_scores is not None:
+            trajectory_score = {n: torch.zeros_like(p, device='cpu') for n, p in parameters.items()}
         for action_index, action in enumerate(rollout.actions):
             record = (None if diagnostic_record is None else
                       lambda d: diagnostic_record(rollout, action_index, d))
@@ -415,10 +417,15 @@ def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_
             diagnostics.append({k: diagnostic[k] for k in ('state_hash', 'mean_abs_difference',
                 'max_abs_difference', 'tolerance', 'passed', 'generation_backend', 'scoring_backend')})
             gradient = gradients(score, parameters)
+            if trajectory_scores is not None:
+                for n in trajectory_score:
+                    trajectory_score[n].add_(gradient[n].detach().cpu())
             for n in estimate:
                 estimate[n].add_(gradient[n].detach() * advantage / len(rollouts))
             del score, gradient  # release this action before scoring the next
             tokens += len(action.action_ids)
+        if trajectory_scores is not None:
+            trajectory_scores.append(trajectory_score)
     return ReturnGradient(estimate, tensor_state_hash(parameters), dict(
         rollouts=len(rollouts), tasks=len(set(r.task_id for r in rollouts)), action_tokens=tokens,
         truncated_rollouts=sum(r.truncated for r in rollouts),

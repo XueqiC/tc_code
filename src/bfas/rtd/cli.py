@@ -15,6 +15,7 @@ from .broker import SealedReplayBroker
 from .caps import PUBLIC_CLASS_CAPS, affordability
 from .caps import V11_BUDGET_BASIS, recorded_budget_ceilings
 from .config_v11 import v11_config, V11_DEFAULTS
+from .alpha_d import ALPHA_D_DEFAULTS, enabled as alpha_d_enabled, validate_config as validate_alpha_d_config, validate_arm
 from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
 from .scoring import ScoreTolerance
@@ -49,6 +50,8 @@ def load_config(path):
     if v11:
         mutable |= {'rounds', 'budget_checkpoints_bank_fraction', 'exposure_slots_per_window',
                     'max_new_packages_per_window', 'slots_per_step', 'drift_reference_packages', 'value_noise_floor'}
+        mutable |= set(ALPHA_D_DEFAULTS)
+    validate_alpha_d_config(config)
     for key, expected in canonical.items():
         if key not in mutable and config.get(key) != expected:
             raise ValueError(f'frozen protocol value changed: {key}')
@@ -164,6 +167,7 @@ def bank_audit(config, *, build=False):
 
 
 def make_manifest(config, arm, audit, *, smoke=False):
+    validate_arm(config, arm)
     from tools.bfcl_hub_merge_export import _snapshot_for_model
     model = Path(config['student'])
     if not model.is_dir():
@@ -203,6 +207,21 @@ def make_manifest(config, arm, audit, *, smoke=False):
             replay_semantics='unfilled slots use old data; no fixed empty prior',
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
+    if alpha_d_enabled(config):
+        manifest.update(trajectory_schema_version=3, distillation_protocol='alpha_d_rev3_1',
+            return_objective='temperature_1_stochastic_policy_expected_return',
+            exposure_unit='one_state_teacher_record_plus_two_source_actions',
+            exposure_mode='full exposure' if config['slots_per_step'] == 40 else 'random exposure',
+            planned_exposure_units=config['slots_per_step'], source_action_capacity_per_commit=2*config['slots_per_step'],
+            microbatch_states=4, microbatches_per_commit=(config['slots_per_step']+3)//4,
+            all_purchased_packages_trained_each_step=False,
+            cold_start_missing_teacher='full exposure requires paid inner old pool; random exposure uses available teacher records',
+            supervision_record_mapping='adapter.supervision_records(package); default ordered package.behaviors',
+            alpha_features='initial_model_state_hidden_projection_and_intercept; before_source_sampling',
+            alpha_update='blocked_at_theta_S_d; d_fixed; no_differentiation_through_solver',
+            acquisition_reference='separate historical additive insertion surrogate; D9 full-update proxy pending',
+            v1_exposure_replay_implemented=False,
+            uncertainty_scope='reprojected trajectory contributions; excludes feedback staleness bias')
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
@@ -400,7 +419,7 @@ def main(argv=None):
             p.add_argument('--acknowledge-code-drift', action='store_true',
                            help='acknowledge recorded RTD source changes before continuing training')
         if name in ('smoke', 'run', 'resume'):
-            p.add_argument('--arm', choices=['R0', 'R1'], default=os.environ.get('RTD_ARM', 'R1'))
+            p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2'], default=os.environ.get('RTD_ARM', 'R1'))
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)
             p.add_argument('--expected-gpu-uuid', help=argparse.SUPPRESS)
             p.add_argument('--through-round', type=int, choices=[1,2,3], default=3, help=argparse.SUPPRESS)
