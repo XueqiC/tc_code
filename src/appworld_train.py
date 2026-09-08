@@ -236,9 +236,10 @@ def load_pool(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"{path}:{line_number}: turn_index must be an integer")
             if not isinstance(row["prompt"], str) or not row["prompt"]:
                 raise ValueError(f"{path}:{line_number}: prompt must be a non-empty string")
-            # RTD's sealed zero-call BFCL targets are empty text followed by
-            # EOS. Admit only explicitly marked native rows; ordinary pools
-            # still reject missing/empty teacher answers. encode appends EOS.
+            # Retain v1's explicitly marked EOS-only compatibility. In v2 the
+            # flag means an empty *teacher continuation*: response contains
+            # the model-emitted think prefix, whose tokens all receive loss.
+            # encode appends EOS once in both formats.
             native_empty = (
                 row.get('_native_fc_empty_response') is True
                 and row.get('messages') == []
@@ -246,6 +247,15 @@ def load_pool(path: Path) -> list[dict[str, Any]]:
             )
             if not isinstance(row["response"], str) or (not row["response"] and not native_empty):
                 raise ValueError(f"{path}:{line_number}: response must be a non-empty string")
+            if '_native_fc_empty_response' in row:
+                native_v2_empty = (
+                    row.get('_native_fc_empty_response') is True
+                    and row.get('messages') == []
+                    and row['prompt'].endswith('<|im_start|>assistant\n')
+                    and row['response'] == '<think>\n\n</think>\n\n'
+                )
+                if not ((native_empty and row['response'] == '') or native_v2_empty):
+                    raise ValueError(f"{path}:{line_number}: invalid native empty-continuation marker")
             copied = dict(row)
             copied["_pool_index"] = len(rows)
             rows.append(copied)

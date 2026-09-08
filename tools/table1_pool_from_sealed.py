@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Materialize trainer pools by revealing only a validated purchased prefix.
 
-BFCL defaults to native-fc in results/table1_audit/pools_native; legacy pools
+BFCL defaults to native-fc-v2 in results/table1_audit/pools_native; legacy pools
 remain in pools. data/ is read-only. No model, teacher API, or environment runs.
 """
 from __future__ import annotations
@@ -14,7 +14,8 @@ from pathlib import Path
 from tools import table1_common as io
 from tools.table1_random_acquisition import acquire
 from tools.table1_row_format import (
-    NATIVE_ROW_FORMAT, ROW_FORMATS, bfcl_native_rejected, read_bank_payload,
+    NATIVE_ROW_FORMAT, NATIVE_THINK_PREFIX, ROW_FORMATS, bfcl_evaluation_prompt,
+    bfcl_native_rejected, read_bank_payload,
     render_package, row_format_for,
 )
 
@@ -167,6 +168,79 @@ def manifest_without_row_format(manifest):
     return result
 
 
+def replay_native_rankings(directory, pools, manifest):
+    """Read-only ledger/sample replay; never invoke sampling or rank APIs.
+
+    Larger-cap samples can cover smaller-cap purchased parents. Charge every
+    relevant attempt, including parse failures, using the existing rank ledger
+    accounting. Keep parsed student continuations byte-for-byte after prefix.
+    """
+    from tools import table1_ddpo_rank as ddpo
+
+    ledger = directory / 'ddpo_rank_ledger.jsonl'
+    if not ledger.exists():
+        return pools, manifest
+    tids = set(manifest['tasks_covered'])
+    calls = {q: c for q, c in ddpo.read_calls(ledger).items() if c['task_id'] in tids}
+    samples = {}
+    sample_hashes = {}
+    for path in sorted(directory.glob('ddpo_samples_B*.jsonl')):
+        sample_hashes[path.name] = io.file_hash(path)
+        for _, row in io.read_rows(path):
+            if row['task_id'] not in tids:
+                continue
+            key = (row['task_id'], row['sample_index'])
+            if key in samples and samples[key] != row:
+                raise ValueError(f'conflicting recorded student sample: {key}')
+            samples[key] = row
+    grouped = defaultdict(list)
+    entries, _ = ddpo.task_entries(tids)
+    expected_prompts = {t: bfcl_evaluation_prompt(e['question'][0], e['function'], t)
+                        for t, e in entries.items()}
+    for key in sorted(samples):
+        row = samples[key]
+        if (row.get('messages') != [] or row['prompt'] != expected_prompts[row['task_id']]
+                or not isinstance(row['response'], str)):
+            raise ValueError('student sample differs from evaluation prompt/text contract')
+        group = grouped[row['task_id']]
+        if row['response'] not in group:
+            group.append(row['response'])
+    if set(grouped) != tids:
+        raise ValueError('ranking replay needs recorded samples for all purchased tasks')
+    for call in calls.values():
+        tid = call['task_id']
+        if (call['candidates'] != grouped[tid]
+                or call['context'] != dict(messages=[], prompt=expected_prompts[tid])):
+            raise ValueError('ranking candidates/context differ from recorded student samples')
+        if call['status'] == 'ranked':
+            pair = call['best_worst']
+            if (len(pair) != 2 or pair[0] == pair[1]
+                    or any(type(i) is not int or not 1 <= i <= len(grouped[tid]) for i in pair)
+                    or call['preference_row'] != ddpo.preference(
+                        tid, call['context'], grouped[tid], pair)):
+                raise ValueError('ranking preference differs from recorded chosen/rejected samples')
+
+    def emission_row(row):
+        for field in ('response', '_rejected'):
+            # These fields are parser outputs, not decoded FC lists. Do not
+            # normalize JSON, repair errors, or infer a teacher continuation.
+            if row[field].endswith(('<|im_end|>', '<|endoftext|>')):
+                raise ValueError('recorded rank continuation contains a terminal EOS')
+            row[field] = NATIVE_THINK_PREFIX + row[field]
+        return row
+
+    rendered, _ = ddpo.render_ranked_pools(
+        [(None, manifest, pools['sft'])], tids, calls,
+        {t for t, answers in grouped.items() if len(answers) >= 2}, row_renderer=emission_row)
+    _, manifest, pools['ddpo'] = rendered[0]
+    manifest['ranking']['new_ddpo']['row_format'] = NATIVE_ROW_FORMAT
+    manifest['ranking']['new_ddpo']['ledger_sha256'] = io.file_hash(ledger)
+    manifest['ranking']['new_ddpo']['sample_file_sha256'] = sample_hashes
+    manifest['ranking']['new_ddpo']['target_rule'] = (
+        'empty think prefix + recorded parsed student continuation, for both chosen and rejected')
+    return pools, manifest
+
+
 def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     directory = Path(directory)
     public = io.read_json(directory / 'public.json')
@@ -203,12 +277,17 @@ def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     _, sealed_manifest = build_pools(snapshots, acquisition, protocol)
     if manifest_without_row_format(manifest) != manifest_without_row_format(sealed_manifest):
         raise ValueError('rendering changed sealed manifest/accounting')
+    base_manifest = deepcopy(manifest)
+    if row_format == NATIVE_ROW_FORMAT:
+        pools, manifest = replay_native_rankings(directory, pools, manifest)
     destination = Path(pool_root) / acquisition['benchmark'] / f'B{acquisition["cap"]}_seed{acquisition["training_seed"]}'
     if (destination / 'manifest.json').exists():
         old = io.read_json(destination / 'manifest.json')
-        if old.get('row_format') != row_format:
+        if old.get('row_format') != row_format and not (
+                old.get('row_format') == 'native-fc' and row_format == NATIVE_ROW_FORMAT):
             raise ValueError('row format differs; use a sibling pool directory to preserve existing pools')
-        if manifest_without_row_format(old) != manifest_without_row_format(manifest):
+        if manifest_without_row_format(old) not in (
+                manifest_without_row_format(base_manifest), manifest_without_row_format(manifest)):
             raise ValueError('rendering would change manifest/accounting; refusing to overwrite')
     for arm, rows in pools.items():
         io.write_rows(destination / f'pool_{arm}.jsonl', rows)
@@ -216,27 +295,28 @@ def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     # Reporting fields are attached only after all purchases were frozen and paid.
     acquisition.update(tasks_covered=manifest['tasks_covered'], task_count=len(manifest['tasks_covered']),
                        positives=manifest['positives'], failed_attempts=len(manifest['failed_attempt_ids']),
-                       failed_attempt_cost=manifest['failed_attempt_cost'], ranking=manifest['ranking'])
+                       failed_attempt_cost=manifest['failed_attempt_cost'], ranking=base_manifest['ranking'])
     acquisition['journal'] = expected['journal'] + [dict(stage='post_purchase_report',
         sealed_reader_ids=acquisition['purchased_ids'], unpurchased_content_read=False)]
     if acquisition != original_acquisition:
         io.write_json(acquisition_path, acquisition)
     print(f'{acquisition["benchmark"]} B={acquisition["cap"]} seed={acquisition["training_seed"]}: '
           f'{len(pools["sft"])} positives, {len(manifest["tasks_covered"])} tasks, '
-          f'rank eligible/reused={manifest["ranking"]["purchased_task_eligible"]}/0')
+          f'{manifest["arms"]["ddpo"].get("rank_pairs", 0)} recorded rank pairs, '
+          f'dDPO C_m={manifest["arms"]["ddpo"]["C_m"]}')
     return manifest
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--audit-root', type=Path, default=io.DEFAULT_OUT)
-    ap.add_argument('--out', type=Path, help='pool root (default: pools_native for native-fc; pools for legacy)')
+    ap.add_argument('--out', type=Path, help='pool root (default: pools_native for native-fc-v2; pools for legacy)')
     ap.add_argument('--benchmark', choices=io.BENCHMARKS)
     ap.add_argument('--row-format', choices=ROW_FORMATS,
-                    help='default: native-fc for BFCL; legacy-messages-v1 otherwise')
+                    help='default: native-fc-v2 for BFCL; native-fc is a v2 alias; legacy-messages-v1 otherwise')
     args = ap.parse_args()
-    if args.row_format == NATIVE_ROW_FORMAT and args.benchmark != 'bfcl':
-        ap.error('--row-format native-fc requires --benchmark bfcl')
+    if args.row_format in (NATIVE_ROW_FORMAT, 'native-fc') and args.benchmark != 'bfcl':
+        ap.error('native-fc-v2 requires --benchmark bfcl')
     for benchmark in [args.benchmark] if args.benchmark else io.BENCHMARKS:
         directory = args.audit_root / benchmark
         for path in sorted(directory.glob('acquired_B*_seed*.json')):
