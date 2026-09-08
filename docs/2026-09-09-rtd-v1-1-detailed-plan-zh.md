@@ -8,9 +8,9 @@
 |---|---|---|
 | 是否多走了 RL 步 | **没有**。参数只由传输目标梯度更新;回报梯度只进门控 VJP 与插入价值 | compute.jsonl 操作:reference_gradient / new_package_gradient / gate_vjp;experiment.py `actual()` 只调用 streamed_gate_vjp 更新 φ |
 | 价值后验是否每轮重置 | **是**。`ValuePosterior.begin_round` 每轮新建 BayesianLinearRegression(39 维),观测清空 | acquisition.py L71–90;experiment.py L399 每轮 `ValuePosterior(39, round_id=...)` |
-| base(46.74)是否学过 bank | **学过,且大量重叠**。base = crcd_r3_union_s0(在 r2∪r3 事件池 358 行 / 79 个任务上做过 1 epoch DPO)。sealed bank 698 条记录中:**157 条 prompt 与训练行完全相同,145 条 teacher 响应文本完全相同,369 条属于训练过的 79 个任务** | data/bfcl_sft/pool_events_pref_{v2,r3}.jsonl vs data/rtd/v1_bfcl_c25/sealed/*(prompt_sha256 / 响应文本 / task_id) |
+| base 是否学过 bank | **没有(已更正)**。RTD 六个 run 的 manifest 中 model_path 都是原始 `Qwen/Qwen3.5-4B` 快照(851bf6e8),不是 CRCD 训练过的 checkpoint;它没有见过 bank。报告里"base 46.74"这个数字来自 crcd_r3_union_t_s0(在 v3t 池 302 行上 DPO 过)的官方分,是**标错的参照**;原始学生的官方分是 46.06。CRCD 系列 checkpoint 与 bank 的重叠确实很大(crcd_r3_union_s0 的训练行:157 条 prompt / 145 条响应 / 369 条同任务;v3t 池:157 / 167 / 354),所以它们**不能**作 v1.1 基座 | manifest.json model_path;exp_log 652 行;data/bfcl_sft/pool_events_pref_{v2,r3,v3t}.jsonl vs sealed/* |
 
-第三条意味着 v1.0 测到的主要是"再学一遍已见证据"的价值,这本身就压低了任何采购策略的可分辨性。v1.1 必须换基座或剔除重叠。
+结论:v1.0 的基座本身没有泄漏,但报告参照线应改为 46.06(相对它,hpg R1 r3 = +1.25、R0 = +0.69、R1s = +0.47,仍在单种子噪声内;R1−R0 = +0.56 不变)。
 
 ## 1. 目标与臂
 
@@ -78,12 +78,11 @@ L_S = (1 − |S|/E) L_D + (1/E) Σ_{q∈S} L_q,
 - "两组独立反馈估计"的可靠性测试只在**已购包或明确扣账的校准包**上做(对未购候选算真实 v_q 会打开封存池,不做);
 - 成功标准不是"熵下降":价值不可靠时接近随机是合理行为;要验证的是可靠价值差异出现后决策是否随之改变(记录每窗价值差异的显著性与购买变化)。
 
-## 5. 基座与 bank 泄漏(必须处理)
+## 5. 基座与 bank 泄漏(已核实,无需换基座)
 
-- 方案 A(推荐):基座换成**未见过 bank 的学生**——原始 Qwen3.5-4B-FC 学生(官方 46.06);bank 保持 420 包。代价:与 v1.0 数字不可比(本来也不该比)。
-- 方案 B:保留 crcd_r3_union_s0,但从 bank 剔除 prompt 或响应完全相同的 157/145 条以及同任务的 369 条 → bank 剩不到一半,采购空间被砍。
-- 两个方案都要先核对 46.74 与 exp_log 里 47.82 的差异来源(同一 checkpoint 在不同机器/协议的评测),并把选定 checkpoint 的训练数据哈希写进 manifest 作为泄漏审计。
-- 建议 A;若你要求与 CRCD 曲线衔接则 B。
+- v1.1 基座 = 原始 Qwen/Qwen3.5-4B 学生(与 v1.0 相同,官方 46.06),它没有见过 bank。
+- 报告参照线改为 46.06;46.74 是 crcd_r3_union_t_s0 的分数,不再作为参照。
+- 协议加一条泄漏审计:manifest 记录基座训练数据哈希(原始学生为空),bank 构建时与任何候选基座的训练行做 prompt/响应/任务重叠检查并写进 data identity;CRCD 系列 checkpoint(重叠 157/145/369 条)明确禁止作基座。
 
 ## 6. 度量与报告
 - 解析失败率:固定任务集(两折支持父任务各取固定 20 个状态,每状态 K=4 温度 1 采样),每轮同一集合上报;不再用混合了折/轨迹长度/反馈次数的计数。
@@ -110,7 +109,7 @@ L_S = (1 − |S|/E) L_D + (1/E) Σ_{q∈S} L_q,
 总计约 5–6 天(含实现)。
 
 ## 9. 需要你拍板
-1. §5 基座:A(原始学生)还是 B(剔除重叠)。
+1. §5 参照线改为 46.06(原始学生);基座不变。
 2. §3.2 的两个公开成本假设(55,370 分母的"缓存内容成本"定位;每类内容认证 cap)。
 3. §2 默认估计器为软/CV,语法过滤只作诊断对照。
 4. E=40 / K≤20 / 每包 1 槽;V0/V1/V2 三臂;单种子。
