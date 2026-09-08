@@ -74,7 +74,8 @@ def main(argv=None):
             run_directory=args.run_directory, round_number=args.round, environment_root=args.environment_root)
         atomic_json(args.out, result)
     else:
-        tag_lock_path(args.root, args.tag)  # validate tag syntax without touching a lock
+        # Validate the campaign key without touching a lock.
+        tag_lock_path(args.root, args.tag, output_root=args.output_root)
         manifest = read(args.binding)
         supplement = read(args.supplement) if args.supplement else None
         if args.command == "run":

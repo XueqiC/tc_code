@@ -228,7 +228,7 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
         transport='TextWorld subprocess pipes', requested_port=port, port_used=False,
         note='port argument has no effect; no HTTP server or port lease')
     def record_wait(**event):
-        journal.append('evaluation_lock_wait', round=round_number, tag=f'alfworld/round-{round_number}',
+        journal.append('evaluation_lock_wait', round=round_number, tag=f'alfworld/{directory.name}/round-{round_number}',
             accounting='idle', idle_seconds=event['wall_seconds'], gpu_seconds=0., gpu_reserved_seconds=0., **event)
     completed = directory / f'evaluation-{round_number}.json'
     output = directory.parent / (directory.name + '-alfworld-evaluations')

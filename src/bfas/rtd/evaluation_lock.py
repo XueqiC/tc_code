@@ -28,12 +28,17 @@ def wait_settings(timeout=None, log_interval=None):
     return timeout, log_interval
 
 
-def tag_lock_path(root, tag, *, benchmark='bfcl'):
+def tag_lock_path(root, tag, *, benchmark='bfcl', output_root=None):
     if not isinstance(tag, str) or not tag or tag in {'.', '..'} or '/' in tag or '\\' in tag:
         raise ValueError(f'invalid campaign tag: {tag!r}')
     if benchmark == 'alfworld':
-        from .persistence import digest
-        return Path(root) / 'results/alfworld_std/.locks' / digest(tag) / '.lock'
+        if output_root is None:
+            raise ValueError('ALFWorld campaign lock requires output_root')
+        # Arms share round tags, but only writers to one resolved campaign
+        # directory share artifacts. Canonicalize aliases before taking a lease.
+        campaign = (Path(output_root) / tag).resolve()
+        key = hashlib.sha256(str(campaign).encode()).hexdigest()
+        return Path(root) / 'results/alfworld_std/.locks' / key / '.lock'
     if benchmark != 'bfcl':
         raise ValueError('unknown evaluation benchmark')
     key = hashlib.sha256(tag.encode()).hexdigest()

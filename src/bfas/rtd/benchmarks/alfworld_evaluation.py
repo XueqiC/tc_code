@@ -306,9 +306,9 @@ def compare_base(base, result):
                      damaged=before[tid] and not after[tid]) for tid in sorted(after)}
 
 
-def tag_lock_path(root, tag):
+def tag_lock_path(root, tag, *, output_root):
     from ..evaluation_lock import tag_lock_path as common_tag_lock_path
-    return common_tag_lock_path(root, tag, benchmark='alfworld')
+    return common_tag_lock_path(root, tag, benchmark='alfworld', output_root=output_root)
 
 
 def _records(artifacts, expected, identity, *, complete):
@@ -363,13 +363,14 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
     Injected backends are for CPU fixtures. The default backend checks the live
     hardware class before its first allocation; reuse never constructs it.
     """
-    lock = tag_lock_path(root, tag)
-    directory = Path(output_root) / tag
+    lock = tag_lock_path(root, tag, output_root=output_root)
+    directory = (Path(output_root) / tag).resolve()
+    run_name = Path(manifest['paths'].get('run_directory') or output_root).name
     for name in ("data_root", "model_path", "tokenizer_path", "environment_root", "run_directory", "checkpoint"):
         value = manifest["paths"].get(name)
         if value and directory.resolve().is_relative_to(Path(value).resolve()):
             raise ValueError("campaign output must be separate from input/training directories")
-    with evaluation_lock(lock, tag=f"alfworld/{tag}", timeout=lock_timeout,
+    with evaluation_lock(lock, tag=f"alfworld/{run_name}/{tag}", timeout=lock_timeout,
                          log_interval=lock_log_interval, on_wait=on_lock_wait):
         if directory.exists() and any(p.name not in {"artifacts", "campaign.json", "audit.jsonl"}
                                       or p.is_symlink() for p in directory.iterdir()):
@@ -377,7 +378,14 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
         current, hashes = guard_manifest(root, manifest, hardware=hardware, supplement=supplement)
         identity = campaign_identity(current)
         expected = current["evaluation_harness"]["expected"]
+        directory.mkdir(parents=True, exist_ok=True)
         journal = ComputeJournal(directory / "audit.jsonl", cuda=False)
+        journal.append("identity_audit", reason="C26-I lock granularity, no scoring change",
+            method="guard_manifest/audited_harness_hashes", manifest_hash=digest(manifest),
+            previous_harness_hash=manifest["harness_hash"], current_harness_hash=current["harness_hash"],
+            audited_hashes=hashes, supplement_hash=digest(supplement) if supplement else None,
+            campaign_directory=str(directory), lock=str(lock),
+            gpu_seconds=0., gpu_reserved_seconds=0.)
         base = _validated_base(base_evaluation) if base_evaluation is not None else None
         if base is not None:
             # Check base completeness/class/science before generating or

@@ -288,7 +288,8 @@ def test_native_wait_interval_reaches_common_policy(campaign, monkeypatch):
         observed.append((timeout, log_interval))
         return original(timeout, log_interval)
     monkeypatch.setattr(locks, 'wait_settings', settings)
-    with locks.evaluation_lock(locks.tag_lock_path(c.root, c.tag, benchmark='alfworld'), tag='held', timeout=0):
+    with locks.evaluation_lock(locks.tag_lock_path(c.root, c.tag, benchmark='alfworld', output_root=c.output),
+                               tag='held', timeout=0):
         with pytest.raises(TimeoutError):
             alfworld_evaluation.evaluate(c.root, c.manifest, **c.kwargs, lock_log_interval=.013)
     assert observed[-1] == (0, .013)

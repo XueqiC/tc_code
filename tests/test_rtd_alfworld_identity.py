@@ -76,7 +76,10 @@ def test_training_and_operational_drift_outside_scoring_inventory(campaign):
     path = c.root / "src/bfas/adapters/alfworld.py"
     path.write_text(path.read_text().replace('teacher_name = os.environ.get(', 'irrelevant_name = os.environ.get('))
     evaluate = c.root / "src/bfas/rtd/benchmarks/alfworld_evaluation.py"
-    evaluate.write_text(evaluate.read_text().replace('tag=f"alfworld/{tag}"', 'tag=f"alfworld/log/{tag}"'))
+    original = evaluate.read_text()
+    changed = original.replace('tag=f"alfworld/{run_name}/{tag}"', 'tag=f"alfworld/log/{run_name}/{tag}"')
+    assert changed != original
+    evaluate.write_text(changed)
     assert identity.guard_manifest(c.root, c.manifest, hardware=c.hardware)[0]["harness_hash"] == c.manifest["harness_hash"]
 
 

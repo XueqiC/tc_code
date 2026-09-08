@@ -187,7 +187,11 @@ def test_audited_reuse_retains_original_scored_identity_and_artifacts(campaign):
     assert tree_hash(c.directory / "artifacts") == first["artifacts_hash"]
     events = ComputeJournal(c.directory / "audit.jsonl").events
     assert sum(e["kind"] == "alfworld_episode" for e in events) == 140
-    events = [e for e in events if e["kind"] != "alfworld_episode"]
+    audits = [e for e in events if e["kind"] == "identity_audit"]
+    assert len(audits) == 3
+    assert all(e["reason"] == "C26-I lock granularity, no scoring change" for e in audits)
+    assert audits[-1]["audited_hashes"] == [digest(current), c.manifest["harness_hash"]]
+    events = [e for e in events if e["kind"] not in {"alfworld_episode", "identity_audit"}]
     assert len(events) == 2 and all(e["kind"] == "evaluation_reuse_via_audited_identity" for e in events)
     assert all(e["gpu_seconds"] == e["gpu_reserved_seconds"] == 0 for e in events)
     assert events[0]["stored_harness_hash"] == first["identity"]["evaluation_harness_hash"]
@@ -281,9 +285,9 @@ def test_missing_base_class_rejects_new_campaign(campaign):
 
 def test_benchmark_tag_lock_namespaces(campaign):
     c = campaign
-    alf = evaluation.tag_lock_path(c.root, "same-tag")
+    alf = evaluation.tag_lock_path(c.root, "same-tag", output_root=c.output)
     bfcl = bfcl_tag_lock_path(c.root, "same-tag")
-    other = evaluation.tag_lock_path(c.root, "other-tag")
+    other = evaluation.tag_lock_path(c.root, "other-tag", output_root=c.output)
     assert alf != bfcl and alf != other
     with evaluation_lock(bfcl, tag="bfcl/same-tag", timeout=0):
         with evaluation_lock(alf, tag="alfworld/same-tag", timeout=0):
@@ -298,7 +302,7 @@ def test_benchmark_tag_lock_namespaces(campaign):
 
 def test_tag_lock_contends_across_processes(campaign):
     c = campaign
-    lock = evaluation.tag_lock_path(c.root, "same")
+    lock = evaluation.tag_lock_path(c.root, "same", output_root=c.output)
     code = """
 import sys
 from bfas.rtd.evaluation_lock import evaluation_lock
