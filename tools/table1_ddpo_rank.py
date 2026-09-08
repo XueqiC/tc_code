@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime, timezone
 import fcntl
 from functools import lru_cache
@@ -371,7 +372,8 @@ def with_unsettled(calls, intents):
                           for q, r in intents.items() if q not in calls})
 
 
-def materialize(pools, tids, calls, eligible, abort_reason=None):
+def render_ranked_pools(pools, tids, calls, eligible, abort_reason=None, *, row_renderer=None):
+    """Pure replay of paid rankings; optionally adapt recorded preference rows."""
     relevant = [c for c in calls.values() if c['task_id'] in tids]
     ranked = {}
     for call in relevant:
@@ -385,9 +387,13 @@ def materialize(pools, tids, calls, eligible, abort_reason=None):
     pending = sorted(set(eligible) - terminal)
     status = ('incomplete_ranking_costs' if unknown else 'partial_ranking' if pending or abort_reason
               else 'ready' if ranked else 'no_rankable_preferences')
-    for directory, manifest, base in pools:
-        output = base + [ranked[t] for t in sorted(ranked)]
-        atomic_write(directory / 'pool_ddpo.jsonl', output, jsonl=True)
+    rendered = []
+    for directory, source_manifest, base in pools:
+        manifest = deepcopy(source_manifest)
+        preferences = [deepcopy(ranked[t]) for t in sorted(ranked)]
+        if row_renderer is not None:
+            preferences = [row_renderer(row) for row in preferences]
+        output = deepcopy(base) + preferences
         arm = manifest['arms']['ddpo']
         purchased_cost = manifest['sealed_replay_spend']
         total = purchased_cost + cost
@@ -412,11 +418,20 @@ def materialize(pools, tids, calls, eligible, abort_reason=None):
         manifest['ranking']['new_ddpo'] = dict(
             ledger='results/table1_audit/bfcl/ddpo_rank_ledger.jsonl',
             call_ids=arm['ranking_call_ids'], cost=cost, status=status, ranked_tasks=sorted(ranked))
-        atomic_write(directory / 'manifest.json', manifest)
-    return dict(status=status, ranked_tasks=len(ranked), ranking_cost=cost,
-                C_m=pools[0][1]['arms']['ddpo']['C_m'],
-                exceeds_cap=pools[0][1]['arms']['ddpo']['exceeds_cap'],
+        rendered.append((directory, manifest, output))
+    summary = dict(status=status, ranked_tasks=len(ranked), ranking_cost=cost,
+                C_m=rendered[0][1]['arms']['ddpo']['C_m'],
+                exceeds_cap=rendered[0][1]['arms']['ddpo']['exceeds_cap'],
                 pending_task_ids=pending, unknown_call_ids=unknown, abort_reason=abort_reason)
+    return rendered, summary
+
+
+def materialize(pools, tids, calls, eligible, abort_reason=None):
+    rendered, summary = render_ranked_pools(pools, tids, calls, eligible, abort_reason)
+    for directory, manifest, output in rendered:
+        atomic_write(directory / 'pool_ddpo.jsonl', output, jsonl=True)
+        atomic_write(directory / 'manifest.json', manifest)
+    return summary
 
 
 def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, sleep=time.sleep):

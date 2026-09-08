@@ -89,44 +89,61 @@ acquired_B<cap>_seed<k>.json 保存完整冻结顺序、逐步累计成本、下
 | alfworld | 9074 | 0 | 0 | 0 | 0 | 0 |
 | appworld | 22633 | 31 | 7 | 7 | 24 | 0 |
 
-## 池行格式
+## 池行格式：native-fc v2
 
-**BFCL 默认改为 `native-fc`，入口为 `tools.table1_row_format.render_package()` → `render_native_row()`。** `tools/table1_pool_from_sealed.py --benchmark bfcl` 默认写当前 worktree 的 **`results/table1_audit/pools_native/bfcl/`**；原 `results/table1_audit/pools/bfcl/` 保留 `legacy-messages-v1`，可用 `--row-format legacy-messages-v1` 显式重建。不同格式禁止覆盖同一已有目录。ALFWorld/AppWorld 默认仍为 legacy，未重建或修改其池。本次在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支操作；不提交、不调用 GPU/API、不运行环境，`data/`、`envs/` 只读。
+**BFCL 默认格式为 `native-fc-v2`**；原 CLI 拼写 `--row-format native-fc` 现在是 v2 别名。`tools/table1_pool_from_sealed.py --benchmark bfcl` 写当前 worktree 的 `results/table1_audit/pools_native/bfcl/`，允许将该目录原 `native-fc` 升级为 v2。legacy 目录仍为 `results/table1_audit/pools/`，不能被 native 覆盖；ALFWorld/AppWorld 默认仍为 legacy。本次只在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支写入，不提交、不调用 GPU/API；`data/`、`envs/` 只读。
 
-### 为什么采用 native
+### 真实评测证据与修复原因
 
-用户提供的训练/评测证据：旧 `legacy-messages-v1` 格式的 94 行训练 3 epochs 后，Qwen3.5-4B 对 BFCL 各条目都输出 `"<think>\n[]"`，Overall 约 11%；旧 23 行池只是训练不足，未暴露同样严重的退化。采用 native rendering 的 RTD 保持约 46–47。这些是已有运行证据，本次 CPU 工作没有重新训练或复测分数。
+用户提供的新运行证据：native v1 学生 Overall=16.7，典型输出是 `<think>\n\n` 后 EOS。v1 的 prompt 已包含 `<think>\n\n</think>\n\n`，response 只有 continuation，导致关闭 think block 和紧接的 tool-call 边界不作为完整目标接受监督。真实评测输入却止于 `<|im_start|>assistant\n`，模型必须自行生成这个 block。本次仅做 CPU 格式/训练边界验证，没有重新训练或声称分数已恢复。
 
-代码可直接确认两处不一致：legacy 把函数文档塞进 system message，`prompt_token_ids()` 因 `messages` 非空重新调用 `tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)`，**没有传 `tools`**；部署则使用 Qwen FC handler 的工具列表模板。legacy 目标为 `'[{"f": "{json}"}]'`，而 FC handler 的 `_extract_tool_calls()` / `decode_ast()` 解码的是 `<tool_call>` 标签内的 `{name, arguments}` JSON。这不是 `messages=[]` 行被重复套模板的问题：trainer 对空 messages 本来就直接消费 prompt。改用 native 是对齐真实训练/部署条件和输出语言，不能从 CPU 测试推断新的模型分数。
+只读复制自 `/home/xueqi/hq/projects/tc-alignment-table1/results/table1_audit/bfcl/` 的 `ddpo_samples_B13843.jsonl` 包含 **88 个学生样本、22 个不同任务、每题四次相同 prompt**；`ddpo_rank_ledger.jsonl` 包含 31 次已发生的排名调用。副本位于本 worktree 同名相对路径，源路径和逐文件 SHA-256 记录在 `results/table1_audit/native_fc_v2_evidence_sources.json`。没有修改源 worktree，也没有重新采样或购买排名。
 
-### 精确 prompt 与 teacher continuation
+### 精确 prompt、target 与 RTD 的区别
 
-- 原始审计 snapshots 保持封存；仅按冻结的 purchased IDs 读取 `data/rtd/v1_1_bfcl/sealed/<id>.json`，由 `read_bank_payload()` 核验 `ledger.sources` 的 SHA-256。失败包仍计费但不生成正行，采购顺序、调用、成本均不变。
-- **`messages=[]`**。`prompt` 是 sealed `behavior.state.prompt` 的原始字节，包含工具列表、实际题目/历史以及 `<|im_start|>assistant\n<think>\n\n</think>\n\n` 后缀。`bfcl_native_prompt()` 用 vendored **`QwenFCHandler._format_prompt(messages, functions)`** 和现有 **`bfas.cc_pairs.thinking_off()`** 重新构造并逐字节核对，不复制模板，也不初始化 API client。
-- 精确代码边界：`src/bfas/rtd/bank.py:build_bfcl_bank()` 内的 `full_state()` 使用 `thinking_off(render_prompt(...))`；`bfas.cc_pairs.render_prompt()` 调用 `BFCLAdapter._render()` → `QwenFCHandler._format_prompt()`。**当前 envs 内 Python `_format_prompt()` 本身止于 assistant marker**；它的模板说明包含 non-thinking 分支，但 Python 实现没有自行追加 think-empty。`src/bfas/rtd/return_gradient.py:bfcl_task_rollout()` 的评测 query 明确调用 `thinking_off(handler._format_prompt(...))`，这才是与 sealed RTD 一致的 non-thinking 部署 prompt。测试保留并明确验证这个区别，不宣称裸 `_format_prompt()` 单独返回完整后缀。
-- `task_json` 排序过对象键，不能用它重序列化工具列表来追求字节一致。`bfcl_inputs()` 从 generator 的 `historical_response.function` 或 demo sealed prompt 的 `<tools>` JSON 恢复原始顺序；与 `task_json.function` 及 `history_json` / `task_json.question` 做对象核对。
-- **`response=behavior.text`**，与 RTD 的 `score_behavior()` 直接编码的文本一致。demo 的 bank helper 是 `bfas.rtd.bank._response_text()` → `bfas.cc_pairs.render_calls()`；generator 是银行已有的 `render_truth()` 结果，重建池不重新选择 ground_truth 的可接受值。单次调用为 `<tool_call>\n{"name": "f", "arguments": {...}}\n</tool_call>`；多个调用按原序以一个换行连接。irrelevance demo 的自然语言逐字保留。response 没有手工 EOS，也不附加 think 前缀。
-- `task_id`、`teacher`、`turn_index`、**`token_hint` 原值**保留。token_hint 是旧行的长度提示，trainer 的真实 response token 统计独立计算；它不代表教师费用。
+- **`messages=[]`**。`bfcl_evaluation_prompt()` 在输入副本上执行 BFCL 官方 `add_language_specific_hint_to_function_doc()` → `_func_doc_language_specific_pre_processing()`，再调用 `QwenFCHandler._pre_query_processing_prompting()`、`add_first_turn_message_prompting()`、`_format_prompt()`。用 `__new__` 避开构造 API client；只运行纯预处理/模板函数。
+- **prompt = 官方语言预处理后的 handler 模板，止于 `<|im_start|>assistant\n`**，不追加 think suffix。Python 描述追加 ` Note that the provided function is in Python 3 syntax.`；Java/JavaScript 使用各自官方提示，并执行参数描述、类型和 items/properties 的相应转换。
+- **response = `<think>\n\n</think>\n\n` + sealed `behavior.text`**。teacher continuation 原字节、调用顺序、嵌套参数和自然语言均保留；不重选 ground_truth 候选、不编造拒答、不附加手工 EOS。teacher/tool continuation 仍是 `<tool_call>\n{"name": ..., "arguments": ...}\n</tool_call>` 原生输出形式。
+- `bfcl_native_prompt()` 仍先用 RTD 原来的 `thinking_off(handler._format_prompt(...))` 验证 sealed prompt。`bfcl_inputs()` 从 generator 对象或 sealed `<tools>` JSON 恢复原始工具键序，再与排序过的 `task_json` 做对象核验；不能直接将 task_json 重序列化后当作部署字节。`read_bank_payload()` 仅揭示已购 package，并核对冻结源 SHA-256；失败包仍计费但不产正例。task_id、teacher、turn_index、token_hint 原值不变。
 
-### 空调用的显式例外
+**22/22 记录 prompt 全部逐字节相等，Java 无剩余差异。** 其中 14 个不同官方任务也出现在已购正行中（重复 demo 共 22 行）。对旧 RTD prompt，仅去掉函数描述语言 note 再补 think suffix，13/14 任务相等。唯一额外差异是 `simple_java_6`：`refreshMetadata`、`append`、`keepState` 从 `boolean` 变为 `string`，每个参数追加 ` This is Java boolean type parameter in string representation.`。v2 执行完整预处理后该例也完全相等。另一个 recorded Java 任务 `simple_java_4` 的 `any` 参数同样按官方逻辑变为 string；它没有已购 SFT 正行，但独立官方输入测试覆盖其记录 prompt。
 
-B13843 每 seed 有 **13** 条、B5537 有 **5** 条成功 generator 条目的 `ground_truth=[]`，其 sealed native continuation 是空字符串。RTD 的 `render_calls([])` 就是 `''`，后续 `action_ids()` / `score_behavior()` 监督 EOS。归档没有这些题目的自然语言答案；不能编造拒答，也不能声称旧审计补入的 `'[]'` 与 RTD 文本相同。
+可用于论文的精确定义：**“Native-fc v2 uses the evaluation handler's language-preprocessed function documentation and assistant-start prompt. Relative to RTD's sealed rendering, it moves the empty think block from the masked prompt to the supervised response and adds language-specific documentation/schema preprocessing; the teacher continuation is unchanged.”** RTD `bank.full_state()` / `return_gradient.bfcl_task_rollout()` 的原有 `thinking_off` 边界与本次真实 BFCL CLI 评测不同，不能再称 v2 与 RTD 的 prompt/response 切分完全相同。
 
-这些行保留空 response 并加 **`_native_fc_empty_response=true`**。renderer 只在封存空调用证据成立时标注；`load_pool()` 只对显式布尔标记、`messages=[]` 且有正确 native 后缀的行放行，普通空回答仍报错。`encode()` 不改：这类目标只有它追加的一个 EOS。其余 B13843 的 81 / B5537 的 25 行都必须有 EOS 之前的非空 response tokens。**“与 RTD 完全一致”和“每一行 response tokens 都非空”对这 13/5 条无法同时满足**；本次明确保留 RTD 的 EOS-only 例外，行数和已购费用不变。
+用户说明记录输出已经过 vLLM reasoning parser，看不到模型生成的空 think block。vendored Qwen handler 的 `_parse_query_response_prompting()` 也会在 `</think>` 处分割，仅将其后的内容写入 `model_responses`，reasoning 另存；`decode_ast()` 提取 `<tool_call>`。因此保存的 continuation 不是完整的模型发射序列。测试以完整 block + 工具调用/自然语言/空 continuation 调用该 parser，核对清理结果。
 
-### Trainer、SAD 与配对字段
+### 空调用与训练 labels
 
-真实 `load_pool()` → `prompt_token_ids()` → `encode(..., device='cpu')`：空 messages 禁止 re-template；prompt 和 response 分别以 `add_special_tokens=False` 编码。按 `AW_MAX_PROMPT_TOKENS=4096`、`AW_TRUNCATE_SIDE=tail` 截断 prompt，response 截至 `MAX_RESPONSE_TOKENS=512`，末尾追加一次 EOS。输入严格为 `prompt_ids + response_ids + EOS`，labels 为 `[-100] * len(prompt_ids) + response_ids + EOS`；工具说明与 think-empty 前缀全部属于 prompt mask。另测试 32-token 截断边界。这里保证文本与 RTD 相等，不宣称 trainer 的 4096/512 截断配置等于 RTD 的全部训练配置。
+B13843 每 seed 有 **13** 条、B5537 有 **5** 条成功 generator 的 sealed continuation 为空且 `ground_truth=[]`。保留 **`_native_fc_empty_response=true` 的语义：教师 continuation 为空**。**v2 的 response 并非空字符串，而是 think prefix 单独组成的目标 `<think>\n\n</think>\n\n`；encode 随后追加一个 EOS。** 这些行也必须学习 `</think>`，不再是 v1 的 EOS-only 目标。`load_pool()` 验证显式标记与 v2 的空 messages、assistant-start prompt、prefix-only response 一致；保留 v1 已标注空目标的加载兼容，普通空 response 仍拒绝。
 
-`_sad_spans` 在 native response 上按真实 `appworld_train.action_spans()` 的代码围栏规则重新计算，不沿用旧字符偏移；该 trainer 规则不会把 XML tool calls 自动算作代码 action，本次不改 SAD 的损失定义。`pbsd_insp._rejected` 若有精确已购状态对应的缓存，使用 RTD `render_calls()` 格式转换旧 decoded FC 列表，native 输出/自然语言保留，不重新采样或修复失败动作。当前 BFCL 已购缓存仍为 **0 对**；测试用显式 fixture 覆盖多个调用、嵌套参数、原生失败文本和尾部 EOS 的处理。
+真实 `load_pool()` → `prompt_token_ids()` → `encode(..., device='cpu')` 使用本地 **Qwen/Qwen3.5-4B tokenizer，`local_files_only=True`**。messages 为空时不 re-template，prompt/response 各自以 `add_special_tokens=False` 编码。prompt 按 4096/tail 截断，response 按 `MAX_RESPONSE_TOKENS=512` 截断，再追加一次 EOS。labels 精确等于 `[-100] * len(prompt_ids) + response_ids + [EOS]`；**完整 think prefix 的 token，包括 `</think>` 和后续换行，都属于 labels，而非 prompt mask**。另覆盖 32-token prompt 截断。测试不加载模型权重、禁止 socket connect 和 CUDA 初始化；只验证训练输入和损失边界，不宣称所有 trainer 截断配置与 RTD 相同。
 
-`pbsd_agent.c` 的 `state_prompt/response` 使用同一 native rendering，且 **c.state_prompt 必须等于所属行 prompt**。银行内某些 generator task_id 在不同问题间复用，native 模式按 `(task_id, prompt)` 分组，只引用确切同状态的已购证据，避免把同名不同题的 c 混入；所有引用都保留 package_id/turn_index。`c` 仍没有现成训练消费者，dDPO 仍为缺排名费用的 SFT fallback，STaR 仍为空 teacher pool。
+### 七臂与排名回放
 
-### 输出、回归与不变量
+SAD 的 `_sad_spans` 在 v2 response 上重新按 trainer 的代码围栏规则计算，字符偏移包含新增 prefix；不改变 SAD 的损失定义。PBSD-insp `_rejected` 将旧 decoded FC 列表转为原生调用，并补模型 think prefix；已有完整 think 发射保留，尾部 EOS 去掉交给 encode 添加。当前已购 BFCL 缓存仍为 **0 对**，测试用 fixture 验证转换、嵌套参数、失败文本和 EOS，不修复失败调用。
 
-两个预算 × 三 seeds × 七臂，共 **42 个 native 池、36 个非空池、2,232 行**（含臂/seed 重复）。B13843 六个非 STaR 臂各 94 行、C_m=13,776；B5537 各 30 行、C_m=5,471；每个 STaR 池 0 行、C_m=0。六个 manifests 均为 `row_format='native-fc'`。只有格式及 `arms.*.pool_sha256` 改变；`row_origins.row_sha256` 始终指向不可变封存源行，采购 IDs、种子、费用、失败统计、排名/基线状态不变。重建器同时与源 manifest 核对这些不变量，未改变的 acquisition 不重写。
+PBSD-agent 的 `c.state_prompt` **逐条等于所属 row.prompt**，`c.response` 同样包含 think prefix。按 `(task_id, prompt)` 分组防止复用 task_id 的不同生成问题串用证据。`c` 仍缺训练消费者，STaR teacher pool 仍为空。
 
-`tests/test_table1_native_fc.py` 从三个不同已购任务取 demo、generator、自然语言 irrelevance，使用 envs 内 handler 自己的预处理/首轮/格式化函数（只读，不 query），独立从官方任务文件或已购 generator 对象取输入，并通过 RTD 自己的 `render_prompt()`、`_response_text()` / `render_truth()` 检查 prompt/response 字节相等。另对全部 94 已购正行验证 sealed bytes；对六组七臂逐行走真实 trainer，**使用本地 Qwen/Qwen3.5-4B tokenizer，`local_files_only=True`**，验证不 re-template、非空目标及 EOS-only 例外、一次 EOS 和精确 prompt mask。测试禁止 socket connect、模型权重加载和 CUDA 初始化；legacy 全池回归继续保留。
+若本地存在 `bfcl/ddpo_rank_ledger.jsonl`，默认重建器自动执行纯 CPU `replay_native_rankings()`，复用 `table1_ddpo_rank.render_ranked_pools()` 的费用/状态计算，不调用 `sample`、`rank`、client 或服务。每个排名候选及其顺序、上下文、best/worst 与 preference_row 均与原始 samples/ledger 核对；B5537 只使用自身已购父任务，可从 B13843 样本文件读取这些任务。
+
+**排名行 response/chosen 与 `_rejected` 都是 think prefix + 记录的学生样本原字节。必须补 prefix**：样本虽称 raw output，但已经过 parser，偏好损失应覆盖模型自行发射的序列，边界必须与 SFT 一致。排名行不调用 decoded-list 转换，不修复 malformed JSON，不替换成 teacher 答案。原始 samples/ledger 不变；pool 中的 `messages=[]`、prompt 为记录的官方 prompt。rank 行 token_hint 保留原记录，仅为训练提示而非费用。
+
+本次 B13843 的 31 个排名 attempt 中，16 个成功、15 个 parse_failed；全部计费 **1,083 tokens**，不能只算最后成功回复。B5537 的任务子集包括 10 个成功、10 个 parse_failed，共 **680 tokens**。三个 seeds 共享相同 call IDs；较小 cap 的回放是同一批证据的子集，不是再次购买。新的 dDPO `C_m` 分别为 **14,859 / 6,151**，超 cap **1,016 / 614**，manifest 明示 `exceeds_cap=true`。`ready` 仅表示已购任务的排名证据可用，不表示满足原总费用 cap。
+
+### 输出与复现
+
+六个目录的逐池行数如下；seed 0、1、2 各有一份，表内不合并训练行。
+
+| cap | seed | sft | sad | bbopd | pbsd_insp | ddpo | star | pbsd_agent |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 13843 | 0 | 94 | 94 | 94 | 94 | 110 | 0 | 94 |
+| 13843 | 1 | 94 | 94 | 94 | 94 | 110 | 0 | 94 |
+| 13843 | 2 | 94 | 94 | 94 | 94 | 110 | 0 | 94 |
+| 5537 | 0 | 30 | 30 | 30 | 30 | 40 | 0 | 30 |
+| 5537 | 1 | 30 | 30 | 30 | 30 | 40 | 0 | 30 |
+| 5537 | 2 | 30 | 30 | 30 | 30 | 40 | 0 | 30 |
+
+共 **42 个池、36 个非空池、2,310 行**，比 v1 多 78 条跨 seed 排名行。六个 manifests 为 `row_format='native-fc-v2'`。SFT/SAD/BB-OPD/PBSD-insp/PBSD-agent 的 C_m 仍分别为 B13843=13,776、B5537=5,471；STaR=0。除新增排名证据、费用及其 provenance 外，采购 IDs、顺序、种子、失败计费、source row hashes、acquisition 文件和 legacy 池均保持原值。manifest 为排名 ledger 和 sample 文件记录 SHA-256；重建可重复运行，已存在但不兼容的会计信息仍拒绝覆盖。
 
 ```bash
 export PYTHONPATH=src:.
@@ -134,13 +151,15 @@ export PYTHONDONTWRITEBYTECODE=1
 export CUDA_VISIBLE_DEVICES=''
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 PY=.venv/bin/python
-$PY tools/table1_pool_from_sealed.py --benchmark bfcl --row-format native-fc
-$PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_table1_row_format.py tests/test_table1_audit.py tests/test_appworld_train_truncation.py tests/test_table1_ddpo_rank.py --junitxml=results/table1_audit/native_fc_cpu_tests.xml
+$PY tools/table1_pool_from_sealed.py --benchmark bfcl
+$PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_table1_row_format.py tests/test_table1_audit.py tests/test_appworld_train_truncation.py tests/test_table1_ddpo_rank.py --junitxml=results/table1_audit/native_fc_v2_cpu_tests.xml
 ```
 
-本次 CPU 回归 **177 passed，0 failures/errors/skipped（181.70 秒）**。逐池行数、字节/hash 与费用核验记录在 `results/table1_audit/native_fc_validation.json`；JUnit 在 `results/table1_audit/native_fc_cpu_tests.xml`。42 个 native 池/六个 manifest 全部校验通过；106 个预先固定 hash 的 legacy 池及 BFCL 审计/采购文件逐字节未变。legacy 之前的 163-test 记录保留在 `row_format_cpu_tests.xml`，不把旧结果冒充本次验证。
+v2 本次 CPU 回归 **209 passed，0 failures/errors/skipped，177.22 秒**，见 `results/table1_audit/native_fc_v2_cpu_tests.xml`；逐池计数、hash、费用、输入保护与 22 prompt 对照见 `native_fc_v2_validation.json`。默认重建再次运行后，42 个池与六个 manifests 全部逐字节不变。旧 `native_fc_cpu_tests.xml` / `native_fc_validation.json` 是 v1 历史记录，不作为 v2 验证结论。
 
 ## 5. 七臂池与训练入口
+
+下表保留 legacy/排名补采前快照；当前 BFCL native-fc v2 的行数、dDPO 费用和状态以上节六目录表及 manifests 为准。
 
 | benchmark | B | arm | rows | C_m | PBSD pairs | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -173,11 +192,11 @@ $PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_t
 | appworld | 22633 | sft | 368 | 22107 | 0 | ready |
 | appworld | 22633 | star | 0 | 0 | 0 | no_teacher_pool_required |
 
-- **SFT：**只输出已购非失败内容；BFCL 默认使用上节 `native-fc`，空调用按封存 RTD 目标监督 EOS；其他 benchmark 仍用 legacy。旧 BFCL legacy 池独立保留，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
+- **SFT：**只输出已购非失败内容；BFCL 默认使用上节 `native-fc-v2`，空调用监督完整 think prefix 后接 EOS；其他 benchmark 仍用 legacy。旧 BFCL legacy 池独立保留，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
 - **SAD：**同 SFT prompt/response，加 `_sad_spans` 字符边界，按现有 action_spans 的代码围栏规则；训练器仍自行算 mask。BFCL 无代码围栏响应按现有 trainer 规则属于非 action 部分，本次未另造 BFCL mask。
 - **BB-OPD：**单轮 BFCL 与 SFT 逐行相同。AppWorld 只取旧 on-policy 上下文/响应与已购 demo 完全一致的行，是部分内容对应，不代表完整 BB-OPD 或证明当前学生访问这些状态。ALFWorld 无对应缓存，空池。补齐需另冻结 on-policy 状态与费用。
 - **PBSD-insp：**只对已购行附加旧缓存的学生失败首轮 `_rejected`，其他正例训练；不做新采样。BFCL 本次 0 对，AppWorld 本次 13 对。
-- **dDPO：**缺少可恢复排名调用成本，0 行复用，SFT fallback 状态保留。
+- **dDPO：**原未知成本缓存仍不复用；BFCL v2 使用只读复制的已付费 ledger，追加学生 rank 行并计入全部尝试费用，详见上节。其他池保留原状态。
 - **STaR：**teacher pool 为空、C_m=0、调用/证据 ID 列表为空，不使用公共基线采购的教师证据。不能将空池交给拒绝空输入的 SFT loader；学生自训练另行进行。
 - **PBSD-agent：**保留 trainer 基础字段，加 c，只引用相同实际任务的已购 demos（不将 generator 父任务当作生成任务本身）。当前 appworld_train 没有消费 c 的入口；agentkd 的 `_thought` 不是此算法。标为 evidence_only_consumer_missing，不伪称已经可训练。
 
@@ -185,9 +204,9 @@ $PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_t
 
 对已采购的非空训练池，使用 `AW_POOL_PATH` 和 **--selection full**。src/appworld_train.py 的 --budget 按学生 tokenizer 计算被选训练行 response tokens；不能代替教师调用费用，也不应再按行重做预算选择。此次只检查输入格式，不执行训练。
 
-### 5.1 BFCL dDPO 排名补采工具（待用户运行）
+### 5.1 BFCL dDPO 排名补采工具（历史接口说明）
 
-新增 `tools/table1_ddpo_rank.py`，本次仅实现工具和 CPU fake-client 测试，**没有运行 GPU 或教师 API，也没有更新真实池的 fallback 状态**。§4–§5 的表格仍是补采前快照。5 条旧缓存 rank 不复用。
+`tools/table1_ddpo_rank.py` 的 sample/rank 子命令及下列 GPU/API 命令是历史采集接口说明，本次没有运行。已有真实记录从 table1 worktree 只读复制后，由 v2 默认池重建器回放到 `pools_native`；以下 rank 子命令本身仍写 legacy `pools`，不承担 v2 target 转换。5 条未知成本旧缓存 rank 不复用。
 
 在当前 worktree、`table1-audit` 分支运行：
 
@@ -227,7 +246,7 @@ BFCL_PROJECT_ROOT="$RUN" envs/bfcl/.venv/bin/bfcl evaluate --model Qwen/Qwen3.5-
 
 每次正常停止（含 max-calls/配额停止）均重建三个 seed 的 `pool_ddpo.jsonl = 原审计 pool_sft + 每个成功排名任务一行`，同时更新 `arms.ddpo` 的 `ranking_call_ids, teacher_call_ids, pool_sha256, rows, ranking_cost, C_m`。完成且至少有一个偏好行时 `status` / `trainer_status='ready'`；未处理完为 `partial_ranking`，没有可用偏好为 `no_rankable_preferences`，未知费用为 `incomplete_ranking_costs`。manifest 同时列出解析失败、候选不足、尚未处理和未知费用的任务/调用。非 ready 返回退出码 2；部分结果仍保存。
 
-**费用不受剩余 67 tokens 截断：**`C_m(ddpo) = 13,776 + Σ所有相关排名 attempt 的 output tokens`，失败/弃用回复同样收费；B=13,843 限制原证据采购，不阻止已授权的排名补采。超过 cap 时 `exceeds_cap=true`、`over_cap_tokens>0`、`remaining_budget<0`，不丢任务以适配预算。22 个可排名任务、无重试且每次最多 64 output tokens 时排名上限为 1,408，总额至多 15,184；真实是否超 cap 以 provider usage 为准。顶层采购 C_m/余额、其他臂和历史账本保持原值；未知费用时所列 C_m 仅含已知费用，`ranking_cost_complete=false`。完成后不要再次运行旧 `table1_pool_from_sealed.py` 覆盖新 dDPO manifest；排名账本是恢复来源。
+**费用不受剩余 67 tokens 截断：**`C_m(ddpo) = 13,776 + Σ所有相关排名 attempt 的 output tokens`，失败/弃用回复同样收费；B=13,843 限制原证据采购，不阻止已授权的排名补采。超过 cap 时 `exceeds_cap=true`、`over_cap_tokens>0`、`remaining_budget<0`，不丢任务以适配预算。22 个可排名任务、无重试且每次最多 64 output tokens 时排名上限为 1,408，总额至多 15,184；真实是否超 cap 以 provider usage 为准。顶层采购 C_m/余额、其他臂和历史账本保持原值；未知费用时所列 C_m 仅含已知费用，`ranking_cost_complete=false`。旧 legacy 重建器仍拒绝覆盖不兼容的排名会计信息；v2 默认重建器会读取排名账本并重新生成 native dDPO 行，账本是恢复来源。
 
 CPU 验证命令：`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_table1_ddpo_rank.py tests/test_table1_audit.py`。覆盖去重/恢复、跨运行调用上限、失败与零/未知 usage、429 有界重试、旧 rank 行格式、三个 manifest 及超 cap 费用、官方 score 完整性、采样命令隔离，以及真实 94 行/22 个官方父任务的只读核验。
 

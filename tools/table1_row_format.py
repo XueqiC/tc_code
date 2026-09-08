@@ -13,8 +13,11 @@ from tools.bfcl_demo_pool import serialize
 
 
 LEGACY_ROW_FORMAT = 'legacy-messages-v1'
-NATIVE_ROW_FORMAT = 'native-fc'
-ROW_FORMATS = (NATIVE_ROW_FORMAT, LEGACY_ROW_FORMAT)
+NATIVE_ROW_FORMAT = 'native-fc-v2'
+# Keep the existing CLI spelling as an alias for the corrected default.
+ROW_FORMATS = (NATIVE_ROW_FORMAT, 'native-fc', LEGACY_ROW_FORMAT)
+NATIVE_THINK_PREFIX = '<think>\n\n</think>\n\n'
+NATIVE_ASSISTANT_MARKER = '<|im_start|>assistant\n'
 BANKS = {'bfcl': 'v1_1_bfcl', 'alfworld': 'v1_alfworld_c26'}
 TEMPLATE_MARKERS = ('<|im_start|>', '<|im_end|>', '<think>', '</think>')
 
@@ -34,6 +37,8 @@ def render_legacy_row(row, messages, response):
 
 def row_format_for(benchmark, row_format=None):
     row_format = row_format or (NATIVE_ROW_FORMAT if benchmark == 'bfcl' else LEGACY_ROW_FORMAT)
+    if row_format == 'native-fc':
+        row_format = NATIVE_ROW_FORMAT
     if row_format not in ROW_FORMATS or (row_format == NATIVE_ROW_FORMAT and benchmark != 'bfcl'):
         raise ValueError(f'unsupported row format for {benchmark}: {row_format}')
     return row_format
@@ -66,13 +71,32 @@ def bfcl_messages(state, task_id, historical):
     return system_prompt_pre_processing_chat_model(messages, deepcopy(functions), task_id)
 
 
-def bfcl_native_prompt(state, historical):
-    """Verify the sealed RTD state against the actual FC non-thinking renderer.
+def bfcl_evaluation_prompt(messages, functions, task_id):
+    """Official language preprocessing + Qwen FC template, without a query.
 
-    __new__ avoids OSSHandler.__init__, which constructs an API client. The
-    formatting method is pure Python and does not use instance configuration.
-    As in rtd.bank.full_state / rtd.return_gradient.bfcl_task_rollout, complete
-    the handler's assistant marker with the existing thinking_off helper.
+    Work on copies: Java/JS preprocessing also mutates parameter schemas.
+    __new__ avoids OSSHandler.__init__, which constructs an API client.
+    """
+    from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
+    from bfcl_eval.utils import add_language_specific_hint_to_function_doc
+
+    task, = add_language_specific_hint_to_function_doc([
+        dict(id=task_id, function=deepcopy(functions), question=[deepcopy(messages)])])
+    handler = QwenFCHandler.__new__(QwenFCHandler)
+    inference = handler._pre_query_processing_prompting(task)
+    inference = handler.add_first_turn_message_prompting(inference, task['question'][0])
+    prompt = handler._format_prompt(inference['message'], inference['function'])
+    if not prompt.endswith(NATIVE_ASSISTANT_MARKER):
+        raise ValueError('unexpected BFCL evaluation assistant boundary')
+    return prompt
+
+
+def bfcl_native_prompt(state, historical):
+    """Validate immutable RTD bytes, then render the evaluation boundary.
+
+    RTD used unprocessed tools and put the empty think block in the prompt.
+    v2 applies the evaluator's language preprocessing and moves that block
+    into the supervised target. Neither transformation changes sealed data.
     """
     from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
     from bfas.cc_pairs import thinking_off
@@ -81,8 +105,20 @@ def bfcl_native_prompt(state, historical):
     handler = QwenFCHandler.__new__(QwenFCHandler)
     prompt = thinking_off(handler._format_prompt(messages, functions))
     if prompt != state['prompt']:
-        raise ValueError('sealed BFCL prompt differs from native FC deployment rendering')
-    return prompt
+        raise ValueError('sealed BFCL prompt differs from RTD rendering')
+    return bfcl_evaluation_prompt(messages, functions, historical['id'])
+
+
+def bfcl_native_emission(continuation):
+    """Restore the model-emitted empty think block removed by the parser.
+
+    Preserve the continuation bytes (including malformed student calls).
+    Already framed cached emissions retain exactly their existing prefix.
+    """
+    if not isinstance(continuation, str):
+        raise ValueError('native continuation must be text')
+    return (continuation if continuation.startswith('<think>') else
+            NATIVE_THINK_PREFIX + continuation)
 
 
 def bfcl_native_rejected(response):
@@ -99,18 +135,18 @@ def bfcl_native_rejected(response):
         try:
             decoded = json.loads(response)
         except json.JSONDecodeError:
-            return response
+            return bfcl_native_emission(response)
         if not isinstance(decoded, list):
-            return response
+            return bfcl_native_emission(response)
         response = decoded
     if isinstance(response, list) and response and all(
             isinstance(call, dict) and set(call) == {'name', 'arguments'} for call in response):
         response = [{call['name']: call['arguments']} for call in response]
-    return _response_text(response)
+    return bfcl_native_emission(_response_text(response))
 
 
 def render_native_row(row, behavior, historical):
-    """The exact state.prompt / behavior.text consumed by RTD score_behavior."""
+    """Evaluation-exact prompt and model-emission target (native-fc v2)."""
     prompt = bfcl_native_prompt(behavior['state'], historical)
     response = behavior['text']
     if not isinstance(response, str):
@@ -118,13 +154,12 @@ def render_native_row(row, behavior, historical):
     if response.endswith(('<|im_end|>', '<|endoftext|>')):
         raise ValueError('native continuation must not contain a trailing EOS')
     result = deepcopy(row)
-    result.update(messages=[], prompt=prompt, response=response)
+    result.update(messages=[], prompt=prompt, response=NATIVE_THINK_PREFIX + response)
     if not response:
         if historical.get('ground_truth') != [] and historical.get('result') != []:
             raise ValueError('unexplained empty native teacher response')
-        # RTD renders zero calls as empty text plus EOS. This explicit marker
-        # permits only these purchased abstentions through load_pool; it never
-        # attributes invented refusal prose or a legacy [] target to a teacher.
+        # The flag still means the sealed teacher continuation was empty.
+        # v2's target is the think prefix alone; encode appends one EOS.
         result['_native_fc_empty_response'] = True
     return result
 
