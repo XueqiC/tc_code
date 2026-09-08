@@ -55,14 +55,12 @@ STaR w/o rationalization (0 teacher) & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cd
 
 \subsection{RQ1, full-method comparison under matched budgets}
 \label{sec:rq1}
-Table~\ref{tab:main} reports the main comparison. Every method spends
-the same token budget from the same teacher. We also report each
-method's change over the untrained base student, which is the number
-that matters most in this setting.
-\todo{fill as the BFCL, $\tau^2$-bench, and ALFWorld columns land; on
-AppWorld the completed panel already shows every cloning-style
-baseline below the base student (0.200--0.215 against 0.248) while
-ours is the only method above it (0.330$\pm$.054).} The pattern is simple. Methods that clone teacher demonstrations pick
+Table~\ref{tab:main} reports the main comparison. Within each
+benchmark every teacher-using method draws its evidence from the same
+sealed candidate pool under a common budget cap, and every row is
+compared with the initial pretrained student evaluated on the same
+machine, which is the number that matters most in this setting.
+\todo{fill the pending cells as the unified-budget runs land.} The pattern is simple. Methods that clone teacher demonstrations pick
 up the teacher's surface style and lose part of what the base model
 could already do, so they end up below the base student. Our training
 signal keeps the student's own verified behavior and adds the
@@ -100,29 +98,29 @@ would refute the mechanism.
 \begin{table}[t]
 \centering
 \caption{Acquisition comparison with our distillation held fixed
-(official metrics, three seeds). $\Delta$ is the change over the
-untrained base student, averaged over available columns. Bold marks
-the best and underline the second best.}
+(official metrics, three training runs, same protocol as
+Table~\ref{tab:main}). $\Delta_{\mathrm{avg}}$ is the mean improvement
+in percentage points over the initial pretrained student on the full
+column set. Bold marks the best and underline the second best.}
 \label{tab:cross}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc cc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Acquisition} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
-& \textbf{Macro} & $\Delta$\\
+\textbf{Acquisition} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
 \midrule
-\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Selection}}\\
-Random subset & -- & -- & -- & --\\
-Embedding retrieval & -- & -- & -- & --\\
-LESS & -- & -- & -- & --\\
-GIST & -- & -- & -- & --\\
-TRIM & -- & -- & -- & --\\
-ICONS & -- & -- & -- & --\\
-SmartAD & -- & -- & -- & --\\
-\rowcolor{rowhead}\multicolumn{7}{@{}l}{\emph{Generation}}\\
-Self-Instruct & -- & -- & -- & --\\
-Evol-Instruct & -- & -- & -- & --\\
-LLM2LLM & -- & -- & -- & --\\
+\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Selection}}\\
+Random subset & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Embedding retrieval & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+LESS & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+GIST & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+TRIM & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+ICONS & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SmartAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Generation}}\\
+Self-Instruct & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Evol-Instruct & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+LLM2LLM & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
 \rowcolor{rowours}\textbf{Ours (marginal rule)} & \todo{} & -- & -- & -- & -- & --\\
 \bottomrule
@@ -149,20 +147,19 @@ second best.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc cc@{}}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Distillation} & AppWorld & BFCL v4 & $\tau^2$-bench & ALFWorld
-& \textbf{Macro} & $\Delta$\\
+\textbf{Distillation} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
 \midrule
-Vanilla SFT & $0.215_{\pm.031}$ & -- & -- & -- & -- & --\\
-Structured AD & -- & -- & --\\
-Agent distillation & -- & -- & --\\
-BB on-policy & -- & -- & --\\
-dDPO & -- & -- & --\\
-PBSD & -- & -- & --\\
-STaR & -- & -- & --\\
+Trajectory SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Span-weighted SFT (SAD adapt.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+On-policy teacher correction + SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SFT + teacher-ranked DPO (dDPO) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Offline teacher--student pref. (PBSD-insp.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+PBSD --- agent adaptation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+STaR w/o rationalization (0 teacher) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
-\rowcolor{rowours}\textbf{Ours (anchored objective)} & \todo{} & -- & -- & -- & -- & --\\
+\rowcolor{rowours}\textbf{Ours (anchored objective)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}

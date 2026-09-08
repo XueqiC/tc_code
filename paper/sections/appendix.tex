@@ -139,7 +139,7 @@ guarantee.
 \caption{Support-set instantiation per benchmark under the sizing
 rule $N=\mathrm{clip}(0.05\,|\text{pool}|,\,50,\,250)$. The pool is
 the official training split when the benchmark ships one (ALFWorld,
-AppWorld) and the full task set otherwise (BFCL, $\tau^2$-bench).
+AppWorld) and the full task set otherwise (BFCL).
 Evaluation always uses the query side only; benchmarks with an
 official evaluation split disjoint from the pool use that split
 unchanged, and the others are evaluated on the full set with the
@@ -152,9 +152,8 @@ Benchmark & Task pool & $N$ & $|\mathcal{S}_d|$ & $|\mathcal{S}_c|$
 & Evaluation side\\
 \midrule
 BFCL~v4 & 4{,}706 & 235 & 188 & 47 & official set minus support\\
-ALFWorld & 3{,}553 & 178 & 142 & 36 & official unseen split\\
-AppWorld & 90 & 50 & 40 & 10 & official dev and test splits\\
-$\tau^2$-bench & 115 & 50 & 40 & 10 & official set minus support\\
+ALFWorld & 3{,}553 & 178 & 142 & 36 & \texttt{valid\_seen} (140 tasks)\\
+AppWorld & 90 & 50 & 40 & 10 & \texttt{dev40} subset\\
 \bottomrule
 \end{tabular}
 \end{table}
