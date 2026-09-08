@@ -231,11 +231,11 @@ class TorchPolicyBackend:
         frozen = snapshot(frozen_parameters)
         identity = self.identity(frozen)
         def sample(request, generator):
+            from .generation_batch import sample_actions
             if request.frozen_snapshot_id != identity:
                 raise ValueError("source snapshot mismatch")
             result = []
-            for _ in range(request.samples):
-                action = self.sample_action(request.state.prompt, frozen, generator)
+            for action in sample_actions(self, request.state.prompt, request.samples, frozen, generator):
                 result.append(SourceSample(Behavior(request.state, action.text), identity,
                     action.action_ids, action.eos_token_id, action.generation_logprob, truncated=action.truncated))
             return tuple(result)

@@ -104,7 +104,7 @@ max_action_tokens_by_benchmark:
   bfcl: {single_turn: 512, multi_turn: 1024}
 max_context_tokens: 32768
 # Decimal GB; visible-device free memory sizes consecutive state batches.
-# Each action/gradient still runs alone, in the original order.
+# Gradient graphs still run one action at a time; generation batching is below.
 max_state_batch_size: 2
 memory_peak_budget_gb: 38
 memory_reserve_gb: 2
@@ -112,6 +112,8 @@ memory_state_estimate_gb: 16
 pilot_eta_candidates: [0.000001, 0.000003, 0.00001, 0.00003, 0.0001, 0.0003, 0.001]
 initial_eta: 0.00001
 source_backend: hf_generate
+# Expanded rows * (left-padded prompt width + action cap), length buckets <=2x.
+generation_batch: {prompts_per_batch: 8, max_batch_tokens: 16384}
 # Nats/token including EOS; max_abs flags outliers. Every comparison is journaled.
 score_consistency_tolerance: {mean_abs: 0.05, max_abs: 1.0, max_abs_outlier_tokens: 2, max_abs_hard: 8.0}
 lora_rank: 16

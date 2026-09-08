@@ -102,15 +102,22 @@ def parse_rate(rows):
 
 
 def parse_battery(fixed, support, backend, parameters, checker, *, identity):
+    from .generation_batch import action_cap, sample_actions
     rng = generator_for(parameters, identity, 'parse')
     draws = []
-    for row in task_rows(fixed, support):
-        with action_scope(backend, support, row['parent_hash']):
-            for k in range(4):
-                action = backend.sample_action(support.states[row['parent_hash']].prompt, parameters, rng,
-                                               temperature=1., top_p=1.)
-                draws.append(row | dict(draw=k, success=syntax_success(checker, action.text),
-                    action_hash=digest(list(action.action_ids)), truncated=action.truncated))
+    rows = task_rows(fixed, support)
+    scope = nullcontext()
+    if getattr(backend, 'generation_batch', None) is not None:
+        requests = [(support.states[row['parent_hash']].prompt, 4,
+            action_cap(backend, support.categories[support.parents[row['parent_hash']]])) for row in rows]
+        scope = backend.prefetch_actions(requests, parameters, rng)
+    with scope:
+        for row in rows:
+            with action_scope(backend, support, row['parent_hash']):
+                for k, action in enumerate(sample_actions(backend, support.states[row['parent_hash']].prompt, 4,
+                                                          parameters, rng, temperature=1., top_p=1.)):
+                    draws.append(row | dict(draw=k, success=syntax_success(checker, action.text),
+                        action_hash=digest(list(action.action_ids)), truncated=action.truncated))
     return dict(**parse_rate(draws), by_fold={str(f): parse_rate([r for r in draws if r['fold'] == f]) for f in (0, 1)},
                 fixed_task_set_hash=fixed['hash'], K=4, temperature=1., draws=draws,
                 checker_version=getattr(checker, 'checker_version', 'injected-test-checker'))

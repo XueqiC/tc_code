@@ -7,6 +7,7 @@ Only the same-batch distillation update is installed; feedback is never an RL
 backbone step. All rollout objectives here are temperature-1 stochastic J.
 """
 from dataclasses import asdict, replace
+from contextlib import nullcontext
 
 import numpy as np
 import torch
@@ -22,6 +23,7 @@ from .persistence import digest
 from .return_gradient import ActionTrace
 from .conventions import exposure_step, record_identity, repetition_counts
 from .joint_surrogate import control, execute_update, marginal_values, replacement_batch, validate_pair
+from .generation_batch import action_cap, feedback_rollouts
 
 
 class AlphaDExperimentMixin:
@@ -123,6 +125,21 @@ class AlphaDExperimentMixin:
                               device=self.device, dtype=self.dtype)
 
     def alpha_draw_pairs(self, records, *, role):
+        records = tuple(records)
+        scope = nullcontext()
+        if getattr(self.backend, 'generation_batch', None) is not None:
+            for record in records:
+                if record.state.parent_hash not in self.state['inner']:
+                    raise ValueError('source/feature state outside inner fold')
+                if record.teacher is not None and record.query_id not in self.ledger.owned_ids:
+                    raise ValueError('sealed pool: source/teacher pair requires purchased evidence')
+            requests = [(r.state.prompt, 2, action_cap(self.backend,
+                self.support.categories[self.support.parents[r.state.parent_hash]])) for r in records]
+            scope = self.backend.prefetch_actions(requests, self.state['source'], self.sampling_rng)
+        with scope:
+            return self._alpha_draw_pairs(records, role=role)
+
+    def _alpha_draw_pairs(self, records, *, role):
         """Fresh independent calls per occurrence, even for repeated states.
 
         Equal token hashes are legal. Draw identities and RNG advancement,
@@ -435,8 +452,8 @@ class AlphaDExperimentMixin:
         rewards, tasks = [], []
         with self.scope(role):
             for parent, count in s['feedback_tasks']:
-                for _ in range(count):
-                    rollout = self.support.feedback(parent, self.backend, parameters, generator, self.checker)
+                for rollout in feedback_rollouts(self.support, parent, count, self.backend,
+                                                 parameters, generator, self.checker):
                     if rollout.policy_id != self.backend.identity(parameters) or not rollout.from_task_start:
                         raise ValueError('paired validation requires executed full tasks at the selected student')
                     rewards.append(rollout.reward); tasks.append(rollout.task_id)

@@ -20,6 +20,7 @@ from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
 from .scoring import ScoreTolerance
 from .memory import MemoryPolicy
+from .generation_batch import GenerationBatch
 from .source_estimator import validate_source_config
 from .identity import (audit_legacy, evaluation_harness_identity, evaluation_harness_metadata,
                        source_identity, validate_resume, verified_checkpoint)
@@ -96,6 +97,9 @@ def load_config(path, *, arm=None, replay_schedule=None):
                        ('memory_reserve_gb', 2), ('memory_state_estimate_gb', 16)]:
         config.setdefault(key, value)
     MemoryPolicy.from_config(config)
+    generation_batch = GenerationBatch.from_config(config)
+    if generation_batch is not None:
+        config['generation_batch'] = vars(generation_batch)
     estimator, _, _ = validate_source_config(config)
     # Explicit legacy defaults serialize exactly as an omitted v1.1 option.
     if estimator == 'hard2':
@@ -213,6 +217,10 @@ def make_manifest(config, arm, audit, *, smoke=False):
             replay_semantics='unfilled slots use old data; no fixed empty prior',
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
+    if config.get('generation_batch') is not None:
+        from .generation_batch import RNG_RULE
+        manifest['score_consistency']['generation'] = 'hf-generate-kv-batched-categorical-v1'
+        manifest['generation_rng_rule'] = RNG_RULE
     if alpha_d_enabled(config):
         manifest.update(trajectory_schema_version=5, distillation_protocol='alpha_d_rev31_same_batch',
             return_objective='temperature_1_stochastic_policy_expected_return',

@@ -12,6 +12,7 @@ from .transport import positive_mixture_loss
 from .persistence import digest
 from .scoring import ScoreTolerance
 from .memory import MemoryPolicy, memory_batches
+from .generation_batch import GenerationBatch, HFGenerationBatchMixin, RNG_RULE
 
 
 @contextmanager
@@ -35,13 +36,13 @@ def installed_parameters(model, parameters):
                 p.copy_(saved[n])
 
 
-class HFGenerateBackend(TorchPolicyBackend):
+class HFGenerateBackend(HFGenerationBatchMixin, TorchPolicyBackend):
     """HF generate with KV cache, no warpers, and CE over all sampled tokens.
 
     BF16 logits are sampled in FP32 by HF. Return scores are recorded during
     generation and independently checked by teacher forcing. Single GPU only.
     """
-    def __init__(self, *args, journal=None, memory_policy=None, **kwargs):
+    def __init__(self, *args, journal=None, memory_policy=None, generation_batch=None, **kwargs):
         kwargs.setdefault('score_tolerance', ScoreTolerance())
         super().__init__(*args, **kwargs)
         self.backend_id = digest(dict(parent=self.backend_id, implementation='hf-generate-kv-v1',
@@ -49,6 +50,11 @@ class HFGenerateBackend(TorchPolicyBackend):
         self.journal = journal
         self.context = 'unspecified'
         self.memory_policy = memory_policy or MemoryPolicy()
+        self.generation_batch = generation_batch
+        if generation_batch is not None:
+            import transformers
+            self.backend_id = digest(dict(parent=self.backend_id, generation_batch=vars(generation_batch),
+                rng_rule=RNG_RULE, transformers_version=transformers.__version__, torch_version=torch.__version__))
 
     def batches(self, items, operation):
         device = next(iter(lora_parameters(self.model).values())).device
@@ -65,6 +71,8 @@ class HFGenerateBackend(TorchPolicyBackend):
                 yield
 
     def sample_action(self, prompt, parameters, generator, *, temperature=1., top_p=1.):
+        if self.generation_batch is not None:
+            return self.sample_actions(prompt, 1, parameters, generator, temperature=temperature, top_p=top_p)[0]
         from transformers import GenerationConfig
         if self.model.training or temperature != 1 or top_p != 1:
             raise ValueError('frozen eval policy with temperature=1/top_p=1 required')
@@ -355,4 +363,4 @@ def load_backend(config, manifest, journal):
         action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
             {'single_turn': 512, 'multi_turn': 1024}
             if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
-        memory_policy=MemoryPolicy.from_config(config))
+        memory_policy=MemoryPolicy.from_config(config), generation_batch=GenerationBatch.from_config(config))

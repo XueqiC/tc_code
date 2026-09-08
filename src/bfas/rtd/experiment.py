@@ -32,6 +32,7 @@ from .return_gradient import ActionTrace, GateController, bfcl_task_rollout, rei
 from .runtime import streamed_gate_vjp, streamed_gradient
 from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
+from .generation_batch import sample_actions, feedback_rollouts
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
 
@@ -260,9 +261,14 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         if refresh or not cache or state.state_hash not in s['source_cache']:
             sources = []
             category = self.support.categories[self.support.parents[state.parent_hash]]
-            for sample_index in range(getattr(self, 'config', {}).get('source_samples_per_state', 2)):
-                with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
-                    action = self.backend.sample_action(state.prompt, s['source'], self.sampling_rng)
+            def actions():
+                count = getattr(self, 'config', {}).get('source_samples_per_state', 2)
+                draws = sample_actions(self.backend, state.prompt, count, s['source'], self.sampling_rng)
+                for _ in range(count):
+                    with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
+                        action = next(draws)
+                    yield action
+            for sample_index, action in enumerate(actions()):
                 source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
                                       action.eos_token_id, action.generation_logprob, truncated=action.truncated)
                 # Persist the full check BEFORE enforcing tolerances, including
@@ -431,8 +437,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         rollouts = []
         with self.scope(label):
             for parent, count in s['feedback_tasks']:
-                for _ in range(count):
-                    rollout = self.support.feedback(parent, self.backend, parameters, self.sampling_rng, self.checker)
+                for rollout in feedback_rollouts(self.support, parent, count, self.backend,
+                                                 parameters, self.sampling_rng, self.checker):
                     rollouts.append(rollout)
                     self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
                                         parent_hash=parent, rollout=asdict(rollout))
