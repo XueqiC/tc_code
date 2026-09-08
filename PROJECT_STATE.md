@@ -1377,3 +1377,5 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 04:07Z 更正:RTD 六 run 基座 = 原始 Qwen/Qwen3.5-4B(manifest model_path 851bf6e8),官方 46.06(hpg 40886321;rai 同模型 46.27);'base 46.74' 是 crcd_r3_union_t_s0 的分数,标错。基座未见 bank(无泄漏);CRCD checkpoint 与 bank 重叠 157/145/369,禁用作基座。两份文档已改并重发(2108243)。以后 rtd_v1_collect_report 的 --base-overall 用 46.06(hpg)/46.27(rai)。
 - 9/9 04:12Z 用户:v1.1 用 2 个预算轮;尽量并行;尽量多用 hpg。开始实现(默认取值,用户可改):worktree tc-alignment-v11a(分支 rtd-v11-a)Codex D1 软来源/CV 估计器;worktree tc-alignment-v11b(rtd-v11-b)Codex D2+D3 批量采购+统一曝光+跨轮后验+新 bank 工具+2 轮日程。之后合并、D5/D6、嵌入对照(hpg)、V0→V1/V2(hpg)。
 - 9/9 04:14Z 完整 v1.1 方法文档 docs/RTD_V1_1_METHOD_ZH.md 已发(V0/V1/V2、2 预算轮、软/CV 来源估计、E=40/K≤20 批量采购、跨轮后验、认证、诊断、附录 v1.0→v1.1)。Codex D1(v11a)/D2D3(v11b)进行中。
+- 9/9 04:21Z 用户批准并冻结 v1.1(附件意见):四组实现约定(统一 CV 更新器 c_i=1−a(s,Y_{3−i})、每步重采、VJP 含 c_i;参考 vs 实际更新取值点分开,V1 重放 V0 完整曝光;求解器→预留→揭封→释放→更新→用实购集合建损失;措辞修正)。方法文档待改;D1/D2D3 完成后用跟进 Codex 任务落实约定。
+- 9/9 04:23Z v1.1 方法文档按用户四组约定冻结并重发(62d941f)。待 D1/D2D3 完成后:跟进 Codex 任务落实约定(统一 CV 更新器 c_i=1−a(s,Y_{3−i})、每步重采、VJP 含 c_i;θ_D⁺/θ_S⁺ 分离;求解器→账本执行顺序;V1 完整重放)。
