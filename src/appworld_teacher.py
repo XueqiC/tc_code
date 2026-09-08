@@ -66,6 +66,10 @@ class BridgeRemoteError(RuntimeError):
 class TeacherAPIError(RuntimeError):
     """The remote chat-completions request failed or returned invalid data."""
 
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 @dataclass(frozen=True)
 class TeacherConfig:
@@ -335,7 +339,7 @@ def _ollama_keys(primary: str) -> list[str]:
     return keys
 
 
-def _request_headers(config: TeacherConfig) -> dict[str, str]:
+def _request_headers(config: TeacherConfig, *, rotate_keys: bool = True) -> dict[str, str]:
     if config.backend == "azure_openai":
         return {
             "api-key": config.api_key,
@@ -349,7 +353,7 @@ def _request_headers(config: TeacherConfig) -> dict[str, str]:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-    keys = _ollama_keys(config.api_key)
+    keys = _ollama_keys(config.api_key) if rotate_keys else [config.api_key]
     with _OLLAMA_KEY_LOCK:
         key = keys[_OLLAMA_KEY_IDX % len(keys)]
     return {
@@ -363,20 +367,36 @@ def generate_reply(
     config: TeacherConfig,
     messages: list[dict[str, str]],
     temperature: float | None = None,
+    *,
+    usage_out: dict[str, Any] | None = None,
+    max_retries: int | None = None,
+    rotate_keys: bool = True,
 ) -> str:
+    """Return text, optionally exposing provider usage before content parsing.
+
+    ``max_retries=0`` lets an accounting caller journal every HTTP attempt.
+    An absent usage field stays absent; it must not be interpreted as zero.
+    Existing callers retain the original return type and retry policy.
+    """
     global _OLLAMA_KEY_IDX
+    if usage_out is not None:
+        usage_out.clear()
+    if max_retries is not None and max_retries < 0:
+        raise ValueError("max_retries must be nonnegative")
     payload = json.dumps(
         _build_request_body(config, messages, temperature), ensure_ascii=False
     ).encode("utf-8")
     opener = urllib.request.build_opener()
 
-    total_attempts = CHAT_COMPLETION_RETRIES + 1
-    rate_limit_attempts = RATE_LIMIT_RETRIES + 1
+    total_attempts = (CHAT_COMPLETION_RETRIES if max_retries is None else max_retries) + 1
+    rate_limit_attempts = (RATE_LIMIT_RETRIES if max_retries is None else max_retries) + 1
     for request_attempt in range(1, max(total_attempts, rate_limit_attempts) + 1):
+        if usage_out is not None:
+            usage_out.clear()
         request = urllib.request.Request(
             config.endpoint,
             data=payload,
-            headers=_request_headers(config),
+            headers=_request_headers(config, rotate_keys=rotate_keys),
             method="POST",
         )
         try:
@@ -388,9 +408,16 @@ def generate_reply(
         except urllib.error.HTTPError as exc:
             status = exc.code
             retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            if usage_out is not None:
+                try:
+                    error_data = json.loads(exc.read())
+                    if isinstance(error_data, Mapping) and isinstance(error_data.get("usage"), Mapping):
+                        usage_out.update(error_data["usage"])
+                except (ValueError, OSError):
+                    pass
             exc.close()
             if status == 429 and request_attempt < rate_limit_attempts:
-                if config.backend == "openai":
+                if config.backend == "openai" and rotate_keys:
                     # rotate between available Ollama keys before waiting
                     with _OLLAMA_KEY_LOCK:
                         _OLLAMA_KEY_IDX += 1
@@ -403,16 +430,17 @@ def generate_reply(
             if status == 429:
                 raise TeacherAPIError(
                     f"chat completion returned HTTP 429 after "
-                    f"{rate_limit_attempts} attempts"
+                    f"{rate_limit_attempts} attempts", status_code=status,
                 ) from None
             if 500 <= status < 600 and request_attempt < total_attempts:
                 time.sleep(_retry_delay(request_attempt))
                 continue
             if 500 <= status < 600:
                 raise TeacherAPIError(
-                    f"chat completion returned HTTP {status} after {total_attempts} attempts"
+                    f"chat completion returned HTTP {status} after {total_attempts} attempts",
+                    status_code=status,
                 ) from None
-            raise TeacherAPIError(f"chat completion returned HTTP {status}") from None
+            raise TeacherAPIError(f"chat completion returned HTTP {status}", status_code=status) from None
         except (socket.timeout, TimeoutError):
             if request_attempt < total_attempts:
                 time.sleep(_retry_delay(request_attempt))
@@ -440,6 +468,8 @@ def generate_reply(
         raise TeacherAPIError("chat completion returned invalid JSON") from None
     if not isinstance(data, Mapping):
         raise TeacherAPIError("chat completion response is not an object")
+    if usage_out is not None and isinstance(data.get("usage"), Mapping):
+        usage_out.update(data["usage"])
     usage_log = os.environ.get("AZURE_USAGE_LOG")
     if usage_log and config.backend in ("azure_openai", "anthropic"):
         usage = data.get("usage") or {}

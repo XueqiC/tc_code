@@ -13,6 +13,7 @@ from pathlib import Path
 
 from tools import table1_common as io
 from tools.table1_random_acquisition import acquire
+from tools.table1_row_format import ROW_FORMAT, read_bank_payload, render_package
 
 
 def action_spans(response):
@@ -36,7 +37,7 @@ def action_spans(response):
         cursor = closing + 3
 
 
-def build_pools(snapshots, acquisition, protocol):
+def build_pools(snapshots, acquisition, protocol, rendered_rows=None):
     owned = acquisition['purchased_ids']
     if set(snapshots) != set(owned) or len(set(owned)) != len(owned):
         raise ValueError('exactly the owned packages must be revealed')
@@ -56,11 +57,14 @@ def build_pools(snapshots, acquisition, protocol):
         charges.extend(p['teacher_calls'])
         for rank in s['rank_candidates']:
             ranks[rank['row_sha256']] = rank
-        for i, row in enumerate(s['rows']):
+        rows = s['rows'] if rendered_rows is None else rendered_rows[q]
+        if len(rows) != len(s['rows']):
+            raise ValueError('row rendering changed purchased positive count')
+        for i, row in enumerate(rows):
             positive_tasks.add(p['task_id'])
             base.append(deepcopy(row))
             row_origins.append(dict(package_id=q, package_row_index=i, task_id=p['task_id'],
-                                    row_sha256=io.digest(row)))
+                                    row_sha256=io.digest(s['rows'][i])))
             paired = deepcopy(row)
             if str(i) in s['pbsd_rejected']:
                 paired['_rejected'] = s['pbsd_rejected'][str(i)]
@@ -140,6 +144,19 @@ def build_pools(snapshots, acquisition, protocol):
     return pools, manifest
 
 
+def manifest_without_row_format(manifest):
+    """Fields that a rendering-only operation is forbidden to change.
+
+    row_origins hashes continue to identify the immutable sealed source rows;
+    arms.*.pool_sha256 identifies the rendered training rows.
+    """
+    result = deepcopy(manifest)
+    result.pop('row_format', None)
+    for arm in result['arms'].values():
+        arm.pop('pool_sha256', None)
+    return result
+
+
 def materialize(directory, acquisition_path, pool_root):
     directory = Path(directory)
     public = io.read_json(directory / 'public.json')
@@ -159,8 +176,21 @@ def materialize(directory, acquisition_path, pool_root):
         if io.digest(s) != integrity[q] or s['package']['recorded_cost'] != costs[q]:
             raise ValueError('purchased snapshot integrity/cost mismatch')
         snapshots[q] = s
-    pools, manifest = build_pools(snapshots, acquisition, protocol)
+    benchmark = acquisition['benchmark']
+    sources = (io.read_json(directory / 'ledger.json')['sources']
+               if benchmark != 'appworld' else {})
+    rendered = {}
+    for q, snapshot in snapshots.items():
+        payload = (read_bank_payload(benchmark, q, set(acquisition['purchased_ids']), sources)
+                   if benchmark != 'appworld' else None)
+        rendered[q] = render_package(benchmark, snapshot, payload)
+    pools, manifest = build_pools(snapshots, acquisition, protocol, rendered)
+    manifest['row_format'] = ROW_FORMAT
     destination = Path(pool_root) / acquisition['benchmark'] / f'B{acquisition["cap"]}_seed{acquisition["training_seed"]}'
+    if (destination / 'manifest.json').exists():
+        old = io.read_json(destination / 'manifest.json')
+        if manifest_without_row_format(old) != manifest_without_row_format(manifest):
+            raise ValueError('rendering would change manifest/accounting; refusing to overwrite')
     for arm, rows in pools.items():
         io.write_rows(destination / f'pool_{arm}.jsonl', rows)
     io.write_json(destination / 'manifest.json', manifest)

@@ -154,6 +154,7 @@ def test_materialize_only_reads_paid_snapshots_and_rejects_tamper(tmp_path, monk
     directory = tmp_path/'audit'
     io.write_json(directory/'public.json', p)
     io.write_json(directory/'protocol.json', protocol)
+    io.write_json(directory/'ledger.json', {'sources': {}})
     io.write_json(directory/'integrity.json', {q: io.digest(s) for q, s in snapshots.items()})
     path = directory/'acquired.json'
     io.write_json(path, acquisition)
@@ -163,6 +164,10 @@ def test_materialize_only_reads_paid_snapshots_and_rejects_tamper(tmp_path, monk
         seen.append(q)
         return snapshots[q]
     monkeypatch.setattr(io, 'read_sealed', reader)
+    # Synthetic accounting fixture has no raw bank state. Real source rendering
+    # and its ownership/hash guards are exercised in test_table1_row_format.py.
+    monkeypatch.setattr('tools.table1_pool_from_sealed.read_bank_payload', lambda *a: None)
+    monkeypatch.setattr('tools.table1_pool_from_sealed.render_package', lambda b, s, p: s['rows'])
     materialize(directory, path, tmp_path/'pools')
     assert seen == acquisition['purchased_ids']
     acquisition['C_m'] += 1
