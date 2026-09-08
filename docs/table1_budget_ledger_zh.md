@@ -4,7 +4,7 @@
 
 ## 1. 边界与计费口径
 
-- 仅在 `/home/xueqi/hq/projects/tc-alignment-audit`、`table1-audit` 分支工作；不提交，不调用 GPU、环境或 teacher API。`data/`、`envs/`、`.venv` 是共享符号链接。
+- 当前 native 格式工作仅在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支进行；不提交，不调用 GPU、环境或 teacher API。`data/`、`envs/`、`.venv` 是共享符号链接。
 - `data/` 只读与写 `data/table1_pools/` 的要求冲突，可审阅池改放当前 worktree 的 **results/table1_audit/pools/**。工具拒绝写 data、envs、虚拟环境、控制目录和其他 worktree。
 - 本分支缺少指定的 `docs/2026-09-08-table1-audit-and-plan-zh.md`、`src/bfas/rtd/bank_v11.py`、`tools/rtd_v11_build_bank.py`。实际读取方法 §2、旧 bank 实现、v1.1 封存银行、cap certificate、账本与本地配置；未去其他 worktree 取代码。
 - 冻结定义：`C_m = Σ c(q)`，用于取得证据的教师调用只付一次，失败、重试、弃用输出也收费。切段、重复 epoch、c 中重复引用不再计费。未知费用不能用 0 或学生答案 token_hint 代替。
@@ -91,39 +91,54 @@ acquired_B<cap>_seed<k>.json 保存完整冻结顺序、逐步累计成本、下
 
 ## 池行格式
 
-**修复格式为 `legacy-messages-v1`，统一入口是 `tools.table1_row_format.render_package()` → `render_legacy_row()`。** 只重渲染已购内容，不重新采购、验证、调用教师或训练模型。原始审计 snapshots 保持封存；BFCL/ALFWorld 按已购 ID 读取 `data/rtd/*/sealed/<id>.json`，由 `read_bank_payload()` 校验冻结 `ledger.sources` 的文件 SHA-256；AppWorld 直接使用审计 snapshot 已核对过的 trace messages/response。
+**BFCL 默认改为 `native-fc`，入口为 `tools.table1_row_format.render_package()` → `render_native_row()`。** `tools/table1_pool_from_sealed.py --benchmark bfcl` 默认写当前 worktree 的 **`results/table1_audit/pools_native/bfcl/`**；原 `results/table1_audit/pools/bfcl/` 保留 `legacy-messages-v1`，可用 `--row-format legacy-messages-v1` 显式重建。不同格式禁止覆盖同一已有目录。ALFWorld/AppWorld 默认仍为 legacy，未重建或修改其池。本次在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支操作；不提交、不调用 GPU/API、不运行环境，`data/`、`envs/` 只读。
 
-### BFCL 的精确旧格式
+### 为什么采用 native
 
-- 字段：`task_id, teacher, turn_index, messages, prompt, response, token_hint`；保留原始 task/teacher/turn_index 及额外字段。demo 的行级 teacher 沿用旧行 `ds`，不改变 package 的教师身份或计费；generator 沿用原行 teacher。
-- `messages` 是非空、尚未应用 tokenizer 模板的对话列表；本次 BFCL 均为 `[system, user]`。系统消息由旧 `tools/bfcl_demo_pool.py:main()` 和 `tools/bfcl_v3_pool.py:entry_messages()` 调用的 **`bfcl_eval.model_handler.utils.system_prompt_pre_processing_chat_model(prompts, function_docs, test_entry_id)`** 生成：按 ID 选择官方 prompting 格式，将完整函数定义（JSON、indent=4、保持键顺序）嵌入 system；原题若有 system，则放在生成的 system 后，以两个换行分隔。没有另传 trainer 不消费的顶层 `tools` 字段。
-- 精确 prompt 序列化函数是 **`tools.bfcl_demo_pool.serialize(messages)`**（与 `tools.bfcl_v3_pool.serialize` 相同）：`"\n".join(f"<|{m['role']}|>\n{m['content']}" for m in messages) + "\n<|assistant|>\n"`。因此落盘 prompt 含 `<|system|>` / `<|user|>` 伪标签，以 `<|assistant|>\n` 结尾，没有 `<|im_start|>`、`<|im_end|>`、`<think>` 或 `</think>`。
-- 新 helper **`tools.table1_row_format.bfcl_messages()`** 复用上述官方函数。封存 `task_json` 对键排序，会破坏旧 prompt 的字节一致性；generator 从 `historical_response.function` 恢复顺序，demo 从封存 prompt 的 `<tools>` 内逐行 JSON 恢复原始函数键顺序，并与 `task_json.function` 做对象相等校验。只取函数定义；不复制 Qwen 模板。对话来自 `history_json`，并核对 `task_json.question`。
-- demo `response` 完全沿用旧 producer：`historical_response.result` 若为字符串则逐字保留，否则 `json.dumps(result, ensure_ascii=False)`。调用示例为 `'[{"get_scientist_for_discovery": "{\\"discovery\\":\\"theory of relativity\\"}"}]'`：外层是调用列表，每项为函数名到 **JSON 参数字符串** 的映射；保留调用顺序、内层字符串的空格、自然语言与空调用列表。不会根据 system 中的 Python-call 指示重新编造教师回答。
-- generator 由 **`tools.table1_row_format.bfcl_response()`** 解析已封存 behavior.text 的具体 `{name, arguments}` 调用，再用同一外层列表/内层 JSON 字符串格式序列化；不把 checker ground_truth 中“可接受值列表”直接当作函数参数，也不重新选择候选值。原始 `ground_truth=[]` 且 behavior.text 为空时仍为 `'[]'`，不编造拒答；B13843 的 13 个此类目标不变。
-- **response 不添加 `<think>` 前缀、`<tool_call>` 包装或手工 EOS。** `token_hint=max(len(response)//4,1)` 只在 response 改变时重算，是学生答案长度提示，不是教师费用。
+用户提供的训练/评测证据：旧 `legacy-messages-v1` 格式的 94 行训练 3 epochs 后，Qwen3.5-4B 对 BFCL 各条目都输出 `"<think>\n[]"`，Overall 约 11%；旧 23 行池只是训练不足，未暴露同样严重的退化。采用 native rendering 的 RTD 保持约 46–47。这些是已有运行证据，本次 CPU 工作没有重新训练或复测分数。
 
-这里不能把所有“旧 producer”说成同一种格式：`tools/bfcl_gen_rows.py` 的 stateful 路径确实调用 `BFCLAdapter._render()` → `QwenFCHandler._format_prompt()`，并用 `target_block()` 写 `<tool_call>`；adapter 本身返回已应用的 Qwen FC 模板。`bfcl_v3_pool.py` 还包含单独的多轮处理。这些路径与本次要恢复的 **`pool_bfcl_ds_sft.jsonl` 单轮 demo 格式不同**。`scripts/bfclv2_hpg.slurm` 的 SFT/SAD 使用后者。评测仍通过官方 Qwen FC handler；恢复旧训练数据约定，不等于宣称落盘伪标签就是 FC handler 的推理 prompt。本次未重新评测，不能以 CPU 格式测试声称已恢复用户报告的 36–43 overall。
+代码可直接确认两处不一致：legacy 把函数文档塞进 system message，`prompt_token_ids()` 因 `messages` 非空重新调用 `tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)`，**没有传 `tools`**；部署则使用 Qwen FC handler 的工具列表模板。legacy 目标为 `'[{"f": "{json}"}]'`，而 FC handler 的 `_extract_tool_calls()` / `decode_ast()` 解码的是 `<tool_call>` 标签内的 `{name, arguments}` JSON。这不是 `messages=[]` 行被重复套模板的问题：trainer 对空 messages 本来就直接消费 prompt。改用 native 是对齐真实训练/部署条件和输出语言，不能从 CPU 测试推断新的模型分数。
 
-### Trainer 的真实输入与损失边界
+### 精确 prompt 与 teacher continuation
 
-`src/appworld_train.py:load_pool()` 检查 `task_id, teacher, turn_index, prompt, response, token_hint`，拒绝空 response/空池并加 `_pool_index`。`prompt_token_ids()` 对非空 `messages` 调用 `tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)`，忽略落盘 `prompt`；仅当 messages 缺失/为空才直接 tokenize prompt。**当前 encode 并不会把 `messages=[]` 的 RTD prompt 再套模板**，所以不能把观察到的退化表述为已证明的 double-template/mis-mask bug；可直接确认的是输入路径和目标格式混杂。
+- 原始审计 snapshots 保持封存；仅按冻结的 purchased IDs 读取 `data/rtd/v1_1_bfcl/sealed/<id>.json`，由 `read_bank_payload()` 核验 `ledger.sources` 的 SHA-256。失败包仍计费但不生成正行，采购顺序、调用、成本均不变。
+- **`messages=[]`**。`prompt` 是 sealed `behavior.state.prompt` 的原始字节，包含工具列表、实际题目/历史以及 `<|im_start|>assistant\n<think>\n\n</think>\n\n` 后缀。`bfcl_native_prompt()` 用 vendored **`QwenFCHandler._format_prompt(messages, functions)`** 和现有 **`bfas.cc_pairs.thinking_off()`** 重新构造并逐字节核对，不复制模板，也不初始化 API client。
+- 精确代码边界：`src/bfas/rtd/bank.py:build_bfcl_bank()` 内的 `full_state()` 使用 `thinking_off(render_prompt(...))`；`bfas.cc_pairs.render_prompt()` 调用 `BFCLAdapter._render()` → `QwenFCHandler._format_prompt()`。**当前 envs 内 Python `_format_prompt()` 本身止于 assistant marker**；它的模板说明包含 non-thinking 分支，但 Python 实现没有自行追加 think-empty。`src/bfas/rtd/return_gradient.py:bfcl_task_rollout()` 的评测 query 明确调用 `thinking_off(handler._format_prompt(...))`，这才是与 sealed RTD 一致的 non-thinking 部署 prompt。测试保留并明确验证这个区别，不宣称裸 `_format_prompt()` 单独返回完整后缀。
+- `task_json` 排序过对象键，不能用它重序列化工具列表来追求字节一致。`bfcl_inputs()` 从 generator 的 `historical_response.function` 或 demo sealed prompt 的 `<tools>` JSON 恢复原始顺序；与 `task_json.function` 及 `history_json` / `task_json.question` 做对象核对。
+- **`response=behavior.text`**，与 RTD 的 `score_behavior()` 直接编码的文本一致。demo 的 bank helper 是 `bfas.rtd.bank._response_text()` → `bfas.cc_pairs.render_calls()`；generator 是银行已有的 `render_truth()` 结果，重建池不重新选择 ground_truth 的可接受值。单次调用为 `<tool_call>\n{"name": "f", "arguments": {...}}\n</tool_call>`；多个调用按原序以一个换行连接。irrelevance demo 的自然语言逐字保留。response 没有手工 EOS，也不附加 think 前缀。
+- `task_id`、`teacher`、`turn_index`、**`token_hint` 原值**保留。token_hint 是旧行的长度提示，trainer 的真实 response token 统计独立计算；它不代表教师费用。
 
-`encode()` 将上述 prompt 以 `add_special_tokens=False` 编码，再按 `AW_MAX_PROMPT_TOKENS` / `AW_TRUNCATE_SIDE` 截断；bfclv2 为 4096/tail（函数默认 640/head）。response **单独**以 `add_special_tokens=False` 编码，截至 `MAX_RESPONSE_TOKENS=512` 后追加一个 `eos_token_id`。输入为 `prompt_ids + response_ids + EOS`，标签为 `[-100] * len(prompt_ids) + response_ids + EOS`。tokenizer 自己在生成提示中插入的 think 前缀属于 prompt、全部被 mask；落盘行中不预置该前缀。CPU 测试使用本地微型 byte-level tokenizer 路径，刻意令 chat template 生成 `<think>\n`，确认它不进入监督标签，且 EOS 之前确实有 response tokens。
+### 空调用的显式例外
 
-### 其他 benchmark、原行与账本不变量
+B13843 每 seed 有 **13** 条、B5537 有 **5** 条成功 generator 条目的 `ground_truth=[]`，其 sealed native continuation 是空字符串。RTD 的 `render_calls([])` 就是 `''`，后续 `action_ids()` / `score_behavior()` 监督 EOS。归档没有这些题目的自然语言答案；不能编造拒答，也不能声称旧审计补入的 `'[]'` 与 RTD 文本相同。
 
-ALFWorld 的 47 行原先全部为 RTD expert/THOUGHT/ACTION 模板，而目标是裸命令。现从每个已购包 `historical_response.demo.turns[i].context/target` 恢复原始 command-only 对话，用同一个 `serialize()` 渲染，并与封存 behavior.text 核对 target。AppWorld 的 368 行已经保留原始多轮 messages、伪标签 prompt、Python 围栏 response；重渲染后全行不变。
+这些行保留空 response 并加 **`_native_fc_empty_response=true`**。renderer 只在封存空调用证据成立时标注；`load_pool()` 只对显式布尔标记、`messages=[]` 且有正确 native 后缀的行放行，普通空回答仍报错。`encode()` 不改：这类目标只有它追加的一个 EOS。其余 B13843 的 81 / B5537 的 25 行都必须有 EOS 之前的非空 response tokens。**“与 RTD 完全一致”和“每一行 response tokens 都非空”对这 13/5 条无法同时满足**；本次明确保留 RTD 的 EOS-only 例外，行数和已购费用不变。
 
-B13843 每 seed 的 **22 条既有 legacy 行全部保持不变**，其中 15 条与 `data/bfcl_sft/pool_bfcl_ds_sft.jsonl` 完整相等；另 7 条来自不同已购 attempt，只有 prompt/messages 与旧文件相同，response（及部分 token_hint）原本就不同。测试逐字节比较 22 条 prompt 与旧文件，以及各自 response 与封存 attempt 的原始 result，不能为了满足“22 条均与旧文件全行相同”而换掉已购回答。B5537 对应为 7 条既有 legacy / 3 条旧文件全行相等。另核对 `demos_ds.json` 的原问题和 `bfcl_demos_ds_verified.json` 的任务集合；任务级 verified 不取代逐 attempt 结果。
+### Trainer、SAD 与配对字段
 
-三 seeds 行数均保持：BFCL B13843 六个非 STaR 臂各 94；BFCL B5537 各 30；ALFWorld B9074 的 sft/sad/ddpo/pbsd_insp/pbsd_agent 各 47、bbopd=0；AppWorld B22633 的上述五臂各 368、bbopd=5；全部 star=0。共 84 个池文件、69 个非空池、8,472 行（包含各臂/seed 重复）。
+真实 `load_pool()` → `prompt_token_ids()` → `encode(..., device='cpu')`：空 messages 禁止 re-template；prompt 和 response 分别以 `add_special_tokens=False` 编码。按 `AW_MAX_PROMPT_TOKENS=4096`、`AW_TRUNCATE_SIDE=tail` 截断 prompt，response 截至 `MAX_RESPONSE_TOKENS=512`，末尾追加一次 EOS。输入严格为 `prompt_ids + response_ids + EOS`，labels 为 `[-100] * len(prompt_ids) + response_ids + EOS`；工具说明与 think-empty 前缀全部属于 prompt mask。另测试 32-token 截断边界。这里保证文本与 RTD 相等，不宣称 trainer 的 4096/512 截断配置等于 RTD 的全部训练配置。
 
-`_sad_spans`、`_rejected` 保持不变；`c` 的条目数、顺序、package_id、turn_index 保持不变，只同步对应 row 的 `state_prompt` 与 `response`。12 个 manifest 仅新增 `row_format` 并更新 `arms.*.pool_sha256`；所有 `C_m`、采购 ID、排名/基线状态、费用和 `row_origins` 均不变。`row_origins.row_sha256` 仍标识**不可变封存源行**，不是重渲染行。重建器若发现除格式/hash 外的 manifest 差异会拒绝覆盖，包括已经补采过排名的 dDPO。24 个审计输入 JSON、727 个审计 sealed snapshots 与修复前逐字节相同；共享 data/envs 只读。
+`_sad_spans` 在 native response 上按真实 `appworld_train.action_spans()` 的代码围栏规则重新计算，不沿用旧字符偏移；该 trainer 规则不会把 XML tool calls 自动算作代码 action，本次不改 SAD 的损失定义。`pbsd_insp._rejected` 若有精确已购状态对应的缓存，使用 RTD `render_calls()` 格式转换旧 decoded FC 列表，native 输出/自然语言保留，不重新采样或修复失败动作。当前 BFCL 已购缓存仍为 **0 对**；测试用显式 fixture 覆盖多个调用、嵌套参数、原生失败文本和尾部 EOS 的处理。
 
-CPU 回归入口：`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_table1_row_format.py tests/test_table1_audit.py tests/test_appworld_train_truncation.py tests/test_table1_ddpo_rank.py --junitxml=results/table1_audit/row_format_cpu_tests.xml`。每个池均走真实 `load_pool`；69 个非空池逐行走真实 `encode(..., device='cpu')`，15 个空池验证 loader 明确拒绝，不能冒充可训练池。
+`pbsd_agent.c` 的 `state_prompt/response` 使用同一 native rendering，且 **c.state_prompt 必须等于所属行 prompt**。银行内某些 generator task_id 在不同问题间复用，native 模式按 `(task_id, prompt)` 分组，只引用确切同状态的已购证据，避免把同名不同题的 c 混入；所有引用都保留 package_id/turn_index。`c` 仍没有现成训练消费者，dDPO 仍为缺排名费用的 SFT fallback，STaR 仍为空 teacher pool。
 
-本次格式修复回归：**163 passed，0 failures/errors/skipped**。逐池行数、原始费用与不变量摘要见 `results/table1_audit/row_format_validation.json`；完整 JUnit 见上述 `row_format_cpu_tests.xml`。报告刷新也核验保留本节与 dDPO 补采说明。
+### 输出、回归与不变量
+
+两个预算 × 三 seeds × 七臂，共 **42 个 native 池、36 个非空池、2,232 行**（含臂/seed 重复）。B13843 六个非 STaR 臂各 94 行、C_m=13,776；B5537 各 30 行、C_m=5,471；每个 STaR 池 0 行、C_m=0。六个 manifests 均为 `row_format='native-fc'`。只有格式及 `arms.*.pool_sha256` 改变；`row_origins.row_sha256` 始终指向不可变封存源行，采购 IDs、种子、费用、失败统计、排名/基线状态不变。重建器同时与源 manifest 核对这些不变量，未改变的 acquisition 不重写。
+
+`tests/test_table1_native_fc.py` 从三个不同已购任务取 demo、generator、自然语言 irrelevance，使用 envs 内 handler 自己的预处理/首轮/格式化函数（只读，不 query），独立从官方任务文件或已购 generator 对象取输入，并通过 RTD 自己的 `render_prompt()`、`_response_text()` / `render_truth()` 检查 prompt/response 字节相等。另对全部 94 已购正行验证 sealed bytes；对六组七臂逐行走真实 trainer，**使用本地 Qwen/Qwen3.5-4B tokenizer，`local_files_only=True`**，验证不 re-template、非空目标及 EOS-only 例外、一次 EOS 和精确 prompt mask。测试禁止 socket connect、模型权重加载和 CUDA 初始化；legacy 全池回归继续保留。
+
+```bash
+export PYTHONPATH=src:.
+export PYTHONDONTWRITEBYTECODE=1
+export CUDA_VISIBLE_DEVICES=''
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+PY=.venv/bin/python
+$PY tools/table1_pool_from_sealed.py --benchmark bfcl --row-format native-fc
+$PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_table1_row_format.py tests/test_table1_audit.py tests/test_appworld_train_truncation.py tests/test_table1_ddpo_rank.py --junitxml=results/table1_audit/native_fc_cpu_tests.xml
+```
+
+本次 CPU 回归 **177 passed，0 failures/errors/skipped（181.70 秒）**。逐池行数、字节/hash 与费用核验记录在 `results/table1_audit/native_fc_validation.json`；JUnit 在 `results/table1_audit/native_fc_cpu_tests.xml`。42 个 native 池/六个 manifest 全部校验通过；106 个预先固定 hash 的 legacy 池及 BFCL 审计/采购文件逐字节未变。legacy 之前的 163-test 记录保留在 `row_format_cpu_tests.xml`，不把旧结果冒充本次验证。
 
 ## 5. 七臂池与训练入口
 
@@ -158,7 +173,7 @@ CPU 回归入口：`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. CUDA_VISIBLE_DEVI
 | appworld | 22633 | sft | 368 | 22107 | 0 | ready |
 | appworld | 22633 | star | 0 | 0 | 0 | no_teacher_pool_required |
 
-- **SFT：**只输出已购非失败内容，统一使用上节 `legacy-messages-v1`，不再混入 RTD chat/tool-call 行。原始空调用列表仍序列化为 `[]`，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
+- **SFT：**只输出已购非失败内容；BFCL 默认使用上节 `native-fc`，空调用按封存 RTD 目标监督 EOS；其他 benchmark 仍用 legacy。旧 BFCL legacy 池独立保留，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
 - **SAD：**同 SFT prompt/response，加 `_sad_spans` 字符边界，按现有 action_spans 的代码围栏规则；训练器仍自行算 mask。BFCL 无代码围栏响应按现有 trainer 规则属于非 action 部分，本次未另造 BFCL mask。
 - **BB-OPD：**单轮 BFCL 与 SFT 逐行相同。AppWorld 只取旧 on-policy 上下文/响应与已购 demo 完全一致的行，是部分内容对应，不代表完整 BB-OPD 或证明当前学生访问这些状态。ALFWorld 无对应缓存，空池。补齐需另冻结 on-policy 状态与费用。
 - **PBSD-insp：**只对已购行附加旧缓存的学生失败首轮 `_rejected`，其他正例训练；不做新采样。BFCL 本次 0 对，AppWorld 本次 13 对。
