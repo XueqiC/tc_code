@@ -30,8 +30,8 @@ evaluation (Appendix~\ref{app:details}). AppWorld reports TGC on the
 accuracy, ALFWorld the \texttt{valid\_seen} success rate, all in
 percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
 points over the initial student across the three columns and is only
-computed for rows with all three. Cells marked $\cdot$ are pending; $^{\dagger}$ marks a single
-training run reported provisionally until its three runs complete.
+computed for rows with all three. Cells marked $\cdot$ are pending; $^{\dagger}$ marks a cell with fewer than
+three training runs, reported provisionally until they complete.
 The AppWorld column still shows the earlier mixed-teacher pools
 (awb3) and will be replaced by the unified-budget runs.}
 \label{tab:main}
@@ -44,7 +44,7 @@ The AppWorld column still shows the earlier mixed-teacher pools
 \rowcolor{rowhead}Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$ & --\\
 \rowcolor{rowhead}Initial pretrained student & $0.0$ & $46.27$ & $7.14$ & --\\
 \midrule
-Trajectory SFT & $0.0_{\pm0.0}$ & $31.2^{\dagger}$ & $\cdot$ & $\cdot$\\
+Trajectory SFT & $0.0_{\pm0.0}$ & $28.2^{\dagger}$ & $\cdot$ & $\cdot$\\
 Span-weighted SFT (SAD adapt.) & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 On-policy teacher correction + SFT & $0.0_{\pm0.0}$ & $31.8^{\dagger}$ & $\cdot$ & $\cdot$\\
 SFT + teacher-ranked DPO (dDPO) & $2.5_{\pm4.3}$ & $\cdot$ & $\cdot$ & $\cdot$\\
