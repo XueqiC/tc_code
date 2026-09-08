@@ -13,8 +13,8 @@ import torch
 
 from ..behavior.deltas import tensor_state_hash
 from .alpha_d import (ALPHA_D_DEFAULTS, RETURN_OBJECTIVE, ExposureRecord, SourcePair,
-    FeedbackStatistic, blocked_alpha_vjp, build_reference, cpu_detached, gram,
-    gram_statistics, injection, state_features)
+    FeedbackStatistic, blocked_alpha_vjp, build_reference, calibrate_d, cpu_detached, gram,
+    injection, state_features)
 from .features import FrozenProjection
 from .functional_step import FrozenStep, commit_step, kl_pilot, lora_parameters, snapshot
 from .insertion import InsertionReference
@@ -289,10 +289,13 @@ class AlphaDExperimentMixin:
             raise ValueError('historical d feedback must come from the same-batch reference role')
         z, error = statistic.project(ref.directions, self.alpha_option('z_error_mode'))
         K = gram(ref.directions, s['step_rule'].diagonal)
+        if s['decision']:
+            s['d_calibration'] = calibrate_d(K, self.alpha_option('d_lambda_normalisation'))
         warmup = s['alpha_window_index'] <= self.alpha_option('d_warmup_windows')
         d, comparison = control(z, error, K, ref.alpha, mode=self.alpha_option('acquisition_value_mode'),
             zero_reason='configured_zero' if self.alpha_option('d_mode') == 'zero' else 'warmup' if warmup else None,
             d_lambda=self.alpha_option('d_lambda'), tolerance=self.alpha_option('d_solver_tolerance'),
+            d_lambda_normalisation=self.alpha_option('d_lambda_normalisation'), calibration=s['d_calibration'],
             max_iterations=self.alpha_option('d_solver_max_iterations'),
             redundancy_threshold=self.alpha_option('d_redundancy_cosine_threshold'))
         solver = comparison['solver']
@@ -301,7 +304,6 @@ class AlphaDExperimentMixin:
                       active_upper=np.flatnonzero(np.isclose(d, bound, atol=1e-8, rtol=0)).tolist())
         s['d_solution'], s['actual'] = d, ref.selected(d)
         s['alpha_d_control'] = dict(z_hat=z.tolist(), epsilon_hat=[float(x) if np.isfinite(x) else None for x in error],
-            K=K.tolist(), K_statistics=gram_statistics(K, self.alpha_option('d_redundancy_cosine_threshold')),
             d_star=d.tolist(), alpha=ref.alpha.tolist(), weights=ref.weights.tolist(), solver=solver,
             d_lambda=self.alpha_option('d_lambda'), z_error_mode=self.alpha_option('z_error_mode'),
             warmup=warmup, feedback_age=(s['round']-1)*12+s['step']-statistic.refreshed_step,
@@ -368,12 +370,15 @@ class AlphaDExperimentMixin:
                     acquisition.updated, s['step_rule'], feedback, s['acquisition_feedback_statistic'],
                     revealed_ids=self.ledger.owned_ids,
                     d_lambda=self.alpha_option('d_lambda'), error_mode=self.alpha_option('z_error_mode'),
+                    d_lambda_normalisation=self.alpha_option('d_lambda_normalisation'), calibration=s['d_calibration'],
                     tolerance=self.alpha_option('d_solver_tolerance'), max_iterations=self.alpha_option('d_solver_max_iterations'),
                     zero=self.alpha_option('d_mode') == 'zero' or s['alpha_d_control']['warmup'])
                 s['labels'] = {q: replace(label, value=values[q]/shares[q], position_share=shares[q],
+                    variance=label.variance/s['d_calibration'].scale,
                     approximation=diagnostic['approximation'], variance_method='additive_feedback_noise_proxy')
                     for q, label in s['labels'].items()}
                 stats.update(values=[s['labels'][q].value for q in stats['query_ids']],
+                             covariance=(np.asarray(stats['covariance'])/s['d_calibration'].scale).tolist(),
                              variance_scope='additive feedback proxy; excludes joint solver uncertainty')
                 self.journal.append('joint_acquisition_surrogate', round=s['round'], step=s['step'], **diagnostic)
                 s['joint_surrogate'] = diagnostic
@@ -464,7 +469,8 @@ class AlphaDExperimentMixin:
         for kind, q, first, d1, second, d2, predicted in pairs:
             with self.scope('paired_validation_updates'):
                 row = validate_pair(kind, q, first, d1, second, d2, predicted,
-                    s['alpha_start'], s['step_rule'], self.alpha_validation_return)
+                    s['alpha_start'], s['step_rule'], self.alpha_validation_return,
+                    prediction_scale=s['d_calibration'].linear_scale)
             s['paired_validations'].append(row)
             self.journal.append('realised_paired_gain_validation', round=s['round'], step=s['step'], **row)
 

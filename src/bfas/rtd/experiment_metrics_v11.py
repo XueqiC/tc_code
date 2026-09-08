@@ -27,7 +27,8 @@ def window_metrics(experiment):
     zero = np.zeros(len(d))
     row = validate_pair('learned_d_vs_zero', None, ref, d, ref, zero,
         s['alpha_d_control']['predicted_joint_gain'] if s['alpha_d_control']['controller'] == 'joint' else
-        s['alpha_d_control']['predicted_independent_joint_gain'], s['alpha_start'], s['step_rule'], evaluate)
+        s['alpha_d_control']['predicted_independent_joint_gain'], s['alpha_start'], s['step_rule'], evaluate,
+        prediction_scale=s['d_calibration'].linear_scale)
     row.update(equal_alpha=True, alpha=ref.alpha.tolist(), weights=ref.weights.tolist(),
                fixed_task_set_hash=fixed['hash'], before_greedy=before)
     s['paired_validations'].append(row)
@@ -71,6 +72,7 @@ def round_metrics(experiment):
             e.checker, sampler(payload, e.backend, e.support, identity=identity),
             R=options(e.config)['variance_resamples'], statistic=s.get('d_feedback'),
             controller_options=dict(d_lambda=e.alpha_option('d_lambda'), error_mode=e.alpha_option('z_error_mode'),
+                d_lambda_normalisation=e.alpha_option('d_lambda_normalisation'),
                 zero_reason='configured_zero' if e.alpha_option('d_mode') == 'zero' else None,
                 tolerance=e.alpha_option('d_solver_tolerance'), max_iterations=e.alpha_option('d_solver_max_iterations')))
     validations = [v for row in s['steps'] if row['round'] == s['round'] for v in row.get('realised_paired_gain_validation', [])]

@@ -158,7 +158,13 @@ def shuffled_pairing(pairs, *, seed):
 
 def controller_options(payload):
     c = payload['manifest']['config']
+    saved = payload['controller']
+    # Archives predating D11 retain their original, unnormalised convention.
+    mode = c.get('d_lambda_normalisation', saved.get('d_lambda_normalisation', 'none'))
+    calibration = (alpha_d.DCalibration(mode, saved['K_scale'], saved['K_scale_nonzero_directions'])
+                   if 'K_scale' in saved else None)
     return dict(d_lambda=c.get('d_lambda', 1.), tolerance=c.get('d_solver_tolerance', 1e-8),
+                d_lambda_normalisation=mode, calibration=calibration,
                 max_iterations=c.get('d_solver_max_iterations', 10000),
                 zero_reason=payload['controller']['solver'].get('reason'))
 
@@ -215,7 +221,8 @@ def run_controls(payload, backend, support, checker, journal, *, R=4, seed=0, z_
     if not np.allclose(learned, p['controller']['d_star'], rtol=0, atol=1e-7):
         raise ValueError('frozen d no longer matches the shared solver')
     pairs = []
-    def compare(kind, first, d1, second, d2, prediction=0., q=None, equal_alpha=True, check_updates=None):
+    def compare(kind, first, d1, second, d2, prediction=0., q=None, equal_alpha=True, check_updates=None,
+                prediction_scale=None):
         if equal_alpha and (not torch.equal(first.alpha, second.alpha) or not torch.equal(first.weights, second.weights)):
             raise ValueError('paired controls must preserve per-state alpha and frozen exposure weights')
         def evaluate_branch(parameters, role):
@@ -224,7 +231,8 @@ def run_controls(payload, backend, support, checker, journal, *, R=4, seed=0, z_
             result['metrics']['teacher_mass'] = float(batch.weights @ batch.alpha)
             return result
         row = validate_pair(kind, q, first, d1, second, d2, float(prediction), start, step,
-                            evaluate_branch, check_updates=check_updates)
+                            evaluate_branch, check_updates=check_updates,
+                            prediction_scale=np.sqrt(controller['K_scale']) if prediction_scale is None else prediction_scale)
         row.update(equal_alpha=equal_alpha, weights=first.weights.tolist(), alpha=first.alpha.tolist(),
                    full_d=list(map(float, d1)), control_d=list(map(float, d2)))
         if not equal_alpha:
@@ -252,7 +260,8 @@ def run_controls(payload, backend, support, checker, journal, *, R=4, seed=0, z_
         for batch in (ref, shuffled_ref):
             z, error = p['statistic'].project(batch.directions, p['controller']['z_error_mode'])
             values.append(objective(z, error, alpha_d.gram(batch.directions, step.diagonal),
-                                    learned, p['controller']['d_lambda']))
+                                    learned, p['controller']['d_lambda'],
+                                    **{k: controller_options(p)[k] for k in ('d_lambda_normalisation', 'calibration')}))
         predicted_shuffle_difference = values[0]-values[1]
     compare('learned_d_vs_shuffled_pairing', ref, learned, shuffled_ref, learned, predicted_shuffle_difference)
     compare('joint_vs_independent_control', ref, controller['joint_d'], ref, controller['independent_d'],
@@ -272,7 +281,7 @@ def run_controls(payload, backend, support, checker, journal, *, R=4, seed=0, z_
     for i in indices:
         probe = min(float(ref.alpha[i]), 1-float(ref.alpha[i]), .1)
         d = zero.copy(); d[i] = probe
-        row = compare('z_direction', ref, d, ref, zero, probe*p['controller']['z_hat'][i])
+        row = compare('z_direction', ref, d, ref, zero, probe*p['controller']['z_hat'][i], prediction_scale=1.)
         row.update(coordinate=i, probe_d=probe, z_hat=p['controller']['z_hat'][i])
     # Run source-estimator diagnostic LAST, after every core intervention/probe.
     diagnostic_rows = []

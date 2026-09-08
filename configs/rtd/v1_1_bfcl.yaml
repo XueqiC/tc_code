@@ -41,6 +41,7 @@ fixed_alpha: 0.5
 d_mode: learned
 acquisition_value_mode: joint
 d_lambda: 1.0
+d_lambda_normalisation: mean_diagonal
 d_warmup_windows: 1
 z_error_mode: loo
 d_solver_tolerance: 1.0e-8

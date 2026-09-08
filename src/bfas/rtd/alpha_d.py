@@ -17,7 +17,8 @@ from .transport import Behavior, FullState
 
 RETURN_OBJECTIVE = 'temperature_1_stochastic_policy_expected_return'
 ALPHA_D_DEFAULTS = dict(gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned',
-    d_lambda=1., d_warmup_windows=1, z_error_mode='loo', d_solver_tolerance=1e-8,
+    d_lambda=1., d_lambda_normalisation='mean_diagonal', d_warmup_windows=1,
+    z_error_mode='loo', d_solver_tolerance=1e-8,
     d_solver_max_iterations=10000, d_redundancy_cosine_threshold=.9,
     microbatch_states=4, acquisition_value_mode='joint')
 
@@ -39,6 +40,8 @@ def validate_config(config):
         raise ValueError('invalid gate_mode/d_mode')
     if c['z_error_mode'] not in {'loo', 'split_half'}:
         raise ValueError('z_error_mode must be loo or split_half')
+    if c['d_lambda_normalisation'] not in {'mean_diagonal', 'none'}:
+        raise ValueError('d_lambda_normalisation must be mean_diagonal or none')
     if not math.isfinite(c['fixed_alpha']) or not 0 <= c['fixed_alpha'] <= 1:
         raise ValueError('fixed_alpha must be in [0,1]')
     for k in ('d_lambda', 'd_solver_tolerance'):
@@ -246,11 +249,47 @@ def gram(directions, diagonal):
     return (K+K.T)/2
 
 
-def solve_d(z, error, K, alpha, *, d_lambda=1., tolerance=1e-8, max_iterations=10000):
+@dataclass(frozen=True)
+class DCalibration:
+    """One full-evidence scale, frozen across a window and its set comparisons."""
+    mode: str
+    scale: float
+    nonzero_directions: int
+
+    @property
+    def linear_scale(self):
+        return math.sqrt(self.scale)
+
+    def journal(self, d_lambda):
+        return dict(d_lambda=d_lambda, d_lambda_normalisation=self.mode, K_scale=self.scale,
+            K_scale_fallback=self.mode == 'mean_diagonal' and self.nonzero_directions == 0,
+            K_scale_nonzero_directions=self.nonzero_directions,
+            lambda_effective=d_lambda/self.scale,
+            lambda_original_units=d_lambda/self.linear_scale,
+            objective_units='normalised' if self.mode == 'mean_diagonal' else 'original')
+
+
+def calibrate_d(K, d_lambda_normalisation='mean_diagonal'):
+    """Exclude exactly zero directions, never small directions or small gains."""
+    if d_lambda_normalisation not in {'mean_diagonal', 'none'}:
+        raise ValueError('d_lambda_normalisation must be mean_diagonal or none')
+    K = np.asarray(K, dtype=np.float64)
+    if K.ndim != 2 or K.shape[0] != K.shape[1] or not K.size or not np.isfinite(K).all():
+        raise ValueError('finite nonempty square K required')
+    nonzero = np.diag(K)[np.diag(K) > 0]
+    scale = float(nonzero.mean()) if len(nonzero) and d_lambda_normalisation == 'mean_diagonal' else 1.
+    return DCalibration(d_lambda_normalisation, scale, len(nonzero))
+
+
+def solve_d(z, error, K, alpha, *, d_lambda=1., d_lambda_normalisation='mean_diagonal',
+            calibration=None, tolerance=1e-8, max_iterations=10000):
     """Joint box/L1 quadratic coordinate descent, with a proximal KKT test.
 
     NO screening by raw z. At a zero interior coordinate the relevant score
-    is z_i-lambda*sum_{j!=i} K_ij*d_j, not z_i alone. A failed solve raises.
+    is z_tilde_i-lambda_effective*sum_{j!=i} K_ij*d_j, not z_i alone.
+    lambda_effective=lambda/s acts on raw K with NORMALISED linear terms;
+    the equivalent ORIGINAL-unit coefficient is lambda/sqrt(s). A failed
+    solve raises. With normalisation='none', the historical QP is unchanged.
     """
     z, error, K, alpha = (np.asarray(x, dtype=np.float64) for x in (z, error, K, alpha))
     if (z.ndim != 1 or error.shape != z.shape or alpha.shape != z.shape or K.shape != (len(z), len(z)) or
@@ -258,6 +297,10 @@ def solve_d(z, error, K, alpha, *, d_lambda=1., tolerance=1e-8, max_iterations=1
             (alpha < 0).any() or (alpha > 1).any() or not math.isfinite(d_lambda) or d_lambda < 0 or
             not math.isfinite(tolerance) or tolerance <= 0 or type(max_iterations) is not int or max_iterations < 1):
         raise ValueError('invalid joint solver inputs')
+    calibration = calibration or calibrate_d(K, d_lambda_normalisation)
+    if calibration.mode != d_lambda_normalisation:
+        raise ValueError('shared calibration normalisation mismatch')
+    z, error, K = z/calibration.linear_scale, error/calibration.linear_scale, K/calibration.scale
     if not np.allclose(K, K.T, atol=1e-12, rtol=1e-10) or np.linalg.eigvalsh(K).min() < -1e-9*max(1., np.linalg.norm(K)):
         raise ValueError('K must be symmetric positive semidefinite')
     bound, d = np.minimum(alpha, 1-alpha), np.zeros_like(z)
@@ -282,7 +325,7 @@ def solve_d(z, error, K, alpha, *, d_lambda=1., tolerance=1e-8, max_iterations=1
         objective=float(z @ d-d_lambda/2*(d @ K @ d)-error @ np.abs(d)),
         active_lower=np.flatnonzero(np.isclose(d, -bound, atol=tolerance, rtol=0)).tolist(),
         active_upper=np.flatnonzero(np.isclose(d, bound, atol=tolerance, rtol=0)).tolist(),
-        zero_coordinates=np.flatnonzero(d == 0).tolist())
+        zero_coordinates=np.flatnonzero(d == 0).tolist(), **calibration.journal(d_lambda))
 
 
 def gram_statistics(K, threshold=.9):
