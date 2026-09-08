@@ -9,10 +9,10 @@ teacher_access: text_only
 support_split: parent_hash_two_fold
 certificate_isolation: strict
 
-rounds: 3
+rounds: 2
 decision_steps_per_round: [1, 4, 7, 10]
 replay_is_explicit_choice: true
-budget_checkpoints_bank_fraction: [0.10, 0.25, 0.50]
+budget_checkpoints_bank_fraction: [0.10, 0.25]
 online_max_teacher_turns: 8
 replay_request_lengths: recorded_only
 
