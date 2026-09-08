@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Materialize trainer pools by revealing only a validated purchased prefix.
 
-Default output is results/table1_audit/pools because data/ is a read-only
-symlink to another worktree. No model, teacher API, or environment is loaded.
+BFCL defaults to native-fc in results/table1_audit/pools_native; legacy pools
+remain in pools. data/ is read-only. No model, teacher API, or environment runs.
 """
 from __future__ import annotations
 
@@ -13,7 +13,10 @@ from pathlib import Path
 
 from tools import table1_common as io
 from tools.table1_random_acquisition import acquire
-from tools.table1_row_format import ROW_FORMAT, read_bank_payload, render_package
+from tools.table1_row_format import (
+    NATIVE_ROW_FORMAT, ROW_FORMATS, bfcl_native_rejected, read_bank_payload,
+    render_package, row_format_for,
+)
 
 
 def action_spans(response):
@@ -37,7 +40,7 @@ def action_spans(response):
         cursor = closing + 3
 
 
-def build_pools(snapshots, acquisition, protocol, rendered_rows=None):
+def build_pools(snapshots, acquisition, protocol, rendered_rows=None, *, row_format=None):
     owned = acquisition['purchased_ids']
     if set(snapshots) != set(owned) or len(set(owned)) != len(owned):
         raise ValueError('exactly the owned packages must be revealed')
@@ -67,7 +70,9 @@ def build_pools(snapshots, acquisition, protocol, rendered_rows=None):
                                     row_sha256=io.digest(s['rows'][i])))
             paired = deepcopy(row)
             if str(i) in s['pbsd_rejected']:
-                paired['_rejected'] = s['pbsd_rejected'][str(i)]
+                rejected = s['pbsd_rejected'][str(i)]
+                paired['_rejected'] = (bfcl_native_rejected(rejected)
+                                       if row_format == NATIVE_ROW_FORMAT else rejected)
             pbsd.append(paired)
             if acquisition['benchmark'] == 'bfcl' or i in s['bbopd_matches']:
                 bbopd.append(deepcopy(row))
@@ -83,14 +88,19 @@ def build_pools(snapshots, acquisition, protocol, rendered_rows=None):
                                     rule='appworld_train.action_spans; complement is reasoning')
         sad.append(tagged)
     # c is data for the PBSD-agent evidence consumer; it is not an agentkd thought prefix.
+    # Generator archives can reuse a task_id for different questions. Native
+    # evidence must share the row's exact state, not just that historical alias.
+    def evidence_key(row):
+        return (row['task_id'], row['prompt']) if row_format == NATIVE_ROW_FORMAT else row['task_id']
+
     demos = defaultdict(list)
     for row, origin in zip(base, row_origins):
-        demos[row['task_id']].append(dict(package_id=origin['package_id'],
+        demos[evidence_key(row)].append(dict(package_id=origin['package_id'],
             state_prompt=row['prompt'], response=row['response'], turn_index=row['turn_index']))
     agent = []
     for row, origin in zip(base, row_origins):
         r = deepcopy(row)
-        r['c'] = deepcopy(demos[row['task_id']])
+        r['c'] = deepcopy(demos[evidence_key(row)])
         agent.append(r)
     # No archived ranking has a recoverable ranking-call ID and output cost.
     # Task overlap is necessary but insufficient to use extra teacher evidence.
@@ -157,11 +167,12 @@ def manifest_without_row_format(manifest):
     return result
 
 
-def materialize(directory, acquisition_path, pool_root):
+def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     directory = Path(directory)
     public = io.read_json(directory / 'public.json')
     protocol = io.read_json(directory / 'protocol.json')
     acquisition = io.read_json(acquisition_path)
+    original_acquisition = deepcopy(acquisition)
     expected = acquire(public, acquisition['cap'], acquisition['training_seed'], acquisition['order_seed'])
     for key in ('benchmark', 'purchased_ids', 'purchases', 'C_m', 'remaining_budget', 'public_sha256', 'frozen_order'):
         if acquisition[key] != expected[key]:
@@ -177,18 +188,26 @@ def materialize(directory, acquisition_path, pool_root):
             raise ValueError('purchased snapshot integrity/cost mismatch')
         snapshots[q] = s
     benchmark = acquisition['benchmark']
+    row_format = row_format_for(benchmark, row_format)
+    if pool_root is None:
+        pool_root = io.DEFAULT_OUT / ('pools_native' if row_format == NATIVE_ROW_FORMAT else 'pools')
     sources = (io.read_json(directory / 'ledger.json')['sources']
                if benchmark != 'appworld' else {})
     rendered = {}
     for q, snapshot in snapshots.items():
         payload = (read_bank_payload(benchmark, q, set(acquisition['purchased_ids']), sources)
                    if benchmark != 'appworld' else None)
-        rendered[q] = render_package(benchmark, snapshot, payload)
-    pools, manifest = build_pools(snapshots, acquisition, protocol, rendered)
-    manifest['row_format'] = ROW_FORMAT
+        rendered[q] = render_package(benchmark, snapshot, payload, row_format=row_format)
+    pools, manifest = build_pools(snapshots, acquisition, protocol, rendered, row_format=row_format)
+    manifest['row_format'] = row_format
+    _, sealed_manifest = build_pools(snapshots, acquisition, protocol)
+    if manifest_without_row_format(manifest) != manifest_without_row_format(sealed_manifest):
+        raise ValueError('rendering changed sealed manifest/accounting')
     destination = Path(pool_root) / acquisition['benchmark'] / f'B{acquisition["cap"]}_seed{acquisition["training_seed"]}'
     if (destination / 'manifest.json').exists():
         old = io.read_json(destination / 'manifest.json')
+        if old.get('row_format') != row_format:
+            raise ValueError('row format differs; use a sibling pool directory to preserve existing pools')
         if manifest_without_row_format(old) != manifest_without_row_format(manifest):
             raise ValueError('rendering would change manifest/accounting; refusing to overwrite')
     for arm, rows in pools.items():
@@ -200,7 +219,8 @@ def materialize(directory, acquisition_path, pool_root):
                        failed_attempt_cost=manifest['failed_attempt_cost'], ranking=manifest['ranking'])
     acquisition['journal'] = expected['journal'] + [dict(stage='post_purchase_report',
         sealed_reader_ids=acquisition['purchased_ids'], unpurchased_content_read=False)]
-    io.write_json(acquisition_path, acquisition)
+    if acquisition != original_acquisition:
+        io.write_json(acquisition_path, acquisition)
     print(f'{acquisition["benchmark"]} B={acquisition["cap"]} seed={acquisition["training_seed"]}: '
           f'{len(pools["sft"])} positives, {len(manifest["tasks_covered"])} tasks, '
           f'rank eligible/reused={manifest["ranking"]["purchased_task_eligible"]}/0')
@@ -210,13 +230,17 @@ def materialize(directory, acquisition_path, pool_root):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--audit-root', type=Path, default=io.DEFAULT_OUT)
-    ap.add_argument('--out', type=Path, default=io.DEFAULT_OUT / 'pools')
+    ap.add_argument('--out', type=Path, help='pool root (default: pools_native for native-fc; pools for legacy)')
     ap.add_argument('--benchmark', choices=io.BENCHMARKS)
+    ap.add_argument('--row-format', choices=ROW_FORMATS,
+                    help='default: native-fc for BFCL; legacy-messages-v1 otherwise')
     args = ap.parse_args()
+    if args.row_format == NATIVE_ROW_FORMAT and args.benchmark != 'bfcl':
+        ap.error('--row-format native-fc requires --benchmark bfcl')
     for benchmark in [args.benchmark] if args.benchmark else io.BENCHMARKS:
         directory = args.audit_root / benchmark
         for path in sorted(directory.glob('acquired_B*_seed*.json')):
-            materialize(directory, path, args.out)
+            materialize(directory, path, args.out, row_format=args.row_format)
 
 
 if __name__ == '__main__':

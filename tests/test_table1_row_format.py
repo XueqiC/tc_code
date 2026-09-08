@@ -8,7 +8,7 @@ from tools import table1_common as io
 from tools.bfcl_demo_pool import serialize
 from tools.table1_pool_from_sealed import build_pools, manifest_without_row_format, materialize
 from tools.table1_row_format import (
-    ROW_FORMAT, TEMPLATE_MARKERS, bfcl_response, read_bank_payload,
+    LEGACY_ROW_FORMAT as ROW_FORMAT, TEMPLATE_MARKERS, bfcl_response, read_bank_payload,
     render_legacy_row, render_package,
 )
 
@@ -148,7 +148,7 @@ def test_real_pool_lineage_accounting_and_supplemental_fields():
         expected = {}
         for q, snapshot in snapshots.items():
             payload = read_bank_payload(benchmark, q, owned, sources) if benchmark != 'appworld' else None
-            expected[q] = render_package(benchmark, snapshot, payload)
+            expected[q] = render_package(benchmark, snapshot, payload, row_format=ROW_FORMAT)
         new_pools, _ = build_pools(snapshots, acquisition, io.read_json(audit/'protocol.json'), expected)
         for arm, original in old_pools.items():
             rows = [r for _, r in io.read_rows(directory/f'pool_{arm}.jsonl')]

@@ -236,7 +236,15 @@ def load_pool(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"{path}:{line_number}: turn_index must be an integer")
             if not isinstance(row["prompt"], str) or not row["prompt"]:
                 raise ValueError(f"{path}:{line_number}: prompt must be a non-empty string")
-            if not isinstance(row["response"], str) or not row["response"]:
+            # RTD's sealed zero-call BFCL targets are empty text followed by
+            # EOS. Admit only explicitly marked native rows; ordinary pools
+            # still reject missing/empty teacher answers. encode appends EOS.
+            native_empty = (
+                row.get('_native_fc_empty_response') is True
+                and row.get('messages') == []
+                and row['prompt'].endswith('<|im_start|>assistant\n<think>\n\n</think>\n\n')
+            )
+            if not isinstance(row["response"], str) or (not row["response"] and not native_empty):
                 raise ValueError(f"{path}:{line_number}: response must be a non-empty string")
             copied = dict(row)
             copied["_pool_index"] = len(rows)

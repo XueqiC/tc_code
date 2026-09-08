@@ -167,7 +167,7 @@ def test_materialize_only_reads_paid_snapshots_and_rejects_tamper(tmp_path, monk
     # Synthetic accounting fixture has no raw bank state. Real source rendering
     # and its ownership/hash guards are exercised in test_table1_row_format.py.
     monkeypatch.setattr('tools.table1_pool_from_sealed.read_bank_payload', lambda *a: None)
-    monkeypatch.setattr('tools.table1_pool_from_sealed.render_package', lambda b, s, p: s['rows'])
+    monkeypatch.setattr('tools.table1_pool_from_sealed.render_package', lambda b, s, p, **kw: s['rows'])
     materialize(directory, path, tmp_path/'pools')
     assert seen == acquisition['purchased_ids']
     acquisition['C_m'] += 1
