@@ -279,6 +279,25 @@ harness, to Trajectory SFT on the same pool (its retrieval and
 code-tool components are fixed by the benchmark harness for all
 methods) and is therefore not listed as a separate row.
 
+\paragraph{Sealed-pool baseline runs.}
+Under the unified budget every baseline draws its evidence from the
+same sealed candidate pool as RTD, purchased in a frozen random order
+(one order shared by the three training runs; the runs differ only in
+training randomness) until the next package would exceed the cap;
+purchased failed attempts are charged and yield no positive. Purchased
+packages are rendered into training rows by the same renderer that
+produced the earlier validated pools, so that rows are byte-identical
+to those pools where the same package appears. On BFCL at
+$B=13{,}843$ the random order buys 103 packages over 22 tasks (94
+positive rows, 9 charged failures, $C_m=13{,}776$); among these tasks
+no cached failed first turn of the student exists, so the
+PBSD-inspired offline arm has no preference pair and coincides with
+Trajectory SFT on this benchmark, and the on-policy correction arm
+coincides with it by the single-turn identity above. The dDPO arm adds
+one teacher ranking call per purchased task, charged to $C_m$. STaR
+trains on the initial student's own verified samples and charges no
+teacher token.
+
 \paragraph{Component-study selection and data-generation baselines.}
 Beyond the main-table branches, component studies compare against
 selection baselines spanning classical and current families, namely
