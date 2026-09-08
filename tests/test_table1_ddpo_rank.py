@@ -69,9 +69,7 @@ def test_dedupe_resume_hard_cap_and_all_seeds(audit):
     first, client = run(audit, [('1 3', {'completion_tokens': 6, 'total_tokens': 999})], cap=1)
     assert len(client.calls) == 1 and first['status'] == 'partial_ranking'
     assert first['C_m'] == 15 and first['exceeds_cap']
-    again, client = run(audit, [], cap=1)
-    assert not client.calls and again == first
-    final, client = run(audit, [('2 1', {'output_tokens': 7})], cap=2)
+    final, client = run(audit, [('2 1', {'output_tokens': 7})], cap=1)
     assert len(client.calls) == 1 and final['status'] == 'ready'
     assert final['C_m'] == 22
     frozen = copy.deepcopy([manifest(audit, k) for k in range(3)])
@@ -102,23 +100,139 @@ def test_dedupe_resume_hard_cap_and_all_seeds(audit):
         assert m['remaining_budget'] == 1 and m['arms']['sft']['C_m'] == 9
 
 
-@pytest.mark.parametrize('reply', ['nonsense', '1 1', '0 3', '1 9', '1'])
+@pytest.mark.parametrize('reply', ['', '   ', 'nonsense', '1 1', '0 3', '1 9', '1'])
 @pytest.mark.parametrize('usage,expected,confidence', [
     ({'completion_tokens': 0}, 0, 'exact'),
     ({'completion_tokens': 8}, 8, 'exact'),
     ({}, None, 'estimated'),
 ])
-def test_parse_failures_are_terminal_and_charged(audit, reply, usage, expected, confidence):
+def test_parse_failures_are_skipped_without_opt_in_and_charged(audit, reply, usage, expected, confidence):
     result, _ = run(audit, [(reply, usage)], cap=1)
     record = ledger(audit)[0]
     assert record['status'] == 'parse_failed'
-    assert record['tokens_spent'] == (expected if expected is not None else len(reply.split()))
+    assert record['tokens_spent'] == (expected if expected is not None else max(1, len(reply.split())))
     assert record['confidence'] == confidence
     _, client = run(audit, [('1 2', {'completion_tokens': 1})], cap=2)
     assert len(client.calls) == 1
     assert 'official task_b' in client.calls[0][0]['content']
     assert manifest(audit)['arms']['ddpo']['skipped_parse_task_ids'] == ['task_a']
     assert result['C_m'] == 9 + record['tokens_spent']
+
+
+@pytest.mark.parametrize('reply', ['', '   ', 'nonsense'])
+def test_retry_only_failed_accumulates_charges_and_never_recalls_ranked(audit, reply):
+    first, _ = run(audit, [(reply, {'completion_tokens': 64}),
+                           ('1 2', {'completion_tokens': 63})])
+    path = audit / 'bfcl/ddpo_rank_ledger.jsonl'
+    original = path.read_bytes()
+    old_calls = ledger(audit)
+    same, client = run(audit, [])
+    assert not client.calls and same == first
+
+    result, client = run(audit, [('2 3', {'completion_tokens': 7})],
+                         cap=1, retry_parse_failed=True)
+    assert len(client.calls) == 1 and 'official task_a' in client.calls[0][0]['content']
+    assert result['status'] == 'ready' and result['ranked_tasks'] == 2
+    assert result['ranking_cost'] == 64 + 63 + 7 and result['C_m'] == 9 + 64 + 63 + 7
+    assert path.read_bytes().startswith(original) and ledger(audit)[:2] == old_calls
+    attempt = ledger(audit)[-1]
+    assert attempt['attempt_index'] == old_calls[0]['attempt_index'] + 1
+    assert len({r['call_id'] for r in ledger(audit)}) == 3
+    assert ddpo.rows(audit / 'bfcl/ddpo_rank_attempts.jsonl')[-1]['call_id'] == attempt['call_id']
+    for seed in range(3):
+        m = manifest(audit, seed)
+        arm = m['arms']['ddpo']
+        assert arm['ranking_cost'] == 134 and arm['C_m'] == 143
+        assert arm['rank_pairs'] == 2 and arm['skipped_parse_task_ids'] == []
+        assert len(arm['ranking_call_ids']) == 3
+        assert m['ranking']['new_ddpo']['ranked_tasks'] == ['task_a', 'task_b']
+        pool = ddpo.rows(audit / 'pools/bfcl' / f'B10_seed{seed}/pool_ddpo.jsonl')
+        assert len(pool) == arm['rows'] == 4 and arm['pool_sha256'] == io.digest(pool)
+        assert [r['task_id'] for r in pool if r['teacher'] == 'rank'] == ['task_a', 'task_b']
+        assert pool[-1] == old_calls[1]['preference_row']
+    same, client = run(audit, [], cap=1, retry_parse_failed=True)
+    assert not client.calls and same == result
+
+
+def test_retry_cap_counts_new_attempts_and_pending_failures(audit):
+    run(audit, [('', {'completion_tokens': 64})] * 2)
+    result, client = run(audit, [('1 2', {'completion_tokens': 5})],
+                         cap=1, retry_parse_failed=True)
+    assert len(client.calls) == 1 and result['ranking_cost'] == 133
+    assert result['status'] == 'partial_ranking' and result['pending_task_ids'] == ['task_b']
+    final, client = run(audit, [('2 1', {'completion_tokens': 7})],
+                        cap=1, retry_parse_failed=True)
+    assert len(client.calls) == 1 and 'official task_b' in client.calls[0][0]['content']
+    assert final['status'] == 'ready' and final['ranking_cost'] == 140
+    assert [(r['task_id'], r['attempt_index']) for r in ledger(audit)] == [
+        ('task_a', 0), ('task_b', 0), ('task_a', 1), ('task_b', 1)]
+
+
+@pytest.mark.parametrize('cap', [1, 2])
+def test_parse_retry_and_fresh_task_share_invocation_cap(audit, cap):
+    run(audit, [('', {'completion_tokens': 64})], cap=1)
+    result, client = run(audit, [('1 2', {'completion_tokens': 5})] * cap,
+                         cap=cap, retry_parse_failed=True)
+    assert len(client.calls) == cap
+    assert result['ranking_cost'] == 64 + 5 * cap and result['C_m'] == 73 + 5 * cap
+    assert result['pending_task_ids'] == (['task_b'] if cap == 1 else [])
+    assert [(r['task_id'], r['attempt_index']) for r in ledger(audit)] == [
+        ('task_a', 0), ('task_a', 1), ('task_b', 0)][:cap + 1]
+
+
+@pytest.mark.parametrize('reply', ['', at.TeacherAPIError('HTTP 429', status_code=429)])
+def test_parse_retry_buys_only_one_attempt_even_if_it_fails_again(audit, reply):
+    run(audit, [('', {'completion_tokens': 64}), ('1 2', {'completion_tokens': 3})])
+    result, client = run(audit, [(reply, {'completion_tokens': 8})], retry_parse_failed=True)
+    assert len(client.calls) == 1 and len(ledger(audit)) == 3
+    assert result['ranking_cost'] == 75 and result['pending_task_ids'] == ['task_a']
+    assert result['status'] == 'partial_ranking' and ledger(audit)[-1]['attempt_index'] == 1
+
+
+@pytest.mark.parametrize('status', ['legacy_empty', 'api_error'])
+def test_empty_response_retried_even_without_parse_failed_status(audit, status):
+    run(audit, [('', {'completion_tokens': 64}), ('1 2', {'completion_tokens': 3})])
+    calls = ledger(audit)
+    calls[0]['status'] = status
+    calls[0]['attempt_index'] = 4  # Imported ledger may have gaps in attempt indices.
+    calls[1]['response'] = ''  # A ranked result stays terminal even with empty raw text.
+    io.write_rows(audit / 'bfcl/ddpo_rank_ledger.jsonl', calls)
+    result, client = run(audit, [('1 3', {'completion_tokens': 2})], retry_parse_failed=True)
+    assert len(client.calls) == 1 and ledger(audit)[-1]['attempt_index'] == 5
+    assert result['status'] == 'ready' and result['ranking_cost'] == 69
+
+
+def test_full_ledger_rebuild_uses_latest_ranked_preference_once_per_seed(audit):
+    run(audit, [('1 2', {'completion_tokens': 3})] * 2)
+    calls = ledger(audit)
+    newer = copy.deepcopy(calls[0])
+    newer.update(call_id='newer-ranking', attempt_index=2, tokens_spent=10,
+                 response='3 1', best_worst=[3, 1])
+    newer['preference_row'].update(response='student 2', _rejected='student 0')
+    failed = dict(newer, call_id='later-failure', attempt_index=3, tokens_spent=64,
+                  response='', status='parse_failed')
+    failed.pop('preference_row')
+    # Imported order differs from attempt order; a later failure cannot erase success.
+    io.write_rows(audit / 'bfcl/ddpo_rank_ledger.jsonl', [newer, *calls, failed])
+    for seed in range(3):
+        directory = audit / 'pools/bfcl' / f'B10_seed{seed}'
+        io.write_rows(directory / 'pool_ddpo.jsonl', [newer['preference_row']] * 3)
+        m = manifest(audit, seed)
+        m['arms']['ddpo'].update(ranking_cost=999, C_m=999)
+        m['ranking']['new_ddpo']['ranked_tasks'] = []
+        io.write_json(directory / 'manifest.json', m)
+    result, client = run(audit, [], cap=1, retry_parse_failed=True)
+    assert not client.calls and result['ranking_cost'] == 80 and result['C_m'] == 89
+    for seed in range(3):
+        directory = audit / 'pools/bfcl' / f'B10_seed{seed}'
+        pool = ddpo.rows(directory / 'pool_ddpo.jsonl')
+        assert pool == ddpo.rows(directory / 'pool_sft.jsonl') + [
+            newer['preference_row'], calls[1]['preference_row']]
+        m = manifest(audit, seed)
+        arm = m['arms']['ddpo']
+        assert arm['ranking_cost'] == 80 and arm['C_m'] == 89 and arm['rank_pairs'] == 2
+        assert len(arm['ranking_call_ids']) == 4 and arm['skipped_parse_task_ids'] == []
+        assert m['ranking']['new_ddpo']['ranked_tasks'] == ['task_a', 'task_b']
 
 
 def test_empty_reply_unknown_usage_is_not_free(audit):
@@ -159,8 +273,18 @@ def test_rate_limit_cannot_hide_extra_requests(audit):
     result, client = run(audit, [(error, {'completion_tokens': 0})], cap=1)
     assert len(client.calls) == len(ledger(audit)) == 1
     assert result['pending_task_ids'] == ['task_a', 'task_b']
-    result, client = run(audit, [('1 2', {'completion_tokens': 3})], cap=2)
+    result, client = run(audit, [('1 2', {'completion_tokens': 3})], cap=1)
     assert len(client.calls) == 1 and result['ranking_cost'] == 3
+
+
+def test_rate_limit_and_success_share_invocation_cap(audit):
+    run(audit, [('', {'completion_tokens': 64})], cap=1)
+    error = at.TeacherAPIError('HTTP 429', status_code=429)
+    result, client = run(audit, [(error, {'completion_tokens': 1}),
+                                 ('1 2', {'completion_tokens': 3})], cap=2)
+    assert len(client.calls) == 2 and result['ranking_cost'] == 68
+    assert [(r['task_id'], r['attempt_index']) for r in ledger(audit)] == [
+        ('task_a', 0), ('task_b', 0), ('task_b', 1)]
 
 
 def test_api_failure_with_usage_is_charged_and_unknown_is_explicit(audit):
@@ -220,10 +344,10 @@ def test_tokenizer_error_preserves_response_and_unknown_charge(audit):
 
 
 def test_duplicate_ledger_call_is_not_double_charged(audit):
-    run(audit, [('1 2', {'completion_tokens': 3})], cap=1)
+    run(audit, [('1 2', {'completion_tokens': 3})] * 2)
     ddpo.append(audit / 'bfcl/ddpo_rank_ledger.jsonl', ledger(audit)[0])
     result, client = run(audit, [], cap=1)
-    assert not client.calls and result['ranking_cost'] == 3
+    assert not client.calls and result['ranking_cost'] == 6
 
 
 def test_seed_mismatch_rejected_before_call(audit):
@@ -269,12 +393,13 @@ def test_existing_client_exposes_usage_and_disables_think_and_hidden_retries(mon
     monkeypatch.setenv('OLLAMA_BASE_URL', 'https://example.invalid')
     key = tmp_path / 'key'
     key.write_text('fake-key')
-    client = ddpo.TeacherClient(str(key), 64)
+    client = ddpo.TeacherClient(str(key), 512)
     usage = {'stale': 999}
     assert client([dict(role='user', content='rank')], usage) == '1 2'
     assert usage == dict(completion_tokens=5, prompt_tokens=100)
     body = json.loads(requests[0].data)
-    assert body['think'] is False and body['max_tokens'] == 64
+    assert body['think'] is False and body['max_tokens'] == 512
+    assert body['reasoning_effort'] == 'none'
     assert body['model'] == 'deepseek-v4-pro' and body['temperature'] == 0
     assert requests[0].get_header('Authorization') == 'Bearer fake-key'
     assert len(requests) == 1
@@ -313,9 +438,21 @@ def test_client_http_error_exposes_status_usage_without_retry(monkeypatch):
 
 def test_existing_text_only_client_interface_is_unchanged(monkeypatch):
     monkeypatch.setattr(at, '_ollama_keys', lambda _: ['fake'])
+    def open_request(request, **kwargs):
+        assert 'reasoning_effort' not in json.loads(request.data)
+        return FakeResponse({'choices': [{'message': {'content': 'plain text'}}]})
     monkeypatch.setattr(at.urllib.request, 'build_opener', lambda: type('Opener', (), {
-        'open': lambda *args, **kw: FakeResponse({'choices': [{'message': {'content': 'plain text'}}]})})())
+        'open': staticmethod(open_request)})())
     assert at.generate_reply(at.TeacherConfig('fake', 'fake', 'https://example.invalid', 'fake'), []) == 'plain text'
+
+
+def test_rank_cli_retry_flag_and_default_completion_budget(monkeypatch):
+    def fake_rank(audit, cap, max_calls, client, *, retry_parse_failed):
+        assert audit == io.DEFAULT_OUT and cap == 13843 and max_calls == 2
+        assert client.max_output_tokens == 512 and retry_parse_failed
+        return {'status': 'ready'}
+    monkeypatch.setattr(ddpo, 'rank', fake_rank)
+    assert ddpo.main(['rank', '--max-calls', '2', '--retry-parse-failed']) == 0
 
 
 def test_sampling_commands_and_isolated_environment(tmp_path, monkeypatch):

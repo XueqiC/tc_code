@@ -371,21 +371,24 @@ def generate_reply(
     usage_out: dict[str, Any] | None = None,
     max_retries: int | None = None,
     rotate_keys: bool = True,
+    reasoning_effort: str | None = None,
 ) -> str:
     """Return text, optionally exposing provider usage before content parsing.
 
     ``max_retries=0`` lets an accounting caller journal every HTTP attempt.
     An absent usage field stays absent; it must not be interpreted as zero.
     Existing callers retain the original return type and retry policy.
+    ``reasoning_effort`` is opt-in for the Ollama OpenAI-compatible backend.
     """
     global _OLLAMA_KEY_IDX
     if usage_out is not None:
         usage_out.clear()
     if max_retries is not None and max_retries < 0:
         raise ValueError("max_retries must be nonnegative")
-    payload = json.dumps(
-        _build_request_body(config, messages, temperature), ensure_ascii=False
-    ).encode("utf-8")
+    body = _build_request_body(config, messages, temperature)
+    if reasoning_effort is not None and config.backend == "openai":
+        body["reasoning_effort"] = reasoning_effort
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     opener = urllib.request.build_opener()
 
     total_attempts = (CHAT_COMPLETION_RETRIES if max_retries is None else max_retries) + 1

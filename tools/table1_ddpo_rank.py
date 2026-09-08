@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sample the initial BFCL student, then buy one ranking per purchased task.
+"""Sample the initial BFCL student, then rank purchased tasks with optional parse retries.
 
 Run from this worktree with PYTHONPATH=src:. and PY=.venv/bin/python.
 See docs/table1_budget_ledger_zh.md §5.1 for commands and accounting semantics.
@@ -273,6 +273,10 @@ def sample(audit, cap, repeats, gpu, port):
 
 
 class TeacherClient:
+    # Ollama's /v1/chat/completions supports this alongside think=False.
+    # https://docs.ollama.com/api/openai-compatibility
+    reasoning_effort = 'none'
+
     def __init__(self, key_file, max_output_tokens):
         self.key_file = key_file
         self.max_output_tokens = max_output_tokens
@@ -295,7 +299,8 @@ class TeacherClient:
         os.environ['TEACHER_THINK'] = '0'
         try:
             return at.generate_reply(self.config, messages, temperature=0.0, usage_out=usage,
-                                     max_retries=0, rotate_keys=False)
+                                     max_retries=0, rotate_keys=False,
+                                     reasoning_effort=self.reasoning_effort)
         finally:
             at.MAX_COMPLETION_TOKENS = old_limit
             if old_think is None:
@@ -371,17 +376,25 @@ def with_unsettled(calls, intents):
                           for q, r in intents.items() if q not in calls})
 
 
-def materialize(pools, tids, calls, eligible, abort_reason=None):
-    relevant = [c for c in calls.values() if c['task_id'] in tids]
-    ranked = {}
-    for call in relevant:
+def ranking_results(calls):
+    """Latest successful preference and latest failures, with success permanent."""
+    latest, ranked = {}, {}
+    for call in sorted(calls, key=lambda c: c.get('attempt_index', -1)):
+        latest[call['task_id']] = call
         if call['status'] == 'ranked':
-            if call['task_id'] in ranked:
-                raise ValueError(f'more than one ranking for {call["task_id"]}')
             ranked[call['task_id']] = call['preference_row']
+    failed = {tid for tid, call in latest.items() if tid not in ranked and (
+        call['status'] == 'parse_failed' or
+        isinstance(call.get('response'), str) and not call['response'].strip())}
+    return ranked, failed
+
+
+def materialize(pools, tids, calls, eligible, abort_reason=None, *, retry_parse_failed=False):
+    relevant = [c for c in calls.values() if c['task_id'] in tids]
+    ranked, failed = ranking_results(relevant)
     cost = sum(c['tokens_spent'] for c in relevant if c['tokens_spent'] is not None)
     unknown = [c['call_id'] for c in relevant if c['tokens_spent'] is None]
-    terminal = {c['task_id'] for c in relevant if c['status'] in ('ranked', 'parse_failed')}
+    terminal = set(ranked) | (set() if retry_parse_failed else failed)
     pending = sorted(set(eligible) - terminal)
     status = ('incomplete_ranking_costs' if unknown else 'partial_ranking' if pending or abort_reason
               else 'ready' if ranked else 'no_rankable_preferences')
@@ -403,7 +416,7 @@ def materialize(pools, tids, calls, eligible, abort_reason=None):
                    ranking_cost_confidence=('unknown' if unknown else 'estimated' if any(
                        c['confidence'] == 'estimated' for c in relevant) else 'exact'),
                    pending_task_ids=pending,
-                   skipped_parse_task_ids=sorted(terminal-set(ranked)),
+                   skipped_parse_task_ids=sorted(failed),
                    fewer_than_two_distinct_task_ids=sorted(set(tids)-set(eligible)),
                    abort_reason=abort_reason,
                    note='Audited SFT + initial-student rank preferences; all ranking attempts charged. '
@@ -419,7 +432,8 @@ def materialize(pools, tids, calls, eligible, abort_reason=None):
                 pending_task_ids=pending, unknown_call_ids=unknown, abort_reason=abort_reason)
 
 
-def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, sleep=time.sleep):
+def rank(audit, cap, max_calls, client, *, retry_parse_failed=False,
+         token_counter=response_token_count, sleep=time.sleep):
     pools, tids = purchased(audit, cap)
     directory = audit / 'bfcl'
     with locked(directory):
@@ -442,11 +456,13 @@ def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, s
         unresolved = set(intents) - calls.keys()
         if unresolved:
             materialize(pools, tids, with_unsettled(calls, intents), eligible,
-                        'unsettled ranking attempts require reconciliation')
+                        'unsettled ranking attempts require reconciliation',
+                        retry_parse_failed=retry_parse_failed)
             raise RuntimeError(f'unsettled ranking attempts; reconcile ledger before resume: {sorted(unresolved)}')
-        # A cumulative hard ceiling on HTTP attempts for this evidence set, including retries.
-        used = sum(c['task_id'] in tids for c in calls.values())
-        completed = {c['task_id'] for c in calls.values() if c['status'] in ('ranked', 'parse_failed')}
+        # Every HTTP attempt in this invocation counts, including retries.
+        used = 0
+        ranked, failed = ranking_results(calls.values())
+        completed = set(ranked) | (set() if retry_parse_failed else failed)
         contexts = {t: rank_context(t, c, pools[0][2]) for t, c in eligible.items()
                     if t not in completed}
         abort = None
@@ -459,17 +475,23 @@ def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, s
                 prompt = RANK_PROMPT.format(question=context['prompt'], cands='\n'.join(
                     f'[{i+1}] {response}' for i, response in enumerate(candidates)))
                 prior = [c for c in calls.values() if c['task_id'] == tid]
-                if any(c['status'] == 'api_error' and c.get('http_status') != 429 for c in prior):
+                # Explicit parse/empty-response retries also cover imported error statuses.
+                if tid not in failed and any(
+                        c['status'] == 'api_error' and c.get('http_status') != 429 for c in prior):
                     abort = f'{tid}: previous API failure requires reconciliation'
                     break
-                for retry in range(MAX_RATE_RETRIES + 1):
+                # Opt-in parse retries buy at most one new attempt per task per run.
+                retry_limit = 0 if tid in failed else MAX_RATE_RETRIES
+                for retry in range(retry_limit + 1):
                     if used >= max_calls:
                         break
                     if hasattr(client, 'prepare'):
                         client.prepare()
                     call_id = 'ddpo-rank-' + uuid.uuid4().hex
                     record = dict(call_id=call_id, task_id=tid, teacher=TEACHER, purpose='rank',
-                                  attempt_index=len(prior), temperature=0.0, think=False,
+                                  attempt_index=max((c['attempt_index'] for c in prior), default=-1) + 1,
+                                  temperature=0.0, think=False,
+                                  reasoning_effort=getattr(client, 'reasoning_effort', None),
                                   verified=False, timestamp=datetime.now(timezone.utc).isoformat(),
                                   cap=cap, candidates=candidates, context=context,
                                   max_output_tokens=getattr(client, 'max_output_tokens', None),
@@ -504,8 +526,8 @@ def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, s
                     prior.append(record)
                     print(f'{tid}: {record["status"]}, tokens={cost} ({confidence}), calls={used}/{max_calls}', flush=True)
                     if error is None:
-                        break  # Includes malformed/zero-usage replies: never buy another ranking.
-                    if getattr(error, 'status_code', None) != 429 or retry == MAX_RATE_RETRIES:
+                        break  # A parse failure needs a later --retry-parse-failed invocation.
+                    if getattr(error, 'status_code', None) != 429 or retry == retry_limit:
                         abort = f'{tid}: {error}'
                         break
                     if used < max_calls:
@@ -514,9 +536,11 @@ def rank(audit, cap, max_calls, client, *, token_counter=response_token_count, s
                     break
         except BaseException:
             materialize(pools, tids, with_unsettled(calls, intents), eligible,
-                        'interrupted; reconcile any unsettled journal attempts')
+                        'interrupted; reconcile any unsettled journal attempts',
+                        retry_parse_failed=retry_parse_failed)
             raise
-        summary = materialize(pools, tids, calls, eligible, abort)
+        summary = materialize(pools, tids, calls, eligible, abort,
+                              retry_parse_failed=retry_parse_failed)
         print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
         return summary
 
@@ -536,18 +560,23 @@ def main(argv=None):
     sampling.add_argument('--repeats', type=positive, default=4)
     sampling.add_argument('--gpu', required=True, help='CUDA GPU UUID')
     sampling.add_argument('--port', default='auto', help='auto or an unused local TCP port')
-    ranking = commands.add_parser('rank', help='CPU + teacher API; cumulative attempt cap, resume safe')
+    ranking = commands.add_parser('rank', help='CPU + teacher API; per-invocation attempt cap, resume safe')
     ranking.add_argument('--cap', type=positive, default=13843)
     ranking.add_argument('--key-file', default='~/.ollama_api_key')
-    ranking.add_argument('--max-calls', type=positive, default=40)
-    ranking.add_argument('--max-output-tokens', type=positive, default=64)
+    ranking.add_argument('--max-calls', type=positive, default=40,
+                         help='maximum HTTP attempts in this invocation, including retries (default: 40)')
+    ranking.add_argument('--retry-parse-failed', action='store_true',
+                         help='retry latest parse failures/empty replies once; never re-call ranked tasks')
+    ranking.add_argument('--max-output-tokens', type=positive, default=512,
+                         help='completion budget (default: 512); hidden reasoning can exhaust 64 tokens')
     args = parser.parse_args(argv)
     try:
         if args.command == 'sample':
             sample(io.DEFAULT_OUT, args.cap, args.repeats, args.gpu, args.port)
             return 0
         result = rank(io.DEFAULT_OUT, args.cap, args.max_calls,
-                      TeacherClient(args.key_file, args.max_output_tokens))
+                      TeacherClient(args.key_file, args.max_output_tokens),
+                      retry_parse_failed=args.retry_parse_failed)
         return 0 if result['status'] == 'ready' else 2
     except (ValueError, RuntimeError, OSError, subprocess.CalledProcessError) as exc:
         print(f'dDPO: {exc}', file=sys.stderr)
