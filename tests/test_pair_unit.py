@@ -484,13 +484,15 @@ def test_mode_off_config_invariance(monkeypatch):
 
 
 def test_mode_off_main_source_unchanged_except_dispatch():
-    # Remove just the explicit CC dispatch and compare to the pre-C20 main body.
+    # Remove explicit opt-in dispatches and compare to the pre-C20 main body.
     source = inspect.getsource(legacy.main)
     tree = ast.parse(source)
-    branch = next(node for node in tree.body[0].body if isinstance(node, ast.If)
-                  and "AW_CC_PAIRS_PATH" in ast.get_source_segment(source, node.test))
+    branches = [node for node in tree.body[0].body if isinstance(node, ast.If)
+                and any(marker in ast.get_source_segment(source, node.test)
+                        for marker in ("AW_CC_PAIRS_PATH", '"pbsd_agent"'))]
     lines = source.splitlines()
-    del lines[branch.lineno - 1:branch.end_lineno]
+    for branch in reversed(branches):
+        del lines[branch.lineno - 1:branch.end_lineno]
     assert hashlib.sha256("\n".join(lines).encode()).hexdigest() == "d20c5376bd520186a22489f7f7f1efe6e57e1603d50f65fede691668d964414c"
 
 
