@@ -481,7 +481,9 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         s['source_cache'] = {}
         if self.v11:
             if 'posterior' not in s:
-                s['posterior'] = ValuePosterior(39, round_id=f"r{s['round']}")
+                from .acquisition import CONTEXTUAL_DIMENSION
+                s['posterior'] = ValuePosterior(CONTEXTUAL_DIMENSION if self.alpha_d else 39,
+                    round_id=f"r{s['round']}", contextual_shrinkage=self.alpha_d)
             else:
                 s['posterior'].begin_round(f"r{s['round']}")
             s['cost_model'].begin_round(f"r{s['round']}")
@@ -762,7 +764,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
             from .conventions import export_schedule
             export_schedule(self)
             for key in ('alpha_pairs', 'alpha_chi', 'alpha_start', 'd_reference', 'd_reference_feedback',
-                        'd_solution', 'alpha_d_control', 'old_reference', 'old_reference_pairs', 'replay_exposure'):
+                        'd_solution', 'alpha_d_control', 'old_reference', 'old_reference_pairs', 'replay_exposure',
+                        'acquisition_feedback_statistic'):
                 s.pop(key, None)
         print(f"[rtd] {self.manifest['arm']} round={s['round']} step={s['step']} "
               f"package={row['selected']} spend={self.ledger.spent}/{self.ledger.budget}", flush=True)

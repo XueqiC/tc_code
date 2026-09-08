@@ -35,8 +35,18 @@ class BatchExperimentMixin:
             x = np.asarray(spec.features.projection)
             return max((float(np.dot(x, p)/max(np.linalg.norm(x)*np.linalg.norm(p), 1e-12))
                         for p in projections), default=0.)
-        return {c.query_id: PrePurchaseFeatures.from_public(c, round_id=f"r{s['round']}", coverage=coverage(c),
-            progress=((s['round']-1)*12+s['step']-1)/(12*s['rounds']), support_return=s['support_return']) for c in specs}
+        context = self.alpha_training_context() if self.alpha_d else ()
+        rows = {c.query_id: PrePurchaseFeatures.from_public(c, round_id=f"r{s['round']}", coverage=coverage(c),
+            progress=((s['round']-1)*12+s['step']-1)/(12*s['rounds']), support_return=s['support_return'],
+            context=context) for c in specs}
+        if self.alpha_d:
+            from .acquisition import TRAINING_CONTEXT_FEATURES
+            self.journal.append('acquisition_pre_purchase_context', round=s['round'], step=s['step'],
+                before_purchase=True, before_source_sampling=True, purchased_set=sorted(s['owned']),
+                context=dict(zip(TRAINING_CONTEXT_FEATURES, context)),
+                feature_rows={q: list(row.values) for q, row in rows.items()},
+                label_kind='acquisition_surrogate' if self.alpha_option('acquisition_value_mode') == 'joint' else 'independent_control')
+        return rows
 
     def paid_statistics(self, package_gradients, role):
         s = self.state

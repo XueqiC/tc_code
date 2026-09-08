@@ -10,11 +10,11 @@ from pathlib import Path
 from .persistence import atomic_json, digest, file_hash
 
 ARMS = {
-    'V0': dict(acquisition_value_mode='random', acquisition='random',
+    'V0': dict(acquisition_value_mode='independent', acquisition='random',
                gate_mode='fixed_alpha', fixed_alpha=.5, d_mode='zero', ledger_replay=False),
-    'V1': dict(acquisition_value_mode='replay', acquisition='random',
+    'V1': dict(acquisition_value_mode='joint', acquisition='random',
                gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned', ledger_replay=True),
-    'V2': dict(acquisition_value_mode='joint_surrogate', acquisition='bayesian_linear_posterior_sampling',
+    'V2': dict(acquisition_value_mode='joint', acquisition='bayesian_linear_posterior_sampling',
                gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned', ledger_replay=False),
 }
 ADAPTIVE_EFFECT = '自适应蒸馏整体效果'
@@ -39,6 +39,8 @@ def arm_config(config, arm=None, replay_schedule=None):
     if config.get('protocol_version') != '1.1.0':
         raise ValueError('V0/V1/V2 require v1.1')
     result = config | ARMS[arm] | dict(arm=arm, source_estimator='alpha_d', source_samples_per_state=2)
+    if arm != 'V0' and 'acquisition_value_mode' in config:
+        result['acquisition_value_mode'] = config['acquisition_value_mode']
     path = replay_schedule or result.get('replay_schedule')
     if arm == 'V1':
         if not path:

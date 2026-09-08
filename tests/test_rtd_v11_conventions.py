@@ -118,7 +118,7 @@ def test_no_purchase_is_full_40_unit_source_only_identity_without_forced_spend(t
     assert row['teacher_evidence_units'] == e.ledger.spent == 0 and row['exact_noop']
     assert row['alpha_d']['alpha'] == row['alpha_d']['d_star'] == [0.]*40
     gradients = [r for r in e.journal.events if r['kind'] == 'return_gradient']
-    assert [r['role'] for r in gradients] == ['virtual_reference_feedback', 'alpha_post_commit_feedback']
+    assert [r['role'] for r in gradients] == ['acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback']
     assert gradients[0]['parameter_hash'] == gradients[1]['parameter_hash']
 
 
@@ -131,11 +131,11 @@ def test_virtual_and_actual_feedback_different_states_and_separate_compute(toy_b
     ref_hash = e.state['reference'].reference_hash
     actual_hash = tensor_state_hash(e.state['parameters'])
     assert ref_hash != actual_hash
-    assert e.state['d_feedback'].parameter_hash == ref_hash
+    assert e.state['d_feedback'].parameter_hash == tensor_state_hash(e.state['d_reference'].theta0)
     e.actual()
     assert e.state['actual_feedback'].parameter_hash == actual_hash
     assert all(label.reference_hash == ref_hash for label in e.state['labels'].values())
-    roles = ['virtual_reference_feedback', 'alpha_post_commit_feedback']
+    roles = ['acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback']
     for role in roles:
         assert any(r['kind'] == 'feedback_rollout' and r['role'] == role for r in e.journal.events)
         assert any(r['kind'] == 'compute_begin' and r.get('operation') == role for r in e.journal.events)
@@ -151,7 +151,7 @@ def test_feedback_substitution_is_rejected_even_when_parameters_can_coincide(toy
     e.revealed()
     if substitute == 'alpha':
         e.feedback = lambda *a, **kw: e.state['reference_feedback']
-        with pytest.raises(ValueError, match='alpha feedback'):
+        with pytest.raises(ValueError, match='post_commit_feedback'):
             e.actual()
     else:
         e.state['actual_feedback'] = e.state['reference_feedback']
@@ -246,13 +246,13 @@ def test_joint_surrogate_retains_teacher_effect_when_all_d_zero():
     batch = BatchReference('start', start, dirs, weights, alpha,
                            ({'x': torch.tensor([-1.])}, {'x': torch.tensor([1.])}))
     old = BatchReference('start', start, dirs, weights, torch.zeros(2), (zero, zero))
-    fb = ReturnGradient({'x': torch.ones(1)}, 'ref', {})
-    statistic = FeedbackStatistic(fb.gradient, (zero, zero), (0., 1.), ('a', 'a'), 'ref', 1, 'smoke_zero')
-    values, _ = marginal_values(pairs, batch, old, start, start, step, fb, statistic, zero=True, d_lambda=0.)
+    fb = ReturnGradient({'x': torch.ones(1)}, tensor_state_hash(start), {})
+    statistic = FeedbackStatistic(fb.gradient, (zero, zero), (0., 1.), ('a', 'a'), fb.parameter_hash, 1, 'smoke_zero')
+    values, _ = marginal_values(pairs, batch, old, start, start, step, fb, statistic, revealed_ids={'good', 'bad'}, zero=True, d_lambda=0.)
     assert values['good'] == pytest.approx(.5) and values['bad'] == pytest.approx(-.5)
     # Redundant teacher steps incur a shared quadratic cost even when d=0.
     redundant = replace(batch, baseline_gradients=({'x': torch.tensor([-1.])},)*2)
-    values, diagnostic = marginal_values(pairs, redundant, old, start, start, step, fb, statistic,
+    values, diagnostic = marginal_values(pairs, redundant, old, start, start, step, fb, statistic, revealed_ids={'good', 'bad'},
                                          zero=True, d_lambda=1.)
     assert diagnostic['full_set_value'] == pytest.approx(.5)
     assert list(values.values()) == pytest.approx([.125, .125])
@@ -278,6 +278,10 @@ def test_arm_labels_manifest_certification_and_legacy_hard2(manifest_inputs):
                                          cap_certificate_sha256='cert', public_cost_assumption='class cap')
     config, _ = arm_config(c, 'V2')
     manifest = cli.make_manifest(config, 'V2', audit)
+    assert manifest['distillation_protocol'] == 'alpha_d_rev31_same_batch'
+    assert manifest['acquisition_label'].startswith('acquisition_surrogate')
+    control_manifest = cli.make_manifest(config | {'acquisition_value_mode': 'independent'}, 'V2', audit)
+    assert control_manifest['acquisition_label'] == 'independent_control'
     assert manifest['base_checkpoint_description'] == BASE_CHECKPOINT
     assert manifest['comparison_labels'] == {'V1−V0': ADAPTIVE_EFFECT, 'same_alpha_d_vs_zero': CORE_CONTROL}
     assert manifest['evaluation_label'] == DEVELOPMENT and manifest['certification_label'] == CERTIFICATION

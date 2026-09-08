@@ -11,6 +11,11 @@ import numpy as np
 from .insertion import InsertionLabel, LabelType
 from .selector import PublicQuerySpec, select_public
 
+TRAINING_CONTEXT_FEATURES = ('round_fraction', 'step_fraction', 'purchased_count',
+    'purchased_state_count', 'purchased_projection_norm', 'alpha_mean', 'alpha_std',
+    'alpha_min', 'alpha_max', 'feedback_age')
+CONTEXTUAL_DIMENSION = 39 + len(TRAINING_CONTEXT_FEATURES)
+
 
 @dataclass(frozen=True)
 class PrePurchaseFeatures:
@@ -23,12 +28,12 @@ class PrePurchaseFeatures:
             raise ValueError("finite pre-purchase features and request/round identity required")
 
     @classmethod
-    def from_public(cls, spec: PublicQuerySpec, *, round_id, coverage, progress, support_return):
+    def from_public(cls, spec: PublicQuerySpec, *, round_id, coverage, progress, support_return, context=()):
         f = spec.features
         if f.projection is None or f.source_logprob is None or f.source_length is None:
             raise ValueError("missing source features; run legal source sampling first")
         return cls(spec.query_id, (*f.projection, f.source_logprob, f.source_length, float(spec.L),
-            float(coverage), float(progress), float(support_return), 1.), round_id)
+            float(coverage), float(progress), float(support_return), *context, 1.), round_id)
 
 
 class BayesianLinearRegression:
@@ -68,13 +73,17 @@ class BayesianLinearRegression:
 
 
 class ValuePosterior:
-    def __init__(self, dimension, *, round_id, noise_variance=1.):
+    def __init__(self, dimension, *, round_id, noise_variance=1., contextual_shrinkage=False):
         self.dimension, self.noise_variance = dimension, noise_variance
         self.model = BayesianLinearRegression(dimension, noise_variance=noise_variance)
         self.observations = {}
         self.reweight_observations = {}
         self.history = []
         self.drift_history = []
+        self.contextual_shrinkage = contextual_shrinkage
+        self.predictive_history = []
+        self.shrinkage_factor = .05 if contextual_shrinkage else 1.
+        self.unshrunk_information = np.zeros(dimension)
         self.begin_round(round_id)
 
     def begin_round(self, round_id):
@@ -119,12 +128,29 @@ class ValuePosterior:
                 or not np.allclose(np.diag(noise), [labels[q].variance for q in ids])):
             raise ValueError('label-aligned heteroscedastic covariance required')
         np.linalg.cholesky(noise)
+        if getattr(self, 'contextual_shrinkage', False):
+            # Predictions are saved BEFORE fitting this window. Assess only
+            # purchased surrogate labels; task-validation rewards never enter.
+            self.predictive_history.append(dict(round_id=self.round_id, query_ids=ids,
+                predicted=(X @ self.model.mean).tolist(), observed=y.tolist()))
         precision = X.T @ np.linalg.solve(noise, X)
         information = X.T @ np.linalg.solve(noise, y)
         for q in ids:
             self.observe(rows[q], labels[q], _fit=False)
         self.model.precision += precision
-        self.model.information += information
+        if getattr(self, 'contextual_shrinkage', False):
+            self.unshrunk_information += information
+            observed = np.array([v for row in self.predictive_history for v in row['observed']])
+            predicted = np.array([v for row in self.predictive_history for v in row['predicted']])
+            # Positive out-of-window explained variance is needed to relax the
+            # 95% mean shrinkage. Small/constant samples retain strong shrinkage.
+            variance = float(np.square(observed-observed.mean()).sum())
+            skill = (max(0., 1-float(np.square(observed-predicted).sum())/variance)
+                     if len(self.predictive_history) >= 4 and len(observed) >= 8 and variance > 1e-12 else 0.)
+            self.shrinkage_factor = max(.05, min(1., skill))
+            self.model.information = self.shrinkage_factor*self.unshrunk_information
+        else:
+            self.model.information += information
 
     def inflate_for_drift(self, *, query_id, old_value, new_value, variance, previous_variance=0.):
         """Preserve the mean and all observations; discount precision on drift.
@@ -141,6 +167,8 @@ class ValuePosterior:
         factor = 1. + min(100., max(0., delta * delta / noise - 1.))
         self.model.precision /= factor
         self.model.information /= factor
+        if getattr(self, 'contextual_shrinkage', False):
+            self.unshrunk_information /= factor
         row = dict(round_id=self.round_id, query_id=query_id, old_value=old_value, new_value=new_value,
                    delta=delta, variance=variance, previous_variance=previous_variance,
                    uncertainty_inflation=factor)
@@ -175,6 +203,14 @@ class CostRegressor:
             raise ValueError('round identity required')
         self.round_id = round_id
 
+    def _values(self, features):
+        # D9 context is for marginal learning value. Keep the existing cost
+        # predictor and V0 budget decisions exactly on their original features.
+        values = features.values
+        if self.model.dimension == 39 and len(values) == CONTEXTUAL_DIMENSION:
+            return (*values[:38], values[-1])
+        return values
+
     def observe_revealed(self, spec, features, *, cost, confidence, revealed_ids):
         if spec.query_id not in revealed_ids or features.query_id != spec.query_id:
             raise ValueError("cost fitting requires a revealed matching request")
@@ -185,14 +221,14 @@ class CostRegressor:
         if not math.isfinite(cost) or cost < 0 or cost > spec.cost_upper_bound:
             raise ValueError("revealed usage outside public reservation")
         ratio = cost / spec.cost_upper_bound if spec.cost_upper_bound else 0.
-        self.model.observe(features.values, ratio - 1., noise_variance=1. if confidence == "exact" else 4.)
+        self.model.observe(self._values(features), ratio - 1., noise_variance=1. if confidence == "exact" else 4.)
         self.observations[spec.query_id] = dict(cost=cost, confidence=confidence, cap=spec.cost_upper_bound,
                                               round_id=features.round_id)
 
     def predict(self, spec, features):
         if features.query_id != spec.query_id:
             raise ValueError("cost feature request mismatch")
-        x = self.model.vector(features.values)
+        x = self.model.vector(self._values(features))
         return float(spec.cost_upper_bound * np.clip(1. + x @ self.model.mean, 0., 1.))
 
 

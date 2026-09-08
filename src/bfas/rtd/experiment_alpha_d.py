@@ -1,9 +1,8 @@
-"""D7 rev-2 conventions on the merged executor, with durable source pairs.
+"""Rev 3.1 conventions on the merged executor, with durable source pairs.
 
 Acquisition consumes its historical posterior before any current-step return
-rollout. Old-evidence virtual feedback supplies insertion labels and z; the
-independent post-commit batch supplies alpha. Same-batch theta0 is an algebraic
-baseline for the selected update, not the return-gradient evaluation point.
+rollout. Old-evidence virtual feedback supplies acquisition labels only;
+same-batch theta0 feedback supplies z, and post-commit feedback supplies alpha.
 Only the same-batch distillation update is installed; feedback is never an RL
 backbone step. All rollout objectives here are temperature-1 stochastic J.
 """
@@ -15,16 +14,61 @@ import torch
 from ..behavior.deltas import tensor_state_hash
 from .alpha_d import (ALPHA_D_DEFAULTS, RETURN_OBJECTIVE, ExposureRecord, SourcePair,
     FeedbackStatistic, blocked_alpha_vjp, build_reference, cpu_detached, gram,
-    gram_statistics, injection, solve_d, state_features)
+    gram_statistics, injection, state_features)
 from .features import FrozenProjection
 from .functional_step import FrozenStep, commit_step, kl_pilot, lora_parameters, snapshot
 from .insertion import InsertionReference
 from .persistence import digest
 from .return_gradient import ActionTrace
 from .conventions import exposure_step, record_identity, repetition_counts
+from .joint_surrogate import control, execute_update, marginal_values, replacement_batch
 
 
 class AlphaDExperimentMixin:
+    def alpha_training_context(self):
+        """Only historical paid records and state-only alpha; no candidate text."""
+        s = self.state
+        records = self.alpha_old_pool()
+        chi = torch.stack([self.alpha_chi(r) for r in records])
+        # Distribution on the legal state pool, evaluated before this window's
+        # purchase, exposure selection, or source draw.
+        alpha = injection(chi, s['phi'], mode=self.alpha_option('gate_mode'),
+                          fixed_alpha=self.alpha_option('fixed_alpha')).detach().cpu().double().numpy()
+        paid_states = {r.state.state_hash for r in records if r.teacher is not None}
+        projections = [s['projection_cache'][h] for h in sorted(paid_states)]
+        norm = float(np.linalg.norm(np.mean(projections, axis=0))) if projections else 0.
+        age = ((s['round']-1)*12+s['step']-s['d_feedback'].refreshed_step if 'd_feedback' in s else 0)
+        return (s['round']/s['rounds'], s['step']/12, len(s['owned'])/(40+len(s['owned'])),
+            len(paid_states)/(40+len(paid_states)), norm/(1+norm), float(alpha.mean()),
+            float(alpha.std()), float(alpha.min()), float(alpha.max()), age/12)
+
+    def alpha_feedback(self, parameters, role, *, scores=None, isolated=False):
+        """Role and hash are both required, even for coincident parameter points.
+
+        New diagnostic streams do not perturb the existing source/acquisition
+        RNG, so restoring the feedback point preserves V0's d=0 trajectory.
+        """
+        previous = self.sampling_rng
+        if isolated:
+            seed = int(digest([self.config['training_seed'], self.manifest['arm'],
+                self.state['round'], self.state['step'], role])[:15], 16)
+            self.sampling_rng = torch.Generator(device=self.device).manual_seed(seed)
+        try:
+            result = self.feedback(parameters, role, trajectory_scores=scores)
+        finally:
+            self.sampling_rng = previous
+        if (result.parameter_hash != tensor_state_hash(parameters) or
+                result.metadata.get('feedback_role') != role):
+            raise ValueError(f'{role}: feedback substituted from another role or parameter point')
+        return result
+
+    def alpha_statistic(self, feedback, scores, role):
+        rollouts = self.state['feedback_rollouts'][role]
+        return FeedbackStatistic(cpu_detached(feedback.gradient), tuple(scores),
+            tuple(r.reward for r in rollouts), tuple(r.task_id for r in rollouts),
+            feedback.parameter_hash, (self.state['round']-1)*12+self.state['step'],
+            feedback.metadata['baseline'], role)
+
     def alpha_old_pool(self):
         """Paid records plus reference states without teacher evidence, in fixed order."""
         paid = [r for p in self.packages() for r in self.supervision_records(p)]
@@ -54,6 +98,8 @@ class AlphaDExperimentMixin:
         episode purchases all records, but one new-package unit trains ONE of
         them. The others become eligible in the old pool after commit.
         """
+        if package.query_id not in self.ledger.owned_ids:
+            raise ValueError('sealed pool: teacher gradients require a purchased package')
         mapper = getattr(self.support, 'supervision_records', lambda p: p.behaviors)
         records = tuple(mapper(package))
         if not records:
@@ -86,6 +132,8 @@ class AlphaDExperimentMixin:
         drawn = []
         previous = set(s.get('last_committed_draw_ids', ()))
         for i, record in enumerate(records):
+            if record.teacher is not None and record.query_id not in self.ledger.owned_ids:
+                raise ValueError('sealed pool: source/teacher pair requires purchased evidence')
             before = digest(self.sampling_rng.get_state().tolist())
             cached = s['source_cache'].get(record.state.state_hash, ())
             sources = self.sample_state(record.state, refresh=True, cache=False)
@@ -156,6 +204,7 @@ class AlphaDExperimentMixin:
     def alpha_step_start(self):
         s = self.state
         s.update(decision=s['step'] in (1, 4, 7, 10), selected=[], pending_ids=[], labels={},
+            independent_control_labels={}, joint_surrogate=None, paired_validations=[],
             label=None, new_targets=(), old_targets=(), batch_targets={}, batch_chi={}, feedback_rollouts={},
             transaction_index=0, transaction_query=None, window_id=f"r{s['round']}/s{s['step']}", hard_stops=[],
             owned_before=tuple(s['owned']), old_noop=False, remaining_candidate_ids=[])
@@ -202,8 +251,8 @@ class AlphaDExperimentMixin:
         with self.scope('alpha_d_commit_source_sampling'):
             s['alpha_pairs'] = self.alpha_draw_pairs(records, role='commit')
         s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
-        # Rev-2 D7 contract: old-evidence d=0 point supplies BOTH z and insertion
-        # labels. These extra reference actions/forwards have separate compute.
+        # Old-evidence reference is exclusively for acquisition. Its additional
+        # source actions/forwards have separate compute accounting.
         with self.scope('alpha_d_old_virtual_reference'):
             s['old_reference_pairs'] = self.alpha_draw_pairs(old_records, role='virtual_reference')
             s['old_reference'] = build_reference(s['old_reference_pairs'], old_weights, old_alpha,
@@ -220,35 +269,33 @@ class AlphaDExperimentMixin:
                     self.journal.append('alpha_d_microbatch', round=s['round'], step=s['step'], **row))
         ref = s['d_reference']
         self.journal.append('alpha_d_reference', round=s['round'], step=s['step'],
-            role='old_evidence_virtual_reference', parameter_hash=s['reference'].reference_hash,
+            role='same_batch_reference_feedback', parameter_hash=tensor_state_hash(ref.theta0),
             batch_zero_hash=tensor_state_hash(ref.theta0), start_hash=ref.start_hash,
-            same_batch=False, return_objective=RETURN_OBJECTIVE)
+            same_batch=True, return_objective=RETURN_OBJECTIVE)
         if s['decision']:
             s['feedback_tasks'] = self.choose_feedback_tasks()
             scores = []
-            feedback = self.feedback(s['reference'].updated, 'virtual_reference_feedback', trajectory_scores=scores)
-            if feedback.parameter_hash != s['reference'].reference_hash:
-                raise ValueError('source-selection feedback must be at the old-evidence virtual reference')
-            rollouts = s['feedback_rollouts']['virtual_reference_feedback']
-            s['d_feedback'] = FeedbackStatistic(cpu_detached(feedback.gradient), tuple(scores),
-                tuple(r.reward for r in rollouts), tuple(r.task_id for r in rollouts), feedback.parameter_hash,
-                (s['round']-1)*12+s['step'], feedback.metadata['baseline'])
-            s['d_reference_feedback'] = feedback
+            feedback = self.alpha_feedback(s['reference'].updated, 'acquisition_reference_feedback', scores=scores)
             s['reference_feedback'] = feedback
+            s['acquisition_feedback_statistic'] = self.alpha_statistic(feedback, scores, 'acquisition_reference_feedback')
+            scores = []
+            feedback = self.alpha_feedback(ref.theta0, 'same_batch_reference_feedback', scores=scores, isolated=True)
+            s['d_feedback'] = self.alpha_statistic(feedback, scores, 'same_batch_reference_feedback')
+            s['d_reference_feedback'] = feedback
         if 'd_feedback' not in s:
             raise ValueError('non-decision step has no historical source-selection feedback')
         statistic = s['d_feedback']
+        if getattr(statistic, 'feedback_role', None) != 'same_batch_reference_feedback':
+            raise ValueError('historical d feedback must come from the same-batch reference role')
         z, error = statistic.project(ref.directions, self.alpha_option('z_error_mode'))
         K = gram(ref.directions, s['step_rule'].diagonal)
         warmup = s['alpha_window_index'] <= self.alpha_option('d_warmup_windows')
-        enough_feedback = bool(np.isfinite(error).all())
-        if self.alpha_option('d_mode') == 'zero' or warmup or not enough_feedback:
-            d = np.zeros(len(records))
-            solver = dict(converged=None, iterations=0, reason='configured_zero' if self.alpha_option('d_mode') == 'zero'
-                          else 'warmup' if warmup else 'insufficient_trajectories')
-        else:
-            d, solver = solve_d(z, error, K, ref.alpha, d_lambda=self.alpha_option('d_lambda'),
-                tolerance=self.alpha_option('d_solver_tolerance'), max_iterations=self.alpha_option('d_solver_max_iterations'))
+        d, comparison = control(z, error, K, ref.alpha, mode=self.alpha_option('acquisition_value_mode'),
+            zero_reason='configured_zero' if self.alpha_option('d_mode') == 'zero' else 'warmup' if warmup else None,
+            d_lambda=self.alpha_option('d_lambda'), tolerance=self.alpha_option('d_solver_tolerance'),
+            max_iterations=self.alpha_option('d_solver_max_iterations'),
+            redundancy_threshold=self.alpha_option('d_redundancy_cosine_threshold'))
+        solver = comparison['solver']
         bound = np.minimum(ref.alpha.double().numpy(), 1-ref.alpha.double().numpy())
         solver.update(active_lower=np.flatnonzero(np.isclose(d, -bound, atol=1e-8, rtol=0)).tolist(),
                       active_upper=np.flatnonzero(np.isclose(d, bound, atol=1e-8, rtol=0)).tolist())
@@ -262,8 +309,20 @@ class AlphaDExperimentMixin:
             uncertainty_covers_staleness_bias=False, return_objective=RETURN_OBJECTIVE,
             uncertainty_estimator=('delete_trajectory_recompute_loo; n2_paired_contribution_proxy'
                 if self.alpha_option('z_error_mode') == 'loo' else 'cross_half_independent_baselines'),
-            reference_hash=s['reference'].reference_hash, batch_zero_hash=tensor_state_hash(ref.theta0),
-            reference_evidence='old_pool', actual_hash=tensor_state_hash(s['actual']))
+            reference_hash=tensor_state_hash(ref.theta0), batch_zero_hash=tensor_state_hash(ref.theta0),
+            reference_evidence='same_batch', feedback_role='same_batch_reference_feedback',
+            actual_hash=tensor_state_hash(s['actual']))
+        s['alpha_d_control'].update(comparison)
+        self.journal.append('joint_vs_independent_control', round=s['round'], step=s['step'],
+            frozen_input_hash=digest(dict(start=ref.start_hash, theta0=tensor_state_hash(ref.theta0),
+                records=[record_identity(p.record, w) for p, w in zip(s['alpha_pairs'], ref.weights)],
+                draws=[p.draw_ids for p in s['alpha_pairs']], alpha=ref.alpha.tolist(), z=z.tolist(), K=K.tolist(),
+                epsilon=s['alpha_d_control']['epsilon_hat'], eta=s['step_rule'].eta)),
+            purchased_pool=sorted(self.ledger.owned_ids), feedback_hash=statistic.parameter_hash,
+            feedback_batch=digest(dict(parameter_hash=statistic.parameter_hash, rewards=statistic.rewards,
+                tasks=statistic.task_ids, scores=[tensor_state_hash(g) for g in statistic.scores],
+                refreshed_step=statistic.refreshed_step)), feedback_age=s['alpha_d_control']['feedback_age'],
+            updates_per_arm=1, only_switch='controller_off_diagonal_K', **comparison)
         self.journal.append('alpha_d_solver', round=s['round'], step=s['step'], **s['alpha_d_control'])
         # Install once BEFORE post-update return estimation and alpha update.
         # On recovery from this phase __init__ restores this exact student.
@@ -278,24 +337,37 @@ class AlphaDExperimentMixin:
         """Paid-only labels at the virtual old reference; never actual feedback."""
         s, ref = self.state, self.state['d_reference']
         acquisition = s['reference']
-        gs = {pair.record.query_id: {n: g.to(s['alpha_start'][n]) for n, g in gi.items()}
-              for pair, gi in zip(s['alpha_pairs'], ref.baseline_gradients) if pair.record.is_new}
+        shares = {}
+        for pair, weight in zip(s['alpha_pairs'], ref.weights):
+            if pair.record.is_new:
+                shares[pair.record.query_id] = shares.get(pair.record.query_id, 0.)+float(weight)
+        gs = {q: {n: torch.zeros_like(p) for n, p in s['alpha_start'].items()}
+              for q, share in shares.items() if share > 0}
+        for pair, gi, weight in zip(s['alpha_pairs'], ref.baseline_gradients, ref.weights):
+            q = pair.record.query_id
+            if pair.record.is_new and q in gs:
+                for n, p in s['alpha_start'].items():
+                    gs[q][n].add_(gi[n].to(p)*(float(weight)/shares[q]))
         s['value_statistics'] = dict(query_ids=[], values=[], covariance=[])
         if gs:
             feedback = s['reference_feedback']
-            if feedback.parameter_hash != acquisition.reference_hash or feedback is s.get('actual_feedback'):
+            if (feedback.parameter_hash != acquisition.reference_hash or feedback is s.get('actual_feedback') or
+                    feedback.metadata.get('feedback_role') != 'acquisition_reference_feedback'):
                 raise ValueError('insertion feedback substituted with committed-student feedback')
-            stats = self.paid_statistics(gs, 'virtual_reference_feedback')
+            stats = self.paid_statistics(gs, 'acquisition_reference_feedback')
             variances = dict(zip(stats['query_ids'], np.diag(stats['covariance'])))
             s['labels'] = acquisition.batch_labels(gs, feedback, owned_before=s['owned_before'],
                 pending_ids=set(s['selected']), window_id=s['window_id'], variances=variances)
-            shares = {p.record.query_id: float(w) for p, w in zip(s['alpha_pairs'], ref.weights) if p.record.is_new}
             s['labels'] = {q: replace(label, position_share=shares[q]) for q, label in s['labels'].items()}
-            if self.config.get('acquisition_value_mode') == 'joint_surrogate':
-                from .joint_surrogate import marginal_values
+            s['independent_control_labels'] = {q: asdict(label) for q, label in s['labels'].items()}
+            self.journal.append('independent_insertion_control', round=s['round'], step=s['step'],
+                label_kind='independent_control', labels=s['independent_control_labels'])
+            if self.alpha_option('acquisition_value_mode') == 'joint':
                 values, diagnostic = marginal_values(s['alpha_pairs'], ref, s['old_reference'], s['alpha_start'],
-                    acquisition.updated, s['step_rule'], feedback, s['d_feedback'],
+                    acquisition.updated, s['step_rule'], feedback, s['acquisition_feedback_statistic'],
+                    revealed_ids=self.ledger.owned_ids,
                     d_lambda=self.alpha_option('d_lambda'), error_mode=self.alpha_option('z_error_mode'),
+                    tolerance=self.alpha_option('d_solver_tolerance'), max_iterations=self.alpha_option('d_solver_max_iterations'),
                     zero=self.alpha_option('d_mode') == 'zero' or s['alpha_d_control']['warmup'])
                 s['labels'] = {q: replace(label, value=values[q]/shares[q], position_share=shares[q],
                     approximation=diagnostic['approximation'], variance_method='additive_feedback_noise_proxy')
@@ -303,11 +375,12 @@ class AlphaDExperimentMixin:
                 stats.update(values=[s['labels'][q].value for q in stats['query_ids']],
                              variance_scope='additive feedback proxy; excludes joint solver uncertainty')
                 self.journal.append('joint_acquisition_surrogate', round=s['round'], step=s['step'], **diagnostic)
+                s['joint_surrogate'] = diagnostic
             s['value_statistics'] = stats
         self.journal.append('alpha_d_acquisition_reference', round=s['round'], step=s['step'],
-            role=self.config.get('acquisition_value_mode', 'additive_insertion_surrogate'), parameter_hash=acquisition.reference_hash,
+            role=self.alpha_option('acquisition_value_mode'), parameter_hash=acquisition.reference_hash,
             source_selection_reference_hash=tensor_state_hash(ref.theta0), return_objective=RETURN_OBJECTIVE,
-            feedback_role='virtual_reference_feedback' if gs else None,
+            feedback_role='acquisition_reference_feedback' if gs else None,
             labels={q: asdict(v) for q, v in s['labels'].items()})
 
     def alpha_actual(self):
@@ -315,8 +388,9 @@ class AlphaDExperimentMixin:
         s['next_phi'] = s['phi']
         if s['decision']:
             # Always a separate batch/role, even if d=0 and hashes coincide.
-            feedback = self.feedback(s['actual'], 'alpha_post_commit_feedback')
-            if feedback.parameter_hash != tensor_state_hash(s['parameters']) or feedback is s.get('reference_feedback'):
+            feedback = self.alpha_feedback(s['actual'], 'post_commit_feedback')
+            if (feedback.parameter_hash != tensor_state_hash(s['parameters']) or feedback is s.get('reference_feedback') or
+                    feedback is s.get('d_reference_feedback')):
                 raise ValueError('alpha feedback must be at committed theta_S(d)')
             s['actual_feedback'] = feedback
             s['support_return'] = float(np.mean(feedback.metadata['rewards']))
@@ -330,7 +404,71 @@ class AlphaDExperimentMixin:
                     vjp=vjp.tolist(), next_phi=s['next_phi'].tolist(), blocked_d_fixed=True,
                     differentiates_through_d_solver=False, parameter_hash=feedback.parameter_hash, **meta)
             self.alpha_acquisition_labels()
+            self.alpha_validate_pairs()
         self.transition('feedback')
+
+    def alpha_validation_return(self, parameters, role):
+        """Fresh task rollouts on a dedicated stream, never a fitting label.
+
+        Same held feedback tasks are permitted with a different Monte Carlo
+        batch. These trajectories never supply d, alpha, or acquisition labels.
+        """
+        s = self.state
+        seed = int(digest([self.config['training_seed'], self.manifest['arm'],
+            s['round'], s['step'], 'held_out_feedback_batch', role])[:15], 16)
+        generator = torch.Generator(device=self.device).manual_seed(seed)
+        batch_id = digest([s['window_id'], role, seed])
+        rewards, tasks = [], []
+        with self.scope(role):
+            for parent, count in s['feedback_tasks']:
+                for _ in range(count):
+                    rollout = self.support.feedback(parent, self.backend, parameters, generator, self.checker)
+                    if rollout.policy_id != self.backend.identity(parameters) or not rollout.from_task_start:
+                        raise ValueError('paired validation requires executed full tasks at the selected student')
+                    rewards.append(rollout.reward); tasks.append(rollout.task_id)
+                    self.journal.append('validation_rollout', round=s['round'], step=s['step'], role=role,
+                        feedback_batch_id=batch_id, parent_hash=parent, rollout=asdict(rollout),
+                        used_for_control_or_posterior=False)
+        return dict(mean_return=float(np.mean(rewards)), rewards=rewards, task_ids=tasks,
+                    parameter_hash=tensor_state_hash(parameters), batch_id=batch_id, role=role)
+
+    def alpha_validate_pairs(self):
+        """Bounded diagnostic: one predetermined purchased LOO pair per window.
+
+        This is not per-candidate acquisition evaluation. All labels have already
+        been computed without environment calls. A second intervention compares
+        joint/independent d on identical purchased evidence, feedback and budget.
+        """
+        s, ref = self.state, self.state['d_reference']
+        if self.manifest['arm'] == 'V0':
+            return
+        pairs = []
+        diagnostic = s.get('joint_surrogate')
+        if diagnostic and diagnostic['marginal_values']:
+            q = min(diagnostic['marginal_values'])  # public ID order, not predicted gain
+            reduced = replacement_batch(s['alpha_pairs'], ref, s['old_reference'], q, s['alpha_start'], s['step_rule'])
+            pairs.append(('acquisition_surrogate', q, ref, diagnostic['full_set']['d_star'],
+                reduced, diagnostic['leave_one_out'][q]['d_star'], diagnostic['marginal_values'][q]))
+        controller = s['alpha_d_control']
+        pairs.append(('joint_vs_independent_control', None, ref, controller['joint_d'], ref,
+                      controller['independent_d'], controller['joint_minus_independent_control']))
+        for kind, q, first, d1, second, d2, predicted in pairs:
+            with self.scope('paired_validation_updates'):
+                left = execute_update(first, d1, s['alpha_start'], s['step_rule'])
+                right = execute_update(second, d2, s['alpha_start'], s['step_rule'])
+            a = self.alpha_validation_return(left, f'validation_{kind}_full')
+            b = self.alpha_validation_return(right, f'validation_{kind}_control')
+            if a['batch_id'] == b['batch_id']:
+                raise ValueError('paired validation cannot reuse a feedback batch')
+            realised = a['mean_return']-b['mean_return']
+            row = dict(comparison=kind, query_id=q, prediction=predicted, realised_paired_gain=realised,
+                realised_minus_predicted=realised-predicted, full=a, control=b,
+                independent_update_executions=2, updates_per_arm=1, start_hash=ref.start_hash,
+                validation_only=True, used_for_posterior=False, selection_feedback_reused=False,
+                feedback_split='new_independent_batches_on_feedback_tasks',
+                package_selection='first_purchased_id_before_inspecting_values' if q else None)
+            s['paired_validations'].append(row)
+            self.journal.append('realised_paired_gain_validation', round=s['round'], step=s['step'], **row)
 
     def alpha_feedback_commit(self):
         from .experiment import assert_run_invariants
@@ -346,6 +484,12 @@ class AlphaDExperimentMixin:
                             paid_pool=sorted(s['owned']), added=list(s['selected']))
         if s['labels']:
             s['posterior'].observe_batch(s['batch_rows'], s['labels'], s['value_statistics']['covariance'])
+            self.journal.append('acquisition_posterior_fit', round=s['round'], step=s['step'],
+                label_kind='acquisition_surrogate' if self.alpha_option('acquisition_value_mode') == 'joint' else 'independent_control',
+                query_ids=list(s['labels']), feature_timing='pre_purchase',
+                shrinkage_factor=s['posterior'].shrinkage_factor,
+                reliability='prequential_purchased_label_prediction; minimum_4_windows_8_labels',
+                realised_task_gains_used=False)
         s['last_committed_draw_ids'] = tuple(d for pair in pairs for d in pair.draw_ids)
         new = [p for p in pairs if p.record.is_new]
         old = [p for p in pairs if not p.record.is_new]
@@ -386,6 +530,9 @@ class AlphaDExperimentMixin:
         if s['decision']:
             row.update(window_id=s['window_id'], acquisition_reference_hash=s['reference'].reference_hash,
                 value_covariance=s['value_statistics'],
+                independent_control_labels=s.get('independent_control_labels', {}),
+                acquisition_surrogate=s.get('joint_surrogate'),
+                realised_paired_gain_validation=s['paired_validations'],
                 temperature_1_sampled_source_selection_return=float(np.mean(s['d_reference_feedback'].metadata['rewards'])),
                 temperature_1_sampled_post_commit_return=float(np.mean(s['actual_feedback'].metadata['rewards'])))
         s['steps'].append(row)

@@ -229,8 +229,8 @@ def test_runner_acquire_freeze_sample_same_batch_commit_then_alpha_feedback(toy_
         return next(i for i, ev in enumerate(events) if ev['kind'] == kind and all(ev.get(k) == v for k, v in fields.items()))
     assert index('decision') < index('request_reveal_link') < index('alpha_d_exposure_frozen', role='commit')
     assert index('alpha_d_exposure_frozen', role='commit') < index('alpha_d_source_pair', role='commit')
-    assert index('alpha_d_reference') < index('return_gradient', role='virtual_reference_feedback')
-    assert index('alpha_d_solver') < index('alpha_d_student_commit') < index('feedback_rollout', role='alpha_post_commit_feedback')
+    assert index('alpha_d_reference') < index('return_gradient', role='same_batch_reference_feedback')
+    assert index('alpha_d_solver') < index('alpha_d_student_commit') < index('feedback_rollout', role='post_commit_feedback')
     assert index('alpha_d_gate_update') < index('alpha_d_acquisition_reference')
     row = e.state['steps'][0]
     assert row['slots'] == 4 and row['source_actions'] == 8 and row['exposure_mode'] == 'random exposure'
@@ -351,7 +351,7 @@ def test_manifest_labels_full_and_random_exposure_and_arm_contract(manifest_inpu
         validate_arm(config | {'acquisition': 'random'}, 'V1')
     with pytest.raises(ValueError, match='V0 requires'):
         validate_arm(config, 'V0')
-    v0 = config | dict(gate_mode='fixed_alpha', fixed_alpha=.5, d_mode='zero')
+    v0 = config | dict(gate_mode='fixed_alpha', fixed_alpha=.5, d_mode='zero', acquisition_value_mode='independent')
     validate_arm(v0 | {'acquisition': 'random'}, 'V0')
     with pytest.raises(ValueError, match='V1/V2 require'):
         validate_arm(v0, 'V1')
@@ -410,4 +410,4 @@ def test_warmup_ends_at_next_decision_window_and_feedback_age_resets(toy_bank, t
     assert [r['alpha_d']['feedback_age'] for r in rows] == [0, 1, 2, 0]
     assert rows[-1]['alpha_d']['solver']['converged']
     assert len([ev for ev in e.journal.events if ev['kind'] == 'return_gradient' and
-                ev['role'] == 'virtual_reference_feedback']) == 2
+                ev['role'] == 'same_batch_reference_feedback']) == 2

@@ -19,7 +19,7 @@ RETURN_OBJECTIVE = 'temperature_1_stochastic_policy_expected_return'
 ALPHA_D_DEFAULTS = dict(gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned',
     d_lambda=1., d_warmup_windows=1, z_error_mode='loo', d_solver_tolerance=1e-8,
     d_solver_max_iterations=10000, d_redundancy_cosine_threshold=.9,
-    microbatch_states=4)
+    microbatch_states=4, acquisition_value_mode='joint')
 
 
 def enabled(config):
@@ -33,6 +33,8 @@ def validate_config(config):
             raise ValueError('alpha/d settings require v1.1 and gate_mode')
         return
     c = ALPHA_D_DEFAULTS | config
+    if c['acquisition_value_mode'] not in {'independent', 'joint'}:
+        raise ValueError('acquisition_value_mode must be independent or joint')
     if c['gate_mode'] not in {'fixed_alpha', 'learned_alpha'} or c['d_mode'] not in {'zero', 'learned'}:
         raise ValueError('invalid gate_mode/d_mode')
     if c['z_error_mode'] not in {'loo', 'split_half'}:
@@ -76,6 +78,8 @@ def validate_arm(config, arm):
     from .conventions import ARMS
     if arm in ARMS:
         for key, value in ARMS[arm].items():
+            if key == 'acquisition_value_mode' and arm != 'V0':
+                continue  # frozen-pool independent-controller intervention
             if key in config and config[key] != value:
                 raise ValueError(f'{arm} requires {key}={value}')
     if arm == 'V1' and not config.get('replay_schedule'):
@@ -190,8 +194,8 @@ class BatchReference:
     directions: tuple
     weights: torch.Tensor
     alpha: torch.Tensor
-    # Detached per-slot baseline gradients for the separately labelled D2
-    # additive acquisition surrogate. D9 can replace this with full-update Fhat.
+    # Detached per-slot baseline gradients for full-update acquisition Fhat
+    # and the independently journaled insertion control.
     baseline_gradients: tuple
 
     def selected(self, d):
@@ -306,6 +310,7 @@ class FeedbackStatistic:
     parameter_hash: str
     refreshed_step: int
     baseline: str
+    feedback_role: str = ''
 
     def project(self, directions, mode):
         if mode not in {'loo', 'split_half'}:

@@ -2,7 +2,7 @@
 
 范围仅为 `/home/xueqi/hq/projects/tc-alignment-v11a`。`data/`、`envs/` 及共享 Python 环境只读；本次只有 CPU 测试，没有训练作业、GPU、在线教师、官方评测或提交。开始时已有的 `PROJECT_STATE.md` 修改保留。
 
-已完整阅读方法文件及 D1、D2/D3、D8 笔记。**版本差异明确处理**：工作树的 `RTD_V1_1_METHOD_ZH.md` 已是 rev 3.1，§3.4 将 d 的反馈点改为同批次 θS(0)；此次 D7 指令明确要求 rev 2 的 **旧证据虚拟参考 θ̄⁺ 同时供应插入值与 z**。本次按此次指令执行，manifest 标记 `alpha_d_d7_rev2_frozen`。D8 的同批次 θS(0) 仍用于构造实际梯度的仿射分解，但不再是回报评估点。不将此实现冒称为满足 rev 3.1 的同批次回报下界前提。方法文档本身保持原文，D8 的冷启动拒绝、三批反馈及未实现 V1 重放说明由本笔记取代。
+已完整阅读方法文件及 D1、D2/D3、D8 笔记。**版本差异已在 D9 前置恢复中关闭**：D7 曾依照过时的 rev 2 指令，让旧证据虚拟参考 θ̄⁺ 同时供应插入值与 z（历史 manifest 为 `alpha_d_d7_rev2_frozen`）。现在以 rev 3.1 §3.4 为准：`same_batch_reference_feedback` 在 θS(0) 上供应 d，`post_commit_feedback` 在 θS(d*) 上供应固定 d 的分块 α VJP；旧证据 `acquisition_reference_feedback` 只供应采购插入值/代理标签，三角色禁止互相替代。manifest 改为 `alpha_d_rev31_same_batch`。下文描述 D7 当时实现的两点反馈及旧标签名称仅为历史记录，现行实现与验证见 `rtd_v1_1_d9_notes_zh.md`。
 
 ## 1. 约定 → 代码 → 测试
 

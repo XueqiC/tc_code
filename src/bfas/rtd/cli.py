@@ -212,7 +212,7 @@ def make_manifest(config, arm, audit, *, smoke=False):
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
     if alpha_d_enabled(config):
-        manifest.update(trajectory_schema_version=4, distillation_protocol='alpha_d_d7_rev2_frozen',
+        manifest.update(trajectory_schema_version=5, distillation_protocol='alpha_d_rev31_same_batch',
             return_objective='temperature_1_stochastic_policy_expected_return',
             exposure_unit='one_state_supervision_record_plus_two_source_actions',
             exposure_mode='full exposure' if config['slots_per_step'] == 40 else 'random exposure',
@@ -223,7 +223,15 @@ def make_manifest(config, arm, audit, *, smoke=False):
             supervision_record_mapping='adapter.supervision_records(package); default ordered package.behaviors',
             alpha_features='initial_model_state_hidden_projection_and_intercept; before_source_sampling',
             alpha_update='blocked_at_theta_S_d; d_fixed; no_differentiation_through_solver',
-            acquisition_reference='old-evidence virtual d=0 update; shared by insertion values and z',
+            acquisition_reference='old-evidence virtual d=0 update; acquisition labels only',
+            d_feedback_reference='same-batch theta_S(0); same_batch_reference_feedback',
+            feedback_roles=['acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback'],
+            acquisition_label=('acquisition_surrogate_full_update_with_teacher_injection'
+                if config.get('acquisition_value_mode', 'joint') == 'joint' else 'independent_control'),
+            acquisition_context='pre_purchase_round_step_purchased_set_alpha_distribution_feedback_age',
+            acquisition_mean_shrinkage='95_percent_until_positive_prequential_explained_variance',
+            paired_validation=('disabled_for_V0' if arm == 'V0' else
+                'one_predetermined_purchased_package_when_joint_and_controller_pair; new_feedback_batches; never_fit'),
             v1_exposure_replay_implemented=True,
             replay_schedule_hash=config.get('replay_schedule_hash'),
             arm_components={k: config.get(k) for k in ('acquisition_value_mode', 'gate_mode', 'd_mode', 'ledger_replay')},
