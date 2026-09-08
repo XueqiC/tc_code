@@ -1398,3 +1398,6 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 05:25Z(报告)ALFWorld hpg R0/R1 r1 训练完成进评测,R1s s10;rai R1 r2 评测 91%;GPU2 仍被占 11h;D8 运行 14 min(11 文件)。
 - 9/9 05:36Z 合并后的 v1.1 树(93c7a21)已同步到 hpg tc-alignment-v11;hpg 上 configs/rtd/v1_1_bfcl.yaml audit 通过(420 包,分母 55,370,usable_recorded_output_tokens)。
 - 9/9 05:37Z D7 任务文本补充:定义臂 id V0/V1/V2(映射采购模式/门控/d/重放),新 scripts/rtd_v11_run_hpg.slurm(接受 V0|V1|V2,64G/8 cpu,24h,接力兼容);现 launcher 仅接受 R0|R1。
+- 9/9 05:55Z hpg ALFWorld R1s 第 1 轮训练完成,进入第 1 轮评测;三臂均在第 1 轮 140 题 greedy 评测中。
+- 9/9 05:58Z D8 交付并提交(rtd-v11-a;1014 passed;v1.0 字节回归通过;注意:满额 40 单元模式要求已有付费旧池,空池拒绝提交 → D7 加冷启动约定:未购前曝光单元 = 参考池状态 α=0)。
+- 9/9 05:58Z D7 启动(launcher pid 3131266,v11a)。
