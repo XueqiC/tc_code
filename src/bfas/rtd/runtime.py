@@ -13,6 +13,7 @@ from .persistence import digest
 from .scoring import ScoreTolerance
 from .memory import MemoryPolicy, memory_batches
 from .generation_batch import GenerationBatch, HFGenerationBatchMixin, RNG_RULE
+from .forward_batch import HFForwardBatchMixin, forward_enabled, token_row
 
 
 @contextmanager
@@ -36,7 +37,7 @@ def installed_parameters(model, parameters):
                 p.copy_(saved[n])
 
 
-class HFGenerateBackend(HFGenerationBatchMixin, TorchPolicyBackend):
+class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicyBackend):
     """HF generate with KV cache, no warpers, and CE over all sampled tokens.
 
     BF16 logits are sampled in FP32 by HF. Return scores are recorded during
@@ -53,7 +54,7 @@ class HFGenerateBackend(HFGenerationBatchMixin, TorchPolicyBackend):
         self.generation_batch = generation_batch
         if generation_batch is not None:
             import transformers
-            self.backend_id = digest(dict(parent=self.backend_id, generation_batch=vars(generation_batch),
+            self.backend_id = digest(dict(parent=self.backend_id, generation_batch=generation_batch.sampling_config(),
                 rng_rule=RNG_RULE, transformers_version=transformers.__version__, torch_version=torch.__version__))
 
     def batches(self, items, operation):
@@ -136,6 +137,15 @@ class HFGenerateBackend(HFGenerationBatchMixin, TorchPolicyBackend):
             truncated=truncated)
 
     def score_tokens(self, prompt_ids, action_ids, parameters, *, eos_token_id, return_details=False, truncated=False):
+        if forward_enabled(self) and not torch.is_grad_enabled():
+            _matching(lora_parameters(self.model), parameters)
+            if self.model.training:
+                raise ValueError('dropout/training mode changes the sampling policy')
+            action = token_row(prompt_ids, action_ids, eos_token_id, truncated)
+            result = (self._prefetched_score(action, parameters)
+                      if getattr(self, '_pending_forward_scores', None) is not None else
+                      self._score_token_rows((action,), parameters)[0])
+            return result if return_details else result[0]
         with self.measured('teacher_forced_forward', prompt_tokens=len(prompt_ids), action_tokens=len(action_ids)):
             return super().score_tokens(prompt_ids, action_ids, parameters,
                                         eos_token_id=eos_token_id, return_details=return_details, truncated=truncated)
@@ -145,6 +155,8 @@ class HFGenerateBackend(HFGenerationBatchMixin, TorchPolicyBackend):
             return super().initial_hidden(prompt, initial_parameters, initial_snapshot_id=initial_snapshot_id)
 
     def source_kl(self, source_actions, source_parameters, updated_parameters):
+        if forward_enabled(self) and not torch.is_grad_enabled():
+            return self._source_kl_batch(tuple(source_actions), source_parameters, updated_parameters)
         with self.measured('pilot_conditional_kl', forward_passes=2*len(source_actions),
             prompt_tokens=2*sum(len(a.prompt_ids) for a in source_actions),
             action_tokens=2*sum(len(a.action_ids) for a in source_actions)):

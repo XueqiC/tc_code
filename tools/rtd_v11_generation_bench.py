@@ -17,6 +17,7 @@ import torch
 
 from bfas.rtd.functional_step import lora_parameters, snapshot
 from bfas.rtd.generation_batch import GenerationBatch, action_cap
+from bfas.rtd.forward_batch import source_score_scope
 from bfas.rtd.metrics_v11 import freeze_tasks, task_rows
 from bfas.rtd.persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
 from bfas.rtd.runtime import HFGenerateBackend, load_backend
@@ -26,8 +27,8 @@ from bfas.rtd.scoring import ScoreTolerance, score_diagnostic
 def agreement(backend, actions, parameters):
     """Unbatched teacher forcing; enforce the existing guard per ACTION."""
     diagnostics = []
-    with torch.no_grad():
-        for action in actions:
+    with torch.no_grad(), source_score_scope(backend, actions, parameters) as draws:
+        for action in draws:
             score, values, metadata = backend.score_action(action, parameters, return_details=True)
             row = score_diagnostic(action, values, score, metadata, backend.score_tolerance,
                                    expected_prompt_ids=action.prompt_ids)
@@ -95,20 +96,27 @@ def run_case(backend, rows, support, parameters, *, seed, batched):
         rng_after=digest(generator.get_state().tolist()), backend_id=backend.backend_id)
 
 
-def main(argv=None):
+def main(argv=None, *, forward_only=False):
     from bfas.rtd.cli import ROOT, load_config
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description='D13: same-action teacher-forced forward comparison' if forward_only else __doc__)
     parser.add_argument('--config', type=Path, default=ROOT/'configs/rtd/v1_1_bfcl.yaml')
     parser.add_argument('--window', type=Path, help='optional authenticated controls/windows/rN-sNN.pt')
     parser.add_argument('--model', type=Path, help='local base checkpoint directory (no downloads)')
-    parser.add_argument('--out', type=Path, default=ROOT/'results/rtd_v1_1/generation_bench')
+    parser.add_argument('--out', type=Path, default=ROOT/'results/rtd_v1_1'/('forward_bench' if forward_only else 'generation_bench'))
     parser.add_argument('--prompts-per-batch', type=int, default=8)
     parser.add_argument('--max-batch-tokens', type=int, default=16384)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--kernels', choices=('auto', 'torch'), default='auto')
     parser.add_argument('--order', choices=('unbatched-first', 'batched-first'), default='unbatched-first')
+    if forward_only:
+        parser.add_argument('--actions', type=Path, help='D12 compute.jsonl or D13 actions.json; omitted = fresh 80 samples')
+        parser.add_argument('--forward-prompts-per-batch', type=int, default=8)
+        parser.add_argument('--atol', type=float, default=1e-4, help='maximum absolute per-token difference; default 1e-4')
     args = parser.parse_args(argv)
-    policy = GenerationBatch(args.prompts_per_batch, args.max_batch_tokens)
+    policy = GenerationBatch(args.prompts_per_batch, args.max_batch_tokens,
+                             args.forward_prompts_per_batch if forward_only else 0)
+    if forward_only and (not torch.isfinite(torch.tensor(args.atol)) or args.atol < 0 or not args.forward_prompts_per_batch):
+        parser.error('finite nonnegative --atol and positive --forward-prompts-per-batch required')
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         parser.error('exactly one visible GPU required; this script is not a CPU performance proxy')
     if args.out.exists():
@@ -189,6 +197,9 @@ def main(argv=None):
         unique_states=len({r['state_hash'] for r in rows}), samples_per_state=2,
         sampling='temperature=1 top_p=1 top_k=0; independent realizations, identical categorical law',
         torch_version=torch.__version__, order=args.order)
+    if forward_only:
+        from tools.rtd_v11_forward_bench import run_forward_benchmark
+        return run_forward_benchmark(batched, rows, support, parameters, args, report)
     order = [('unbatched', legacy), ('batched', batched)]
     if args.order == 'batched-first':
         order.reverse()

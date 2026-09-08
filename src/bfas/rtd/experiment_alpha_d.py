@@ -24,6 +24,7 @@ from .return_gradient import ActionTrace
 from .conventions import exposure_step, record_identity, repetition_counts
 from .joint_surrogate import control, execute_update, marginal_values, replacement_batch, validate_pair
 from .generation_batch import action_cap, feedback_rollouts
+from .forward_batch import forward_enabled
 
 
 class AlphaDExperimentMixin:
@@ -135,7 +136,8 @@ class AlphaDExperimentMixin:
                     raise ValueError('sealed pool: source/teacher pair requires purchased evidence')
             requests = [(r.state.prompt, 2, action_cap(self.backend,
                 self.support.categories[self.support.parents[r.state.parent_hash]])) for r in records]
-            scope = self.backend.prefetch_actions(requests, self.state['source'], self.sampling_rng)
+            options = dict(score=True) if forward_enabled(self.backend) else {}
+            scope = self.backend.prefetch_actions(requests, self.state['source'], self.sampling_rng, **options)
         with scope:
             return self._alpha_draw_pairs(records, role=role)
 

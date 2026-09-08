@@ -113,7 +113,8 @@ pilot_eta_candidates: [0.000001, 0.000003, 0.00001, 0.00003, 0.0001, 0.0003, 0.0
 initial_eta: 0.00001
 source_backend: hf_generate
 # Expanded rows * (left-padded prompt width + action cap), length buckets <=2x.
-generation_batch: {prompts_per_batch: 8, max_batch_tokens: 16384}
+# Forward budget counts right-padded prompt+action tokens; 0 disables forwards.
+generation_batch: {prompts_per_batch: 8, max_batch_tokens: 16384, forward_prompts_per_batch: 0}  # D13 forward batching disabled in production (A100 bench max |Δlogprob| 0.42 nat bf16)
 # Nats/token including EOS; max_abs flags outliers. Every comparison is journaled.
 score_consistency_tolerance: {mean_abs: 0.05, max_abs: 1.0, max_abs_outlier_tokens: 2, max_abs_hard: 8.0}
 lora_rank: 16

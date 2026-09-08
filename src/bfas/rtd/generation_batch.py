@@ -7,7 +7,7 @@ changing it changes realizations, never the temperature-1 categorical law.
 No tickets, generated actions or KV caches survive a sampling scope.
 """
 from collections import deque
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from itertools import groupby
 
@@ -24,10 +24,21 @@ RNG_RULE = 'ordered-int64-tickets-hf-batch-sha256-v1'
 class GenerationBatch:
     prompts_per_batch: int = 8
     max_batch_tokens: int = 16384
+    forward_prompts_per_batch: int = 0
 
     def __post_init__(self):
-        if any(type(v) is not int or v < 1 for v in asdict(self).values()):
+        if any(type(v) is not int or v < 1 for v in self.sampling_config().values()):
             raise ValueError('generation_batch requires positive integer limits')
+        if type(self.forward_prompts_per_batch) is not int or self.forward_prompts_per_batch < 0:
+            raise ValueError('forward_prompts_per_batch must be a nonnegative integer (0 disables)')
+
+    def sampling_config(self):
+        # Forward layout must never change D12 policy IDs, tickets or samples.
+        return dict(prompts_per_batch=self.prompts_per_batch, max_batch_tokens=self.max_batch_tokens)
+
+    def config(self):
+        return self.sampling_config() | (dict(forward_prompts_per_batch=self.forward_prompts_per_batch)
+                                       if self.forward_prompts_per_batch else {})
 
     @classmethod
     def from_config(cls, config):
@@ -38,6 +49,47 @@ class GenerationBatch:
         if not isinstance(config['generation_batch'], dict):
             raise ValueError('generation_batch must be a mapping')
         return cls(**config['generation_batch'])
+
+
+def length_bucketed_groups(rows, *, prompts_per_batch, budget):
+    """D12 planner shared by generation and D13 full-sequence forwards.
+
+    Forward rows use ids=prompt+action and limit=0. Stable original indices
+    restore caller order; an oversized row runs alone without truncation.
+    """
+    ordered = sorted(rows, key=lambda r: (r['limit'], len(r['ids']), r['index']))
+    groups, group, blocks = [], [], []
+    for _, members in groupby(ordered, key=lambda r: r['prompt_index']):
+        members = list(members)
+        capacity = max(1, budget//(len(members[0]['ids'])+members[0]['limit']))
+        # Generation members have equal lengths. Forward actions can differ:
+        # split before adding a row that would exceed the padded token budget.
+        block = []
+        for row in members:
+            if block and ((len(block)+1)*(len(row['ids'])+row['limit']) > budget or
+                          len(row['ids']) > 2*len(block[0]['ids'])):
+                blocks.append(block)
+                block = []
+            block.append(row)
+            if len(block) == capacity:
+                blocks.append(block)
+                block = []
+        if block:
+            blocks.append(block)
+    for block in blocks:
+        row = block[0]
+        candidate = group + block
+        width = max(len(r['ids']) for r in candidate)
+        if group and (row['limit'] != group[0]['limit'] or
+                len({r['prompt_index'] for r in candidate}) > prompts_per_batch or
+                len(candidate)*(width+row['limit']) > budget or
+                width > 2*len(group[0]['ids'])):
+            groups.append(group)
+            group = []
+        group.extend(block)
+    if group:
+        groups.append(group)
+    return groups
 
 
 def ticket(generator):
@@ -122,27 +174,7 @@ class HFGenerationBatchMixin:
                                  limit=min(cap, self.max_context_tokens-len(ids))))
         for row in rows:
             row['ticket'] = ticket(generator)
-        # Stable sort; duplicate prompts still have independent tickets.
-        ordered = sorted(rows, key=lambda r: (r['limit'], len(r['ids']), r['index']))
-        groups, group = [], []
-        blocks = []
-        for _, members in groupby(ordered, key=lambda r: r['prompt_index']):
-            members = list(members)
-            capacity = max(1, budget//(len(members[0]['ids'])+members[0]['limit']))
-            blocks.extend(members[i:i+capacity] for i in range(0, len(members), capacity))
-        for block in blocks:
-            row = block[0]
-            candidate = group + block
-            width = max(len(r['ids']) for r in candidate)
-            if group and (row['limit'] != group[0]['limit'] or
-                    len({r['prompt_index'] for r in candidate}) > policy.prompts_per_batch or
-                    len(candidate)*(width+row['limit']) > budget or
-                    width > 2*len(group[0]['ids'])):
-                groups.append(group)
-                group = []
-            group.extend(block)
-        if group:
-            groups.append(group)
+        groups = length_bucketed_groups(rows, prompts_per_batch=policy.prompts_per_batch, budget=budget)
         result = [None]*len(rows)
         for group in groups:
             for row, action in zip(group, self._generate_group(group, parameters)):
@@ -150,7 +182,7 @@ class HFGenerationBatchMixin:
         return tuple(result)
 
     @contextmanager
-    def prefetch_actions(self, requests, parameters, generator):
+    def prefetch_actions(self, requests, parameters, generator, *, score=False):
         """Fresh source draws, consumed once in original order with D7 checks.
 
         Use a clone to generate ahead, then advance the durable stream one
@@ -164,9 +196,10 @@ class HFGenerationBatchMixin:
         actions = self._sample_requests(requests, parameters, cloned)
         self._pending_generation = deque(actions)
         try:
-            yield
-            if self._pending_generation:
-                raise AssertionError('prefetched draws not fully consumed')
+            with self.prefetch_scores(actions, parameters) if score else nullcontext():
+                yield
+                if self._pending_generation:
+                    raise AssertionError('prefetched draws not fully consumed')
         finally:
             self._pending_generation = None
 

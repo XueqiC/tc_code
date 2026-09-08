@@ -99,7 +99,7 @@ def load_config(path, *, arm=None, replay_schedule=None):
     MemoryPolicy.from_config(config)
     generation_batch = GenerationBatch.from_config(config)
     if generation_batch is not None:
-        config['generation_batch'] = vars(generation_batch)
+        config['generation_batch'] = generation_batch.config()
     estimator, _, _ = validate_source_config(config)
     # Explicit legacy defaults serialize exactly as an omitted v1.1 option.
     if estimator == 'hard2':

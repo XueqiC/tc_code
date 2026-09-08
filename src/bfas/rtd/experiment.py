@@ -33,6 +33,7 @@ from .runtime import streamed_gate_vjp, streamed_gradient
 from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
 from .generation_batch import sample_actions, feedback_rollouts
+from .forward_batch import source_score_scope
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
 
@@ -268,24 +269,25 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
                     with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
                         action = next(draws)
                     yield action
-            for sample_index, action in enumerate(actions()):
-                source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
-                                      action.eos_token_id, action.generation_logprob, truncated=action.truncated)
-                # Persist the full check BEFORE enforcing tolerances, including
-                # the failed action that previously disappeared from the log.
-                def record(diagnostic):
-                    self.journal.append('score_consistency', **(diagnostic | dict(
-                        round=s['round'], step=s['step'], role='source', sample_index=sample_index,
-                        state_hash=state.state_hash, parent_hash=state.parent_hash, source_id=s['source_id'])))
-                with torch.no_grad():
-                    checked, diagnostic = self.backend.checked_score_action(action, s['source'], record=record,
-                        expected_prompt_ids=self.backend.tokenizer.encode(state.prompt, add_special_tokens=False))
-                score = float(checked)
-                error = diagnostic['sequence_abs_difference']
-                sources.append(source)
-                self.journal.append('source_sample', round=s['round'], state_hash=state.state_hash,
-                    parent_hash=state.parent_hash, source_id=s['source_id'], action=asdict(action),
-                    teacher_forced_logprob=score, score_discrepancy=error)
+            with source_score_scope(self.backend, actions(), s['source']) as draws:
+                for sample_index, action in enumerate(draws):
+                    source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
+                                          action.eos_token_id, action.generation_logprob, truncated=action.truncated)
+                    # Persist the full check BEFORE enforcing tolerances, including
+                    # the failed action that previously disappeared from the log.
+                    def record(diagnostic):
+                        self.journal.append('score_consistency', **(diagnostic | dict(
+                            round=s['round'], step=s['step'], role='source', sample_index=sample_index,
+                            state_hash=state.state_hash, parent_hash=state.parent_hash, source_id=s['source_id'])))
+                    with torch.no_grad():
+                        checked, diagnostic = self.backend.checked_score_action(action, s['source'], record=record,
+                            expected_prompt_ids=self.backend.tokenizer.encode(state.prompt, add_special_tokens=False))
+                    score = float(checked)
+                    error = diagnostic['sequence_abs_difference']
+                    sources.append(source)
+                    self.journal.append('source_sample', round=s['round'], state_hash=state.state_hash,
+                        parent_hash=state.parent_hash, source_id=s['source_id'], action=asdict(action),
+                        teacher_forced_logprob=score, score_discrepancy=error)
             sources = tuple(sources)
             if cache:
                 s['source_cache'][state.state_hash] = sources
