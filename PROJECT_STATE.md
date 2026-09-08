@@ -1363,3 +1363,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 02:53Z hpg ALFWorld R1s 通过 reference→selected;R1s 接力(afterany)已排。三臂均通过首窗关键阶段。
 - 9/9 02:53Z hpg ALFWorld R1s 接力作业 id 41354221;粗粒度监视覆盖三臂 + 三个接力。
 - 9/9 02:55Z hpg R1s 三轮完成(41328395 COMPLETED 6h30m):r3 Overall 46.53(NL 80.35/Live 77.72/MT 49.62/Mem 29.25/Irrel 82.87/Rel 75.00/Web 8.50);曲线 45.91→45.98→46.53;6 包/523 tok;格式错误 46/53/89。hpg matched 三臂齐:R0 46.75 / R1 47.31 / R1s 46.53(base 46.74)。
+- 9/9 03:00Z 强对照 prepare 在 hpg 上对 v1.0 hpg R0/R1 最终 ledger 运行成功(configs/rtd/baselines/generated_hpg_v10,suite bfcl_suite_hpg_v10.yaml,B200 class 01be985e…);tune/run 未启动——v1.0 池仅 5–7 包,是否在 v1.0 上跑强对照待用户决定(我建议放到 v1.1 后)。

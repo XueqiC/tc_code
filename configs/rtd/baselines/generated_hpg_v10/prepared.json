@@ -1,0 +1,49 @@
+{
+  "files": {
+    "A0_b1_slots.yaml": "57bc2372d03a78d2e0e711ad760e38df92e69e9f5a7dcd8b4dcd53de238080a5",
+    "A0_b1_tokens.yaml": "e27daef1a2ad1a9cdd49e09f113b5713818a921dc3b0f0ae7c48a1185728d223",
+    "A0_b2_slots.yaml": "eb96816ca9e6fd5e8a16d11f699417233a7a41bc21260037b0f093edd7e0df33",
+    "A0_b2_tokens.yaml": "d5fe2bc50e75f99694fe862f52c5e3f4a84512b75f1d3e68fc019c5b08155ff9",
+    "A0_b3_mix_slots.yaml": "bdfb2aee84625a02fdd39effb3c707f40dfe93b6389e9b9c931c929e3fc0aae7",
+    "A0_b3_mix_tokens.yaml": "4b3107c6376a6079114b0cea81a164b14809b739b7d4e746b174d91cc5536c8b",
+    "A0_b3_sft_slots.yaml": "959a254f6a53a3d3408d2edb24369c33db882a585872cbafdf4141251b417c7e",
+    "A0_b3_sft_tokens.yaml": "395c0e5df2ca7847754a3f583bc474e915d1547c31c39b1f83eed2c568a991db",
+    "A0_b4_slots.yaml": "271c5c329425c6752d5474549132071e7b1fed7a0ce3bcca161782929184511b",
+    "A0_b4_tokens.yaml": "750d717ca00c3bfdea4a5450c2d4305ed1eae77f3781581312b7daca88d7b24b",
+    "A0_evidence.json": "93da76be16e333f4106d565ab7d3cb6075569b8d4a6cd14aad75ce037e105f9b",
+    "A1_b1_slots.yaml": "6fca558e8d94e4855bfdee3389d6e16dd4ebd619ba8b1060f1d07b4755dee0d6",
+    "A1_b1_tokens.yaml": "84c31a556ad157334b41a15f90ecb0583d92fdfe3b8a6e04a2cde49bba299419",
+    "A1_b2_slots.yaml": "e20a1a80c1372e2869ddef26f75b07f623af766b1be6b3a56321e02d4f1fd158",
+    "A1_b2_tokens.yaml": "c367611560750b18221b02ae2b2f43992239c4b47c6d657f606101fed413d8a4",
+    "A1_b3_mix_slots.yaml": "96ba96b393268107622eb2265e31c77578f21221c11b93489db31a90f8436a78",
+    "A1_b3_mix_tokens.yaml": "ab88c7b320642e6faf63103f0863b6023bb357d73081fd279796c21c3fd69b86",
+    "A1_b3_sft_slots.yaml": "8d98ae015c33ce116c030facf396d69f8e3c47b210a5215a66976787c32e7025",
+    "A1_b3_sft_tokens.yaml": "9f0fba6dba9833a8d584a4aef03a7a9988c8f6bee299493132c3f6d07fca6b54",
+    "A1_b4_slots.yaml": "ac390634bccf8a644088494839ffe2d429c0d55498accdba26592974378fa051",
+    "A1_b4_tokens.yaml": "ab97dd2e2655be3a13c143cdf466f9c231afbb02ea706fb2549df4d8e03f13bc",
+    "A1_evidence.json": "9b3a4e1f207947836a40177f004be85d3937fb4391db3be5aaa684da42ac2617"
+  },
+  "suite": {
+    "bank": "data/rtd/v1_bfcl_c25",
+    "common": "configs/rtd/baselines/bfcl_common.yaml",
+    "hardware_class_hash": "01be985e345c3190df6f638bd107a012441b0f01d2642cb9f40f64a2993e307d",
+    "pools": {
+      "A0": "results/rtd_v1/R0",
+      "A1": "results/rtd_v1/R1"
+    },
+    "recipes": {
+      "b1": "configs/rtd/baselines/bfcl_b1_sft.yaml",
+      "b2": "configs/rtd/baselines/bfcl_b2_pairwise.yaml",
+      "b3_mix": "configs/rtd/baselines/bfcl_b3_mix_pg.yaml",
+      "b3_sft": "configs/rtd/baselines/bfcl_b3_sft_pg.yaml",
+      "b4": "configs/rtd/baselines/bfcl_b4_meta_reweight.yaml"
+    },
+    "version": "c27-suite-v1",
+    "views": [
+      "slots",
+      "tokens"
+    ]
+  },
+  "suite_hash": "7b0c84ffc9f09d499bce789a0e1775d57e1d0af6e0a8b3759443469d2b4c404f",
+  "version": "c27-prepared-v1"
+}

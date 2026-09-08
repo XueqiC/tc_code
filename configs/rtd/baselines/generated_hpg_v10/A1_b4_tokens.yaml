@@ -1,0 +1,76 @@
+recipe: b4
+view: tokens
+version: c27-baselines-v1
+seed: 0
+commits: 36
+slots: 288
+lr: 1.0e-05
+optimizer: fixed
+weight_decay: 0.01
+beta: 0.1
+lambda_pg: 1.0
+mixture_alpha: 0.5
+features_off: true
+weight_parameterization: per_query_softplus_mean_one
+meta_lr: 0.1
+ridge: 1.0
+eta_multiplier: 1.0
+distribution: strong
+state_protocol: replay_L1
+token_cost: prompt_plus_action
+token_relative_tolerance: 0.01
+update_tokens:
+- 136187
+- 121586
+- 79582
+pg_reserved_tokens:
+- 625616
+- 4772967
+- 544581
+evidence_path: /blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/configs/rtd/baselines/generated_hpg_v10/A1_evidence.json
+evidence_hash: 9b3a4e1f207947836a40177f004be85d3937fb4391db3be5aaa684da42ac2617
+pool: A1
+runtime:
+  benchmark: bfcl
+  evaluation_temperature: 0.0
+  lora_alpha: 32
+  lora_rank: 16
+  lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+  max_action_tokens_by_benchmark:
+    bfcl:
+      multi_turn: 1024
+      single_turn: 512
+  max_context_tokens: 32768
+  max_state_batch_size: 2
+  memory_peak_budget_gb: 38
+  memory_reserve_gb: 2
+  memory_state_estimate_gb: 16
+  model_local_files_only: true
+  pilot_eta_candidates:
+  - 1.0e-06
+  - 3.0e-06
+  - 1.0e-05
+  - 3.0e-05
+  - 0.0001
+  - 0.0003
+  - 0.001
+  replay_bank_path: data/rtd/v1_bfcl_c25
+  score_consistency_tolerance:
+    max_abs: 1.0
+    mean_abs: 0.05
+  source_backend: hf_generate
+  source_samples_per_state: 2
+  source_temperature: 1.0
+  source_top_p: 1.0
+  student: Qwen/Qwen3.5-4B
+  support_manifest: configs/rtd/v1_bfcl_support.json
+  training_seed: 0
+new_teacher_calls: false
+evaluate_after_round: false
