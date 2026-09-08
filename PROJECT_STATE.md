@@ -1343,3 +1343,10 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 23:47Z 用户:'按照我们之前要求的来吧'、'尽量规范标准' → ALFWorld 不缩减(3 轮 + 140 题完整 greedy 评测),BFCL 保持官方全量;v1.1 批准与否已再次询问,等答复。
 - 9/9 23:56Z 用户:先别做,汇总 + v1.1 详细建议写成文档 → docs/2026-09-09-rtd-v1-summary-and-v1-1-recommendations-zh.md 已发(含采购分布诊断:R1/R1s 熵比≈R0、empty≈50%、成本未约束;追加'价值信号可靠性'判定实验;§2.6 五项待拍板)。
 - 9/9 00:02Z C26-H 交付并提交(worktree):非选中 ALFWorld trial 也按公开 reset hash 采样来源特征;完整窗口 + 六阶段 resume 测试;972 测试通过。rai GPU1 起 smoke 循环(results/c26f/rai-R1-window-h,900s 一段 resume 续跑);同步 hpg 并重提 ALFWorld R0(B200)作真实模型验证;R1/R1s 待 R0 过 reference→actual 后再提。
+- 9/9 00:05Z 用户:v1.0 所有实验跑完后发一份汇总报告(待办:六臂×三轮表、实际支出预算曲线、采购/格式错误诊断、机器效应、结论限定)。已挂'四个剩余终点齐'监视。
+- 9/9 00:08Z rai smoke 循环(C26-H)在跑:候选来源采样阶段(107 包×2 样本)+ 反馈 rollout,每段 900s 后 resume 续跑;进度慢但正常。hpg ALFWorld R0(C26-H)41341262 RUNNING,作为更快的真实验证。C28(v1.0 汇总报告收集工具)Codex 进行中;hpg R0/R1s 元数据与 campaign csv 已归档到 results/rtd_v1_hpg 与 results/bfcl_std_hpg。
+- 9/9 00:12Z 用户问多久:估 hpg R0/R1s ~5h,rai R1 ~10–11h,rai R0 r3 等 GPU2;汇总报告最早明早(美东);提议 GPU2 不空则 rai R0 只报到 r2。hpg R0/R1s 第 2 轮训练结束进入评测。
+- 9/9 00:21Z C28 交付并提交:tools/rtd_v1_collect_report.py(21 测试)+ 草稿 docs/rtd_v1_final_report_draft_zh.md(当前 8/18 终点)。最终报告在全部终点齐后重跑该工具并加我的结论。
+- 9/9 00:25Z(报告)hpg R0/R1s r2 评测中;rai R1 r2 s10;rai R0 等 GPU2;ALFWorld hpg R0(C26-H)33 min 未到 reference;smoke 循环运行中。
+- 9/9 00:50Z hpg R0 第 2 轮官方分 46.02(NL 79.38/Live 77.50/MT 48.75/Mem 24.09/Irrel 82.87/Rel 75.00/Web 13.00;5 包/491 tok,与 rai R0 同轨迹,机器效应 +0.23);进入 round 3。
+- 9/9 01:01Z hpg R1s 第 2 轮官方分 45.98(NL 79.71/Live 77.35/MT 49.75/Mem 25.38/Irrel 82.76/Rel 75.00/Web 10.00;3 包/249 tok);进入 round 3。
