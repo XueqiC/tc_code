@@ -30,7 +30,10 @@ evaluation (Appendix~\ref{app:details}). AppWorld reports TGC on the
 accuracy, ALFWorld the \texttt{valid\_seen} success rate, all in
 percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
 points over the initial student across the three columns and is only
-computed for rows with all three. Cells marked $\cdot$ are pending.}
+computed for rows with all three. Cells marked $\cdot$ are pending; $^{\dagger}$ marks a single
+training run reported provisionally until its three runs complete.
+The AppWorld column still shows the earlier mixed-teacher pools
+(awb3) and will be replaced by the unified-budget runs.}
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -41,10 +44,10 @@ computed for rows with all three. Cells marked $\cdot$ are pending.}
 \rowcolor{rowhead}Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$ & --\\
 \rowcolor{rowhead}Initial pretrained student & $0.0$ & $46.27$ & $7.14$ & --\\
 \midrule
-Trajectory SFT & $0.0_{\pm0.0}$ & $36.4_{\pm3.7}$ & $\cdot$ & $\cdot$\\
-Span-weighted SFT (SAD adapt.) & $0.0_{\pm0.0}$ & $36.9_{\pm2.2}$ & $\cdot$ & $\cdot$\\
+Trajectory SFT & $0.0_{\pm0.0}$ & $31.2^{\dagger}$ & $\cdot$ & $\cdot$\\
+Span-weighted SFT (SAD adapt.) & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 On-policy teacher correction + SFT & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
-SFT + teacher-ranked DPO (dDPO) & $2.5_{\pm4.3}$ & $35.1_{\pm2.8}$ & $\cdot$ & $\cdot$\\
+SFT + teacher-ranked DPO (dDPO) & $2.5_{\pm4.3}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 Offline teacher--student pref. (PBSD-insp.) & $0.0_{\pm0.0}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 PBSD --- agent adaptation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 STaR w/o rationalization (0 teacher) & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
