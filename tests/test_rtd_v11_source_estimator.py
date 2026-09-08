@@ -346,6 +346,10 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # file to the pre-D7 hash for the historical manifest-byte oracle.
     assert after['rtd_source'] == cli.source_identity(c.root)
     normalized['rtd_source']['files']['src/bfas/rtd/evaluation.py'] = 'e2310d926fae8dba3f516d43c5cc90bb8032a9bca6d7ae4a13b918299f94ad2e'
+    # D5 adds a separate syntax diagnostic endpoint. The official verdict
+    # projection remains pinned by test_rtd_identity_update; real manifests
+    # retain the current raw source hash, as asserted above.
+    normalized['rtd_source']['files']['tools/behavior_atom/checker_bridge.py'] = 'e928dcb48ed58c47d4c37fa234821e40fc645cc76208560e20de1b303f3a3bfd'
     normalized['rtd_source']['hash'] = digest(normalized['rtd_source']['files'])
     assert digest(normalized) == '428e3d9bfd56011060e763bb6cc781e7c9007115b393cd12a77980a16c4ba3af'
     b, p, targets, chi, phi = legacy_problem()

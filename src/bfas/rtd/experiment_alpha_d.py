@@ -21,7 +21,7 @@ from .insertion import InsertionReference
 from .persistence import digest
 from .return_gradient import ActionTrace
 from .conventions import exposure_step, record_identity, repetition_counts
-from .joint_surrogate import control, execute_update, marginal_values, replacement_batch
+from .joint_surrogate import control, execute_update, marginal_values, replacement_batch, validate_pair
 
 
 class AlphaDExperimentMixin:
@@ -405,6 +405,14 @@ class AlphaDExperimentMixin:
                     differentiates_through_d_solver=False, parameter_hash=feedback.parameter_hash, **meta)
             self.alpha_acquisition_labels()
             self.alpha_validate_pairs()
+            from .metrics_v11 import options as metric_options
+            if metric_options(self.config)['enabled']:
+                from .experiment_metrics_v11 import window_metrics
+                from .controls_v11 import save_window
+                with self.scope('v11_window_metrics'):
+                    window_metrics(self)
+                if metric_options(self.config)['archive_windows']:
+                    save_window(self)
         self.transition('feedback')
 
     def alpha_validation_return(self, parameters, role):
@@ -454,19 +462,8 @@ class AlphaDExperimentMixin:
                       controller['independent_d'], controller['joint_minus_independent_control']))
         for kind, q, first, d1, second, d2, predicted in pairs:
             with self.scope('paired_validation_updates'):
-                left = execute_update(first, d1, s['alpha_start'], s['step_rule'])
-                right = execute_update(second, d2, s['alpha_start'], s['step_rule'])
-            a = self.alpha_validation_return(left, f'validation_{kind}_full')
-            b = self.alpha_validation_return(right, f'validation_{kind}_control')
-            if a['batch_id'] == b['batch_id']:
-                raise ValueError('paired validation cannot reuse a feedback batch')
-            realised = a['mean_return']-b['mean_return']
-            row = dict(comparison=kind, query_id=q, prediction=predicted, realised_paired_gain=realised,
-                realised_minus_predicted=realised-predicted, full=a, control=b,
-                independent_update_executions=2, updates_per_arm=1, start_hash=ref.start_hash,
-                validation_only=True, used_for_posterior=False, selection_feedback_reused=False,
-                feedback_split='new_independent_batches_on_feedback_tasks',
-                package_selection='first_purchased_id_before_inspecting_values' if q else None)
+                row = validate_pair(kind, q, first, d1, second, d2, predicted,
+                    s['alpha_start'], s['step_rule'], self.alpha_validation_return)
             s['paired_validations'].append(row)
             self.journal.append('realised_paired_gain_validation', round=s['round'], step=s['step'], **row)
 
@@ -529,6 +526,7 @@ class AlphaDExperimentMixin:
                 sources=[asdict(src) for src in p.sources]) for p, w, a in zip(pairs, ref.weights, ref.alpha)])
         if s['decision']:
             row.update(window_id=s['window_id'], acquisition_reference_hash=s['reference'].reference_hash,
+                window_start_spend=s['window_start_spend'], window_cost=self.ledger.spent-s['window_start_spend'],
                 value_covariance=s['value_statistics'],
                 independent_control_labels=s.get('independent_control_labels', {}),
                 acquisition_surrogate=s.get('joint_surrogate'),

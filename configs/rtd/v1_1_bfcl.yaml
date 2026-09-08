@@ -1,4 +1,4 @@
-# RTD v1.1: D8 alpha/d + D7 rev-2 frozen reference/exposure conventions.
+# RTD v1.1 rev 3.1: D8/D9 alpha/d, separate feedback roles, D5/D6 metrics.
 # --arm V0|V1|V2 selects acquisition, alpha/d and ledger replay together.
 # V1 requires --replay-schedule <V0 run dir>; source actions are always redrawn.
 # Old pool = paid records + reference states (no teacher => alpha=0).
@@ -118,3 +118,9 @@ lora_alpha: 32
 lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
 evaluate_after_round: true
 evaluation_temperature: 0.0
+metrics_v11:
+  enabled: true
+  variance_resamples: 4
+  archive_windows: true
+  # Freeze 20 runnable state slots; unavailable adapters/repeats are explicit.
+  short_fold: repeat

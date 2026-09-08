@@ -141,6 +141,25 @@ def execute_update(batch, d, start, step):
     return replace(batch, theta0=snapshot(step.update(start, total))).selected(d)
 
 
+def validate_pair(kind, query_id, first, d1, second, d2, prediction, start, step, evaluate, *, check_updates=None):
+    """D9/D6 shared execution and validation journal schema. Never fit gains."""
+    left = execute_update(first, d1, start, step)
+    right = execute_update(second, d2, start, step)
+    if check_updates is not None:
+        check_updates(left, right)
+    a = evaluate(left, f'validation_{kind}_full')
+    b = evaluate(right, f'validation_{kind}_control')
+    if a['batch_id'] == b['batch_id']:
+        raise ValueError('paired validation cannot reuse a feedback batch')
+    realised = a['mean_return']-b['mean_return']
+    return dict(comparison=kind, query_id=query_id, prediction=prediction, realised_paired_gain=realised,
+        realised_minus_predicted=realised-prediction, full=a, control=b,
+        independent_update_executions=2, updates_per_arm=1, start_hash=first.start_hash,
+        validation_only=True, used_for_posterior=False, selection_feedback_reused=False,
+        feedback_split='new_independent_batches_on_feedback_tasks',
+        package_selection='first_purchased_id_before_inspecting_values' if query_id else None)
+
+
 def marginal_values(pairs, batch, old, start, reference, step, feedback, statistic, *, revealed_ids, **options):
     evidence = {p.record.query_id for p in pairs if p.record.teacher is not None}
     if not evidence <= set(revealed_ids):

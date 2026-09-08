@@ -160,6 +160,16 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         self.device = next(iter(lora_parameters(backend.model).values())).device
         self.dtype = next(iter(lora_parameters(backend.model).values())).dtype
         self.directory.mkdir(parents=True, exist_ok=True)
+        if self.alpha_d:
+            from .metrics_v11 import options as metric_options, freeze_tasks, task_rows
+            if metric_options(config)['enabled']:
+                expected = freeze_tasks([dict(parent_hash=h, official_id=t) for h, t in support.parents.items()],
+                                        short_fold=metric_options(config)['short_fold'], states=support.states)
+                if manifest.get('fixed_task_set_v11', expected) != expected:
+                    raise ValueError('fixed task set changed on resume')
+                manifest['fixed_task_set_v11'] = expected
+                task_rows(expected, support)
+                atomic_json(self.directory/'manifest.json', manifest)
         self.journal = journal or ComputeJournal(self.directory / 'compute.jsonl', cuda=self.device.type == 'cuda')
         self.store = StateStore(self.directory / 'recovery', manifest)
         self.rng = np.random.default_rng(config['training_seed'])
@@ -779,6 +789,18 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         import os
         import shutil
         s = self.state
+        if self.alpha_d:
+            from .metrics_v11 import options as metric_options
+            if metric_options(self.config)['enabled']:
+                from .experiment_metrics_v11 import round_metrics
+                metric_path = self.directory/'metrics'/f"round-{s['round']}.json"
+                if metric_path.exists():
+                    metric = json.loads(metric_path.read_text())
+                    if (metric['parameter_hash'] != tensor_state_hash(s['parameters']) or
+                            metric['fixed_task_set_hash'] != self.manifest['fixed_task_set_v11']['hash']):
+                        raise ValueError('saved round metrics belong to another frozen checkpoint/task set')
+                else:
+                    round_metrics(self)
         directory = self.directory / f"round-{s['round']}"
         expected_hash = tensor_state_hash(s['parameters'])
         if directory.exists():

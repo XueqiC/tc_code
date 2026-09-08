@@ -55,6 +55,8 @@ def load_config(path, *, arm=None, replay_schedule=None):
         mutable |= {'rounds', 'budget_checkpoints_bank_fraction', 'exposure_slots_per_window',
                     'max_new_packages_per_window', 'slots_per_step', 'drift_reference_packages', 'value_noise_floor'}
         mutable |= set(ALPHA_D_DEFAULTS)
+        from .metrics_v11 import options as metric_options
+        metric_options(config)
     validate_alpha_d_config(config)
     for key, expected in canonical.items():
         if key not in mutable and config.get(key) != expected:
@@ -253,6 +255,10 @@ def make_manifest(config, arm, audit, *, smoke=False):
         support_path = ROOT/config['support_manifest']
         if support_path.is_file():
             manifest['parent_group_roles_by_fold'] = fold_roles(json.loads(support_path.read_text())['parents'])
+            from .metrics_v11 import options as metric_options, freeze_tasks
+            if metric_options(config)['enabled']:
+                manifest['fixed_task_set_v11'] = freeze_tasks(json.loads(support_path.read_text())['parents'],
+                    short_fold=metric_options(config)['short_fold'], states=BFCLSupport(ROOT, config).states)
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
