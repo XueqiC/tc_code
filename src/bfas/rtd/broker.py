@@ -138,12 +138,14 @@ class SealedReplayBroker:
                 raise ValueError("candidate snapshot uses a different inner fold")
             if isinstance(remaining_budget, bool) or not isinstance(remaining_budget, int) or remaining_budget < 0:
                 raise BudgetError("remaining budget must be a nonnegative token count")
-            budget = min(remaining_budget, self.ledger.remaining)
+            budget = min(remaining_budget, self.ledger.remaining, self.ledger.window_remaining)
             features = dict(student_snapshot.state_features)
             candidates = []
             for q, record in sorted(self._records.items()):
                 # Even state hashes/features of locked prefix requests are withheld.
                 if (q in owned_ids or not self._legal(record)
+                        or (self.ledger.window is not None and self.ledger.window_purchases +
+                            len(self.ledger.reservations) >= self.ledger.window['max_packages'])
                         or not set(record.dependencies) <= self.ledger.owned_ids
                         or record.spec.cost_upper_bound > budget):
                     continue

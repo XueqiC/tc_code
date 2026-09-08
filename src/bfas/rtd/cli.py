@@ -13,6 +13,8 @@ import yaml
 from .bank import build_bfcl_bank
 from .broker import SealedReplayBroker
 from .caps import PUBLIC_CLASS_CAPS, affordability
+from .caps import V11_BUDGET_BASIS, recorded_budget_ceilings
+from .config_v11 import v11_config, V11_DEFAULTS
 from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
 from .scoring import ScoreTolerance
@@ -29,16 +31,24 @@ def load_config(path):
     config = yaml.safe_load(Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
-    if (config.get('protocol_version') != '1.0.1' or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}
-            or config.get('budget_basis') != 'usable_public_cap_sum'):
+    v11 = config.get('protocol_version') == '1.1.0'
+    if (config.get('protocol_version') not in {'1.0.1', '1.1.0'} or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}
+            or config.get('budget_basis') != (V11_BUDGET_BASIS if v11 else 'usable_public_cap_sum')):
         raise ValueError('use the v1.0.1 public-cap configuration')
     canonical = yaml.safe_load((ROOT / 'configs/rtd/v1_bfcl_c25.yaml').read_text())
+    if v11:
+        config, canonical = v11_config(config, canonical)
+    elif (set(V11_DEFAULTS)-set(canonical)) & config.keys():
+        raise ValueError('v1.1 batch settings require protocol_version 1.1.0')
     mutable = {'student', 'output_root', 'replay_bank_path', 'support_manifest', 'max_action_tokens',
                'max_context_tokens', 'pilot_eta_candidates', 'initial_eta', 'model_local_files_only',
                'evaluate_after_round', 'mode', 'gate', 'acquisition', 'preconditioner',
                'score_consistency_tolerance', 'max_action_tokens_by_benchmark', 'max_state_batch_size',
                'memory_peak_budget_gb', 'memory_reserve_gb', 'memory_state_estimate_gb',
                'source_samples_per_state'}
+    if v11:
+        mutable |= {'rounds', 'budget_checkpoints_bank_fraction', 'exposure_slots_per_window',
+                    'max_new_packages_per_window', 'slots_per_step', 'drift_reference_packages', 'value_noise_floor'}
     for key, expected in canonical.items():
         if key not in mutable and config.get(key) != expected:
             raise ValueError(f'frozen protocol value changed: {key}')
@@ -92,12 +102,37 @@ def harness_hash(root, config):
 def data_identity(root, config, bank):
     root, bank = Path(root), Path(bank)
     data = root / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data'
-    return digest(dict(public=file_hash(bank/'public/requests.json'), integrity=file_hash(bank/'sealed/integrity.json'),
-                       support=file_hash(root/config['support_manifest']), official=tree_hash(data)))
+    identity = dict(public=file_hash(bank/'public/requests.json'), integrity=file_hash(bank/'sealed/integrity.json'),
+                    support=file_hash(root/config['support_manifest']), official=tree_hash(data))
+    if config.get('protocol_version') == '1.1.0':
+        from .bank_v11 import CERTIFICATE
+        identity['cap_certificate'] = file_hash(bank/CERTIFICATE)
+    return digest(identity)
 
 
 def bank_audit(config, *, build=False):
     bank = ROOT / config['replay_bank_path']
+    if config.get('protocol_version') == '1.1.0':
+        from .bank_v11 import build_v11_bank, validate_v11_certificate, CERTIFICATE
+        if build:
+            build_v11_bank(ROOT/'data/rtd/v1_bfcl_c25', bank)
+        certificate = validate_v11_certificate(bank)
+        summary = json.loads((bank/'sealed/audit_v11.json').read_text())
+        original = json.loads((bank/'sealed/audit.json').read_text())
+        core = certificate['core']
+        if (summary['budget_denominator'] != core['budget_denominator']
+                or summary['recorded_bank_usage'] != core['budget_denominator']
+                or sum(summary['available_cost_by_confidence'].values()) != core['budget_denominator']
+                or summary['available_packages'] != core['available_packages']
+                or summary['cap_certificate_sha256'] != file_hash(bank/CERTIFICATE)
+                or summary['bank_public_cap_sum'] != sum(core['class_counts'][k]*v for k, v in core['class_caps'].items())):
+            raise ValueError('v1.1 bank audit disagrees with certified content budget')
+        result = dict(summary, bank_path=str(bank.resolve()), m=original['m'],
+            budget_ceilings=recorded_budget_ceilings(core['budget_denominator'], rounds=config['rounds']),
+            budget_denominator=core['budget_denominator'], cap_certificate_sha256=file_hash(bank/CERTIFICATE),
+            public_cost_assumption=core['public_cost_assumption'], cost_scope=core['cost_scope'])
+        print(json.dumps(result, indent=2), flush=True)
+        return result
     if build:
         build_bfcl_bank(ROOT, bank)
     broker = SealedReplayBroker(bank, Ledger(0), inner_parent_hashes=set())
@@ -157,6 +192,17 @@ def make_manifest(config, arm, audit, *, smoke=False):
                        controller_pretrained=False, certification_access='evaluate only',
                        historical_demo_output_exact=1233607, historical_generator_output_estimated=142727),
         checkpoint_schedule='cumulative 10/25/50 percent after rounds 1/2/3; four windows per round')
+    if config.get('protocol_version') == '1.1.0':
+        manifest.update(version='rtd-v1.1.0-run', trajectory_schema_version=2, ledger_schema_version=2,
+            acquisition_protocol='batch_common_reference_v1', budget_basis=V11_BUDGET_BASIS,
+            budget_denominator=audit['budget_denominator'], budget_rounding='positive_integer_half_up',
+            cost_scope=audit['cost_scope'], cap_certificate_sha256=audit['cap_certificate_sha256'],
+            public_cost_assumption=audit['public_cost_assumption'],
+            exposure_slots_per_window=config['exposure_slots_per_window'],
+            max_new_packages_per_window=config['max_new_packages_per_window'],
+            replay_semantics='unfilled slots use old data; no fixed empty prior',
+            checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
+                                 if config['rounds'] == 2 else manifest['checkpoint_schedule']))
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
@@ -280,8 +326,8 @@ def run_campaign(args, config):
                 current = make_manifest(config, args.arm, bank_audit(config))
                 validate_resume(ROOT, directory, saved, current,
                                 acknowledge=getattr(args, 'acknowledge_code_drift', False),
-                                training=not all((directory/f'round-{r}').exists() for r in (1, 2, 3)))
-        for round_number in (1, 2, 3):
+                                training=not all((directory/f'round-{r}').exists() for r in range(1, config.get('rounds', 3)+1)))
+        for round_number in range(1, config.get('rounds', 3)+1):
             checkpoint = directory/f'round-{round_number}'
             if checkpoint.exists():
                 with exclusive_run(directory):

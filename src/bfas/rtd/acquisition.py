@@ -70,27 +70,92 @@ class BayesianLinearRegression:
 class ValuePosterior:
     def __init__(self, dimension, *, round_id, noise_variance=1.):
         self.dimension, self.noise_variance = dimension, noise_variance
+        self.model = BayesianLinearRegression(dimension, noise_variance=noise_variance)
+        self.observations = {}
+        self.reweight_observations = {}
+        self.history = []
+        self.drift_history = []
         self.begin_round(round_id)
 
     def begin_round(self, round_id):
         if not round_id:
             raise ValueError("round identity required")
         self.round_id = round_id
-        self.model = BayesianLinearRegression(self.dimension, noise_variance=self.noise_variance)
-        self.observations = {}
-        self.reweight_observations = {}  # separate diagnostic records, never fit as new purchases
 
-    def observe(self, features: PrePurchaseFeatures, label: InsertionLabel):
+    def observe(self, features: PrePurchaseFeatures, label: InsertionLabel, *, _fit=True):
         if (features.query_id != label.query_id or
                 features.round_id != self.round_id or label.round_id != self.round_id):
             raise ValueError("pre-purchase feature/request/round mismatch; stale labels excluded")
         target = self.observations if label.label_type is LabelType.PENDING_NEW else self.reweight_observations
-        if label.query_id in target:
+        key = label.query_id if label.label_type is LabelType.PENDING_NEW else (label.round_id, label.query_id, label.reference_hash)
+        if key in target:
             raise ValueError("duplicate request-level label")
         self.model.vector(features.values)
-        if label.label_type is LabelType.PENDING_NEW:
-            self.model.observe(features.values, label.value)
-        target[label.query_id] = (features, label)
+        noise = getattr(label, 'variance', None)
+        if label.label_type is LabelType.PENDING_NEW and _fit:
+            self.model.observe(features.values, label.value, noise_variance=noise)
+        target[key] = (features, label)
+        if not hasattr(self, 'history'):  # v1.0 recovery pickles predate persistent history
+            self.history = []
+        self.history.append(dict(round_id=self.round_id, features=features, label=label,
+                                 noise_variance=self.noise_variance if noise is None else noise))
+
+    def observe_batch(self, rows, labels, covariance):
+        """Generalized least squares retains shared-rollout label covariance."""
+        ids = list(labels)
+        if not ids:
+            return
+        for q in ids:
+            row, label = rows[q], labels[q]
+            if (q in self.observations or q != row.query_id or q != label.query_id or
+                    row.round_id != self.round_id or label.round_id != self.round_id or
+                    label.label_type is not LabelType.PENDING_NEW):
+                raise ValueError('duplicate or mismatched batch request/round label')
+        X = np.array([self.model.vector(rows[q].values) for q in ids])
+        y = np.array([labels[q].value for q in ids])
+        noise = np.asarray(covariance, dtype=np.float64)
+        if (noise.shape != (len(ids), len(ids)) or not np.isfinite(noise).all()
+                or not np.allclose(noise, noise.T)
+                or not np.allclose(np.diag(noise), [labels[q].variance for q in ids])):
+            raise ValueError('label-aligned heteroscedastic covariance required')
+        np.linalg.cholesky(noise)
+        precision = X.T @ np.linalg.solve(noise, X)
+        information = X.T @ np.linalg.solve(noise, y)
+        for q in ids:
+            self.observe(rows[q], labels[q], _fit=False)
+        self.model.precision += precision
+        self.model.information += information
+
+    def inflate_for_drift(self, *, query_id, old_value, new_value, variance, previous_variance=0.):
+        """Preserve the mean and all observations; discount precision on drift.
+
+        Reweight labels are diagnostics, not additional pending-new purchases.
+        Inflation is monotone in excess squared drift over measurement noise.
+        """
+        if query_id not in self.observations:
+            raise ValueError('drift needs a previously purchased observation')
+        if not np.isfinite([old_value, new_value, variance, previous_variance]).all() or min(variance, previous_variance) < 0:
+            raise ValueError('finite drift estimates and nonnegative variances required')
+        delta = new_value - old_value
+        noise = max(variance + previous_variance, 1e-12)
+        factor = 1. + min(100., max(0., delta * delta / noise - 1.))
+        self.model.precision /= factor
+        self.model.information /= factor
+        row = dict(round_id=self.round_id, query_id=query_id, old_value=old_value, new_value=new_value,
+                   delta=delta, variance=variance, previous_variance=previous_variance,
+                   uncertainty_inflation=factor)
+        self.drift_history.append(row)
+        return row
+
+
+class LegacyValuePosterior(ValuePosterior):
+    """Frozen v1.0 round-reset behavior, used only by legacy configurations."""
+    def begin_round(self, round_id):
+        super().begin_round(round_id)
+        self.model = BayesianLinearRegression(self.dimension, noise_variance=self.noise_variance)
+        self.observations = {}
+        self.reweight_observations = {}
+        self.history = []
 
 
 class CostRegressor:
@@ -103,6 +168,12 @@ class CostRegressor:
     def __init__(self, dimension):
         self.model = BayesianLinearRegression(dimension)
         self.observations = {}
+        self.round_id = None
+
+    def begin_round(self, round_id):
+        if not round_id:
+            raise ValueError('round identity required')
+        self.round_id = round_id
 
     def observe_revealed(self, spec, features, *, cost, confidence, revealed_ids):
         if spec.query_id not in revealed_ids or features.query_id != spec.query_id:
@@ -115,7 +186,8 @@ class CostRegressor:
             raise ValueError("revealed usage outside public reservation")
         ratio = cost / spec.cost_upper_bound if spec.cost_upper_bound else 0.
         self.model.observe(features.values, ratio - 1., noise_variance=1. if confidence == "exact" else 4.)
-        self.observations[spec.query_id] = dict(cost=cost, confidence=confidence, cap=spec.cost_upper_bound)
+        self.observations[spec.query_id] = dict(cost=cost, confidence=confidence, cap=spec.cost_upper_bound,
+                                              round_id=features.round_id)
 
     def predict(self, spec, features):
         if features.query_id != spec.query_id:
@@ -232,3 +304,111 @@ def select_and_acquire(broker, student_snapshot, policy, feature_rows, *, remain
         remaining_budget=remaining, remaining_windows=remaining_windows, random_control=random_control))
     package = None if selected is None else broker.acquire(selected)
     return package, policy.last_decision, trace
+
+
+def window_budget(remaining, remaining_windows, candidates):
+    """Carry actual unspent authorization; public cap floor avoids class lockout."""
+    if type(remaining) is not int or remaining < 0 or type(remaining_windows) is not int or remaining_windows < 1:
+        raise ValueError('nonnegative authorization and positive window count required')
+    cap = max((c.cost_upper_bound for c in candidates if c.cost_upper_bound <= remaining), default=0)
+    base = (remaining + remaining_windows - 1) // remaining_windows
+    return min(remaining, max(base, cap))
+
+
+def greedy_batch(ids, values, costs, *, budget, limit):
+    """Deterministic value/cost greedy with a best-singleton safeguard.
+
+    This is a local knapsack heuristic, not an optimality certificate. Nonpositive
+    sampled marginal values leave exposure with old data. Zero-cost items still
+    occupy one package slot.
+    """
+    order = sorted(range(len(ids)), key=lambda i: (-(values[i] / max(costs[i], 1e-12)), -values[i], ids[i]))
+    chosen, spent = [], 0.
+    for i in order:
+        if values[i] > 0 and len(chosen) < limit and spent + costs[i] <= budget + 1e-9:
+            chosen.append(i)
+            spent += costs[i]
+    singles = [i for i in order if costs[i] <= budget and values[i] > 0]
+    if limit and singles:
+        best = max(singles, key=lambda i: values[i])
+        if values[best] > sum(values[i] for i in chosen):
+            chosen = [best]
+    return chosen
+
+
+class BatchAcquisitionPolicy(AcquisitionPolicy):
+    def choose_batch(self, candidates, feature_rows, *, remaining_budget, exposure_slots=40,
+                     max_new_packages=20, random_control=False, previous_model=None):
+        if (type(exposure_slots) is not int or type(max_new_packages) is not int
+                or not 0 <= max_new_packages <= exposure_slots or exposure_slots < 1
+                or not math.isfinite(remaining_budget) or remaining_budget < 0):
+            raise ValueError('invalid batch exposure or budget')
+        unique = {}
+        for spec in candidates:
+            if type(spec) is not PublicQuerySpec:
+                raise TypeError('public query specs only')
+            if spec.query_id in unique and unique[spec.query_id] != spec:
+                raise ValueError('conflicting duplicate public request')
+            if spec.cost_upper_bound <= remaining_budget:
+                unique[spec.query_id] = spec
+        specs = list(unique.values())
+        ids = [c.query_id for c in specs]
+        rows = [feature_rows[q] for q in ids]
+        if any(r.query_id != q or r.round_id != self.posterior.round_id for q, r in zip(ids, rows)):
+            raise ValueError('missing or stale pre-purchase features')
+        model = self.posterior.model
+        xs = np.asarray([model.vector(r.values) for r in rows]).reshape(-1, model.dimension)
+        z = self.rng.standard_normal(model.dimension) if ids and not random_control else None
+        beta = None if z is None else model.mean + np.linalg.solve(np.linalg.cholesky(model.precision).T, z)
+        values = np.zeros(len(ids)) if beta is None else xs @ beta
+        costs = np.asarray([self.cost_model.predict(c, r) for c, r in zip(specs, rows)])
+        if random_control:
+            # Random ordering under the same expected-cost/K/hard-cap rules; no
+            # artificial empty mass and no value-dependent labels enter R0.
+            chosen, cost = [], 0.
+            for i in self.rng.permutation(len(ids)):
+                if len(chosen) < max_new_packages and cost + costs[i] <= remaining_budget + 1e-9:
+                    chosen.append(int(i)); cost += costs[i]
+        else:
+            chosen = greedy_batch(ids, values, costs, budget=remaining_budget, limit=max_new_packages)
+        predicted = sum(float(values[i]) for i in chosen) / exposure_slots
+        chosen_ids = [ids[i] for i in chosen]
+        positive = [i for i in range(len(ids)) if random_control or values[i] > 0]
+        skipped = set(positive) - set(chosen)
+        binding = bool(skipped and any(sum(costs[i] for i in chosen) + costs[j] > remaining_budget + 1e-9 for j in skipped))
+        reason = ('no_feasible_candidates' if not ids else 'package_limit' if len(chosen) == max_new_packages
+                  else 'predicted_budget' if binding else 'nonpositive_sampled_gain' if skipped or len(positive) < len(ids)
+                  else 'candidate_exhaustion')
+        significance = dict(pair=None, difference=None, standard_error=None, z_score=None, significant=False,
+                            threshold=1.96, method='posterior_difference_covariance',
+                            units='unit_exposure_insertion_value',
+                            previous_comparable_selected=None, decision_changed=False if random_control else None,
+                            comparison='same_current_candidates_features_costs_budget_and_standard_normal_draw')
+        if len(ids) >= 2:
+            means = xs @ model.mean
+            order = np.argsort(-means, kind='stable')
+            a, b = order[:2]
+            diff = xs[a] - xs[b]
+            se = math.sqrt(max(0., float(diff @ np.linalg.solve(model.precision, diff))))
+            delta = float(means[a] - means[b])
+            score = delta / max(se, 1e-12)
+            significance.update(pair=[ids[a], ids[b]], difference=delta, standard_error=se,
+                                z_score=score, significant=score >= 1.96)
+        if previous_model is not None and z is not None:
+            previous_beta = previous_model.mean + np.linalg.solve(np.linalg.cholesky(previous_model.precision).T, z)
+            old = greedy_batch(ids, xs @ previous_beta, costs, budget=remaining_budget, limit=max_new_packages)
+            previous_ids = [ids[i] for i in old]
+            significance.update(previous_comparable_selected=previous_ids,
+                                decision_changed=set(previous_ids) != set(chosen_ids))
+        self.last_decision = dict(acquisition_protocol='batch_common_reference_v1', round_id=self.posterior.round_id,
+            query_ids=ids, selected=chosen_ids, sampled_values=values.tolist(), expected_costs=costs.tolist(),
+            public_cost_caps=[c.cost_upper_bound for c in specs], beta=None if beta is None else beta.tolist(),
+            posterior_standard_normal=None if z is None else z.tolist(), exposure_slots=exposure_slots,
+            position_share=1./exposure_slots, max_new_packages=max_new_packages,
+            window_budget=remaining_budget, predicted_cost=sum(float(costs[i]) for i in chosen),
+            predicted_additive_gain=predicted, budget_binding=binding, stop_reason=reason,
+            optimizer='random_order' if random_control else 'value_cost_greedy_best_singleton',
+            value_difference_significance=significance, replay_prior_mass=None,
+            replay_semantics='unfilled exposure uses old data; empty set continues training',
+            pending_new_observations=len(self.posterior.observations), noise_estimation='rollout_heteroscedastic')
+        return chosen_ids

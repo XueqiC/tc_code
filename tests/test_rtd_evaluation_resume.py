@@ -119,6 +119,22 @@ def drift(c):
     put(c.root/'src/bfas/rtd/experiment.py', 'changed RTD')
 
 
+def test_two_round_campaign_resumes_only_ten_and_twenty_five_percent(campaign):
+    c = campaign
+    c.manifest['config']['rounds'] = 2
+    c.manifest['config_hash'] = digest(c.manifest['config'])
+    atomic_json(c.directory/'manifest.json', c.manifest)
+    checkpoint(c.directory, c.manifest, 1)
+    args = SimpleNamespace(command='resume', run_dir=str(c.directory), arm='R0',
+                           config=None, acknowledge_code_drift=True, port=0)
+    cli.run_campaign(args, c.manifest['config'])
+    assert c.order == [('evaluate', 1), ('train', 2), ('evaluate', 2)]
+    assert not (c.directory/'round-3').exists()
+    c.order.clear()
+    cli.run_campaign(args, c.manifest['config'])
+    assert c.order == []
+
+
 def harness_drift(c, path):
     if path == 'tools/behavior_atom/checker_bridge.py':
         # C25r projects the bridge AST: keep valid Python while changing a

@@ -43,7 +43,7 @@ def test_bayesian_posterior_mean_and_sampling_covariance():
     np.testing.assert_allclose(np.cov(samples.T), [[2/3, -1/3], [-1/3, 2/3]], atol=.035)
 
 
-def test_request_label_types_duplicates_and_round_prior_reset():
+def test_request_label_types_duplicates_and_persistent_round_history():
     posterior = ValuePosterior(2, round_id='r1')
     posterior.observe(features(), label(kind=LabelType.REWEIGHT_EXISTING))
     assert len(posterior.reweight_observations) == 1 and not posterior.observations
@@ -52,9 +52,10 @@ def test_request_label_types_duplicates_and_round_prior_reset():
     assert np.linalg.norm(posterior.model.mean) > 0
     with pytest.raises(ValueError, match='duplicate'):
         posterior.observe(features('new'), label('new'))
+    precision = posterior.model.precision.copy()
     posterior.begin_round('r2')
-    np.testing.assert_array_equal(posterior.model.precision, np.eye(2))
-    assert not posterior.observations
+    np.testing.assert_array_equal(posterior.model.precision, precision)
+    assert set(posterior.observations) == {'new'}
     with pytest.raises(ValueError, match='stale'):
         posterior.observe(features('new'), label('new'))
 

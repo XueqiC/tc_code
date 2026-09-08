@@ -11,6 +11,15 @@ from pathlib import Path
 
 PUBLIC_CLASS_CAPS = {"demo_attempt": 65536, "generator_item": 8192}
 PROTOCOL_VERSION = "1.0.1"
+V11_CLASS_CAPS = {"demo_attempt": 2048, "generator_item": 512}
+V11_BUDGET_BASIS = 'usable_recorded_output_tokens'
+C25_RECORDED_OUTPUT_TOKENS = 55370
+
+
+def recorded_budget_ceilings(total=C25_RECORDED_OUTPUT_TOKENS, *, rounds=3):
+    if type(total) is not int or total < 0 or type(rounds) is not int or rounds not in (2, 3):
+        raise ValueError('recorded integer cost and two or three rounds required')
+    return [(total * percent + 50) // 100 for percent in (10, 25, 50)[:rounds]]
 
 
 @dataclass(frozen=True)

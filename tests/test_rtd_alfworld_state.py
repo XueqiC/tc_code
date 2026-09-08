@@ -236,7 +236,18 @@ def test_real_environment_two_packages_replay_deterministically(tmp_path, monkey
     selected = [(i, r) for i, r in rows if r["verified"]][:2]
     assert len(selected) == 2
     renderer = FrozenRenderer(TOKENIZER)
-    sources = bank._Sources(root)
+    # Isolated worktrees expose envs/ as a read-only symlink. Keep _Sources'
+    # containment guard intact by copying only these two reset fixtures into
+    # tmp_path; the real stepper still verifies the original world's hashes.
+    import shutil
+    fixture_root = tmp_path / 'reset-fixtures'
+    for _, row in selected:
+        bank.parent_hash(row['task_id'])
+        relative = Path('envs/alfworld/data/json_2.1.1/train') / row['task_id']
+        (fixture_root / relative).mkdir(parents=True, exist_ok=True)
+        for name in ('game.tw-pddl', 'traj_data.json', 'initial_state.pddl'):
+            shutil.copyfile(root / relative / name, fixture_root / relative / name)
+    sources = bank._Sources(fixture_root)
     for line, row in selected:
         from bfas.rtd.benchmarks.alfworld_caps import CapConfiguration
         request = bank._reset_request(sources, row["task_id"], CapConfiguration(), environment["environment_hash"])

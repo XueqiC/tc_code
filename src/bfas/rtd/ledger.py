@@ -34,6 +34,7 @@ class Ledger:
         self.reservations: dict[str, int] = {}
         self.charges: dict[str, int] = {}
         self.events: list[dict] = []
+        self.window = None
         self.lock = RLock()
         if self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,6 +52,43 @@ class Ledger:
     @property
     def owned_ids(self):
         return frozenset(self.charges)
+
+    @property
+    def window_remaining(self):
+        if self.window is None:
+            return self.remaining
+        return self.window['budget'] - (self.spent - self.window['start_spend']) - sum(self.reservations.values())
+
+    @property
+    def window_purchases(self):
+        return 0 if self.window is None else len(self.charges) - self.window['start_count']
+
+    def open_window(self, window_id, budget, max_packages):
+        with self.lock:
+            budget, max_packages = _tokens(budget), _tokens(max_packages)
+            if self.window is not None:
+                if (self.window['window_id'], self.window['budget'], self.window['max_packages']) != (window_id, budget, max_packages):
+                    raise LedgerError('conflicting open window')
+                return
+            if self.reservations or budget > self.remaining or not window_id:
+                raise BudgetError('window exceeds unreserved authorization')
+            if any(e['kind'] == 'window_open' and e['window_id'] == window_id for e in self.events):
+                raise LedgerError('closed window cannot be reopened')
+            self._append('window_open', None, window_id=window_id, budget=budget, max_packages=max_packages)
+            self.window = dict(window_id=window_id, budget=budget, max_packages=max_packages,
+                               start_spend=self.spent, start_count=len(self.charges))
+
+    def close_window(self, window_id):
+        with self.lock:
+            if self.window is None:
+                if any(e['kind'] == 'window_close' and e['window_id'] == window_id for e in self.events):
+                    return
+                raise LedgerError('no open window')
+            if self.window['window_id'] != window_id or self.reservations:
+                raise LedgerError('wrong window or unsettled reservations')
+            self._append('window_close', None, window_id=window_id,
+                         cost=self.spent-self.window['start_spend'], purchases=self.window_purchases)
+            self.window = None
 
     def _append(self, kind, query_id, **values):
         event = dict(sequence=len(self.events), timestamp=datetime.now(timezone.utc).isoformat(),
@@ -109,6 +147,13 @@ class Ledger:
                               dependencies=e['dependencies'])
             elif kind == 'authorize':
                 ledger.authorize(e['budget'])
+            elif kind == 'window_open':
+                ledger.open_window(e['window_id'], e['budget'], e['max_packages'])
+            elif kind == 'window_close':
+                if (ledger.window is None or e['cost'] != ledger.spent-ledger.window['start_spend']
+                        or e['purchases'] != ledger.window_purchases):
+                    raise LedgerError('window closing totals mismatch')
+                ledger.close_window(e['window_id'])
             else:
                 raise LedgerError('unknown ledger event')
             if len(ledger.events) != e['sequence'] + 1:
@@ -137,6 +182,9 @@ class Ledger:
                 return False
             if cap > self.remaining:
                 raise BudgetError("public cap exceeds remaining hard budget")
+            if self.window is not None and (cap > self.window_remaining or
+                    self.window_purchases + len(self.reservations) >= self.window['max_packages']):
+                raise BudgetError('public cap or package count exceeds hard window budget')
             self._append("reserve", query_id, cap=cap)
             self.reservations[query_id] = cap
             return True
@@ -151,6 +199,10 @@ class Ledger:
             needed = sum(c for q, c in unpaid.items() if q not in self.reservations)
             if needed > self.remaining:
                 raise BudgetError("request plus unpaid dependencies exceeds hard budget")
+            count = len(set(unpaid) | set(self.reservations))
+            if self.window is not None and (needed > self.window_remaining or
+                    self.window_purchases + count > self.window['max_packages']):
+                raise BudgetError('dependency chain exceeds hard window budget or package limit')
             for q, c in unpaid.items():
                 self.reserve(q, c)
 
