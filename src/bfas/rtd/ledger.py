@@ -3,6 +3,11 @@
 The currency is historical output tokens (exact or explicitly estimated).
 Input/reasoning/money remain separate usage fields; unknown is never zero.
 A reservation uses a public cap, not the sealed response's actual usage.
+
+"Not charged on failure" applies only to local pre-check failures with zero
+consumption. Online output is settled at recorded usage BEFORE task validation;
+charged output remains billed even if parsing or the downstream task fails.
+Settling releases the unused cap atomically with the durable charge.
 """
 from __future__ import annotations
 
@@ -28,6 +33,22 @@ def _tokens(value):
 
 
 class Ledger:
+    def online_request(self, query_id, cap, *, precheck, request, validate):
+        """Broker hook with explicit consumption, usable with a fake online broker.
+
+        precheck must be local and consume nothing. request returns a receipt
+        even on task failure: {cost, confidence, usage, output}. Provider adapters
+        must turn billed error responses into receipts, never discard usage.
+        An exception before a receipt leaves the reservation held for usage
+        reconciliation; it is not evidence of zero consumption.
+        """
+        precheck()
+        if not self.reserve(query_id, cap):
+            raise LedgerError('online request already charged or awaiting reconciliation')
+        receipt = request()
+        self.settle(query_id, receipt['cost'], confidence=receipt['confidence'], usage=receipt['usage'])
+        return validate(receipt['output'])
+
     def __init__(self, budget: int, path: Path | None = None):
         self.budget = _tokens(budget)
         self.path = Path(path) if path is not None else None

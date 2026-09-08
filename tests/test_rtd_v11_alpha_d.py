@@ -197,10 +197,13 @@ def test_blocked_alpha_vjp_matches_nonlinear_finite_difference_with_fixed_d(scal
 
 
 def engine(path, bank, *, resume=False, smoke=True, **options):
+    arm = options.pop('arm', None)
     c = batch_config(rounds=2, exposure_slots_per_window=40, slots_per_step=4, source_estimator='alpha_d',
-        **ALPHA_D_DEFAULTS)
+        gate='linear_sigmoid', **ALPHA_D_DEFAULTS)
     c.update(options)
-    e = experiment(path, bank, config=c, smoke=smoke, resume=resume)
+    from bfas.rtd.conventions import arm_config
+    c, arm = arm_config(c, arm or ('V0' if c['gate_mode'] == 'fixed_alpha' else 'V2'))
+    e = experiment(path, bank, config=c, smoke=smoke, resume=resume, arm=arm)
     model = e.backend.model
     model.head = torch.nn.Identity()
     model.get_output_embeddings = lambda: model.head
@@ -226,13 +229,13 @@ def test_runner_acquire_freeze_sample_same_batch_commit_then_alpha_feedback(toy_
         return next(i for i, ev in enumerate(events) if ev['kind'] == kind and all(ev.get(k) == v for k, v in fields.items()))
     assert index('decision') < index('request_reveal_link') < index('alpha_d_exposure_frozen', role='commit')
     assert index('alpha_d_exposure_frozen', role='commit') < index('alpha_d_source_pair', role='commit')
-    assert index('alpha_d_reference') < index('return_gradient', role='source_selection_feedback')
+    assert index('alpha_d_reference') < index('return_gradient', role='virtual_reference_feedback')
     assert index('alpha_d_solver') < index('alpha_d_student_commit') < index('feedback_rollout', role='alpha_post_commit_feedback')
-    assert index('alpha_d_gate_update') < index('return_gradient', role='acquisition_surrogate_feedback')
+    assert index('alpha_d_gate_update') < index('alpha_d_acquisition_reference')
     row = e.state['steps'][0]
-    assert row['slots'] == 2 and row['source_actions'] == 4 and row['exposure_mode'] == 'random exposure'
-    assert row['exposure_units'] == 2 and row['source_only_placeholders'] == 0
-    assert row['alpha_d']['warmup'] and row['alpha_d']['d_star'] == [0.]*2
+    assert row['slots'] == 4 and row['source_actions'] == 8 and row['exposure_mode'] == 'random exposure'
+    assert row['exposure_units'] == 4 and row['teacher_evidence_units'] == 2 and row['reference_pool_units'] == 2
+    assert row['alpha_d']['warmup'] and row['alpha_d']['d_star'] == [0.]*4
     assert not {'alpha_pairs', 'd_reference', 'd_solution'} & e.state.keys()
     assert len(e.state['d_feedback'].scores) == 2
     # Persisted targets are plain source/teacher records, without signed CE.
@@ -251,7 +254,8 @@ def test_full_40_units_80_actions_ten_microbatches_and_fresh_nondecision_feedbac
     finish_step(e)
     first = s['steps'][0]
     assert first['exposure_units'] == 40 and first['source_actions'] == 80
-    assert first['microbatches'] == 10 and first['source_only_placeholders'] == 0
+    assert first['microbatches'] == 10
+    assert first['teacher_evidence_units']+first['reference_pool_units'] == 40
     assert first['raw_new_slots'] <= 20 and first['raw_old_slots']+first['raw_new_slots'] == 40
     feedback = s['d_feedback']
     old_draws = set(s['last_committed_draw_ids'])
@@ -307,15 +311,16 @@ def test_redundancy_statistics_and_source_cache_rejection():
         replace(pairs[0], sources=(pairs[0].sources[0],)*2)
 
 
-def test_full_exposure_empty_old_pool_cannot_claim_teacher_placeholders(toy_bank, tmp_path):
+def test_full_exposure_empty_paid_pool_uses_reference_states_without_teacher(toy_bank, tmp_path):
     e = engine(tmp_path/'run', toy_bank, slots_per_step=40)
     e.round_start(); e.step_start(); e.reference()
     while e.state['phase'] == 'selected':
         e.selected()
-    with pytest.raises(ValueError, match='already-paid inner old pool'):
-        e.revealed()
-    assert not e.state['steps']
-    assert not any(ev['kind'] == 'alpha_d_student_commit' for ev in e.journal.events)
+    e.revealed(); e.actual(); e.feedback_commit()
+    row = e.state['steps'][0]
+    assert row['exposure_units'] == 40 and row['source_actions'] == 80
+    assert row['reference_pool_units'] == 40-len(row['selected'])
+    assert all(r['alpha'] == 0 for r in row['exposure_records'] if r['teacher'] is None)
 
 
 def test_random_exposure_records_untrained_purchased_packages(toy_bank, tmp_path):
@@ -341,12 +346,13 @@ def test_manifest_labels_full_and_random_exposure_and_arm_contract(manifest_inpu
     full = cli.make_manifest(config | {'slots_per_step': 40}, 'V2', audit)
     assert full['exposure_mode'] == 'full exposure' and full['source_action_capacity_per_commit'] == 80
     assert full['microbatches_per_commit'] == 10
-    for arm in ('V1', 'V2'):
-        validate_arm(config, arm)
+    validate_arm(config, 'V2')
+    with pytest.raises(ValueError, match='replay schedule'):
+        validate_arm(config | {'acquisition': 'random'}, 'V1')
     with pytest.raises(ValueError, match='V0 requires'):
         validate_arm(config, 'V0')
     v0 = config | dict(gate_mode='fixed_alpha', fixed_alpha=.5, d_mode='zero')
-    validate_arm(v0, 'V0')
+    validate_arm(v0 | {'acquisition': 'random'}, 'V0')
     with pytest.raises(ValueError, match='V1/V2 require'):
         validate_arm(v0, 'V1')
 
@@ -356,7 +362,7 @@ def test_v0_alpha_stays_point_five_and_d_zero_with_feedback(toy_bank, tmp_path):
     e.manifest['arm'] = 'V0'
     e.run()
     row = e.state['steps'][0]
-    assert row['alpha_d']['alpha'] == [.5]*row['slots']
+    assert row['alpha_d']['alpha'] == [.5 if r['teacher'] else 0. for r in row['exposure_records']]
     assert row['alpha_d']['d_star'] == [0.]*row['slots']
     assert not any(ev['kind'] == 'alpha_d_gate_update' for ev in e.journal.events)
 
@@ -404,4 +410,4 @@ def test_warmup_ends_at_next_decision_window_and_feedback_age_resets(toy_bank, t
     assert [r['alpha_d']['feedback_age'] for r in rows] == [0, 1, 2, 0]
     assert rows[-1]['alpha_d']['solver']['converged']
     assert len([ev for ev in e.journal.events if ev['kind'] == 'return_gradient' and
-                ev['role'] == 'source_selection_feedback']) == 2
+                ev['role'] == 'virtual_reference_feedback']) == 2

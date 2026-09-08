@@ -49,6 +49,8 @@ def validate_config(config):
         raise ValueError('invalid redundancy cosine threshold')
     if c['microbatch_states'] != 4 or c.get('source_samples_per_state', 2) != 2:
         raise ValueError('rev 3 requires microbatch=4 states and two source actions per state')
+    if c.get('source_temperature', 1.) != 1. or c.get('source_top_p', 1.) != 1.:
+        raise ValueError('all arms require source temperature=1 and top_p=1')
     if c.get('source_estimator', 'alpha_d') != 'alpha_d' or 'cv_cs_mode' in c:
         raise ValueError('alpha/d requires its paired estimator, without CV coefficients')
     if c.get('gate_override') is not None:
@@ -71,6 +73,13 @@ def validate_arm(config, arm):
         raise ValueError('V0 requires fixed_alpha=.5 and d_mode=zero')
     if arm in {'V1', 'V2'} and (c['gate_mode'], c['d_mode']) != ('learned_alpha', 'learned'):
         raise ValueError('V1/V2 require learned_alpha and learned d')
+    from .conventions import ARMS
+    if arm in ARMS:
+        for key, value in ARMS[arm].items():
+            if key in config and config[key] != value:
+                raise ValueError(f'{arm} requires {key}={value}')
+    if arm == 'V1' and not config.get('replay_schedule'):
+        raise ValueError('V1 requires an exposure replay schedule')
 
 
 def state_features(state, projection, *, scalar=False, device=None, dtype=torch.float32):

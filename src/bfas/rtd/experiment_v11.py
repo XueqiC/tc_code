@@ -13,16 +13,24 @@ from .ledger import BudgetError
 from .runtime import streamed_gate_vjp
 from .selector import StudentSnapshot, select_public_batch
 from .value_feedback import insertion_statistics, reliability
+from .broker import UnavailableError
 
 
 class BatchExperimentMixin:
+    def batch_remaining_candidates(self):
+        s = self.state
+        features = tuple((h, self.feature(srcs[0]).features) for h, srcs in s['source_cache'].items())
+        view = StudentSnapshot(s['source_id'], frozenset(s['inner']), features)
+        return [c.query_id for c in self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)]
+
     @property
     def max_new_packages(self):
         return self.config.get('max_new_packages_per_window', 20)
 
     def batch_features(self, specs):
         s = self.state
-        projections = [s['projection_cache'][b.state.state_hash] for p in self.packages() for b in p.behaviors]
+        projections = [s['projection_cache'][b.state.state_hash] for p in self.packages() for b in p.behaviors
+                       if b.state.state_hash in s['projection_cache']]
         def coverage(spec):
             x = np.asarray(spec.features.projection)
             return max((float(np.dot(x, p)/max(np.linalg.norm(x)*np.linalg.norm(p), 1e-12))
@@ -92,10 +100,27 @@ class BatchExperimentMixin:
             quota = window_budget(self.ledger.remaining, remaining_windows, candidates)
             rows = self.batch_features(candidates)
             policy = BatchAcquisitionPolicy(s['posterior'], s['cost_model'], rng=self.rng)
-            selected, trace = select_public_batch(candidates, lambda public: policy.choose_batch(public, rows,
-                remaining_budget=quota, exposure_slots=40 if self.alpha_d else self.slots, max_new_packages=self.max_new_packages,
-                random_control=self.manifest['arm'] in {'R0', 'V0'} or self.config.get('acquisition') == 'random',
-                previous_model=s['previous_decision_model']))
+            replay = s.get('replay_exposure') if self.alpha_d else None
+            if replay:
+                selected = replay['selected']
+                if not set(selected) <= rows.keys():
+                    raise ValueError('V0 replay purchase is unavailable under V1 authorization')
+                selected, trace = select_public_batch(candidates, lambda public:
+                    [c.query_id for c in public if c.query_id in set(replay['selected'])])
+                quota = replay['window_budget']
+                policy.last_decision = dict(selected=list(selected), query_ids=list(rows),
+                    sampled_values=[0.]*len(rows), predicted_additive_gain=0., predicted_cost=None,
+                    budget_binding=False, stop_reason='exposure_schedule_replay',
+                    replay_schedule_hash=self.config['replay_schedule_hash'])
+            else:
+                selected, trace = select_public_batch(candidates, lambda public: policy.choose_batch(public, rows,
+                    remaining_budget=quota, exposure_slots=40 if self.alpha_d else self.slots, max_new_packages=self.max_new_packages,
+                    random_control=self.manifest['arm'] in {'R0', 'V0'} or self.config.get('acquisition') == 'random',
+                    previous_model=s['previous_decision_model']))
+            if self.alpha_d:
+                # Stable executor order is independent of random/learned solver rank.
+                selected = sorted(selected)
+                policy.last_decision['selected'] = list(selected)
             s['selected'], s['trace'], s['selection'] = list(selected), trace, policy.last_decision
             s['batch_rows'], s['batch_specs'] = rows, {c.query_id: c for c in candidates}
             s['selection'].update(window_id=s['window_id'], remaining_outer_windows=remaining_windows,
@@ -130,6 +155,11 @@ class BatchExperimentMixin:
                 # Keep the sampled set fixed; visit remaining choices once.
                 s['hard_stops'].append(dict(query_id=q, reason='hard_cap_tail',
                     global_remaining=self.ledger.remaining, window_remaining=self.ledger.window_remaining))
+            except UnavailableError as error:
+                if not self.alpha_d:
+                    raise
+                s['hard_stops'].append(dict(query_id=q, reason='local_precheck_unavailable', detail=str(error),
+                    global_remaining=self.ledger.remaining, window_remaining=self.ledger.window_remaining))
             else:
                 self.journal.append('request_reveal_link', round=s['round'], step=s['step'], query_id=q,
                     window_id=s['window_id'], ledger_reveal_sequence=next(e['sequence'] for e in self.ledger.events
@@ -139,6 +169,14 @@ class BatchExperimentMixin:
                 s['cost_model'].observe_revealed(s['batch_specs'][q], s['batch_rows'][q], cost=package.cost,
                     confidence=package.cost_confidence, revealed_ids=self.ledger.owned_ids)
                 s['pending_ids'].append(q)
+            if self.alpha_d:
+                # Recompute legal public inventory after settlement/release.
+                # No refill: the solver's fixed plan remains the only purchase set.
+                s['remaining_candidate_ids'] = self.batch_remaining_candidates()
+                self.journal.append('acquisition_transaction', round=s['round'], step=s['step'], query_id=q,
+                    acquired=q in s['pending_ids'], reservations=dict(self.ledger.reservations),
+                    remaining_authorization=self.ledger.remaining, window_remaining=self.ledger.window_remaining,
+                    actual_spend=self.ledger.spent, candidates=s['remaining_candidate_ids'])
             s['transaction_index'] += 1
             s['transaction_query'] = (s['selected'][s['transaction_index']]
                                       if s['transaction_index'] < len(s['selected']) else None)
@@ -148,7 +186,18 @@ class BatchExperimentMixin:
         s['selected'] = list(s['pending_ids'])
         s['selection']['selected'] = list(s['selected'])
         if s['hard_stops']:
-            s['selection'].update(budget_binding=True, stop_reason='hard_cap_tail', hard_stops=s['hard_stops'])
+            hard_cap = any(r['reason'] == 'hard_cap_tail' for r in s['hard_stops'])
+            s['selection'].update(budget_binding=hard_cap, stop_reason='hard_cap_tail' if hard_cap else 'local_precheck_unavailable',
+                                  hard_stops=s['hard_stops'])
+        if self.alpha_d:
+            if s.get('replay_exposure') and s['selected'] != s['replay_exposure']['selected']:
+                raise ValueError('V1 hard ledger could not acquire the V0 schedule')
+            s['remaining_candidate_ids'] = self.batch_remaining_candidates()
+            self.journal.append('acquisition_execution', round=s['round'], step=s['step'],
+                planned=s['selection']['planned_selected'], acquired=list(s['selected']),
+                drops=list(s['hard_stops']), reservation_order='query_id_ascending',
+                remaining_authorization=self.ledger.remaining, actual_spend=self.ledger.spent,
+                remaining_candidates=s.get('remaining_candidate_ids', sorted(set(s['batch_specs'])-self.ledger.owned_ids)))
         ids, values = s['selection'].get('query_ids', []), s['selection'].get('sampled_values', [])
         s['selection']['planned_predicted_additive_gain'] = s['selection']['predicted_additive_gain']
         value_by_id = dict(zip(ids, values))

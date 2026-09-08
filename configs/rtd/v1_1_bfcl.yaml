@@ -1,8 +1,8 @@
-# RTD v1.1 rev 3.1: two-round state-only alpha + joint d control.
-# V0: gate_mode=fixed_alpha, fixed_alpha=.5, d_mode=zero, acquisition=random.
-# V1/V2: learned_alpha + learned d; D7 owns V1's complete V0 exposure replay.
-# Full E=40 commits require paid inner-fold old evidence to fill the E-K units.
-# Empty old pools are rejected; explicit slots_per_step<40 is random exposure.
+# RTD v1.1: D8 alpha/d + D7 rev-2 frozen reference/exposure conventions.
+# --arm V0|V1|V2 selects acquisition, alpha/d and ledger replay together.
+# V1 requires --replay-schedule <V0 run dir>; source actions are always redrawn.
+# Old pool = paid records + reference states (no teacher => alpha=0).
+# Explicit slots_per_step<40 remains labelled random exposure.
 method: rtd_v1_1
 mode: sealed_replay
 training_seed: 0

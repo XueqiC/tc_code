@@ -113,9 +113,10 @@ def assert_run_invariants(state, ledger, *, complete=False):
     if any(e['inner_fold'] != (e['round']-1) % 2 for e in steps):
         raise AssertionError('fold rotation mismatch')
     for e in steps:
-        if e.get('acquisition_protocol') == 'alpha_d_historical_additive_surrogate':
+        if e.get('acquisition_protocol') in {'alpha_d_historical_additive_surrogate', 'alpha_d_batch_mixture_v11'}:
             if (e['source_actions'] != 2*e['slots'] or e['raw_new_slots'] > 20 or
-                    e['exposure_units']+e['source_only_placeholders'] != e['slots'] or
+                    e['exposure_units'] != e['slots'] or
+                    e['teacher_evidence_units']+e['reference_pool_units'] != e['slots'] or
                     abs(sum(r['weight'] for r in e['exposure_records'])-1) > 1e-7):
                 raise AssertionError('alpha/d exposure-unit accounting mismatch')
         elif e.get('acquisition_protocol') == 'batch_common_reference_v1':
@@ -163,6 +164,14 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         self.store = StateStore(self.directory / 'recovery', manifest)
         self.rng = np.random.default_rng(config['training_seed'])
         self.sampling_rng = torch.Generator(device=self.device).manual_seed(config['training_seed'])
+        self.replay_schedule = None
+        if self.alpha_d:
+            from .conventions import load_schedule, ARMS
+            if manifest['arm'] in ARMS:
+                # Independently seeded streams; initialization/training seed remains 0.
+                self.sampling_rng.manual_seed(int(digest([config['training_seed'], manifest['arm'], 'source_and_feedback'])[:15], 16))
+            if manifest['arm'] == 'V1':
+                self.replay_schedule = load_schedule(config, manifest, support, smoke=smoke)
         self.slot_rng = torch.Generator().manual_seed(config['training_seed'])
         self.after_save = after_save
         self.checker = checker
@@ -750,8 +759,10 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
                         'old_controls', 'batch_controls', 'draw_controls'):
                 s.pop(key, None)
         if self.alpha_d:
+            from .conventions import export_schedule
+            export_schedule(self)
             for key in ('alpha_pairs', 'alpha_chi', 'alpha_start', 'd_reference', 'd_reference_feedback',
-                        'd_solution', 'alpha_d_control'):
+                        'd_solution', 'alpha_d_control', 'old_reference', 'old_reference_pairs', 'replay_exposure'):
                 s.pop(key, None)
         print(f"[rtd] {self.manifest['arm']} round={s['round']} step={s['step']} "
               f"package={row['selected']} spend={self.ledger.spent}/{self.ledger.budget}", flush=True)

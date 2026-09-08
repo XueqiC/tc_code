@@ -276,6 +276,9 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             campaign_log=str(log) if log else None, campaign_seconds=elapsed, reused_campaign=reused,
             evaluation_lock_idle_seconds=wait_seconds,
             port=port, output_directory=str(out))
+        if manifest['config'].get('protocol_version') == '1.1.0':
+            result.update(evaluation_label='development evaluation',
+                          score_objective='official_greedy_score; separate from stochastic J')
         if base is not None:
             before = base['validation']['verdicts']
             result['repairs_damage'] = {tid: dict(before=before[tid], after=ok,
@@ -371,6 +374,10 @@ def report(directories, output):
                 official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
                 hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
+            if manifest['config'].get('protocol_version') == '1.1.0':
+                from .conventions import DEVELOPMENT, ADAPTIVE_EFFECT, CORE_CONTROL
+                rows[-1].update(evaluation_label=DEVELOPMENT, adaptive_distillation_comparison=ADAPTIVE_EFFECT,
+                                core_mechanism_control=CORE_CONTROL)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     comparable = len({r['hardware_hash'] for r in rows}) <= 1
@@ -378,10 +385,13 @@ def report(directories, output):
         same_hardware=comparable, comparison_status='matched' if comparable else 'hardware mismatch; no matched-arm comparison', rows=rows))
     if rows:
         with (output / 'budget_curve.csv').open('w') as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
+            writer = csv.DictWriter(stream, fieldnames=list(dict.fromkeys(k for r in rows for k in r))); writer.writeheader(); writer.writerows(rows)
     lines = ['# RTD budget curves', '', 'The x-axis is actual recorded output-token spend; caps authorize purchases.', '',
              '| Arm | Round | Actual spend | Cap budget | Packages | Official accuracy (%) | Truncated rollouts (sampled / committed) | Malformed rollouts (sampled / committed) | Evaluation |',
              '|---|---:|---:|---:|---:|---:|---:|---:|---|']
+    if any('evaluation_label' in row for row in rows):
+        lines[2:2] = ['V1−V0：自适应蒸馏整体效果（α 与 d 都变）；同 α 的 d vs 0 对照隔离核心机制。',
+                      'Per-round official scores: development evaluation. J: temperature-1 stochastic-policy expected return.', '']
     for r in rows:
         score = '—' if r['official_accuracy_percent'] is None else str(r['official_accuracy_percent'])
         lines.append(f"| {r['arm']} | {r['round']} | {r['actual_spend_x']} | {r['authorized_cap_budget']} | "

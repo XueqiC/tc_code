@@ -24,14 +24,18 @@ from .source_estimator import validate_source_config
 from .identity import (audit_legacy, evaluation_harness_identity, evaluation_harness_metadata,
                        source_identity, validate_resume, verified_checkpoint)
 from .hardware import hardware_identity, instance, device_class, comparison_hash
+from .conventions import (arm_config, BASE_CHECKPOINT, ADAPTIVE_EFFECT, CORE_CONTROL,
+                          DEVELOPMENT, CERTIFICATION, fold_roles)
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def load_config(path):
+def load_config(path, *, arm=None, replay_schedule=None):
     config = yaml.safe_load(Path(path).read_text())
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
+    if config.get('arm') or arm or replay_schedule:
+        config, _ = arm_config(config, arm, replay_schedule)
     v11 = config.get('protocol_version') == '1.1.0'
     if (config.get('protocol_version') not in {'1.0.1', '1.1.0'} or config.get('mode') not in {'sealed_replay', 'fixed_evidence'}
             or config.get('budget_basis') != (V11_BUDGET_BASIS if v11 else 'usable_public_cap_sum')):
@@ -208,20 +212,39 @@ def make_manifest(config, arm, audit, *, smoke=False):
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
     if alpha_d_enabled(config):
-        manifest.update(trajectory_schema_version=3, distillation_protocol='alpha_d_rev3_1',
+        manifest.update(trajectory_schema_version=4, distillation_protocol='alpha_d_d7_rev2_frozen',
             return_objective='temperature_1_stochastic_policy_expected_return',
-            exposure_unit='one_state_teacher_record_plus_two_source_actions',
+            exposure_unit='one_state_supervision_record_plus_two_source_actions',
             exposure_mode='full exposure' if config['slots_per_step'] == 40 else 'random exposure',
             planned_exposure_units=config['slots_per_step'], source_action_capacity_per_commit=2*config['slots_per_step'],
             microbatch_states=4, microbatches_per_commit=(config['slots_per_step']+3)//4,
             all_purchased_packages_trained_each_step=False,
-            cold_start_missing_teacher='full exposure requires paid inner old pool; random exposure uses available teacher records',
+            cold_start_missing_teacher='reference-pool state: alpha=0, soft-source term only; paid and reference records form old pool',
             supervision_record_mapping='adapter.supervision_records(package); default ordered package.behaviors',
             alpha_features='initial_model_state_hidden_projection_and_intercept; before_source_sampling',
             alpha_update='blocked_at_theta_S_d; d_fixed; no_differentiation_through_solver',
-            acquisition_reference='separate historical additive insertion surrogate; D9 full-update proxy pending',
-            v1_exposure_replay_implemented=False,
+            acquisition_reference='old-evidence virtual d=0 update; shared by insertion values and z',
+            v1_exposure_replay_implemented=True,
+            replay_schedule_hash=config.get('replay_schedule_hash'),
+            arm_components={k: config.get(k) for k in ('acquisition_value_mode', 'gate_mode', 'd_mode', 'ledger_replay')},
+            base_checkpoint_description=BASE_CHECKPOINT,
+            base_checkpoint_bank_adapted=False,
+            comparison_labels={'V1−V0': ADAPTIVE_EFFECT, 'same_alpha_d_vs_zero': CORE_CONTROL},
+            evaluation_label=DEVELOPMENT, certification_label=CERTIFICATION,
+            certification_status='plumbing_only', report_x_axis='actual_spend',
+            budget_checkpoints_are='authorization_caps; never force spend',
+            source_sampling=dict(temperature=1., top_p=1., refresh='every_commit', cache_reuse=False,
+                                 rng_stream='training_seed + arm + source_and_feedback'),
+            support_roles=dict(bfcl_m=40, alfworld_parent_groups=135,
+                alfworld_folds={'0': dict(inner=79, feedback=56, available_packages=63),
+                                '1': dict(inner=56, feedback=79, available_packages=44)},
+                alfworld_excluded_probe_groups=4),
             uncertainty_scope='reprojected trajectory contributions; excludes feedback staleness bias')
+        if 'crcd' in str(config['student']).lower():
+            raise ValueError('v1.1 base must be the issuer checkpoint, without project bank adaptation')
+        support_path = ROOT/config['support_manifest']
+        if support_path.is_file():
+            manifest['parent_group_roles_by_fold'] = fold_roles(json.loads(support_path.read_text())['parents'])
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
@@ -243,9 +266,22 @@ def run_command(args):
             raise ValueError('resume requires --run-dir')
         saved = json.loads((Path(args.run_dir)/'manifest.json').read_text())
         smoke = saved['smoke']
-        if args.arm != saved['arm']:
+        if args.arm is not None and args.arm != saved['arm']:
             raise ValueError('resume arm changed')
-    config = resume_config(args.config, saved) if resume else load_config(args.config)
+        args.arm = saved['arm']
+    if resume:
+        config = resume_config(args.config, saved)
+    elif args.arm in {'V0', 'V1', 'V2'} or getattr(args, 'replay_schedule', None):
+        config = load_config(args.config, arm=args.arm, replay_schedule=getattr(args, 'replay_schedule', None))
+    else:
+        config = load_config(args.config)
+    if resume:
+        if getattr(args, 'replay_schedule', None):
+            candidate, _ = arm_config(config, args.arm, args.replay_schedule)
+            if candidate != config:
+                raise ValueError('resume replay schedule changed')
+    else:
+        config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None))
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     if smoke:
@@ -314,8 +350,11 @@ def resume_config(path, saved):
         raise ValueError('saved config hash mismatch')
     if path is not None:
         supplied = yaml.safe_load(Path(path).read_text())
-        if supplied != config and load_config(path) != config:
-            raise ValueError('resume config changed; omit --config to use the saved manifest')
+        if supplied != config:
+            loaded = (load_config(path, arm=saved['arm'], replay_schedule=config.get('replay_schedule'))
+                      if saved.get('arm') in {'V0', 'V1', 'V2'} else load_config(path))
+            if loaded != config:
+                raise ValueError('resume config changed; omit --config to use the saved manifest')
     return config
 
 
@@ -359,6 +398,8 @@ def run_campaign(args, config):
                     '--expected-gpu-uuid', instance(coordinator_gpu)['uuid']]
                 if command == 'run':
                     worker += ['--config', str(Path(args.config).resolve())]
+                    if config.get('replay_schedule'):
+                        worker += ['--replay-schedule', config['replay_schedule']]
                 if command == 'resume' and getattr(args, 'acknowledge_code_drift', False):
                     worker += ['--acknowledge-code-drift']
                 subprocess.run(worker, check=True, cwd=ROOT, env=worker_env)
@@ -419,7 +460,8 @@ def main(argv=None):
             p.add_argument('--acknowledge-code-drift', action='store_true',
                            help='acknowledge recorded RTD source changes before continuing training')
         if name in ('smoke', 'run', 'resume'):
-            p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2'], default=os.environ.get('RTD_ARM', 'R1'))
+            p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2'], default=os.environ.get('RTD_ARM'))
+            p.add_argument('--replay-schedule', type=Path, help='V1: V0 run directory or exposure_schedule.json')
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)
             p.add_argument('--expected-gpu-uuid', help=argparse.SUPPRESS)
             p.add_argument('--through-round', type=int, choices=[1,2,3], default=3, help=argparse.SUPPRESS)

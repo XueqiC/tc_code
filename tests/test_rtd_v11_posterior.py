@@ -87,7 +87,8 @@ def test_significant_differences_change_comparable_decision():
 
 def batch_config(**extra):
     return engine_config() | dict(protocol_version='1.1.0', rounds=3, exposure_slots_per_window=4,
-                                  max_new_packages_per_window=2, acquisition='random') | extra
+                                  max_new_packages_per_window=2, acquisition='random',
+                                  source_estimator='soft', gate='scalar_sigmoid') | extra
 
 
 def test_unpurchased_diagnostics_rejected_before_backend_or_pool_access():

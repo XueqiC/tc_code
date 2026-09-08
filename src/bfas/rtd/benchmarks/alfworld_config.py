@@ -273,7 +273,9 @@ def manifest_section(root, config):
     from .alfworld_support import environment_identity
     if environment_identity(root, model) != support["environment"]:
         raise ValueError("current environment/tokenizer differs from frozen support")
+    from ..conventions import fold_roles
     return dict(config=config, config_hash=digest(config), model_path=str(model),
+        parent_group_roles_by_fold=fold_roles(support['parents']),
         base_checkpoint_hash=harness["model"]["base_checkpoint_hash"],
         tokenizer_hash=harness["tokenizer"]["hash"], evaluation_harness=harness,
         harness_hash=digest(harness), data_hash=data_identity(root, config, audit["bank_path"]),

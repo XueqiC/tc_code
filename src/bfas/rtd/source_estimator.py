@@ -24,6 +24,8 @@ def validate_source_config(config):
             raise ValueError('alpha_d requires gate_mode')
         return 'alpha_d', None, 2
     estimator = config.get('source_estimator', 'hard2')
+    if config.get('protocol_version') == '1.1.0' and estimator == 'hard2':
+        raise ValueError('hard2 is restricted to the v1.0 regression path')
     mode = config.get('cv_cs_mode', 'loo')
     count = config.get('source_samples_per_state', 2)
     if estimator not in SOURCE_ESTIMATORS:

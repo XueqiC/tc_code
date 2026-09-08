@@ -18,6 +18,14 @@ class _HeadInput(Exception):
         self.hidden = hidden
 
 
+def sampled_prefix_positions(source, prompt_ids):
+    """Shared hard/soft positions, including sampled EOS and never adding cap EOS."""
+    if not prompt_ids:
+        raise ValueError('complete prompt/state required')
+    validate_sampled_action(source.token_ids, source.eos_token_id, source.truncated)
+    return tuple(range(len(prompt_ids)-1, len(prompt_ids)-1+len(source.token_ids)))
+
+
 def _hidden_at_head(backend, head, parameters, ids):
     def capture(module, args):
         raise _HeadInput(args[0])
@@ -85,9 +93,7 @@ def source_gradient_pair(backend, source, parameters, source_parameters, *, posi
     current_head = {n: parameters[full] for n, full in head_names.items()}
     frozen_head = {n: source_parameters[full].detach() for n, full in head_names.items()}
     prompt = tuple(backend.tokenizer.encode(source.behavior.state.prompt, add_special_tokens=False))
-    if not prompt:
-        raise ValueError('complete prompt/state required')
-    validate_sampled_action(source.token_ids, source.eos_token_id, source.truncated)
+    positions = sampled_prefix_positions(source, prompt)
     ids = torch.tensor([prompt + source.token_ids], device=next(iter(parameters.values())).device)
     scope = backend.measured('source_teacher_forced_pair', forward_passes=2,
         prompt_tokens=2*len(prompt), action_tokens=2*source.length) if hasattr(backend, 'measured') else nullcontext()
@@ -101,7 +107,7 @@ def source_gradient_pair(backend, source, parameters, source_parameters, *, posi
         kl = 0.
         for start in range(0, source.length, position_batch_size):
             end = min(start + position_batch_size, source.length)
-            sl = slice(len(prompt)-1+start, len(prompt)-1+end)
+            sl = slice(positions[start], positions[end-1]+1)
             hard, soft, value = _position_vjps(head, current_head, frozen_head,
                 current_hidden[0, sl], frozen_hidden[0, sl], ids[0, len(prompt)+start:len(prompt)+end])
             hard_cotangent[0, sl] = hard[0]

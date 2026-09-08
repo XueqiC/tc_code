@@ -1,0 +1,124 @@
+"""D7 frozen arm identities, exposure schedules and reporting vocabulary.
+
+Schedules contain evidence identities only. Source actions and gate values are
+deliberately absent: each student draws fresh actions from its own round model.
+"""
+from collections import Counter
+import json
+from pathlib import Path
+
+from .persistence import atomic_json, digest, file_hash
+
+ARMS = {
+    'V0': dict(acquisition_value_mode='random', acquisition='random',
+               gate_mode='fixed_alpha', fixed_alpha=.5, d_mode='zero', ledger_replay=False),
+    'V1': dict(acquisition_value_mode='replay', acquisition='random',
+               gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned', ledger_replay=True),
+    'V2': dict(acquisition_value_mode='joint_surrogate', acquisition='bayesian_linear_posterior_sampling',
+               gate_mode='learned_alpha', fixed_alpha=.5, d_mode='learned', ledger_replay=False),
+}
+ADAPTIVE_EFFECT = '自适应蒸馏整体效果'
+CORE_CONTROL = '同 α 的 learned d vs d=0：隔离核心机制'
+BASE_CHECKPOINT = '发行方原始 checkpoint,未进行本项目 bank 适配'
+DEVELOPMENT = 'development evaluation'
+CERTIFICATION = 'certification: bootstrap bounds on held-out data after freezing'
+
+
+def schedule_path(path):
+    path = Path(path)
+    return path/'exposure_schedule.json' if path.is_dir() else path
+
+
+def arm_config(config, arm=None, replay_schedule=None):
+    """A first-class arm selects every coupled setting before validation/hash."""
+    arm = arm or config.get('arm') or ('V2' if 'gate_mode' in config else 'R1')
+    if arm not in ARMS:
+        if arm not in {'R0', 'R1'} or config.get('protocol_version') == '1.1.0' or 'gate_mode' in config:
+            raise ValueError('R0/R1 are legacy arms; alpha/d uses V0/V1/V2')
+        return dict(config), arm
+    if config.get('protocol_version') != '1.1.0':
+        raise ValueError('V0/V1/V2 require v1.1')
+    result = config | ARMS[arm] | dict(arm=arm, source_estimator='alpha_d', source_samples_per_state=2)
+    path = replay_schedule or result.get('replay_schedule')
+    if arm == 'V1':
+        if not path:
+            raise ValueError('V1 requires --replay-schedule <V0 run dir>')
+        path = schedule_path(path).resolve()
+        expected = result.get('replay_schedule_hash')
+        actual = file_hash(path)
+        if expected is not None and expected != actual:
+            raise ValueError('replay schedule changed')
+        result.update(replay_schedule=str(path), replay_schedule_hash=actual)
+    elif path:
+        raise ValueError('only V1 may replay an exposure schedule')
+    return result, arm
+
+
+def record_identity(record, weight):
+    return dict(query_id=record.query_id, record_index=record.record_index,
+                state_hash=record.state.state_hash, has_teacher=record.teacher is not None,
+                is_new=record.is_new, weight=float(weight))
+
+
+def repetition_counts(records):
+    counts = Counter((r['query_id'], r['record_index'], r['state_hash']) for r in records)
+    return [r | dict(repetition_count=counts[r['query_id'], r['record_index'], r['state_hash']]) for r in records]
+
+
+def exposure_step(state):
+    ref = state['d_reference']
+    return dict(round=state['round'], step=state['step'], decision=state['decision'],
+        selected=list(state['selected']), window_budget=state.get('window_budget') if state['decision'] else None,
+        pool_before=sorted(state['owned_before']), pool_after=sorted(set(state['owned_before']) | set(state['selected'])),
+        records=repetition_counts([record_identity(p.record, w) for p, w in zip(state['alpha_pairs'], ref.weights)]),
+        reference_records=repetition_counts([record_identity(p.record, w) for p, w in
+            zip(state['old_reference_pairs'], state['old_reference'].weights)]))
+
+
+def schedule_identity(manifest, config, support):
+    bank = Path(manifest['bank_path'])
+    return dict(data_hash=manifest.get('data_hash'), base_checkpoint_hash=manifest.get('base_checkpoint_hash'),
+        bank_public_hash=file_hash(bank/'public/requests.json'), bank_integrity_hash=file_hash(bank/'sealed/integrity.json'),
+        initial_parameter_hash=manifest.get('initial_parameter_hash'), budget_ceilings=manifest['budget_ceilings'],
+        support_hash=digest(support.parents), rounds=config.get('rounds', 2),
+        training_seed=config['training_seed'], slots=config.get('slots_per_step', 40),
+        K=config.get('max_new_packages_per_window', 20))
+
+
+def load_schedule(config, manifest, support, *, smoke=False):
+    path = schedule_path(config['replay_schedule'])
+    if file_hash(path) != config['replay_schedule_hash']:
+        raise ValueError('replay schedule changed')
+    data = json.loads(path.read_text())
+    if data.get('version') != 'rtd-v11-exposure-v1' or data.get('arm') != 'V0' or not data.get('complete'):
+        raise ValueError('V1 requires a completed V0 exposure schedule')
+    if data['identity'] != schedule_identity(manifest, config, support):
+        raise ValueError('V0/V1 exposure schedule identity differs')
+    if data.get('smoke') != smoke:
+        raise ValueError('V0/V1 smoke mode differs')
+    expected = [(1, 1)] if smoke else [(r, s) for r in range(1, config['rounds']+1) for s in range(1, 13)]
+    if [(r['round'], r['step']) for r in data['steps']] != expected:
+        raise ValueError('exposure schedule has missing/duplicate/out-of-order steps')
+    return {(r['round'], r['step']): r for r in data['steps']}
+
+
+def export_schedule(engine):
+    s = engine.state
+    rows = [r['exposure_schedule'] for r in s['steps']]
+    atomic_json(engine.directory/'exposure_schedule.json', dict(version='rtd-v11-exposure-v1',
+        arm=engine.manifest['arm'], smoke=s['smoke'], identity=schedule_identity(engine.manifest, engine.config, engine.support),
+        complete=len(rows) == (1 if s['smoke'] else 12*s['rounds']), steps=rows))
+
+
+def fold_roles(parents):
+    """Parent membership, not episode count, determines both rotating roles."""
+    groups = {str(f): sorted(h for h in parents if int(h, 16) % 2 == f) for f in (0, 1)}
+    return {str(f): dict(inner_parent_groups=groups[str(f)], feedback_parent_groups=groups[str(1-f)]) for f in (0, 1)}
+
+
+def certification_metadata(*, frozen_checkpoint_hash, held_out_data_hash):
+    """Plumbing only; callers must supply independent held-out data after freeze."""
+    if not frozen_checkpoint_hash or not held_out_data_hash:
+        raise ValueError('certification needs frozen checkpoint and held-out data identities')
+    return dict(label=CERTIFICATION, method='bootstrap', frozen_checkpoint_hash=frozen_checkpoint_hash,
+                held_out_data_hash=held_out_data_hash, bounds=None, status='plumbing_only')

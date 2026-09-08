@@ -341,6 +341,12 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # in this fixed synthetic BFCL checkout, rather than a stubbed source hash.
     normalized = json.loads(json.dumps(after).replace(str(c.root), '{ROOT}'))
     normalized['config_hash'] = digest(normalized['config'])
+    # D7 adds report labels outside the frozen scoring projection. Preserve
+    # honest current source provenance, then normalize this one operational
+    # file to the pre-D7 hash for the historical manifest-byte oracle.
+    assert after['rtd_source'] == cli.source_identity(c.root)
+    normalized['rtd_source']['files']['src/bfas/rtd/evaluation.py'] = 'e2310d926fae8dba3f516d43c5cc90bb8032a9bca6d7ae4a13b918299f94ad2e'
+    normalized['rtd_source']['hash'] = digest(normalized['rtd_source']['files'])
     assert digest(normalized) == '428e3d9bfd56011060e763bb6cc781e7c9007115b393cd12a77980a16c4ba3af'
     b, p, targets, chi, phi = legacy_problem()
     actual = streamed_gradient(targets, chi, phi, b, p, source_estimator='hard2')
