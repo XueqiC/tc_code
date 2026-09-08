@@ -256,6 +256,7 @@ def make_manifest(config, arm, audit, *, smoke=False):
         if support_path.is_file():
             manifest['parent_group_roles_by_fold'] = fold_roles(json.loads(support_path.read_text())['parents'])
             from .metrics_v11 import options as metric_options, freeze_tasks
+            from .experiment import BFCLSupport
             if metric_options(config)['enabled']:
                 manifest['fixed_task_set_v11'] = freeze_tasks(json.loads(support_path.read_text())['parents'],
                     short_fold=metric_options(config)['short_fold'], states=BFCLSupport(ROOT, config).states)

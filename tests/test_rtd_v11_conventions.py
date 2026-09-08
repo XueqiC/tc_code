@@ -53,6 +53,8 @@ def test_bfcl_record_folds_export_parent_hashes_in_manifest(manifest_inputs, bal
         m.setattr(cli, 'ROOT', ROOT)
         config = cli.load_config(ROOT/'configs/rtd/v1_1_bfcl.yaml', arm='V0')
     config.update(student=manifest_inputs.config['student'], support_manifest=str(support_path))
+    # This test covers the fold-role export only; the fixed task set (metrics_v11) needs the sealed support/bank pair.
+    config['metrics_v11'] = dict(config.get('metrics_v11', {}), enabled=False)
     audit = manifest_inputs.audit | dict(budget_denominator=100, cost_scope='cached content',
         cap_certificate_sha256='cert', public_cost_assumption='class cap', m=40)
     manifest = cli.make_manifest(config, 'V0', audit, smoke=True)
