@@ -225,6 +225,14 @@ def test_runner_acquire_freeze_sample_same_batch_commit_then_alpha_feedback(toy_
     e = engine(tmp_path/'run', toy_bank)
     e.run()
     events = e.journal.events
+    ends = [ev for ev in events if ev['kind'] == 'compute_end']
+    for ev in ends:
+        assert ev['operation'] == events[ev['begin_sequence']]['operation']
+    operations = {ev['operation'] for ev in ends}
+    assert {'alpha_d_pilot', 'commit', 'acquisition_reference_feedback',
+            'same_batch_reference_feedback', 'post_commit_feedback'} <= operations
+    validation_roles = {ev['role'] for ev in events if ev['kind'] == 'validation_rollout'}
+    assert len(validation_roles) == 4 and validation_roles <= operations
     def index(kind, **fields):
         return next(i for i, ev in enumerate(events) if ev['kind'] == kind and all(ev.get(k) == v for k, v in fields.items()))
     assert index('decision') < index('request_reveal_link') < index('alpha_d_exposure_frozen', role='commit')

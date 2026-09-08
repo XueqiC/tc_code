@@ -119,9 +119,10 @@ class StateStore:
 
 class ComputeJournal:
     """Hash-chained events retain failed/repeated work instead of rolling it back."""
-    def __init__(self, path, *, cuda=False, deadline=None):
+    def __init__(self, path, *, cuda=False, deadline=None, deadline_seconds=None):
         self.path = Path(path)
         self.cuda, self.deadline = cuda, deadline
+        self.deadline_seconds = deadline_seconds
         self.events = []
         self._measure_stack = []
         self._step_peaks = None
@@ -218,7 +219,9 @@ class ComputeJournal:
     @contextmanager
     def measure(self, operation, *, _peaks=None, **counts):
         if self.deadline is not None and time.monotonic() >= self.deadline:
-            raise TimeoutError('smoke exceeded its 15 minute compute budget')
+            message = ('compute deadline exceeded' if self.deadline_seconds is None else
+                       f'smoke exceeded {self.deadline_seconds} seconds')
+            raise TimeoutError(f'{message}; resume state retained')
         if self.cuda:
             torch.cuda.synchronize()
         start = time.monotonic()

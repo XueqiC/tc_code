@@ -303,8 +303,9 @@ class BatchExperimentMixin:
     def batch_feedback_commit(self):
         from .experiment import assert_run_invariants
         s = self.state
-        commit_step(self.backend.model, s['actual'], expected_start_hash=s['reference'].start_hash)
-        s['parameters'] = snapshot(lora_parameters(self.backend.model))
+        with self.scope('commit'):
+            commit_step(self.backend.model, s['actual'], expected_start_hash=s['reference'].start_hash)
+            s['parameters'] = snapshot(lora_parameters(self.backend.model))
         s['phi'] = s['next_phi'].detach().requires_grad_(True)
         for q in s['selected']:
             s['owned'].append(q)

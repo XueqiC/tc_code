@@ -113,8 +113,17 @@ def export_schedule(engine):
 
 
 def fold_roles(parents):
-    """Parent membership, not episode count, determines both rotating roles."""
-    groups = {str(f): sorted(h for h in parents if int(h, 16) % 2 == f) for f in (0, 1)}
+    """Use BFCL record folds; hash-keyed ALFWorld parents retain parity folds."""
+    groups = {'0': [], '1': []}
+    for parent in parents:
+        if isinstance(parent, str):
+            parent_hash, fold = parent, int(parent, 16) % 2
+        else:
+            parent_hash, fold = parent['parent_hash'], parent['fold']
+            if not isinstance(parent_hash, str) or type(fold) is not int or fold not in (0, 1):
+                raise ValueError('parent record requires a hash string and explicit fold 0 or 1')
+        groups[str(fold)].append(parent_hash)
+    groups = {f: sorted(hashes) for f, hashes in groups.items()}
     return {str(f): dict(inner_parent_groups=groups[str(f)], feedback_parent_groups=groups[str(1-f)]) for f in (0, 1)}
 
 

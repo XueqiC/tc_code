@@ -298,9 +298,10 @@ def run_command(args):
         config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None))
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
+    smoke_deadline_seconds = getattr(args, 'smoke_deadline_seconds', 900)
     if smoke:
         config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
-                     baseline='action-independent zero', max_seconds=900))
+                     baseline='action-independent zero', max_seconds=smoke_deadline_seconds))
     audit = bank_audit(config)
     directory = Path(args.run_dir or ROOT / config['output_root'] / (args.arm + ('_smoke' if smoke else ''))).resolve()
     with exclusive_run(directory):
@@ -316,14 +317,15 @@ def run_command(args):
                             acknowledge=getattr(args, 'acknowledge_code_drift', False))
             # Preserve the original binding used by StateStore and every round.
             manifest = saved
-        deadline = started + 900 if smoke else None
-        journal = ComputeJournal(directory/'compute.jsonl', cuda=True, deadline=deadline)
+        deadline = started + smoke_deadline_seconds if smoke else None
+        journal = ComputeJournal(directory/'compute.jsonl', cuda=True, deadline=deadline,
+                                 deadline_seconds=smoke_deadline_seconds)
         journal.append('device_binding', cuda_visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
             cuda_device_order=os.environ.get('CUDA_DEVICE_ORDER'), logical_device='cuda:0',
             gpu_uuid=instance(current_hardware)['uuid'], gpu_name=device_class(current_hardware)['gpu'],
             total_memory_bytes=device_class(current_hardware)['memory'], coordinator_gpu_uuid=expected_gpu)
         def timeout(signum, frame):
-            raise TimeoutError('smoke exceeded 15 minutes; resume state retained')
+            raise TimeoutError(f'smoke exceeded {smoke_deadline_seconds} seconds; resume state retained')
         previous = signal.signal(signal.SIGALRM, timeout) if smoke else None
         if smoke:
             signal.setitimer(signal.ITIMER_REAL, max(1., deadline-time.monotonic()))
@@ -345,8 +347,8 @@ def run_command(args):
                 result = experiment.run(stop_after_round=args.through_round if args.training_worker else False)
             if smoke:
                 elapsed = time.monotonic()-started
-                if elapsed >= 900:
-                    raise AssertionError('smoke runtime exceeded 15 minutes')
+                if elapsed >= smoke_deadline_seconds:
+                    raise AssertionError(f'smoke runtime exceeded {smoke_deadline_seconds} seconds')
                 result['smoke_seconds'] = elapsed
                 atomic_json(directory/'audit.json', result)
             print(json.dumps(result, indent=2))
@@ -462,6 +464,13 @@ def replay_ledger(args):
     return 0
 
 
+def positive_seconds(value):
+    seconds = int(value)
+    if seconds <= 0:
+        raise argparse.ArgumentTypeError('deadline must be a positive number of seconds')
+    return seconds
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='RTD protocol v1.0.7 / v1.0.1 sealed BFCL replay. No teacher API path.')
     subs = parser.add_subparsers(dest='command', required=True)
@@ -475,6 +484,8 @@ def main(argv=None):
                            help='acknowledge recorded RTD source changes before continuing training')
         if name in ('smoke', 'run', 'resume'):
             p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2'], default=os.environ.get('RTD_ARM'))
+            p.add_argument('--smoke-deadline-seconds', type=positive_seconds, default=900,
+                           help='smoke time limit in seconds (default: 900; resume must match the saved config)')
             p.add_argument('--replay-schedule', type=Path, help='V1: V0 run directory or exposure_schedule.json')
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)
             p.add_argument('--expected-gpu-uuid', help=argparse.SUPPRESS)

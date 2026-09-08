@@ -27,6 +27,44 @@ from test_rtd_v11_alpha_d import engine, finish_step, pair_problem
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.parametrize('balanced', [False, True], ids=['checked-in-22-18', 'record-shape-20-20'])
+def test_bfcl_record_folds_export_parent_hashes_in_manifest(manifest_inputs, balanced, monkeypatch):
+    from bfas.rtd import cli
+
+    support_path = ROOT/'configs/rtd/v1_bfcl_support.json'
+    support = json.loads(support_path.read_text())
+    if balanced:
+        support = support | {'parents': [p | {'fold': i % 2} for i, p in enumerate(support['parents'])]}
+        support_path = manifest_inputs.root/'support.json'
+        support_path.write_text(json.dumps(support))
+    parents = support['parents']
+    assert support['m'] == len(parents) == 40
+    expected = {str(f): sorted(p['parent_hash'] for p in parents if p['fold'] == f) for f in (0, 1)}
+    assert [len(expected[str(f)]) for f in (0, 1)] == ([20, 20] if balanced else [22, 18])
+    roles = fold_roles(parents)
+    for f in (0, 1):
+        assert roles[str(f)]['inner_parent_groups'] == expected[str(f)]
+        assert roles[str(f)]['feedback_parent_groups'] == expected[str(1-f)]
+    # Explicit BFCL assignments are authoritative even if they differ from parity.
+    reassigned = [p | {'fold': 1-p['fold']} for p in parents]
+    assert fold_roles(reassigned)['0'] == roles['1']
+
+    with monkeypatch.context() as m:
+        m.setattr(cli, 'ROOT', ROOT)
+        config = cli.load_config(ROOT/'configs/rtd/v1_1_bfcl.yaml', arm='V0')
+    config.update(student=manifest_inputs.config['student'], support_manifest=str(support_path))
+    audit = manifest_inputs.audit | dict(budget_denominator=100, cost_scope='cached content',
+        cap_certificate_sha256='cert', public_cost_assumption='class cap', m=40)
+    manifest = cli.make_manifest(config, 'V0', audit, smoke=True)
+    assert manifest['parent_group_roles_by_fold'] == roles
+
+
+@pytest.mark.parametrize('fold', [-1, 2, '0', None, True])
+def test_bfcl_record_invalid_fold_is_rejected(fold):
+    with pytest.raises(ValueError, match='explicit fold'):
+        fold_roles([dict(parent_hash='00', fold=fold)])
+
+
 def test_complete_v0_v1_schedule_replay_keeps_windows_weights_repetitions_but_redraws(toy_bank, tmp_path):
     v0 = engine(tmp_path/'V0', toy_bank, arm='V0', smoke=False)
     # Exercise a nonuniform frozen schedule, not only the uniform default.
@@ -310,7 +348,13 @@ def test_launcher_argv_cache_and_resume_relay_without_launching_gpu(tmp_path):
     out = subprocess.check_output(['bash', str(script), 'V1', '--replay-schedule', str(tmp_path/'V0')], env=env, text=True)
     row = json.loads(out)
     assert row['args'][1:4] == ['run', '--arm', 'V1'] and '--replay-schedule' in row['args']
+    assert '--smoke-deadline-seconds' not in row['args']
     assert row['hf'].endswith('/hf-cache/hub') and row['cache'].startswith(str(ROOT))
     env['RTD_COMMAND'] = 'resume'
     row = json.loads(subprocess.check_output(['bash', str(script), 'V1'], env=env, text=True))
     assert row['args'][1] == 'resume' and '--config' not in row['args']
+    assert '--smoke-deadline-seconds' not in row['args']
+    env['RTD_COMMAND'] = 'smoke'
+    row = json.loads(subprocess.check_output(['bash', str(script), 'V0'], env=env, text=True))
+    assert row['args'][1] == 'smoke'
+    assert row['args'][row['args'].index('--smoke-deadline-seconds')+1] == '7200'
