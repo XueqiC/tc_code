@@ -117,7 +117,7 @@ acquired_B<cap>_seed<k>.json 保存完整冻结顺序、逐步累计成本、下
     text += table(['benchmark', 'B', 'arm', 'rows', 'C_m', 'PBSD pairs', '状态'], arm_rows)
     text += '''
 
-- **SFT：**只输出已购非失败内容。BFCL 有合法旧行时保留其 prompt/response 与全部原字段，其余使用封存 RTD rendering。93 个 generator 包的 ground_truth=[] 被 RTD 渲染为空字符串，其中 34 个验证失败不训练；其余 59 个因 SFT loader 拒绝空 response，按原始空调用列表序列化为 `[]`，逐包 response_rendering 登记，不增加教师内容或改费用。旧提示处理器与 RTD chat/tool-call rendering 不同，此兼容选择需随比较披露。
+- **SFT：**只输出已购非失败内容，统一使用上节 `legacy-messages-v1`，不再混入 RTD chat/tool-call 行。原始空调用列表仍序列化为 `[]`，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
 - **SAD：**同 SFT prompt/response，加 `_sad_spans` 字符边界，按现有 action_spans 的代码围栏规则；训练器仍自行算 mask。BFCL 无代码围栏响应按现有 trainer 规则属于非 action 部分，本次未另造 BFCL mask。
 - **BB-OPD：**单轮 BFCL 与 SFT 逐行相同。AppWorld 只取旧 on-policy 上下文/响应与已购 demo 完全一致的行，是部分内容对应，不代表完整 BB-OPD 或证明当前学生访问这些状态。ALFWorld 无对应缓存，空池。补齐需另冻结 on-policy 状态与费用。
 - **PBSD-insp：**只对已购行附加旧缓存的学生失败首轮 `_rejected`，其他正例训练；不做新采样。BFCL 本次 0 对，AppWorld 本次 13 对。
@@ -169,5 +169,18 @@ results/ 被 .gitignore 忽略；产物在磁盘保留供审阅，未暂存/提�
     validation_path = out/'validation.json'
     if validation_path.exists():
         validation = read_json(validation_path)
-        text += f'\n本次 CPU 验证：**{validation["tests"]} tests，{validation["failures"]} failures，{validation["errors"]} errors，{validation["skipped"]} skipped**。输入 SHA-256 未变；非空池通过实际 trainer 的 load_pool 字段验证（只抽取该函数，不导入 GPU 栈）。JUnit 记录：results/table1_audit/cpu_tests.xml。\n'
-    output_path(ROOT/'docs/table1_budget_ledger_zh.md').write_text(text, encoding='utf-8')
+        text += f'\n初次预算审计 CPU 验证：**{validation["tests"]} tests，{validation["failures"]} failures，{validation["errors"]} errors，{validation["skipped"]} skipped**。当时非空池仅通过实际 trainer 的 load_pool 字段验证（只抽取该函数，不导入 GPU 栈），不包含 encode。JUnit 记录：results/table1_audit/cpu_tests.xml；本次真实 load_pool + encode 的回归见“池行格式”。\n'
+    report_path = ROOT/'docs/table1_budget_ledger_zh.md'
+    # These implementation notes are maintained with their respective tools;
+    # refreshing accounting tables must not erase the repaired row contract or
+    # the existing dDPO instructions.
+    if report_path.exists():
+        previous = report_path.read_text(encoding='utf-8')
+        for start, end in (
+            ('## 池行格式\n', '## 5. 七臂池与训练入口\n'),
+            ('### 5.1 BFCL dDPO 排名补采工具（待用户运行）\n', '## 6. RTD 交叉核对与 Table 1 合规性\n'),
+        ):
+            if start in previous:
+                section = previous.split(start, 1)[1].split(end, 1)[0]
+                text = text.replace(end, start + section + end, 1)
+    output_path(report_path).write_text(text, encoding='utf-8')
