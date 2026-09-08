@@ -1,0 +1,217 @@
+{
+  "arm": "R1",
+  "available_packages": 1,
+  "backend": "HF generate: local KV cache, unwarped categorical; same HF model teacher-forced CE; eager attention",
+  "backend_rationale": "one resident model avoids vLLM reloads at reference/actual/source snapshots; throughput unmeasured",
+  "bank_path": "fixture-bank",
+  "bank_public_cap_sum": 100,
+  "base_checkpoint_hash": "6c5738e77bafd001bccb42bacd4446c6529292a223b8b8374602f2dd8c645cae",
+  "budget_ceilings": [
+    10,
+    25,
+    50
+  ],
+  "checkpoint_schedule": "cumulative 10/25/50 percent after rounds 1/2/3; four windows per round",
+  "config": {
+    "acquisition": "bayesian_linear_posterior_sampling",
+    "acquisition_entropy_temperature": 1.0,
+    "acquisition_posterior_refresh": "round",
+    "acquisition_prior_noise_variance": 1.0,
+    "acquisition_prior_precision": 1.0,
+    "acquisition_value": "exposure_conserving_insertion",
+    "baseline": "leave_one_out_same_task",
+    "behavior_probability": "complete_action_with_termination",
+    "benchmark": "bfcl",
+    "budget_basis": "usable_public_cap_sum",
+    "budget_checkpoints_bank_fraction": [
+      0.1,
+      0.25,
+      0.5
+    ],
+    "certificate_isolation": "strict",
+    "committed_steps_per_round": 12,
+    "decision_steps_per_round": [
+      1,
+      4,
+      7,
+      10
+    ],
+    "evaluate_after_round": true,
+    "evaluation_temperature": 0.0,
+    "experiment_scope": "exploratory",
+    "exposure_unit": "complete_source_action_slot",
+    "extra_reference_compute_accounting": "separate",
+    "feedback_scope": "rotating_meta_training",
+    "gate": "linear_sigmoid",
+    "gate_gradient_scale": "running_rms_from_past_feedback_only",
+    "gate_hidden_projection_dim": 32,
+    "gate_initial_logit": 0.0,
+    "gate_learning_rate": 0.1,
+    "gate_projection_seed": 0,
+    "gate_ridge": 1.0,
+    "hard_cost_reservation": true,
+    "harness_frozen": true,
+    "historical_demo_output_tokens_exact": 1233607,
+    "historical_generation_output_tokens_estimated": 142727,
+    "initial_eta": 1e-05,
+    "insertion_fraction": 0.25,
+    "insertion_reference": "virtual_same_start",
+    "lora_alpha": 32,
+    "lora_rank": 16,
+    "lora_target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "loss": "positive_source_teacher_mixture",
+    "max_action_tokens_by_benchmark": {
+      "bfcl": {
+        "multi_turn": 1024,
+        "single_turn": 512
+      }
+    },
+    "max_context_tokens": 32768,
+    "max_new_packages_per_decision": 1,
+    "max_state_batch_size": 2,
+    "memory_peak_budget_gb": 38,
+    "memory_reserve_gb": 2,
+    "memory_state_estimate_gb": 16,
+    "meta_feedback_steps": [
+      1,
+      4,
+      7,
+      10
+    ],
+    "meta_tasks_multi_turn": 4,
+    "meta_tasks_per_feedback": 8,
+    "method": "rtd_v1",
+    "mode": "sealed_replay",
+    "model_local_files_only": true,
+    "new_teacher_calls": false,
+    "new_teacher_tokens": 0,
+    "online_max_teacher_turns": 8,
+    "optimizer": "fixed_preconditioned_single_step",
+    "output_root": "results/rtd_v1",
+    "parameter_space": "lora_trainables",
+    "pilot_eta_candidates": [
+      1e-06,
+      3e-06,
+      1e-05,
+      3e-05,
+      0.0001,
+      0.0003,
+      0.001
+    ],
+    "pilot_kl_target_per_step": 0.005,
+    "preconditioner": "train_only_rms_diagonal",
+    "preconditioner_damping_relative": 0.01,
+    "preconditioner_mean_diagonal": 1.0,
+    "preconditioner_refresh": "round",
+    "protocol_version": "1.0.1",
+    "replay_bank_path": "data/rtd/v1_bfcl_c25",
+    "replay_cap_scope": "class_uniform_fallback_after_archived_configuration_audit",
+    "replay_is_explicit_choice": true,
+    "replay_prior_mass": 0.5,
+    "replay_public_cap_output_tokens_by_class": {
+      "demo_attempt": 65536,
+      "generator_item": 8192
+    },
+    "replay_request_lengths": "recorded_only",
+    "reward": "official_terminal_metric",
+    "rollouts_multi_turn": 2,
+    "rollouts_per_meta_task": 4,
+    "rounds": 3,
+    "same_hardware_required": true,
+    "score_consistency_tolerance": {
+      "max_abs": 1.0,
+      "max_abs_hard": 8.0,
+      "max_abs_outlier_tokens": 2,
+      "mean_abs": 0.05
+    },
+    "slots_per_step": 8,
+    "source_backend": "hf_generate",
+    "source_policy_generation": "same_backend_torch_categorical",
+    "source_refresh": "round",
+    "source_samples_per_state": 2,
+    "source_temperature": 1.0,
+    "source_top_p": 1.0,
+    "step_size_selection": "frozen_training_only_kl_pilot",
+    "student": "<ROOT>/model",
+    "support_manifest": "configs/rtd/v1_bfcl_support.json",
+    "support_parent_tasks_m": 40,
+    "support_split": "parent_hash_two_fold",
+    "teacher_access": "text_only",
+    "training_seed": 0
+  },
+  "config_hash": "869d3fe913542e5f7a26f3bb2945c6c9adecd954135f177ffcb1430eeb01ef22",
+  "data_hash": "fixture-data",
+  "evaluation_harness": {
+    "hash": "frozen-harness"
+  },
+  "evaluation_harness_metadata": {},
+  "hardware": {
+    "hard": {
+      "capability": [
+        10,
+        0
+      ],
+      "cuda": "13.0",
+      "driver": "580.95.05",
+      "gpu": "NVIDIA B200",
+      "host_class": "hpg-b200",
+      "machine": "x86_64",
+      "memory": 192000000000,
+      "python": "3.12.13",
+      "versions": {
+        "numpy": "fixture",
+        "peft": "fixture",
+        "torch": "fixture",
+        "transformers": "fixture"
+      }
+    },
+    "metadata": {
+      "cuda_device_order": "PCI_BUS_ID",
+      "hostname": "c1100a-s25",
+      "pci_bus_id": "0000:41:00.0",
+      "uuid": "4200c43f-original"
+    },
+    "version": "rtd-hardware-class-v1"
+  },
+  "hardware_hash": "1f21486d0c88fa6d3a305f691747f452b91a2c7504d5e95e39a0514ddbd31b6d",
+  "harness_hash": "b1de78dbfad1e2c98bcafe5cf4731d54f51a34f028253e20f0b7c670be644dac",
+  "m": 1,
+  "model_path": "<ROOT>/model",
+  "recorded_bank_usage": {},
+  "resources": {
+    "certification_access": "evaluate only",
+    "controller_pretrained": false,
+    "historical_demo_output_exact": 1233607,
+    "historical_generator_output_estimated": 142727,
+    "new_teacher_calls": 0,
+    "new_teacher_tokens": 0,
+    "support_feedback": "rotating meta-training"
+  },
+  "rtd_source": {
+    "hash": "frozen-source"
+  },
+  "score_consistency": {
+    "generation": "hf-generate-kv-categorical-v1",
+    "records": "compute.jsonl: score_consistency, per state/action, including failed checks",
+    "reinforce_likelihood": "same score_tokens native CE tensor as teacher forcing",
+    "scoring": "torch-functional-teacher-forced-native-ce-v1",
+    "tolerance": {
+      "max_abs": 1.0,
+      "max_abs_hard": 8.0,
+      "max_abs_outlier_tokens": 2,
+      "mean_abs": 0.05
+    },
+    "units": "nats/token including EOS"
+  },
+  "smoke": false,
+  "tokenizer_hash": "862bad017ee82b597ad6ada01512103e57e24dbff7471eb0389941b6389f9352",
+  "version": "rtd-v1.0.1-run"
+}

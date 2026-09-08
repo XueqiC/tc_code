@@ -90,10 +90,28 @@ class StateStore:
             raise ValueError('checkpoint ledger prefix mismatch')
         state = torch.load(path, map_location=device, weights_only=False)
         tail = ledger.events[count:]
-        allowed_q = set(state.get('fixed_ids', ())) if state['phase'] == 'initialize_fixed' else {state.get('selected')}
+        if state.get('batch_schema_version'):
+            allowed_q = {state.get('transaction_query')}
+        else:
+            allowed_q = {state.get('selected')}
+        if state['phase'] == 'initialize_fixed':
+            allowed_q = set(state.get('fixed_ids', ()))
         for event in tail:
             if event['kind'] == 'authorize' and state['phase'] in {'round_start', 'initialize_fixed'}:
                 continue
+            if state.get('batch_schema_version') and event['kind'] == 'window_open':
+                if (state['phase'] != 'selected' or event['window_id'] != state['window_id']
+                        or event['budget'] != state['window_budget']
+                        or event['max_packages'] != state['selection']['max_new_packages']):
+                    raise ValueError('ledger opened outside the durably selected window')
+                continue
+            if state.get('batch_schema_version') and event['kind'] == 'window_close':
+                if state['phase'] != 'committed' or event['window_id'] != state['window_id']:
+                    raise ValueError('ledger closed outside the durably committed window')
+                continue
+            if state.get('batch_schema_version') and (event['kind'] not in {'reserve', 'reveal', 'release'}
+                    or event['query_id'] is None):
+                raise ValueError('ledger advanced outside a durably selected transaction')
             if state['phase'] not in {'selected', 'initialize_fixed'} or event['query_id'] not in allowed_q:
                 raise ValueError('ledger advanced outside a durably selected transaction')
         return state

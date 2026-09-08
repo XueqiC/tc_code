@@ -17,7 +17,8 @@ import torch
 
 from ..behavior.deltas import tensor_state_hash
 from ..cc_pairs import render_prompt, thinking_off
-from .acquisition import AcquisitionPolicy, CostRegressor, PrePurchaseFeatures, ValuePosterior
+from .acquisition import AcquisitionPolicy, CostRegressor, PrePurchaseFeatures, ValuePosterior, LegacyValuePosterior
+from .experiment_v11 import BatchExperimentMixin
 from .bank import parent_hash
 from .broker import SealedReplayBroker
 from .features import FeatureRow, FrozenProjection, FrozenStandardizer
@@ -89,6 +90,9 @@ def assert_run_invariants(state, ledger, *, complete=False):
     """Executable assertions over committed steps, folds, spend and exposure."""
     if ledger.remaining < 0 or ledger.spent > ledger.budget:
         raise AssertionError('hard budget violated')
+    if ledger.window is not None and (ledger.window_remaining < 0 or
+            ledger.window_purchases+len(ledger.reservations) > ledger.window['max_packages']):
+        raise AssertionError('hard window budget violated')
     reveals = [e for e in ledger.events if e['kind'] == 'reveal']
     if len(reveals) != len(ledger.owned_ids):
         raise AssertionError('duplicate package charges')
@@ -106,18 +110,24 @@ def assert_run_invariants(state, ledger, *, complete=False):
     if any(e['inner_fold'] != (e['round']-1) % 2 for e in steps):
         raise AssertionError('fold rotation mismatch')
     for e in steps:
-        if e['selected'] is not None and not e['fixed_evidence']:
+        if e.get('acquisition_protocol') == 'batch_common_reference_v1':
+            m, E = len(e['selected']), e['slots']
+            if (m > e['max_new_packages'] or m > E or e['raw_new_slots'] != m
+                    or e['weighted_new_slots'] != m or e['old_coefficient'] != 1-m/E):
+                raise AssertionError('batch insertion exposure mismatch')
+        elif e['selected'] is not None and not e['fixed_evidence']:
             if e['raw_new_slots'] != e['slots'] or e['weighted_new_slots'] != .25*e['slots']:
                 raise AssertionError('insertion exposure mismatch')
         if e['exact_noop'] and e['start_hash'] != e['actual_hash']:
             raise AssertionError('no-op changed the student')
         if not e['audit_passed']:
             raise AssertionError('public selector audit failed')
-    if len([e for e in decisions if e['selected']]) > (1 if state['smoke'] else 12):
+    rounds = state.get('rounds', 3)
+    if len([e for e in decisions if e['selected']]) > (1 if state['smoke'] else 4*rounds):
         raise AssertionError('too many new packages')
     if complete:
-        expected = 1 if state['smoke'] else 36
-        if len(steps) != expected or len(decisions) != (1 if state['smoke'] else 12):
+        expected = 1 if state['smoke'] else 12*rounds
+        if len(steps) != expected or len(decisions) != (1 if state['smoke'] else 4*rounds):
             raise AssertionError('incomplete committed schedule')
         if ledger.reservations or set(state['owned']) != ledger.owned_ids:
             raise AssertionError('pending/unmerged evidence at completion')
@@ -125,10 +135,11 @@ def assert_run_invariants(state, ledger, *, complete=False):
                 packages=len(ledger.owned_ids), actual_spend=ledger.spent, authorized_budget=ledger.budget)
 
 
-class RTDExperiment:
+class RTDExperiment(BatchExperimentMixin):
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
         self.config, self.manifest = config, manifest
+        self.v11 = config.get('protocol_version') == '1.1.0'
         self.directory, self.backend, self.support = Path(directory), backend, support
         self.device = next(iter(lora_parameters(backend.model).values())).device
         self.dtype = next(iter(lora_parameters(backend.model).values())).dtype
@@ -169,6 +180,9 @@ class RTDExperiment:
                 phi=torch.zeros(1 if config.get('gate') == 'scalar_sigmoid' else 35, device=self.device,
                                 dtype=self.dtype, requires_grad=True), controller=GateController(),
                 cost_model=CostRegressor(39), support_return=0., checkpoints=[])
+            if self.v11:
+                self.state.update(rounds=config.get('rounds', 3), batch_schema_version=1,
+                    drift_measurements={}, previous_decision_model=None)
             self.save()
 
     def save(self):
@@ -281,13 +295,13 @@ class RTDExperiment:
             by_parent[state.parent_hash].append((state, tuple(teachers[h].values())))
         return by_parent
 
-    def draw_slots(self, packages=None, *, package_only=False):
+    def draw_slots(self, packages=None, *, package_only=False, count=None):
         pool = self.pool(packages, package_only=package_only)
         parents = sorted(pool)
         if not parents:
             raise ValueError('no legal source states')
         targets = []
-        for _ in range(self.slots):
+        for _ in range(self.slots if count is None else count):
             parent = parents[int(self.rng.integers(len(parents)))]
             states = pool[parent]
             state, teachers = states[int(self.rng.integers(len(states)))]
@@ -298,6 +312,8 @@ class RTDExperiment:
 
     @property
     def slots(self):
+        if self.v11:
+            return self.config.get('exposure_slots_per_window', 40)
         return 2 if self.state['smoke'] else 8
 
     @property
@@ -356,6 +372,8 @@ class RTDExperiment:
                 baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task')
         self.journal.append('return_gradient', round=s['round'], step=s['step'], role=label,
                             parameter_hash=result.parameter_hash, metadata=result.metadata)
+        if self.v11:
+            s.setdefault('feedback_rollouts', {})[label] = tuple(rollouts)
         return result
 
     def choose_feedback_tasks(self):
@@ -396,7 +414,15 @@ class RTDExperiment:
         s['source'] = snapshot(s['parameters'])
         s['source_id'] = self.backend.identity(s['source'])
         s['source_cache'] = {}
-        s['posterior'] = ValuePosterior(39, round_id=f"r{s['round']}")
+        if self.v11:
+            if 'posterior' not in s:
+                s['posterior'] = ValuePosterior(39, round_id=f"r{s['round']}")
+            else:
+                s['posterior'].begin_round(f"r{s['round']}")
+            s['cost_model'].begin_round(f"r{s['round']}")
+            s['drift_pending'] = True
+        else:
+            s['posterior'] = LegacyValuePosterior(39, round_id=f"r{s['round']}")
         s['calibrated'] = False
         with self.scope('round_sources_and_geometry'):
             with self.scope('source_sampling'):
@@ -431,6 +457,10 @@ class RTDExperiment:
         s = self.state
         s['decision'] = s['step'] in (1, 4, 7, 10)
         s['selected'], s['label'], s['new_targets'], s['new_chi'] = None, None, None, None
+        if self.v11:
+            s.update(selected=[], pending_ids=[], batch_targets={}, batch_chi={}, labels={},
+                     feedback_rollouts={}, transaction_index=0, transaction_query=None,
+                     window_id=f"r{s['round']}/s{s['step']}", hard_stops=[])
         s['owned_before'] = tuple(s['owned'])
         s['old_targets'], s['old_chi'] = self.draw_slots()
         # no-op tests availability in the actual sampled finite loss, not merely
@@ -442,12 +472,15 @@ class RTDExperiment:
         with self.scope('reference_gradient'):
             g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'])
             s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
-                exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g)
+                exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g,
+                **(dict(exposure_slots=self.slots) if self.v11 else {}))
         if s['decision']:
             s['reference_feedback'] = self.feedback(s['reference'].updated, 'reference_feedback')
         self.transition('reference')
 
     def reference(self):
+        if self.v11:
+            return self.batch_reference()
         s = self.state
         s['trace'] = []
         if s['decision'] and not self.fixed:
@@ -484,6 +517,8 @@ class RTDExperiment:
         self.transition('selected')
 
     def selected(self):
+        if self.v11:
+            return self.batch_selected()
         s = self.state
         if s['selected']:
             # Resume may be just after a durable reveal. Rehydrate that exact
@@ -509,6 +544,8 @@ class RTDExperiment:
         self.transition('revealed')
 
     def revealed(self):
+        if self.v11:
+            return self.batch_revealed()
         s = self.state
         ref = s['reference']
         if s['selected']:
@@ -524,6 +561,8 @@ class RTDExperiment:
         self.transition('actual')
 
     def actual(self):
+        if self.v11:
+            return self.batch_actual()
         s = self.state
         if s['decision']:
             if tensor_state_hash(s['actual']) == s['reference'].reference_hash:
@@ -554,6 +593,8 @@ class RTDExperiment:
         self.transition('feedback')
 
     def feedback_commit(self):
+        if self.v11:
+            return self.batch_feedback_commit()
         s = self.state
         commit_step(self.backend.model, s['actual'], expected_start_hash=s['reference'].start_hash)
         s['parameters'] = snapshot(lora_parameters(self.backend.model))
@@ -617,6 +658,9 @@ class RTDExperiment:
 
     def committed(self):
         s = self.state
+        if self.v11:
+            if s['decision'] and not self.fixed:
+                self.ledger.close_window(s['window_id'])
         row = s['steps'][-1]
         path = self.directory / 'steps' / f"r{s['round']}-s{s['step']:02d}.json"
         atomic_json(path, row | dict(old_slots=[dict(source=asdict(src), teacher=asdict(t) if t else None)
@@ -627,6 +671,10 @@ class RTDExperiment:
         for key in ('reference', 'reference_feedback', 'actual_feedback', 'actual', 'old_targets', 'old_chi',
                     'new_targets', 'new_chi', 'candidate_specs', 'selected_features', 'next_phi'):
             s.pop(key, None)
+        if self.v11:
+            for key in ('feedback_rollouts', 'batch_targets', 'batch_chi', 'batch_gradients', 'batch_rows',
+                        'batch_specs', 'value_statistics', 'reliability_check'):
+                s.pop(key, None)
         print(f"[rtd] {self.manifest['arm']} round={s['round']} step={s['step']} "
               f"package={row['selected']} spend={self.ledger.spent}/{self.ledger.budget}", flush=True)
         if s['smoke'] or s['step'] == 12:
@@ -658,8 +706,11 @@ class RTDExperiment:
                 actual_spend=self.ledger.spent, owned=sorted(s['owned']), config_hash=self.manifest['config_hash'])
             # Source traces/moments are retained independently of rolling recovery.
             with (temporary / 'round_state.pt').open('wb') as stream:
-                torch.save({k: s[k] for k in ('source', 'source_cache', 'diagonal', 'standardizer', 'eta',
-                                               'phi', 'posterior', 'cost_model', 'controller')}, stream)
+                round_state = {k: s[k] for k in ('source', 'source_cache', 'diagonal', 'standardizer', 'eta',
+                                               'phi', 'posterior', 'cost_model', 'controller')}
+                if self.v11:
+                    round_state['batch_state'] = {k: v for k, v in s.items() if k not in round_state}
+                torch.save(round_state, stream)
                 stream.flush(); os.fsync(stream.fileno())
             meta['round_state_hash'] = file_hash(temporary / 'round_state.pt')
             atomic_json(temporary / 'checkpoint.json', meta)
@@ -673,7 +724,7 @@ class RTDExperiment:
             fsync_directory(self.directory)
         s['checkpoints'].append(meta)
         atomic_json(self.directory / 'trajectory.json', dict(checkpoints=s['checkpoints'], steps=s['steps']))
-        if s['smoke'] or s['round'] == 3:
+        if s['smoke'] or s['round'] == s.get('rounds', 3):
             self.transition('complete')
         else:
             s['round'] += 1

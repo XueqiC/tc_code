@@ -1,0 +1,105 @@
+# RTD v1.1 D2+D3: cached-content budget, one slot per new package.
+# D1 source estimator integration is separate; no new teacher calls.
+method: rtd_v1_1
+mode: sealed_replay
+training_seed: 0
+same_hardware_required: true
+harness_frozen: true
+teacher_access: text_only
+support_split: parent_hash_two_fold
+certificate_isolation: strict
+
+rounds: 3
+decision_steps_per_round: [1, 4, 7, 10]
+replay_is_explicit_choice: true
+budget_checkpoints_bank_fraction: [0.10, 0.25, 0.50]
+online_max_teacher_turns: 8
+replay_request_lengths: recorded_only
+
+source_refresh: round
+source_samples_per_state: 2
+source_temperature: 1.0
+source_top_p: 1.0
+loss: positive_source_teacher_mixture
+behavior_probability: complete_action_with_termination
+exposure_unit: complete_source_action_slot
+slots_per_step: 40
+exposure_slots_per_window: 40
+max_new_packages_per_window: 20
+drift_reference_packages: 4
+value_noise_floor: 1.0e-8
+committed_steps_per_round: 12
+
+gate: linear_sigmoid
+gate_hidden_projection_dim: 32
+gate_initial_logit: 0.0
+gate_ridge: 1.0
+gate_learning_rate: 0.1
+gate_gradient_scale: running_rms_from_past_feedback_only
+
+optimizer: fixed_preconditioned_single_step
+preconditioner: train_only_rms_diagonal
+preconditioner_refresh: round
+preconditioner_damping_relative: 0.01
+preconditioner_mean_diagonal: 1.0
+step_size_selection: frozen_training_only_kl_pilot
+pilot_kl_target_per_step: 0.005
+meta_feedback_steps: [1, 4, 7, 10]
+insertion_reference: virtual_same_start
+extra_reference_compute_accounting: separate
+meta_tasks_per_feedback: 8
+rollouts_per_meta_task: 4
+reward: official_terminal_metric
+baseline: leave_one_out_same_task
+
+acquisition: bayesian_linear_posterior_sampling
+acquisition_prior_precision: 1.0
+acquisition_prior_noise_variance: 1.0
+acquisition_value: exposure_conserving_insertion
+acquisition_posterior_refresh: persistent
+hard_cost_reservation: true
+
+# Practical resource declarations (definitions above stay unchanged).
+benchmark: bfcl
+gate_projection_seed: 0
+parameter_space: lora_trainables
+new_teacher_calls: false
+new_teacher_tokens: 0
+replay_bank_path: data/rtd/v1_1_bfcl
+replay_public_cap_output_tokens_by_class: {demo_attempt: 2048, generator_item: 512}
+replay_cap_scope: sealed_bank_class_content_envelope
+support_manifest: configs/rtd/v1_bfcl_support.json
+source_policy_generation: same_backend_torch_categorical
+historical_demo_output_tokens_exact: 1233607
+historical_generation_output_tokens_estimated: 142727
+feedback_scope: rotating_meta_training
+experiment_scope: exploratory
+support_parent_tasks_m: 40
+
+protocol_version: 1.1.0
+budget_basis: usable_recorded_output_tokens
+meta_tasks_multi_turn: 4
+rollouts_multi_turn: 2
+student: Qwen/Qwen3.5-4B
+model_local_files_only: true
+output_root: results/rtd_v1_1
+# Sampling outcomes at these caps are scored as-is, without forced EOS.
+max_action_tokens_by_benchmark:
+  bfcl: {single_turn: 512, multi_turn: 1024}
+max_context_tokens: 32768
+# Decimal GB; visible-device free memory sizes consecutive state batches.
+# Each action/gradient still runs alone, in the original order.
+max_state_batch_size: 2
+memory_peak_budget_gb: 38
+memory_reserve_gb: 2
+memory_state_estimate_gb: 16
+pilot_eta_candidates: [0.000001, 0.000003, 0.00001, 0.00003, 0.0001, 0.0003, 0.001]
+initial_eta: 0.00001
+source_backend: hf_generate
+# Nats/token including EOS; max_abs flags outliers. Every comparison is journaled.
+score_consistency_tolerance: {mean_abs: 0.05, max_abs: 1.0, max_abs_outlier_tokens: 2, max_abs_hard: 8.0}
+lora_rank: 16
+lora_alpha: 32
+lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+evaluate_after_round: true
+evaluation_temperature: 0.0

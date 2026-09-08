@@ -133,3 +133,17 @@ def select_public(candidates, choose):
     if selected is not None and selected not in {c.query_id for c in candidates}:
         raise ValueError("selector chose an unavailable request")
     return selected, trace
+
+
+def select_public_batch(candidates, choose):
+    """The same guarded boundary for a finite set, including the empty set."""
+    candidates = tuple(candidates)
+    if not all(type(c) is PublicQuerySpec for c in candidates):
+        raise TypeError('selector receives only PublicQuerySpec values')
+    trace = [dict(kind='public', query_id=c.query_id, fields=list(PublicQuerySpec.__dataclass_fields__))
+             for c in candidates]
+    with public_only(trace):
+        selected = tuple(choose(candidates))
+    if len(set(selected)) != len(selected) or not set(selected) <= {c.query_id for c in candidates}:
+        raise ValueError('selector chose duplicate or unavailable requests')
+    return selected, trace
