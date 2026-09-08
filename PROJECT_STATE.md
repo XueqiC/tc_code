@@ -1392,3 +1392,9 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 05:04Z 用户 05:02Z:主体冻结;三处局部修正(采购代理评估完整更新含教师注入 + 删包旧池补槽 + d=0 强制测试;删除逐坐标收缩、联合零坐标条件;曝光单位统一 40 单元=80 动作,microbatch 4×10;非决策步 ε̂ 沿新方向重算)→ 方法文档 rev 3.1(main 提交,已 checkout 进 v11a);D8/D9/D7 任务文本已改。之后按两轮三臂执行,不再加模块。
 - 9/9 05:04Z 用户:按 rev 3.1 执行;明早 10 点中部时间要 update → 已定一次性 cron(本机 EDT 10:58 9/8 = 09:58 CDT;若用户指 9/9 需改)。
 - ⟳ RESTART CHECKLIST addendum (9/9 05:10Z): re-arm on restart — (a) one-shot update to the channel at 10:00 CDT 9/8 (= 10:58 EDT local, 14:58Z) covering v1.1 implementation status / v1.0 remaining endpoints / ALFWorld progress / decisions; (b) monitors: M1 merge (worktree v11a), rai R1 process + evaluation-2/3 landing, GPU2 free-up → rai R0 auto-resume, hpg ALFWorld R0/R1/R1s + relays (round boundaries + evaluation landings), "all v1.0 finished" trigger; (c) hourly :23 report continues (external cron).
+- 9/9 05:18Z M1 合并完成(Codex 在 /tmp 解冲突并应用到 v11a 工作树;999 passed;v1.0 配置字节不变),已作为一次提交记入 rtd-v11-a;启动 D8(α+d,rev 3.1)。
+- 9/9 05:33Z hpg ALFWorld R0 第 1 轮训练完成(12 步),进入第 1 轮官方评测(140 题 greedy)。
+- 9/9 05:34Z M1 合并提交 93c7a21(rtd-v11-a);D8(rev 3.1)Codex 运行中(launcher pid 2107713)。
+- 9/9 05:25Z(报告)ALFWorld hpg R0/R1 r1 训练完成进评测,R1s s10;rai R1 r2 评测 91%;GPU2 仍被占 11h;D8 运行 14 min(11 文件)。
+- 9/9 05:36Z 合并后的 v1.1 树(93c7a21)已同步到 hpg tc-alignment-v11;hpg 上 configs/rtd/v1_1_bfcl.yaml audit 通过(420 包,分母 55,370,usable_recorded_output_tokens)。
+- 9/9 05:37Z D7 任务文本补充:定义臂 id V0/V1/V2(映射采购模式/门控/d/重放),新 scripts/rtd_v11_run_hpg.slurm(接受 V0|V1|V2,64G/8 cpu,24h,接力兼容);现 launcher 仅接受 R0|R1。
