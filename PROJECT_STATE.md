@@ -1364,3 +1364,10 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 02:53Z hpg ALFWorld R1s 接力作业 id 41354221;粗粒度监视覆盖三臂 + 三个接力。
 - 9/9 02:55Z hpg R1s 三轮完成(41328395 COMPLETED 6h30m):r3 Overall 46.53(NL 80.35/Live 77.72/MT 49.62/Mem 29.25/Irrel 82.87/Rel 75.00/Web 8.50);曲线 45.91→45.98→46.53;6 包/523 tok;格式错误 46/53/89。hpg matched 三臂齐:R0 46.75 / R1 47.31 / R1s 46.53(base 46.74)。
 - 9/9 03:00Z 强对照 prepare 在 hpg 上对 v1.0 hpg R0/R1 最终 ledger 运行成功(configs/rtd/baselines/generated_hpg_v10,suite bfcl_suite_hpg_v10.yaml,B200 class 01be985e…);tune/run 未启动——v1.0 池仅 5–7 包,是否在 v1.0 上跑强对照待用户决定(我建议放到 v1.1 后)。
+- 9/9 03:25Z ⚠️ hpg 隧道断(kex_exchange_identification);已通知用户。用户指示:'v1.0 基线跑'(在 v1.0 hpg R0/R1 池上跑强对照 tune/run)→ 隧道恢复后提交。hpg 监视暂停(误报 GONE),已挂隧道恢复探测(10 min)。
+- 9/9 03:26Z 用户批准 v1.0 强对照:启动命令写在 docs/rtd_v1_baselines_launch_hpg.md(tune 1 作业;B3/B4 12 个 run 可先提;B1/B2 8 个 run 等 selection;每个 run 后 evaluate);等隧道恢复。
+- 9/9 03:28Z 隧道恢复(用户)。提交 v1.0 强对照:tune 41356524(A1/slots 12 trial)+ 先行 3 个 B3/B4 run(41356525/6/7);编排脚本 results/rtd_baselines_hpg_orchestrate.sh(≤4 pending、B3/B4→B1/B2、每个 run 后 afterok evaluate)。hpg ALFWorld 三臂存活(R0 3h24m、R1 2h10m、R1s 1h50m);监视重挂。
+- 9/9 03:36Z 强对照首批 4 作业 40s 内失败:--wrap 里 source aw_hpg_common.sh 前未设 ROOT → mkdir '/envs' PermissionError。修正(cd + ROOT=$(pwd -P) export)后重提 tune + 3 个 run;afterok 评测已撤;编排器状态重置。
+- 9/9 03:36Z 强对照重提:tune 41357119,run 41357120/1/2;编排器 W 修正为绝对路径。
+- 9/9 03:40Z 用户问多久:v1.0 报告明早(美东);强对照 B3/B4 ~1.5 天、B1/B2 ~2 天;ALFWorld 首数明晚、三轮 ~3 天。
+- 9/9 03:41Z 用户:取消强对照(来不及),先出 v1.0 汇总;并指出方法验证阶段不用三个种子(所有实验实为单种子 seed 0;tune 网格是 lr×步数,不是种子)。已 scancel 全部 bl_/ev_ 作业、停编排器。
