@@ -285,9 +285,15 @@ same sealed candidate pool as RTD, purchased in a frozen random order
 (one order shared by the three training runs; the runs differ only in
 training randomness) until the next package would exceed the cap;
 purchased failed attempts are charged and yield no positive. Purchased
-packages are rendered into training rows by the same renderer that
-produced the earlier validated pools, so that rows are byte-identical
-to those pools where the same package appears. On BFCL at
+packages are rendered into training rows exactly as RTD renders them
+for its own training: the sealed state prompt (the deployment
+template with the tool list and the non-thinking prefix) and the
+teacher continuation in the model's native emission form, so that
+baselines and RTD train on the same text for the same package. (The
+earlier pools placed function documentation in a system message and
+used the leaderboard's decoded call style; at the unified data size
+that format collapses the student, whereas its earlier 23-row use was
+merely under-trained.) On BFCL at
 $B=13{,}843$ the random order buys 103 packages over 22 tasks (94
 positive rows, 9 charged failures, $C_m=13{,}776$); among these tasks
 no cached failed first turn of the student exists, so the
