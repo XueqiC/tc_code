@@ -1342,3 +1342,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 07:25Z(报告)hpg R0 r2 s10、hpg R1s r2 s7、rai R1 r2 s7;rai R0 等 GPU2;C26-H 进行中;GPU1 空闲。
 - 9/9 23:47Z 用户:'按照我们之前要求的来吧'、'尽量规范标准' → ALFWorld 不缩减(3 轮 + 140 题完整 greedy 评测),BFCL 保持官方全量;v1.1 批准与否已再次询问,等答复。
 - 9/9 23:56Z 用户:先别做,汇总 + v1.1 详细建议写成文档 → docs/2026-09-09-rtd-v1-summary-and-v1-1-recommendations-zh.md 已发(含采购分布诊断:R1/R1s 熵比≈R0、empty≈50%、成本未约束;追加'价值信号可靠性'判定实验;§2.6 五项待拍板)。
+- 9/9 00:02Z C26-H 交付并提交(worktree):非选中 ALFWorld trial 也按公开 reset hash 采样来源特征;完整窗口 + 六阶段 resume 测试;972 测试通过。rai GPU1 起 smoke 循环(results/c26f/rai-R1-window-h,900s 一段 resume 续跑);同步 hpg 并重提 ALFWorld R0(B200)作真实模型验证;R1/R1s 待 R0 过 reference→actual 后再提。
