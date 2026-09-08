@@ -32,10 +32,11 @@ benchmark, and every teacher output token they consume, including
 discarded failures, ranking calls, and on-policy corrections, is
 charged against it; STaR uses no teacher call and is reported as the
 zero-teacher reference. Each trained row is mean$\pm$std over three
-training seeds (data order, adapter initialization, and the student's
-own sampling) with greedy evaluation; the \emph{initial pretrained
-student} row is a single reference evaluation of the released
-checkpoint, whose evaluation-repeat spread is stated in
+training runs (data order, adapter initialization, and the student's
+own sampling) under each benchmark's official decoding; the
+\emph{initial pretrained student} row is a single reference
+evaluation of the released checkpoint on the same machine and
+configuration, with its evaluation-repeat spread stated separately in
 Appendix~\ref{app:details}, and improvements are reported in
 percentage points over it on the full fixed column set.
 

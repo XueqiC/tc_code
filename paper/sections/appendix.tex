@@ -178,7 +178,8 @@ activation-probe rejection \citep{li2026scope}.
 benchmark's convention (execution accuracy for GSM8K-style tasks, task
 success for AppWorld/ALFWorld, score for WebShop, tool-call accuracy for
 BFCL, pass\^{}k-style success for $\tau^2$-bench). Decoding is greedy
-(pass@1) with a 320-token cap. Behavioral leakage channels (action-space
+(pass@1) with a 320-token cap except where a benchmark's official
+default differs (BFCL, Table~\ref{tab:eval-protocol}). Behavioral leakage channels (action-space
 adoption, format bleed, refusal rates) accompany the residue numbers.
 Certificates follow conformal risk practice \citep{vovk2005algorithmic,
 gibbs2025conditional}.
@@ -219,10 +220,10 @@ such. \textbf{BFCL~v4} evaluates function calling across single-turn,
 live, multi-turn, memory, web-search, and relevance categories and is
 reported as the official overall accuracy over all 5{,}217 entries
 under the official generation and evaluation scripts with the
-leaderboard default temperature of $0.001$ (served by vLLM, which
-treats this as near-argmax sampling rather than strict greedy
-decoding; repeated evaluations of one checkpoint differ by at most
-$0.2$ points and hardware classes by at most $0.3$).
+leaderboard default low-temperature sampling ($T=0.001$, served by
+vLLM; this is not strict greedy decoding). Trained checkpoints are
+always compared with the initial student evaluated on the same
+machine and configuration.
 \textbf{ALFWorld} tests embodied household instruction following in a
 text environment with a ReAct scaffold; we report the success rate on
 the 140 \texttt{valid\_seen} tasks with a 40-step cap under greedy
@@ -244,7 +245,7 @@ student backbone changes.}
 Benchmark & Evaluation set & Tasks & Step cap & Decoding & Metric\\
 \midrule
 AppWorld & dev subset (\texttt{dev40}) & 40 & 24 & greedy & TGC (pass ratio aux.)\\
-BFCL~v4 & official full suite & 5{,}217 & harness & $T{=}0.001$ (official) & overall accuracy\\
+BFCL~v4 & official full suite & 5{,}217 & harness & official default $T{=}0.001$ & overall accuracy\\
 ALFWorld & \texttt{valid\_seen} & 140 & 40 & greedy & success rate\\
 \bottomrule
 \end{tabular}
@@ -252,12 +253,15 @@ ALFWorld & \texttt{valid\_seen} & 140 & 40 & greedy & success rate\\
 
 \paragraph{Initial pretrained student row.}
 The base row evaluates the released \texttt{Qwen3.5-4B} checkpoint
-with no adapter. It is reported as one reference value per column; the
-spread across repeated evaluations of the same checkpoint
-(AppWorld: three evaluation seeds give TGC $0/40$, $0/40$, $1/40$ and
-pass ratios $0.277/0.213/0.250$; BFCL: $46.27$, $46.25$, and $46.06$
-on three GPU classes) is evaluation noise and is never mixed with the
-training-seed standard deviations of the trained rows.
+with no adapter and is reported as one reference value per column,
+taken on the same machine and configuration as the trained rows it is
+compared with. Repeated evaluations of this checkpoint are reported
+separately from training variance: on AppWorld three evaluation seeds
+give TGC $0/40$, $0/40$, and $1/40$ (pass ratios $0.277$, $0.213$,
+$0.250$); on BFCL the standard campaign observed $46.27$, $46.25$, and
+$46.06$ on three GPU classes, a spread of $0.21$ points in this run,
+which is an observation rather than a bound. The $\pm$ of every
+trained row is the standard deviation over its three training runs.
 
 \paragraph{Budget accounting.}
 $B$ is a cap on teacher output tokens per benchmark, applied
