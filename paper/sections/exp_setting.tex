@@ -9,34 +9,35 @@ harnesses, with every method deployed through the same tools, prompts,
 action retries, and decoding, so that only the 4B backbone changes:
 \textbf{AppWorld} \citep{trivedi2024appworld} (task goal completion,
 TGC, on a fixed 40-task development subset with a 24-step cap;
-unit-test pass ratio is reported as a diagnostic), \textbf{BFCL~v4}
+the unit-test pass ratio is reported as a diagnostic), \textbf{BFCL~v4}
 (official overall accuracy over the full 5{,}217-entry suite), and
 \textbf{ALFWorld} \citep{shridhar2021alfworld} (success rate on the
 140-task \texttt{valid\_seen} split). $\tau^2$-bench
 \citep{yao2024taubench} is excluded from the main table because its
 simulated user consumes an order of magnitude more teacher tokens per
 episode than any supervision budget studied here; protocols and task
-counts are in Appendix~\ref{app:details}. The baselines are named by
-what they implement (Appendix~\ref{app:baselines} gives losses, data,
-and the original methods they adapt): \emph{Trajectory SFT}
-\citep{mukherjee2023orca}, \emph{Span-weighted SFT} (adapting
-Structured Agent Distillation, \citealp{liu2025structured}),
-\emph{On-policy teacher correction + SFT} (the supervised core of
-black-box on-policy distillation, \citealp{ye2025bbopd}, without its
-discriminator), \emph{SFT + teacher-ranked DPO} (dDPO,
-\citealp{tunstall2023zephyr}), \emph{Offline teacher--student
-preference training} (PBSD-inspired, \citealp{pbsd2026}), and
-\emph{STaR without rationalization} \citep{zelikman2022star}.
-Teacher-using methods share the same teacher budget cap $B$ on a
-benchmark, and every teacher output token they consume, including
-discarded failures, ranking calls, and on-policy corrections, is
-charged against it; STaR uses no teacher call and is reported as the
-zero-teacher reference. Each trained row is mean$\pm$std over three
-training runs (data order, adapter initialization, and the student's
-own sampling) under each benchmark's official decoding; the
-\emph{initial pretrained student} row is a single reference
-evaluation of the released checkpoint on the same machine and
-configuration, with its evaluation-repeat spread stated separately in
+counts are given in Appendix~\ref{app:details}. The baselines are
+named by what they implement, and Appendix~\ref{app:baselines} gives
+their losses, data, and the original methods they adapt:
+\emph{Trajectory SFT} \citep{mukherjee2023orca}, \emph{Span-weighted
+SFT} (adapting Structured Agent Distillation,
+\citealp{liu2025structured}), \emph{On-policy teacher correction +
+SFT} (the supervised core of black-box on-policy distillation,
+\citealp{ye2025bbopd}, without its discriminator), \emph{SFT +
+teacher-ranked DPO} (dDPO, \citealp{tunstall2023zephyr}),
+\emph{Offline teacher--student preference training} (PBSD-inspired,
+\citealp{pbsd2026}), and \emph{STaR without rationalization}
+\citep{zelikman2022star}. Teacher-using methods share the same teacher
+budget cap $B$ on a benchmark, and every teacher output token they
+consume, including discarded failures, ranking calls, and on-policy
+corrections, is charged against it; STaR uses no teacher call and is
+reported as the zero-teacher reference. Each trained row is
+mean$\pm$std over three training runs (data order, adapter
+initialization, and the sampling of the student itself) under the
+official decoding of each benchmark. The \emph{initial pretrained
+student} row is a single reference evaluation of the released
+checkpoint on the same machine and configuration, with its
+evaluation-repeat spread stated separately in
 Appendix~\ref{app:details}, and improvements are reported in
 percentage points over it on the full fixed column set.
 
@@ -48,23 +49,23 @@ The support set $\mathcal{S}$ is drawn once with a fixed seed,
 stratified over task categories, from the official training split when
 one exists and from the full task set otherwise, and all methods,
 including the base student, are evaluated on the query side only. The
-support size is five percent of the pool clipped to $[50,250]$,
-matching demonstration volumes in agent distillation work
+support size is five percent of the pool clipped to $[50,250]$, which
+matches the demonstration volumes of agent distillation work
 \citep{kang2025distilling, liu2025structured}; eighty percent of
-$\mathcal{S}$ is the working split $\mathcal{S}_d$ and the remainder
-is the calibration split $\mathcal{S}_c$, with per-benchmark sizes in
-Table~\ref{tab:support-sizes}. The budget $B$ counts every teacher
-output token including discarded failures, teacher-using methods are
-matched at the same $B$, and teacher-free baselines follow their
-native zero-teacher protocol.
+$\mathcal{S}$ forms the working split $\mathcal{S}_d$ and the
+remainder the calibration split $\mathcal{S}_c$, with per-benchmark
+sizes in Table~\ref{tab:support-sizes}. The budget $B$ counts every
+teacher output token including discarded failures, teacher-using
+methods are matched at the same $B$, and teacher-free baselines follow
+their native zero-teacher protocol.
 
 \paragraph{Implementation details.}
 All main-text experiments use one fixed pair, a metered black-box
-teacher (DeepSeek-V4-Pro via API, exposing neither logits nor hidden
-states nor gradients) and a Qwen3.5-4B student; other student scales
-appear in Appendix~\ref{app:details}. Students train with LoRA
+teacher (DeepSeek-V4-Pro through its API, exposing neither logits nor
+hidden states nor gradients) and a Qwen3.5-4B student; other student
+scales appear in Appendix~\ref{app:details}. Students train LoRA
 adapters (rank 16) under compute-matched schedules, and every
-threshold in the method is either a statistical convention or
+threshold in the method is either a statistical convention or is
 estimated from the support set, with all constants listed in
 Appendix~\ref{app:details}. Experiments run on a local server with
 five mixed NVIDIA GPUs (48--96GB) for simulator-bound evaluation and

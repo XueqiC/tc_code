@@ -3,8 +3,7 @@
 \definecolor{rowhead}{RGB}{242,241,236}
 
 
-To establish that the method delivers on its goal, we organize the
-evaluation around five research questions.
+We organize the evaluation around five research questions.
 \textbf{RQ1} asks whether the full method improves few-shot agent
 specialization under a common teacher budget cap. \textbf{RQ2} asks
 whether the return-chosen replacement beats the uniform transfer at
@@ -27,11 +26,12 @@ STaR uses no teacher call. Trained rows are mean$\pm$std over three
 training runs; the initial pretrained student is a single reference
 evaluation (Appendix~\ref{app:details}). AppWorld reports TGC on the
 \texttt{dev40} subset (24 steps), BFCL~v4 the official overall
-accuracy, ALFWorld the \texttt{valid\_seen} success rate, all in
+accuracy, and ALFWorld the \texttt{valid\_seen} success rate, all in
 percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
-points over the initial student across the three columns and is only
-computed for rows with all three. Cells marked $\cdot$ are pending; $^{\dagger}$ marks a cell with fewer than
-three training runs, reported provisionally until they complete.
+points over the initial student across the three columns and is
+computed only for rows with all three. Cells marked $\cdot$ are
+pending, and $^{\dagger}$ marks a cell with fewer than three training
+runs, reported provisionally until they complete.
 The AppWorld column still shows the earlier mixed-teacher pools
 (awb3) and will be replaced by the unified-budget runs.}
 \label{tab:main}
@@ -64,7 +64,7 @@ benchmark every teacher-using method draws its evidence from the same
 sealed candidate pool under a common budget cap, and every row is
 compared with the initial pretrained student evaluated on the same
 machine, which is the number that matters most in this setting.
-\todo{fill the pending cells as the unified-budget runs land.} 
+\todo{fill the pending cells as the unified-budget runs land.}
 
 \begin{figure}[t]
 \centering
@@ -75,11 +75,11 @@ predicted gain $\hat z^{\top}d^\star$ on the horizontal axis and the
 realized return difference on held-out feedback tasks on the vertical
 axis; symmetry and shuffled-pairing controls as reference lines.}
 \caption{The replacement decision is what the return sees. Each point
-is one decision window; the horizontal axis is the surrogate's
-predicted gain of the learned replacement over the uniform transfer
-and the vertical axis the realized return difference of the two
-independently executed updates on a feedback batch that did not choose
-$d$.}
+is one decision window. The horizontal axis is the predicted gain of
+the learned replacement over the uniform transfer under the surrogate,
+and the vertical axis is the realized return difference of the two
+independently executed updates on a feedback batch that did not
+choose $d$.}
 \label{fig:mechanism}
 \end{figure}
 
@@ -96,7 +96,7 @@ sign of $d$ and leave the update unchanged; and the learned $d$
 against a shuffled source pairing that keeps the multiset of gate
 values and teacher targets. \todo{fill from the embedded paired
 controls of the V2 windows.} The test is falsifiable in both
-directions, since a realized gain indistinguishable from the shuffled
+directions. A realized gain indistinguishable from the shuffled
 pairing would show that the selection carries no information beyond
 the injection, and a negative correlation between $\hat z$ and the
 realized gain would refute the surrogate.
@@ -139,7 +139,7 @@ Table~\ref{tab:cross} fixes our distillation and varies only how the
 evidence is acquired. The primary contrast is between the random
 acquisition of the control arm, which draws packages under the same
 budget, cap, and cost model, and the surrogate posterior, which
-predicts each candidate's marginal gain to the full update from
+predicts the marginal gain of each candidate to the full update from
 public features and the pre-purchase training context; the selection
 and generation baselines listed in Appendix~\ref{app:details} are
 run under the same cap. \todo{fill from V0, V1, and V2 and the
@@ -151,9 +151,9 @@ Section~\ref{sec:rq5}.
 \centering
 \caption{Distillation comparison on identical acquired data. Every row
 trains on the same corpus purchased by our acquisition; the rows are
-the same methods as Table~\ref{tab:main}, so any difference comes from
-the training procedure alone. Bold marks the best and underline the
-second best.}
+the same methods as in Table~\ref{tab:main}, so any difference comes
+from the training procedure alone. Bold marks the best and underline
+the second best.}
 \label{tab:distill}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -180,10 +180,10 @@ Table~\ref{tab:distill} feeds the identical purchased evidence to
 every distillation baseline of Table~\ref{tab:main} and to ours, so
 whatever difference remains can only come from the training
 procedure. The fixed-purchased-data control of the protocol serves the
-same purpose in the other direction: it trains our procedure on the
-random control arm's purchases. \todo{fill from the distillation
-matrix on the frozen purchased set.} The comparison the mechanism
-predicts is that procedures that replace the student's behaviors
+same purpose in the other direction; it trains our procedure on the
+purchases of the random control arm. \todo{fill from the distillation
+matrix on the frozen purchased set.} The comparison predicted by the
+mechanism is that procedures that replace the behaviors of the student
 wholesale lose part of what the initial student could do before they
 finish absorbing the teacher, while the transfer with fixed teacher
 mass and a return-chosen replacement keeps it.
@@ -203,7 +203,7 @@ from the row above in percentage points.}
 Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $\cdot$ & --\\
 \quad learned $\alpha$, $d=0$ & $\cdot$ & $\cdot$\\
 \quad learned $\alpha$, independent $d$ (no interaction term) & $\cdot$ & $\cdot$\\
-\quad learned $\alpha$, joint $d$ (V1, replays V0's purchases) & $\cdot$ & $\cdot$\\
+\quad learned $\alpha$, joint $d$ (V1, replays the purchases of V0) & $\cdot$ & $\cdot$\\
 + acquisition by the joint-update surrogate (V2, full method) & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
@@ -240,6 +240,6 @@ method is plotted at its actual spend, and the acquisition arm is
 judged on the score it reaches per token actually billed, including
 failed completions. \todo{fill from the ledgers of V0, V1, and V2 and
 the baseline pools.} The surrogate is judged separately by whether its
-marginal values track realized paired gains measured on feedback
+marginal values track the realized paired gains measured on feedback
 batches that did not choose the update, which is the only sense in
 which the acquisition model is validated rather than assumed.

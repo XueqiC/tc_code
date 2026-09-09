@@ -2,20 +2,20 @@ Language-model agents are deployed for narrow jobs that are specified,
 in practice, by a few dozen example queries, a task-level success
 check, and metered access to a stronger teacher that charges for every
 token and exposes only text. We study few-shot agent specialization
-under exactly these terms. Distillation from such a teacher faces one
+under exactly these terms. Distillation from such a teacher faces a
 question that imitation cannot answer: a purchased demonstration says
-what the teacher would do, but not which of the student's own
-behaviors it should replace, and maximum-likelihood imitation replaces
-them wholesale. We propose return-targeted distillation. Each
-supervised state receives a fixed amount of teacher probability mass
-through a legal probability transfer, and the mass is taken from
-whichever of two freshly sampled student behaviors the student's own
-learning return says should give way, so that the shared component of
+what the teacher would do, but not which of the existing behaviors of
+the student it should replace, and maximum-likelihood imitation
+replaces all of them at once. We propose return-targeted distillation.
+Each supervised state receives a fixed amount of teacher probability
+mass through a legal probability transfer, and the mass is taken from
+whichever of two freshly sampled student behaviors the learning return
+of the student says should give way, so that the component shared by
 the two behaviors cancels and only their difference is decided. The
-replacement is the solution of a small joint problem whose
-interaction term charges evidence that pushes the update in the same
-direction, and the same problem prices every candidate purchase by
-the marginal gain it adds to the full update of the evidence already
+replacement is the solution of a small joint problem whose interaction
+term charges evidence that pushes the update in a direction already
+taken, and the same problem prices every candidate purchase by the
+marginal gain it adds to the full update of the evidence already
 owned, under a hard ledger that bills failed completions. Under a
 common teacher budget cap on agent benchmarks, with the harness fixed
 and only the student backbone changing, we compare the method with

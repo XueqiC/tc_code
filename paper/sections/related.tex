@@ -13,8 +13,8 @@ retrospective thought prefixes \citep{kang2025distilling},
 capacity-aligned trajectory selection \citep{tang2026smartad}, teacher
 feedback turned into preference objectives \citep{tunstall2023zephyr,
 pbsd2026}, or teacher supervision on student-visited states
-\citep{ye2025bbopd}. The limits of imitation are documented; small
-models imitating proprietary teachers acquire style rather than
+\citep{ye2025bbopd}. The limits of imitation are well documented.
+Small models imitating proprietary teachers acquire style rather than
 capability \citep{gudibande2023false}, fine-tuning erases previously
 held abilities \citep{luo2023empirical}, and agent-tuning pipelines
 mix general data into training precisely to limit that erosion
@@ -22,21 +22,22 @@ mix general data into training precisely to limit that erosion
 moves by matching or reverse-matching distributions
 \citep{agarwal2024gkd, gu2024minillm}, and learning-to-reweight
 methods adjust example weights by a validation gradient
-\citep{ren2018learning}; both need signals a text-only teacher does
-not expose or decide only how much each example counts. Our transfer
-differs on the decision it makes. The teacher mass of a state is
-fixed before sampling and is not a learned weight; what the return
-decides is which of the student's own behaviors gives way, and the
-shared component of those behaviors is cancelled rather than
-reweighted. Self-improvement with verifiers is the closest
-teacher-free line: STaR retrains on self-generated solutions that pass
-a checker \citep{zelikman2022star}, rejection-sampling fine-tuning and
-ReST generalize this into generate-filter-train loops
-\citep{yuan2023scaling, gulcehre2023rest, singh2023beyond}, and
-online preference optimization shows that fresh negatives beat frozen
-ones \citep{guo2024direct}. We keep the student's own fresh samples
-as the behaviors that can give way, and we let the teacher supply the
-mass that a cold student cannot sample by itself.
+\citep{ren2018learning}; the former needs signals that a text-only
+teacher does not expose, and the latter decides only how much each
+example counts. Our transfer differs in the decision it makes. The
+teacher mass of a state is fixed before sampling and is not a learned
+weight; what the return decides is which of the behaviors of the
+student gives way, and the component shared by those behaviors is
+cancelled rather than reweighted. Self-improvement with verifiers is
+the closest teacher-free line. STaR retrains on self-generated
+solutions that pass a checker \citep{zelikman2022star},
+rejection-sampling fine-tuning and ReST generalize this into
+generate-filter-train loops \citep{yuan2023scaling, gulcehre2023rest,
+singh2023beyond}, and online preference optimization shows that fresh
+negatives beat frozen ones \citep{guo2024direct}. We keep fresh
+samples from the student as the behaviors that can give way, and we
+let the teacher supply the mass that a cold student cannot sample by
+itself.
 
 \paragraph{Valuing and selecting evidence under a budget.}
 Data selection scores examples by gradient similarity to a target
@@ -45,8 +46,8 @@ Data selection scores examples by gradient similarity to a target
 \citep{chen2024alpagasus, liu2024deita}, and active learning prices a
 query by expected model change or expected error reduction
 \citep{settles2009active}. All of these value an example on its own or
-against a fixed target; the marginal contribution of a purchase to
-the update that the already-owned evidence produces is not part of the
+against a fixed target; the marginal contribution of a purchase to the
+update that the already-owned evidence produces is not part of the
 score. Budgeted use of paid models has been studied as cascading and
 routing between cheap and expensive calls \citep{chen2023frugalgpt},
 where the budget buys inference rather than supervision. Our
@@ -54,6 +55,6 @@ acquisition values a candidate by the marginal gain it adds to the
 joint update of the owned evidence under the same replacement problem
 that trains the student, with a hard ledger that charges failed
 completions at their recorded cost and a posterior that reads only
-pre-purchase information; the comparisons in Section~\ref{sec:rq3}
+pre-purchase information. The comparisons in Section~\ref{sec:rq3}
 place this rule against the selection and generation families under
 one budget cap.
