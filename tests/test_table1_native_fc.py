@@ -309,7 +309,8 @@ def test_defaults_and_preserve_legacy_destination(tmp_path):
     assert row_format_for('bfcl') == NATIVE_ROW_FORMAT
     assert row_format_for('bfcl', 'native-fc') == 'native-fc-v2'
     assert row_format_for('bfcl', LEGACY_ROW_FORMAT) == LEGACY_ROW_FORMAT
-    assert row_format_for('alfworld') == row_format_for('appworld') == LEGACY_ROW_FORMAT
+    assert row_format_for('alfworld') == LEGACY_ROW_FORMAT
+    assert row_format_for('appworld') == 'native-appworld-awb3-v1'
     with pytest.raises(ValueError, match='unsupported row format'):
         row_format_for('appworld', NATIVE_ROW_FORMAT)
     audit = io.DEFAULT_OUT / 'bfcl'
