@@ -6,73 +6,74 @@
 %% update. House style: no em dashes, no colons, no prose
 %% parentheticals, one step of logic per sentence.
 
-Enterprises increasingly deploy language-model agents for narrow,
-recurring jobs, such as operating a fixed set of applications,
-handling customer requests over database-backed tools, or automating
-one workflow \citep{yao2023react, trivedi2024appworld, yao2024taubench,
+Language-model agents are increasingly deployed for narrow, recurring
+jobs, such as operating a fixed set of applications, handling customer
+requests over database-backed tools, or automating one workflow
+\citep{yao2023react, trivedi2024appworld, yao2024taubench,
 shridhar2021alfworld}. Serving a frontier model for a single narrow
 job is rarely economical, so practice converges on specializing a
-small student for that job. What the deployer actually has is a few
-dozen example queries from the intended workload, a task-level check
-of whether an attempt succeeded, and metered query access to a strong
+small student for that job. The deployer typically has a few dozen
+example queries from the intended workload, a task-level check of
+whether an attempt succeeded, and metered query access to a strong
 commercial teacher whose weights and logits are out of reach and whose
-every emitted token is billed. The question this paper studies is how
-to convert a limited teacher budget into the largest possible gain in
-task success for the small student.
+every emitted token is billed. This paper asks how a limited teacher
+budget can be converted into the largest possible gain in task success
+for the small student.
 
-The standard answer is imitation. One purchases teacher
-demonstrations and trains the student to reproduce them, a recipe that
-underlies sequence-level knowledge distillation and its agentic
-refinements \citep{kim2016sequence, mukherjee2023orca,
-liu2025structured, kang2025distilling}. A demonstration from a
-text-only teacher, however, answers only half of the question the
-student faces. It says what the teacher would do at a state. It does
-not say which of the student's existing behaviors at that state
-should be replaced and which should be kept, and maximum-likelihood
-training replaces them all at once, since its expected update descends
-the divergence between the teacher and student behavior distributions
-as a whole. On agent benchmarks the student already solves part of the
-task, and the part that it solves is exactly what wholesale
-replacement puts at risk. Preference-based and on-policy variants
-change what is compared, but they still let the teacher text decide
-both how much to move and what to move away from.
+The standard answer is imitation. One purchases teacher demonstrations
+and trains the student to reproduce them, the recipe behind
+sequence-level knowledge distillation and its agentic refinements
+\citep{kim2016sequence, mukherjee2023orca, liu2025structured,
+kang2025distilling}. A demonstration from a text-only teacher,
+however, answers only half of the question the student faces. It says
+what the teacher would do at a state. It does not say which of the
+existing behaviors of the student at that state should be replaced and
+which should be kept, and maximum-likelihood training replaces all of
+them at once, since its expected update descends the divergence between
+the teacher and student behavior distributions as a whole. On agent
+benchmarks the student already solves part of the task, and the part
+it solves is exactly what wholesale replacement puts at risk.
+Preference-based and on-policy variants change what is compared, but
+they still let the teacher text decide both how much to move and what
+to move away from.
 
 We separate the two decisions. Return-targeted distillation (RTD)
-installs the teacher's text through a legal probability transfer: at
+installs the teacher text through a legal probability transfer. At
 every supervised state a gate fixes, before anything is sampled, how
-much teacher mass the state receives, and two fresh samples from the
-student's own frozen snapshot define the behaviors that can give way.
+much teacher mass the state receives, and two fresh samples from a
+frozen snapshot of the student define the behaviors that can give way.
 Which of the two gives way is not read off the teacher text. It is
-chosen by the student's own learning return, measured after a virtual
-update on the same batch, so that the component shared by the two
-student behaviors cancels and only their difference is decided.
+chosen by the learning return of the student itself, measured after a
+virtual update on the same batch, so that the component shared by the
+two student behaviors cancels and only their difference is decided.
 Because several pieces of evidence enter one update, the choice is
 made jointly, with an interaction term that charges evidence pushing
-the update in a direction already taken. The same joint problem
-prices acquisition. A candidate purchase is worth the marginal gain
-it adds to what the evidence already owned can achieve in the shared
-update space, including the teacher injection it brings, and
-purchases are executed through a hard ledger that bills failed
-completions at their recorded cost under a budget that is a cap
-rather than an amount to be spent.
+the update in a direction already taken. The same joint problem prices
+acquisition. A candidate purchase is worth the marginal gain it adds
+to what the evidence already owned can achieve in the shared update
+space, including the teacher injection it brings, and purchases are
+executed through a hard ledger that bills failed completions at their
+recorded cost under a budget that is a cap rather than an amount to be
+spent.
 
-Our contributions are as follows. First, a problem. Budgeted
-few-shot agent specialization asks, given a few-shot description of
-an agent task and a budget on a per-token billed, text-only black-box
-teacher, for a small model that maximizes task performance; the
-budget is the single constraint and held-out task performance the
-single criterion. Second, a mechanism. We show that a probability
-transfer with fixed teacher mass and a return-chosen replacement
-target admits an unbiased gradient estimator in which the shared
-component of the student's competing behaviors cancels, and that at
-equal teacher mass a small selective transfer improves the
-finite-step return over the uniform one whenever the two behaviors
-respond differently; the practical selection is a local surrogate
-with an explicit redundancy term and estimation-error penalty, and
-the same surrogate defines the value of evidence. Third, a protocol
-and results. Under a common teacher budget cap per benchmark, with
-the agent harness fixed and only the student backbone changing, we
-compare RTD with implementation-faithful distillation baselines, and
-we isolate the mechanism with paired controls that hold the purchased
-data, the injection, and the source samples fixed and change only the
-replacement decision. \todo{finalize headline numbers at freeze.}
+This paper makes three contributions. The first is a problem
+statement. Budgeted few-shot agent specialization asks, given a
+few-shot description of an agent task and a budget on a per-token
+billed, text-only black-box teacher, for a small model that maximizes
+task performance; the budget is the single constraint and held-out
+task performance the single criterion. The second is a mechanism. We
+show that a probability transfer with fixed teacher mass and a
+return-chosen replacement target admits an unbiased gradient estimator
+in which the shared component of the competing student behaviors
+cancels, and that at equal teacher mass a small selective transfer
+improves the finite-step return over the uniform one whenever the two
+behaviors respond differently; the practical selection is a local
+surrogate with an explicit redundancy term and an estimation-error
+penalty, and the same surrogate defines the value of evidence. The
+third is a protocol with results. Under a common teacher budget cap per
+benchmark, with the agent harness fixed and only the student backbone
+changing, we compare RTD with implementation-faithful distillation
+baselines, and we isolate the mechanism with paired controls that hold
+the purchased data, the injection, and the source samples fixed and
+change only the replacement decision. \todo{finalize headline numbers
+at freeze.}

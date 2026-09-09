@@ -1,11 +1,11 @@
 
 \section{Additional methodology details}\label{app:method}
 
-This section provides implementation details omitted from
+This section provides the implementation details omitted from
 Section~\ref{sec:method}: the complete procedure of one decision
 window, the exposure and ledger conventions, the gate, the estimator
 components, the source-selection solver, the acquisition surrogate
-and its posterior, and the paired controls used to isolate the
+with its posterior, and the paired controls used to isolate the
 mechanism.
 
 \paragraph{Complete procedure.}
@@ -13,14 +13,14 @@ Training runs in budget rounds of twelve commit steps; steps 1, 4, 7,
 and 10 are decision windows. A decision window executes, in this
 order: (i) select and purchase up to $K$ packages with the historical
 posterior under the remaining authorization, revealing and settling
-each at its recorded cost through the ledger; (ii) fix the step's
-evidence, the exposure weights $w_i$, the injections $\alpha_i$, and
-draw two fresh source actions per unit from the round's frozen
-snapshot; (iii) build the virtual reference $\theta_S(0)$ on this
-batch; (iv) estimate the return gradient at $\theta_S(0)$ with
-temperature-one rollouts on the feedback fold and solve $d^\star$;
-(v) commit $\theta_S(d^\star)$ on the same batch, estimate the return at
-$\theta_S(d^\star)$, and update the gate in a blocked step with
+each at its recorded cost through the ledger; (ii) fix the evidence
+of the step, the exposure weights $w_i$, and the injections
+$\alpha_i$, and draw two fresh source actions per unit from the frozen
+snapshot of the round; (iii) build the virtual reference $\theta_S(0)$
+on this batch; (iv) estimate the return gradient at $\theta_S(0)$ with
+temperature-one rollouts on the feedback fold and solve for $d^\star$;
+(v) commit $\theta_S(d^\star)$ on the same batch, estimate the return
+at $\theta_S(d^\star)$, and update the gate in a blocked step with
 $d^\star$ fixed. The acquisition reference (the old-evidence virtual
 update used for surrogate labels) and the selection reference
 $\theta_S(0)$ are separate rollout batches with separate compute
@@ -31,30 +31,30 @@ the errors $\hat\varepsilon_i$ along them from stored per-trajectory
 contributions, and journal the feedback age.
 
 \paragraph{Exposure and ledger conventions.}
-One exposure unit is one state's teacher record plus two source
-actions; $E=40$ units per commit step (eighty actions), at most
-$K=20$ from new packages, micro-batches of four states, ten
-micro-batches per commit. Before any purchase the units are
+One exposure unit is the teacher record of one state plus two source
+actions; each commit step uses $E=40$ units (eighty actions), at most
+$K=20$ of them from new packages, in micro-batches of four states and
+ten micro-batches per commit. Before any purchase the units are
 reference-pool states without teacher evidence, for which
-$\alpha_i=0$. The ledger maintains reserved plus settled cost at or
-below the authorization; a package is reserved at its public cap,
-revealed, settled at its recorded cost, and the remainder released;
-the same package is paid once; a failed completion is charged. The
-budget denominator is the recorded content cost of the sealed pool,
-and the authorizations at the ends of the two rounds are ten and
-twenty-five percent of it. The support tasks are split into two folds
-that rotate between rounds: the inner fold supplies source states and
-candidates, and the feedback fold supplies returns only and never
-enters a gradient, the preconditioner, or any normalization.
+$\alpha_i=0$. The ledger keeps reserved plus settled cost at or below
+the authorization; a package is reserved at its public cap, revealed,
+settled at its recorded cost, and the remainder released; the same
+package is paid once; a failed completion is charged. The budget
+denominator is the recorded content cost of the sealed pool, and the
+authorizations at the ends of the two rounds are ten and twenty-five
+percent of it. The support tasks are split into two folds that rotate
+between rounds; the inner fold supplies source states and candidates,
+and the feedback fold supplies returns only and never enters a
+gradient, the preconditioner, or any normalization.
 
 \paragraph{Gate.}
 $\alpha(s)=\sigma(\phi\cdot\chi(s))$ uses state-only features (a fixed
-projection of the state's hidden representation, prompt length, and
-turn index); it excludes the sampled actions' length, likelihood, or
-projection and excludes benchmark categories and error types. The
-control arm uses the constant $\alpha=0.5$. The gate parameters are
-updated once per decision window from the post-commit return with
-$d^\star$ fixed.
+projection of the hidden representation of the state, the prompt
+length, and the turn index); it excludes the length, likelihood, or
+projection of the sampled actions and excludes benchmark categories
+and error types. The control arm uses the constant $\alpha=0.5$. The
+gate parameters are updated once per decision window from the
+post-commit return with $d^\star$ fixed.
 
 \paragraph{Estimator components.}
 For a unit with prefixes $Y_1,Y_2$, the soft source gradient at each
@@ -65,7 +65,7 @@ the teacher text; $G_1,G_2$ are the log-likelihood gradients of the
 two sampled actions, with the sampled end-of-sequence token included
 and no token appended at a length cap. Generation-time per-token
 log-probabilities are checked against teacher-forced rescoring under a
-fixed tolerance so that a sample whose recorded scores disagree with
+fixed tolerance, so that a sample whose recorded scores disagree with
 the model is rejected before it enters any gradient.
 
 \paragraph{Source-selection solver.}
@@ -75,33 +75,34 @@ by projected coordinate ascent with a convergence test, where
 $\tilde K=K/s$ with $s$ the mean diagonal of $K$ over units with a
 non-zero direction and $\hat z$, $\hat\varepsilon$ scaled by
 $1/\sqrt{s}$, so that the solution is invariant to the overall scale
-of the directions and $\lambda=1$ means that one unit's own
-normalized curvature equals one unit of its linear gain. The
-estimation error $\hat\varepsilon_i$ is the leave-one-out standard
-error of $\hat z_i$ over the feedback rollouts along $v_i$ and is
-recomputed along the new directions at every step. The first window
-of each run uses $d=0$ (warm-up). Journaled per step: $\hat z$,
-$\hat\varepsilon$, the interaction statistics of $K$, $d^\star$, the
-active constraints, and the feedback age.
+of the directions and $\lambda=1$ means that the normalized curvature
+of one unit equals one unit of its linear gain. The estimation error
+$\hat\varepsilon_i$ is the leave-one-out standard error of $\hat z_i$
+over the feedback rollouts along $v_i$ and is recomputed along the new
+directions at every step. The first window of each run uses $d=0$
+(warm-up). Journaled per step are $\hat z$, $\hat\varepsilon$, the
+interaction statistics of $K$, $d^\star$, the active constraints, and
+the feedback age.
 
 \paragraph{Acquisition surrogate and posterior.}
-For the current window's evidence $\mathcal{E}$ the surrogate value
-of an owned package is $\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$
-with $\Delta_{\mathcal{E}}(d)$ built at the acquisition reference
-point and the removed package's units back-filled with predetermined
+For the evidence $\mathcal{E}$ of the current window the surrogate
+value of an owned package is
+$\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$ with
+$\Delta_{\mathcal{E}}(d)$ built at the acquisition reference point
+and the units of the removed package back-filled with predetermined
 old-pool evidence in the same slots and weights; the label is stored
 as an acquisition surrogate, distinct from realized paired gains,
 which are measured with a different feedback batch and used only to
 validate the surrogate. The persistent posterior is a Bayesian linear
-model over the package's public features and pre-purchase training
-context (round and step progress, number of purchased packages and
-states, summary of purchased state projections, mean and spread of
-the current $\alpha$, feedback age) with a separate cost model over
-public features only; its mean is shrunk toward zero unless at least
-four windows and eight labels show positive out-of-window predictive
-power. Nothing in the procedure reads unpurchased content: the
-selector sees public identifiers and cost bounds only, which is
-enforced by a leak test.
+model over the public features of the package and the pre-purchase
+training context (round and step progress, number of purchased
+packages and states, a summary of purchased state projections, mean
+and spread of the current $\alpha$, and feedback age) with a separate
+cost model over public features only; its mean is shrunk toward zero
+unless at least four windows and eight labels show positive
+out-of-window predictive power. Nothing in the procedure reads
+unpurchased content; the selector sees public identifiers and cost
+bounds only, which is enforced by a leak test.
 
 \paragraph{Paired controls.}
 On frozen checkpoints and fixed window evidence, the paired
@@ -109,7 +110,7 @@ interventions execute two one-step updates from the same start and
 evaluate both on a fixed task set and on held-out feedback tasks:
 learned $d^\star$ against $d=0$ at the same $\alpha$ (the isolation of
 the mechanism); the update with $Y_1$ and $Y_2$ swapped (symmetry:
-$d$ flips sign, the update is unchanged); learned $d$ against a
+$d$ flips sign and the update is unchanged); learned $d$ against a
 shuffled source pairing that keeps $\alpha$, the teacher targets, and
 the multiset of gate values; the joint solver against the independent
 solver that drops the off-diagonal of $K$; and the source-estimator
@@ -147,25 +148,25 @@ AppWorld & 90 & 50 & 40 & 10 & \texttt{dev40} subset\\
 Students train LoRA adapters (rank 16, $\alpha_{\mathrm{LoRA}}=32$,
 dropout 0) with AdamW at learning rate $2\times10^{-4}$; the
 preconditioner $P$ used for the virtual reference and the directions
-$v_i$ is the optimizer's diagonal preconditioner accumulated on the
-inner fold before any purchase. Per commit step $E=40$ exposure
-units, $K\le 20$ new packages, micro-batches of four states, ten
-micro-batches per commit; two source actions per unit at temperature
-one, top-$p$ one, resampled at every step; action cap 256 tokens on
-ALFWorld and the harness cap elsewhere. Return feedback uses the
-feedback fold with a fixed number of temperature-one rollouts per
-task and leave-one-out standard errors; $\lambda=1$ on the normalized
-interaction matrix; warm-up $d=0$ for the first window; gate features
-are state-only with a scalar variant $\alpha=\sigma(\phi_0)$; the
-control arm fixes $\alpha=0.5$. The acquisition posterior is shrunk
-to five percent of its mean until four windows and eight labels show
-positive out-of-window predictive power; public cost caps are 2{,}048
-output tokens for demonstration packages and 512 for generator
-packages, certified against the sealed pool. Generation batches at
-most eight prompts within a padded-token budget; teacher-forced
-scoring is unbatched. Experiments ran on a lab node with mixed NVIDIA
-GPUs for evaluation and on NVIDIA B200 nodes for the acquisition arms;
-all arms of a comparison run on one hardware class.
+$v_i$ is the diagonal preconditioner of the optimizer accumulated on
+the inner fold before any purchase. Each commit step uses $E=40$
+exposure units, $K\le 20$ new packages, micro-batches of four states,
+and ten micro-batches per commit; two source actions per unit at
+temperature one, top-$p$ one, resampled at every step; the action cap
+is 256 tokens on ALFWorld and the harness cap elsewhere. Return
+feedback uses the feedback fold with a fixed number of temperature-one
+rollouts per task and leave-one-out standard errors; $\lambda=1$ on
+the normalized interaction matrix; warm-up $d=0$ for the first window;
+gate features are state-only with a scalar variant
+$\alpha=\sigma(\phi_0)$; the control arm fixes $\alpha=0.5$. The
+acquisition posterior is shrunk to five percent of its mean until four
+windows and eight labels show positive out-of-window predictive power;
+public cost caps are 2{,}048 output tokens for demonstration packages
+and 512 for generator packages, certified against the sealed pool.
+Generation batches at most eight prompts within a padded-token budget;
+teacher-forced scoring is unbatched. Experiments ran on a lab node
+with mixed NVIDIA GPUs for evaluation and on NVIDIA B200 nodes for the
+acquisition arms; all arms of a comparison run on one hardware class.
 
 \paragraph{Benchmark protocols and evaluation metrics.}
 Table~\ref{tab:eval-protocol} fixes the evaluation protocol of every
@@ -217,7 +218,7 @@ The base row evaluates the released \texttt{Qwen3.5-4B} checkpoint
 with no adapter and is reported as one reference value per column,
 taken on the same machine and configuration as the trained rows it is
 compared with. Repeated evaluations of this checkpoint are reported
-separately from training variance: on AppWorld three evaluation seeds
+separately from training variance. On AppWorld three evaluation seeds
 give TGC $0/40$, $0/40$, and $1/40$ (pass ratios $0.277$, $0.213$,
 $0.250$); on BFCL the standard campaign observed $46.27$, $46.25$, and
 $46.06$ on three GPU classes, a spread of $0.21$ points in this run,
@@ -242,85 +243,80 @@ support set with identical optimization constants, and differ only in
 the training pool and loss. Losses are computed on assistant-generated
 spans only; environment observations and prompts are masked. The
 branches follow the black-box taxonomy of \citet{xu2024kdsurvey}.
-\begin{itemize}
-\item \textbf{Trajectory SFT} \citep{mukherjee2023orca}: token-level
-NLL on verified teacher trajectories.
-\item \textbf{Span-weighted SFT} (SAD adaptation,
-\citealp{liu2025structured}): the same pool with reasoning and action
-spans weighted separately in the NLL; the original method's
-teacher-distribution alignment is not available from a black-box
-teacher and is replaced by hard labels.
-\item \textbf{On-policy teacher correction + SFT} (adapted from
-\citealp{ye2025bbopd}): the student's own rollouts fix the visited
-states; the teacher is queried once per visited state for the action
-it would take there, and the (state, teacher action) pairs are trained
-by NLL. This keeps the on-policy state distribution of black-box
-on-policy distillation but not its discriminator or adversarial
-objective. On a single-turn benchmark the visited state is the query
-itself and the pool coincides with the demonstration pool.
-\item \textbf{SFT + teacher-ranked DPO} (dDPO, \citealp{tunstall2023zephyr}):
-a Trajectory-SFT stage followed by DPO whose preference pairs are the
-student's own samples ranked best/worst by the teacher; the frozen
-initial student is the DPO reference model, and the ranking outputs
-are charged to $B$.
-\item \textbf{Offline teacher--student preference training}
-(PBSD-inspired, \citealp{pbsd2026}): teacher positives paired with the
-student's own failed first turn as the rejected side, trained jointly
-with the positive NLL; unlike PBSD it uses a static external teacher
-and a fixed negative rather than a context-augmented self-teacher with
-continually resampled negatives.
-\item \textbf{STaR without rationalization} \citep{zelikman2022star}:
-iterated self-sampling, verifier filtering, and self-training on the
-student's own verified samples; no teacher call and no
-teacher-generated initialization examples.
-\end{itemize}
-The agent distiller of \citet{kang2025distilling} reduces, in this
-harness, to Trajectory SFT on the same pool (its retrieval and
+\textbf{Trajectory SFT} \citep{mukherjee2023orca} minimizes the
+token-level NLL on verified teacher trajectories.
+\textbf{Span-weighted SFT} (SAD adaptation, \citealp{liu2025structured})
+trains on the same pool with reasoning and action spans weighted
+separately in the NLL; the teacher-distribution alignment of the
+original method is not available from a black-box teacher and is
+replaced by hard labels. \textbf{On-policy teacher correction + SFT}
+(adapted from \citealp{ye2025bbopd}) lets the rollouts of the student
+itself fix the visited states, queries the teacher once per visited
+state for the action it would take there, and trains the resulting
+(state, teacher action) pairs by NLL; this keeps the on-policy state
+distribution of black-box on-policy distillation but not its
+discriminator or adversarial objective, and on a single-turn benchmark
+the visited state is the query itself, so the pool coincides with the
+demonstration pool. \textbf{SFT + teacher-ranked DPO} (dDPO,
+\citealp{tunstall2023zephyr}) runs a Trajectory-SFT stage followed by
+DPO whose preference pairs are the samples of the student ranked best
+and worst by the teacher; the frozen initial student is the DPO
+reference model, and the ranking outputs are charged to $B$.
+\textbf{Offline teacher--student preference training} (PBSD-inspired,
+\citealp{pbsd2026}) pairs teacher positives with the failed first turn
+of the student as the rejected side and trains jointly with the
+positive NLL; unlike PBSD it uses a static external teacher and a
+fixed negative rather than a context-augmented self-teacher with
+continually resampled negatives. \textbf{STaR without rationalization}
+\citep{zelikman2022star} iterates self-sampling, verifier filtering,
+and self-training on the verified samples of the student, with no
+teacher call and no teacher-generated initialization examples. The
+agent distiller of \citet{kang2025distilling} reduces, in this
+harness, to Trajectory SFT on the same pool, since its retrieval and
 code-tool components are fixed by the benchmark harness for all
-methods) and is therefore not listed as a separate row.
+methods, and it is therefore not listed as a separate row.
 
 \paragraph{Sealed-pool baseline runs.}
 Under the unified budget every baseline draws its evidence from the
 same sealed candidate pool as RTD, purchased in a frozen random order
-(one order shared by the three training runs; the runs differ only in
+(one order shared by the three training runs, which differ only in
 training randomness) until the next package would exceed the cap;
 purchased failed attempts are charged and yield no positive. Purchased
-packages are rendered into training rows as deployment-exact text:
-the prompt is the string the official handler sends at evaluation
-(tool list with the handler's language note, ending at the assistant
-turn marker) and the target is what the model must emit there, the
-empty non-thinking block followed by the teacher continuation in
-native tool-call form. RTD's own rendering of the same package
-differs only in placing the empty block inside the prompt; both are
-recorded in the run manifests. Two other renderings were tried and
-rejected at the unified data size because the resulting students
-emitted an empty block and stopped: the legacy pseudo-tag rows with
-the leaderboard's decoded call style (their earlier 23-row use had
-merely been under-trained) and rows with the empty block masked
-inside the prompt. On BFCL at
-$B=13{,}843$ the random order buys 103 packages over 22 tasks (94
-positive rows, 9 charged failures, $C_m=13{,}776$); among these tasks
-no cached failed first turn of the student exists, so the
-PBSD-inspired offline arm has no preference pair and coincides with
-Trajectory SFT on this benchmark, and the on-policy correction arm
-coincides with it by the single-turn identity above. The dDPO arm adds
-one teacher ranking call per purchased task, charged to $C_m$. STaR
-trains on the initial student's own verified samples and charges no
-teacher token.
+packages are rendered into training rows as deployment-exact text.
+The prompt is the string the official handler sends at evaluation
+(the tool list with the language note of the handler, ending at the
+assistant turn marker), and the target is what the model must emit
+there, the empty non-thinking block followed by the teacher
+continuation in native tool-call form. The rendering used by RTD for
+the same package differs only in placing the empty block inside the
+prompt; both are recorded in the run manifests. Two other renderings
+were tried and rejected at the unified data size because the resulting
+students emitted an empty block and stopped: the legacy pseudo-tag
+rows with the decoded call style of the leaderboard (their earlier
+23-row use had merely been under-trained) and rows with the empty
+block masked inside the prompt. On BFCL at $B=13{,}843$ the random
+order buys 103 packages over 22 tasks (94 positive rows, 9 charged
+failures, $C_m=13{,}776$); among these tasks no cached failed first
+turn of the student exists, so the PBSD-inspired offline arm has no
+preference pair and coincides with Trajectory SFT on this benchmark,
+and the on-policy correction arm coincides with it by the single-turn
+identity above. The dDPO arm adds one teacher ranking call per
+purchased task, charged to $C_m$. STaR trains on the verified samples
+of the initial student and charges no teacher token.
 
 \paragraph{AppWorld failure mode of the imitation arms.}
-On AppWorld the student column sits near the floor and the reason is
+On AppWorld the student column sits near the floor, and the reason is
 specific. In the sealed DeepSeek pool 39\% of the purchased assistant
-turns are documentation lookups (\texttt{apis.api\_docs.*}), the phase in
-which the teacher reads the API surface before acting. Several trained
-runs imitate exactly this phase: at every step they emit a well-formed
-code block that queries the documentation of one app, receive the same
-output, and repeat it until the 24-step cap, so the environment state
-never changes and only the tests that hold on an untouched state pass.
-Runs that escape the loop act on the environment and pass more tests
-but rarely finish a task within the cap. We therefore report the pooled
-test pass ratio next to the task goal completion for this column as a
-diagnostic; the two agree on ordering.
+turns are documentation lookups (\texttt{apis.api\_docs.*}), the phase
+in which the teacher reads the API surface before acting. Several
+trained runs imitate exactly this phase. At every step they emit a
+well-formed code block that queries the documentation of one app,
+receive the same output, and repeat it until the 24-step cap, so the
+environment state never changes and only the tests that hold on an
+untouched state pass. Runs that escape the loop act on the environment
+and pass more tests but rarely finish a task within the cap. We
+therefore report the pooled test pass ratio next to the task goal
+completion for this column as a diagnostic; the two agree on ordering.
 
 \paragraph{Version 1.0 arms (record).}
 Before the mechanism of Section~\ref{sec:distill} was fixed, an earlier
@@ -338,16 +334,16 @@ packages, 2,059 tokens) and 53.57 (R1s, seven packages, 2,059 tokens)
 against a base of 7.14. No v1.0 arm separates from its control beyond
 evaluation noise on BFCL, and on ALFWorld the full loop falls below
 the control at the third round. These runs are the reason the
-replacement decision was moved from the teacher text to the student's
-own return in v1.1, and they are not part of the main table.
+replacement decision was moved from the teacher text to the return of
+the student itself in v1.1, and they are not part of the main table.
 
 \paragraph{Component-study selection and data-generation baselines.}
-Beyond the main-table branches, component studies compare against
+Beyond the main-table branches, the component studies compare against
 selection baselines spanning classical and current families, namely
 random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
 \citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025}, and
-SmartAD's capacity-aligned selection \citep{tang2026smartad}, and
-against data-generation baselines Self-Instruct
+the capacity-aligned selection of SmartAD \citep{tang2026smartad}, and
+against the data-generation baselines Self-Instruct
 \citep{wang2023selfinstruct}, Evol-Instruct \citep{xu2024wizardlm},
 and LLM2LLM \citep{lee2024llm2llm}.
 
@@ -356,7 +352,7 @@ The acquisition arms are single-seed exploration runs on one hardware
 class, and the main-table rows are three training runs; all
 statements about the mechanism rest on paired controls at frozen
 checkpoints rather than on repeated end-to-end runs. The experiments
-are sealed-pool replays: the candidate pool, responses, and recorded
+are sealed-pool replays. The candidate pool, responses, and recorded
 costs are frozen in advance, so purchase decisions are real but the
 costs are recorded rather than incurred online, and estimated costs
 are labelled as such. The return gradient is estimated from a finite
@@ -369,9 +365,9 @@ the held-out split is plumbing only in this version; no bootstrap
 bounds are reported.
 
 \subsubsection*{Reproducibility statement}
-All experiments run from configuration files with sha256-stable splits; every
-result row in this paper maps to a line in the experiment log and a commit.
-Code, logs, and the amendment history will be released.
+All experiments run from configuration files with sha256-stable splits;
+every result row in this paper maps to a line in the experiment log
+and a commit. Code, logs, and the amendment history will be released.
 
 \section{Additional analysis}\label{app:analysis}
 
