@@ -31,7 +31,8 @@ percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
 points over the initial student across the three columns and is
 computed only for rows with all three. Cells marked $\cdot$ are
 pending, and $^{\dagger}$ marks a cell with fewer than three training
-runs, reported provisionally until they complete.
+runs, reported provisionally until they complete; the RTD entry is the
+full method at the 10\% authorization point of a single run.
 The AppWorld column still shows the earlier mixed-teacher pools
 (awb3) and will be replaced by the unified-budget runs.}
 \label{tab:main}
@@ -52,7 +53,7 @@ Offline teacher--student pref. (PBSD-insp.) & $4.2_{\pm7.2}$ & $28.8_{\pm4.0}$ &
 PBSD --- agent adaptation & $0.0^{\dagger}$ & $38.4^{\dagger}$ & $\cdot$ & $\cdot$\\
 STaR w/o rationalization (0 teacher) & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
-\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $46.4^{\dagger}$ & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -190,9 +191,11 @@ mass and a return-chosen replacement keeps it.
 
 \begin{table}[t]
 \centering
-\caption{Component ablation on BFCL~v4 at the 25\% budget point. Each
-row changes one component of the previous one; $\Delta$ is the change
-from the row above in percentage points.}
+\caption{Component ablation on BFCL~v4. Entries are single runs at the
+10\% authorization point and will be replaced by the 25\% point when
+the second budget round lands; the base student on the same hardware
+scores 46.06. Each row changes one component of the previous one, and
+$\Delta$ is the change from the row above in percentage points.}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -200,11 +203,11 @@ from the row above in percentage points.}
 \toprule
 \textbf{Configuration} & BFCL v4 & $\Delta$\\
 \midrule
-Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $\cdot$ & --\\
+Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $47.08$ & --\\
 \quad learned $\alpha$, $d=0$ & $\cdot$ & $\cdot$\\
 \quad learned $\alpha$, independent $d$ (no interaction term) & $\cdot$ & $\cdot$\\
-\quad learned $\alpha$, joint $d$ (V1, replays the purchases of V0) & $\cdot$ & $\cdot$\\
-+ acquisition by the joint-update surrogate (V2, full method) & $\cdot$ & $\cdot$\\
+\quad learned $\alpha$, joint $d$ (V1, replays the purchases of V0) & $45.97$ & $-1.11$\\
++ acquisition by the joint-update surrogate (V2, full method) & $46.35$ & $+0.38$\\
 \bottomrule
 \end{tabular*}
 \end{table}
