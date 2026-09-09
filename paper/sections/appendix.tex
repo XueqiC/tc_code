@@ -243,36 +243,36 @@ support set with identical optimization constants, and differ only in
 the training pool and loss. Losses are computed on assistant-generated
 spans only; environment observations and prompts are masked. The
 branches follow the black-box taxonomy of \citet{xu2024kdsurvey}.
-\textbf{Trajectory SFT} \citep{mukherjee2023orca} minimizes the
+\textbf{SFT} \citep{mukherjee2023orca} minimizes the
 token-level NLL on verified teacher trajectories.
-\textbf{Span-weighted SFT} (SAD adaptation, \citealp{liu2025structured})
+\textbf{SAD} (Structured Agent Distillation, \citealp{liu2025structured})
 trains on the same pool with reasoning and action spans weighted
 separately in the NLL; the teacher-distribution alignment of the
 original method is not available from a black-box teacher and is
-replaced by hard labels. \textbf{On-policy teacher correction + SFT}
-(adapted from \citealp{ye2025bbopd}) lets the rollouts of the student
+replaced by hard labels. \textbf{BBOPD}
+(black-box on-policy distillation, adapted from \citealp{ye2025bbopd}) lets the rollouts of the student
 itself fix the visited states, queries the teacher once per visited
 state for the action it would take there, and trains the resulting
 (state, teacher action) pairs by NLL; this keeps the on-policy state
 distribution of black-box on-policy distillation but not its
 discriminator or adversarial objective, and on a single-turn benchmark
 the visited state is the query itself, so the pool coincides with the
-demonstration pool. \textbf{SFT + teacher-ranked DPO} (dDPO,
-\citealp{tunstall2023zephyr}) runs a Trajectory-SFT stage followed by
+demonstration pool. \textbf{dDPO} (distilled DPO,
+\citealp{tunstall2023zephyr}) runs an SFT stage followed by
 DPO whose preference pairs are the samples of the student ranked best
 and worst by the teacher; the frozen initial student is the DPO
 reference model, and the ranking outputs are charged to $B$.
-\textbf{Offline teacher--student preference training} (PBSD-inspired,
+\textbf{PBSD (offline pref.)} (an offline variant of
 \citealp{pbsd2026}) pairs teacher positives with the failed first turn
 of the student as the rejected side and trains jointly with the
 positive NLL; unlike PBSD it uses a static external teacher and a
 fixed negative rather than a context-augmented self-teacher with
-continually resampled negatives. \textbf{STaR without rationalization}
-\citep{zelikman2022star} iterates self-sampling, verifier filtering,
+continually resampled negatives. \textbf{STaR} \citep{zelikman2022star}, without rationalization,
+iterates self-sampling, verifier filtering,
 and self-training on the verified samples of the student, with no
 teacher call and no teacher-generated initialization examples. The
 agent distiller of \citet{kang2025distilling} reduces, in this
-harness, to Trajectory SFT on the same pool, since its retrieval and
+harness, to SFT on the same pool, since its retrieval and
 code-tool components are fixed by the benchmark harness for all
 methods, and it is therefore not listed as a separate row.
 
@@ -297,8 +297,8 @@ rows with the decoded call style of the leaderboard (their earlier
 block masked inside the prompt. On BFCL at $B=13{,}843$ the random
 order buys 103 packages over 22 tasks (94 positive rows, 9 charged
 failures, $C_m=13{,}776$); among these tasks no cached failed first
-turn of the student exists, so the PBSD-inspired offline arm has no
-preference pair and coincides with Trajectory SFT on this benchmark,
+turn of the student exists, so the offline PBSD arm has no
+preference pair and coincides with SFT on this benchmark,
 and the on-policy correction arm coincides with it by the single-turn
 identity above. The dDPO arm adds one teacher ranking call per
 purchased task, charged to $C_m$. STaR trains on the verified samples

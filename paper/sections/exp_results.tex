@@ -45,13 +45,13 @@ The AppWorld column still shows the earlier mixed-teacher pools
 \rowcolor{rowhead}Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$ & --\\
 \rowcolor{rowhead}Initial pretrained student & $0.0$ & $46.27$ & $7.14$ & --\\
 \midrule
-Trajectory SFT & $4.2_{\pm3.8}$ & $30.9_{\pm5.5}$ & $\cdot$ & $\cdot$\\
-Span-weighted SFT (SAD adapt.) & $2.5_{\pm4.3}$ & $28.2_{\pm6.9}$ & $\cdot$ & $\cdot$\\
-On-policy teacher correction + SFT & $0.0_{\pm0.0}$ & $26.5_{\pm5.3}$ & $\cdot$ & $\cdot$\\
-SFT + teacher-ranked DPO (dDPO) & $2.5_{\pm4.3}$ & $41.0_{\pm6.3}$ & $\cdot$ & $\cdot$\\
-Offline teacher--student pref. (PBSD-insp.) & $4.2_{\pm7.2}$ & $28.8_{\pm4.0}$ & $\cdot$ & $\cdot$\\
-PBSD --- agent adaptation & $0.0^{\dagger}$ & $38.4^{\dagger}$ & $\cdot$ & $\cdot$\\
-STaR w/o rationalization (0 teacher) & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SFT & $4.2_{\pm3.8}$ & $30.9_{\pm5.5}$ & $\cdot$ & $\cdot$\\
+SAD & $2.5_{\pm4.3}$ & $28.2_{\pm6.9}$ & $\cdot$ & $\cdot$\\
+BBOPD & $0.0_{\pm0.0}$ & $26.5_{\pm5.3}$ & $\cdot$ & $\cdot$\\
+dDPO & $2.5_{\pm4.3}$ & $41.0_{\pm6.3}$ & $\cdot$ & $\cdot$\\
+PBSD (offline pref.) & $4.2_{\pm7.2}$ & $28.8_{\pm4.0}$ & $\cdot$ & $\cdot$\\
+PBSD & $0.0^{\dagger}$ & $38.4^{\dagger}$ & $\cdot$ & $\cdot$\\
+STaR & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
 \rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $46.4^{\dagger}$ & $\cdot$ & $\cdot$\\
 \bottomrule
@@ -162,13 +162,13 @@ the second best.}
 \toprule
 \textbf{Distillation} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
 \midrule
-Trajectory SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-Span-weighted SFT (SAD adapt.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-On-policy teacher correction + SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-SFT + teacher-ranked DPO (dDPO) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-Offline teacher--student pref. (PBSD-insp.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-PBSD --- agent adaptation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-STaR w/o rationalization (0 teacher) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+BBOPD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+dDPO & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+PBSD (offline pref.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+PBSD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+STaR & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
 \rowcolor{rowours}\textbf{Ours (anchored objective)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule

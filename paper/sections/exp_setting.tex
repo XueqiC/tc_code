@@ -16,18 +16,16 @@ the unit-test pass ratio is reported as a diagnostic), \textbf{BFCL~v4}
 \citep{yao2024taubench} is excluded from the main table because its
 simulated user consumes an order of magnitude more teacher tokens per
 episode than any supervision budget studied here; protocols and task
-counts are given in Appendix~\ref{app:details}. The baselines are
-named by what they implement, and Appendix~\ref{app:baselines} gives
-their losses, data, and the original methods they adapt:
-\emph{Trajectory SFT} \citep{mukherjee2023orca}, \emph{Span-weighted
-SFT} (adapting Structured Agent Distillation,
-\citealp{liu2025structured}), \emph{On-policy teacher correction +
-SFT} (the supervised core of black-box on-policy distillation,
-\citealp{ye2025bbopd}, without its discriminator), \emph{SFT +
-teacher-ranked DPO} (dDPO, \citealp{tunstall2023zephyr}),
-\emph{Offline teacher--student preference training} (PBSD-inspired,
-\citealp{pbsd2026}), and \emph{STaR without rationalization}
-\citep{zelikman2022star}. Teacher-using methods share the same teacher
+counts are given in Appendix~\ref{app:details}. The baselines carry the names of the methods they adapt, and
+Appendix~\ref{app:baselines} gives their losses, data, and what each
+adaptation keeps of the original:
+\emph{SFT} (trajectory imitation, \citealp{mukherjee2023orca}),
+\emph{SAD} (Structured Agent Distillation, \citealp{liu2025structured}),
+\emph{BBOPD} (the supervised core of black-box on-policy distillation,
+\citealp{ye2025bbopd}, without its discriminator), \emph{dDPO}
+\citep{tunstall2023zephyr}, \emph{PBSD} \citep{pbsd2026} in its agent
+adaptation and in an offline preference variant, and \emph{STaR}
+without rationalization \citep{zelikman2022star}. Teacher-using methods share the same teacher
 budget cap $B$ on a benchmark, and every teacher output token they
 consume, including discarded failures, ranking calls, and on-policy
 corrections, is charged against it; STaR uses no teacher call and is
