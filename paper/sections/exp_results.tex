@@ -23,8 +23,9 @@ decoding are fixed per benchmark and only the student backbone changes.
 Teacher-using methods share the same teacher budget cap $B$ per
 benchmark, with actual spend reported in Appendix~\ref{app:details};
 STaR uses no teacher call. Trained rows are mean$\pm$std over three
-training runs; the initial pretrained student is a single reference
-evaluation (Appendix~\ref{app:details}). AppWorld reports TGC on the
+training runs; the reference values of the teacher and of the initial
+pretrained student are given in Table~\ref{tab:reference} of
+Appendix~\ref{app:details}. AppWorld reports TGC on the
 \texttt{dev40} subset (24 steps), BFCL~v4 the official overall
 accuracy, and ALFWorld the \texttt{valid\_seen} success rate, all in
 percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
@@ -42,14 +43,10 @@ The AppWorld column still shows the earlier mixed-teacher pools
 \toprule
 \textbf{Method} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
 \midrule
-\rowcolor{rowhead}Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$ & --\\
-\rowcolor{rowhead}Initial pretrained student & $0.0$ & $46.27$ & $7.14$ & --\\
-\midrule
 SFT & $4.2_{\pm3.8}$ & $30.9_{\pm5.5}$ & $\cdot$ & $\cdot$\\
 SAD & $2.5_{\pm4.3}$ & $28.2_{\pm6.9}$ & $\cdot$ & $\cdot$\\
 BBOPD & $0.0_{\pm0.0}$ & $26.5_{\pm5.3}$ & $\cdot$ & $\cdot$\\
 dDPO & $2.5_{\pm4.3}$ & $41.0_{\pm6.3}$ & $\cdot$ & $\cdot$\\
-PBSD (offline pref.) & $4.2_{\pm7.2}$ & $28.8_{\pm4.0}$ & $\cdot$ & $\cdot$\\
 PBSD & $0.0^{\dagger}$ & $38.4^{\dagger}$ & $\cdot$ & $\cdot$\\
 STaR & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
@@ -166,7 +163,6 @@ SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 BBOPD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 dDPO & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-PBSD (offline pref.) & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 PBSD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 STaR & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule

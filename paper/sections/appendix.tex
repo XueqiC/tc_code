@@ -213,11 +213,32 @@ ALFWorld & \texttt{valid\_seen} & 140 & 40 & greedy & success rate\\
 \end{tabular}
 \end{table}
 
-\paragraph{Initial pretrained student row.}
-The base row evaluates the released \texttt{Qwen3.5-4B} checkpoint
-with no adapter and is reported as one reference value per column,
-taken on the same machine and configuration as the trained rows it is
-compared with. Repeated evaluations of this checkpoint are reported
+\paragraph{Reference rows: teacher and initial student.}
+Table~\ref{tab:reference} lists the reference values that the main
+table is read against. The teacher row is the metered teacher run
+through the same harness, and the initial student row evaluates the
+released \texttt{Qwen3.5-4B} checkpoint with no adapter as one
+reference value per column, taken on the same machine and
+configuration as the trained rows it is compared with. Both rows are
+kept out of the main table because neither is a trained student under
+the budget.
+
+\begin{table}[h]
+\centering
+\caption{Reference values for the main table (same harness, tools,
+prompts, and decoding as Table~\ref{tab:main}; percent). Cells marked
+$\cdot$ are pending.}
+\label{tab:reference}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & AppWorld (TGC) & BFCL v4 & ALFWorld\\
+\midrule
+Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$\\
+Initial pretrained student (Qwen3.5-4B) & $0.0$ & $46.27$ & $7.14$\\
+\bottomrule
+\end{tabular}
+\end{table} Repeated evaluations of this checkpoint are reported
 separately from training variance. On AppWorld three evaluation seeds
 give TGC $0/40$, $0/40$, and $1/40$ (pass ratios $0.277$, $0.213$,
 $0.250$); on BFCL the standard campaign observed $46.27$, $46.25$, and
@@ -301,7 +322,11 @@ turn of the student exists, so the offline PBSD arm has no
 preference pair and coincides with SFT on this benchmark,
 and the on-policy correction arm coincides with it by the single-turn
 identity above. The dDPO arm adds one teacher ranking call per
-purchased task, charged to $C_m$. STaR trains on the verified samples
+purchased task, charged to $C_m$. The offline preference variant of
+PBSD (teacher positives against the failed first turn of the student,
+trained jointly with the positive NLL) scored $4.2_{\pm7.2}$ on
+AppWorld and $28.8_{\pm4.0}$ on BFCL~v4 under the same protocol and is
+not listed in the main table, which keeps the agent adaptation only. STaR trains on the verified samples
 of the initial student and charges no teacher token.
 
 \paragraph{AppWorld failure mode of the imitation arms.}
