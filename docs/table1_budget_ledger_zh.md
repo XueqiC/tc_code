@@ -91,7 +91,7 @@ acquired_B<cap>_seed<k>.json 保存完整冻结顺序、逐步累计成本、下
 
 ## 池行格式：native-fc v2
 
-**BFCL 默认格式为 `native-fc-v2`**；原 CLI 拼写 `--row-format native-fc` 现在是 v2 别名。`tools/table1_pool_from_sealed.py --benchmark bfcl` 写当前 worktree 的 `results/table1_audit/pools_native/bfcl/`，允许将该目录原 `native-fc` 升级为 v2。legacy 目录仍为 `results/table1_audit/pools/`，不能被 native 覆盖；ALFWorld/AppWorld 默认仍为 legacy。本次只在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支写入，不提交、不调用 GPU/API；`data/`、`envs/` 只读。
+**BFCL 默认格式为 `native-fc-v2`**；原 CLI 拼写 `--row-format native-fc` 现在是 v2 别名。`tools/table1_pool_from_sealed.py --benchmark bfcl` 写当前 worktree 的 `results/table1_audit/pools_native/bfcl/`，允许将该目录原 `native-fc` 升级为 v2。legacy 目录仍为 `results/table1_audit/pools/`，不能被 native 覆盖；ALFWorld 默认仍为 legacy，AppWorld 现在默认 `native-appworld-awb3-v1`，见下节的部署范围及验证缺口。本次只在 `/home/xueqi/hq/projects/tc-alignment-audit2`、`table1-native` 分支写入，不提交、不调用 GPU/API；`data/`、`envs/` 只读。
 
 ### 真实评测证据与修复原因
 
@@ -157,9 +157,55 @@ $PY -m pytest -q -p no:cacheprovider tests/test_table1_native_fc.py tests/test_t
 
 v2 本次 CPU 回归 **209 passed，0 failures/errors/skipped，177.22 秒**，见 `results/table1_audit/native_fc_v2_cpu_tests.xml`；逐池计数、hash、费用、输入保护与 22 prompt 对照见 `native_fc_v2_validation.json`。默认重建再次运行后，42 个池与六个 manifests 全部逐字节不变。旧 `native_fc_cpu_tests.xml` / `native_fc_validation.json` 是 v1 历史记录，不作为 v2 验证结论。
 
+## AppWorld native：awb3 部署格式及验证边界
+
+当前产物为 `results/table1_audit/pools_native/appworld/B22633_seed{0,1,2}/pool_{sft,sad,bbopd,pbsd_insp,ddpo,pbsd_agent,star}.jsonl`，三个目录各含 manifest。采购沿用冻结 DeepSeek 子池及其失败 attempts：22 个包（19 成功、3 失败）、21 tasks、368 正行；三训练 seed 共用同一次采购。`C_m=22,107`、余额 526、失败成本 3,236，全部非 STaR 臂均标 **estimated-budget replay / cost_confidence=estimated**。没有按新 target 长度重新计算教师费用；83,552 的成功内容成本、6,981 的历史失败成本、90,533 的历史已知总额仍按原账本单列，`complete=false`。
+
+**部署选择：**`scripts/awb3_hpg.slurm` 明确调用 `src/appworld_eval.py --split dev --max-tasks 40 --max-steps 24`。冻结 `data/appworld_traces/deepseek-v4-pro/train.jsonl` 使用相同 system/历史结构，因此本次格式明确命名为 `native-appworld-awb3-v1`。这与 `src/bfas/adapters/appworld_official.py` 驱动的较新 `simplified_react_code_agent` 不同：后者从 `instructions.txt` 生成带 Spotify few-shot 示例的 user/assistant 对话；不能把旧 awb3 messages 套一次 tokenizer 就称作新 official scaffold 的部署 prompt。manifest 明确 `official_react_scaffold_equivalent=false`。
+
+awb3 每题以 `make_system_prompt(task)` 开头：完整 Python agent 规则、API discovery 方法、task instruction、supervisor 姓名/email/phone；接 user `Begin by consulting the API documentation.`。每轮追加教师原文 assistant 和 user `Execution output:\n{output}\n\nContinue the task.`，output 使用原 harness 的 1,500 字符首尾截断。实际 app/API docs 是代码查询后返回的 observation；这里不添加 tools schema、不替换 observation、不把整段历史重新包成单条 user message。所有已购 source prefixes 与封存 trace 的 turn_index 对齐，并与只读 task specs 重建的 system prompt 核对。
+
+**模板及监督边界：**从本地缓存加载真实 `Qwen/Qwen3.5-4B` tokenizer，snapshot `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`；无模型权重、下载或推理服务。调用 `apply_chat_template(..., add_generation_prompt=True)`，不传 `enable_thinking=False`，与 awb3 默认路径一致。当前默认模板末尾是 `<|im_start|>assistant\n<think>\n`，因此：
+
+- `prompt` 保存完整模板输出；`messages=[]`，trainer 不再套模板。
+- `response = '\n</think>\n\n' + 原教师 turn 文本`。空 think block 的开头已在 prompt，闭合部分必须由模型输出并接受监督。BFCL v2 同样按真实生成边界拆分，但 BFCL handler 的 prompt 止于 assistant marker，所以 BFCL target 才包含整个 `<think>\n\n</think>\n\n`。
+- 逐行保留 task_id、teacher、turn_index、token_hint；不将格式前缀记为新增教师调用。历史 assistant 按 tokenizer 自身规则处理；验证也覆盖模型输出被 evaluator `decode().strip()` 后，下一轮渲染与封存代码历史一致。
+- EOS 不写入 response，由真实 `encode()` 加一次 `<|im_end|>`（248046）；prompt labels 全为 -100。awb3 训练配置仍截取最后 4,096 prompt tokens、最多 512 response tokens；池内保存完整文本，验证报告统计实际截断行数。没有把训练截断误称为评测输入截断。
+
+| 训练 seed | SFT | SAD | BB-OPD | PBSD-insp | dDPO | PBSD-agent | STaR |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 368 | 368 | 5 | 368 | 368 | 368 | 0 |
+| 1 | 368 | 368 | 5 | 368 | 368 | 368 | 0 |
+| 2 | 368 | 368 | 5 | 368 | 368 | 368 | 0 |
+
+共 21 个文件、18 个非空池、5,535 行；三个 seed 对应臂的文件 bytes 完全相同。SAD 的 `_sad_spans` 按加入前缀后的 response 重新计算。BB-OPD 的 5 行仅是原缓存中与已购教师 context/response 完全一致的对应，状态 `partial_context_matches`。
+
+PBSD-insp 每 seed 13 对，只给已购任务的缓存失败首轮加 `_rejected`。13 条缓存都是已有 reasoning + `</think>` 的解析后学生续写，正好继续 prompt 的 open think block，保留其原文，不把空 think prefix 插到失败 reasoning 前，也不修复失败代码。旧 `aw_pbsd_pool.py` 以 `not (passed_tests > failed_tests)` 作为选取失败样本的规则；本 worktree 缺其原始 sampling records，不能重新认证完整任务 verdict，也无法恢复旧 `decode().strip()` 丢弃的空白。manifest 披露此 provenance 限制。
+
+检查全部 31 条 cached rank metadata：7 条任务命中已购集合、24 条不命中；7 条命中仍全部缺 ranking call ID 和费用，不能用学生 token_hint 代付。因此 **dDPO 没有 rank 行**，保留 368 条 SFT fallback，`status='requires new teacher calls'` / `trainer_status='requires_new_teacher_calls'`，不声称完成 dDPO。
+
+PBSD-agent 的 `c` 仅引用已购相同 task 的成功 episode **首轮**（原 turn_index=2），不再把该任务所有后续教师动作都塞入 c。每项 `state_prompt` 等于正在训练的 row.prompt，`source_state_prompt` 保留证据首轮的真实 prompt，package_id/turn_index/response 标明来源。后续任务状态不会被冒充为首轮证据。现 trainer 仍不消费 c，状态 `evidence_only_consumer_missing`。STaR 为空、C_m=0、无证据 ID；实际 SFT loader 拒绝空池。
+
+**验证结果的范围：**当前 worktree 没有 `results/appworld/*_eval/records.jsonl` 或 awb3 `transcripts.jsonl`，未访问其他 worktree 补取。只读 `envs/` 内确有真实 `qwen35-4b-base_dev/tasks/0d8a4ee_1/logs/lm_calls.jsonl`。取其中第 1/2/3 个不同评测输入，比较 base tokenizer、official adapter `_render()` 与真实 `appworld_eval.generate_reply()` 的 CPU 输入捕获，重建字符串 UTF-8 bytes 相等；log 路径、行号、call ID、文件/message/prompt hashes 写入 `native_appworld_validation.json`。这些是 **较新 official ReAct 的 input.messages 记录，只验证共同的当前模板渲染**，不是 awb3 历史 prompt 的字节证据，也不是历史 vLLM server 模板的认证。
+
+另外逐个重放 368 个已购教师 prefix 的当前 awb3 `generate_reply()`，在 `model.generate` 边界用 CPU double 捕获真实 input IDs，与池的渲染字符串逐字节核对；所有非空池及 39 个跨 seed `_rejected` 经真实 `load_pool → prompt_token_ids → encode`，禁止重新套模板、禁止 CUDA/模型加载/网络，验证 prompt mask、EOS 一次、行数、同 seed 来源及费用。**历史 awb3 至少 3 个评测 turn 的独立 prompt equality 要求仍缺证据**，报告/manifest 明确保留未验证状态，不能据上述 CPU checks 将它标成已完成。需要在本 worktree 提供对应历史输入记录后再补这一项，不需要新 GPU 或教师调用。
+
+AppWorld 专项 **5 tests passed**（`native_appworld_cpu_tests.xml`）；共享构建器、BFCL native、legacy 三 benchmark、trainer truncation、dDPO 的回归另 **209 tests passed**（`native_appworld_regression_tests.xml`），合计 214 项，0 failures/errors/skipped。独立验证报告共 **5,574 次 CPU target encoding**。每个 368 行池中，172 个完整 prompt 超过训练 4,096-token cap，3 个 teacher target 超过 512-token cap；13 个 rejected 均未触发 target 截断。BB-OPD 的 5 行均未截断。三个真实 official input replay 的长度为 3,433 / 3,559 / 4,434 tokens，字符串 UTF-8 长度为 13,168 / 13,693 / 16,783 bytes。`native_appworld_source_integrity.json` 核对全部 22 个冻结 AppWorld 源文件 hash 不变，并记录当前 acquisition 与实现文件 hash。
+
+复现（只写本 worktree results，data/envs 只读）：
+
+```bash
+export PYTHONPATH=src:. PYTHONDONTWRITEBYTECODE=1
+export CUDA_VISIBLE_DEVICES= HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+PY=.venv/bin/python
+$PY tools/table1_pool_from_sealed.py --benchmark appworld
+$PY tools/table1_validate_appworld.py
+$PY -m pytest -q -p no:cacheprovider tests/test_table1_native_appworld.py --junitxml=results/table1_audit/native_appworld_cpu_tests.xml
+```
+
 ## 5. 七臂池与训练入口
 
-下表保留 legacy/排名补采前快照；当前 BFCL native-fc v2 的行数、dDPO 费用和状态以上节六目录表及 manifests 为准。
+下表保留 legacy/排名补采前快照；当前 BFCL native-fc v2 及 AppWorld native 的行数、dDPO 费用和状态以上节各自目录表及 manifests 为准。
 
 | benchmark | B | arm | rows | C_m | PBSD pairs | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -192,7 +238,7 @@ v2 本次 CPU 回归 **209 passed，0 failures/errors/skipped，177.22 秒**，�
 | appworld | 22633 | sft | 368 | 22107 | 0 | ready |
 | appworld | 22633 | star | 0 | 0 | 0 | no_teacher_pool_required |
 
-- **SFT：**只输出已购非失败内容；BFCL 默认使用上节 `native-fc-v2`，空调用监督完整 think prefix 后接 EOS；其他 benchmark 仍用 legacy。旧 BFCL legacy 池独立保留，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
+- **SFT：**只输出已购非失败内容；BFCL 默认使用上节 `native-fc-v2`，空调用监督完整 think prefix 后接 EOS；AppWorld 默认 `native-appworld-awb3-v1`，监督 open think block 的剩余闭合部分；ALFWorld 仍用 legacy。旧 legacy 池独立保留，失败包不产正例，教师内容和费用不变。封存 package.response_rendering 描述的是修复前源行，当前训练格式以 manifest.row_format 为准。
 - **SAD：**同 SFT prompt/response，加 `_sad_spans` 字符边界，按现有 action_spans 的代码围栏规则；训练器仍自行算 mask。BFCL 无代码围栏响应按现有 trainer 规则属于非 action 部分，本次未另造 BFCL mask。
 - **BB-OPD：**单轮 BFCL 与 SFT 逐行相同。AppWorld 只取旧 on-policy 上下文/响应与已购 demo 完全一致的行，是部分内容对应，不代表完整 BB-OPD 或证明当前学生访问这些状态。ALFWorld 无对应缓存，空池。补齐需另冻结 on-policy 状态与费用。
 - **PBSD-insp：**只对已购行附加旧缓存的学生失败首轮 `_rejected`，其他正例训练；不做新采样。BFCL 本次 0 对，AppWorld 本次 13 对。

@@ -10,12 +10,13 @@ import json
 
 from tools import table1_common as io
 from tools.bfcl_demo_pool import serialize
+from tools.table1_appworld_format import APPWORLD_NATIVE_ROW_FORMAT
 
 
 LEGACY_ROW_FORMAT = 'legacy-messages-v1'
 NATIVE_ROW_FORMAT = 'native-fc-v2'
 # Keep the existing CLI spelling as an alias for the corrected default.
-ROW_FORMATS = (NATIVE_ROW_FORMAT, 'native-fc', LEGACY_ROW_FORMAT)
+ROW_FORMATS = (NATIVE_ROW_FORMAT, 'native-fc', APPWORLD_NATIVE_ROW_FORMAT, LEGACY_ROW_FORMAT)
 NATIVE_THINK_PREFIX = '<think>\n\n</think>\n\n'
 NATIVE_ASSISTANT_MARKER = '<|im_start|>assistant\n'
 BANKS = {'bfcl': 'v1_1_bfcl', 'alfworld': 'v1_alfworld_c26'}
@@ -36,10 +37,13 @@ def render_legacy_row(row, messages, response):
 
 
 def row_format_for(benchmark, row_format=None):
-    row_format = row_format or (NATIVE_ROW_FORMAT if benchmark == 'bfcl' else LEGACY_ROW_FORMAT)
+    row_format = row_format or ({'bfcl': NATIVE_ROW_FORMAT, 'appworld': APPWORLD_NATIVE_ROW_FORMAT}
+                               .get(benchmark, LEGACY_ROW_FORMAT))
     if row_format == 'native-fc':
         row_format = NATIVE_ROW_FORMAT
-    if row_format not in ROW_FORMATS or (row_format == NATIVE_ROW_FORMAT and benchmark != 'bfcl'):
+    if (row_format not in ROW_FORMATS
+            or (row_format == NATIVE_ROW_FORMAT and benchmark != 'bfcl')
+            or (row_format == APPWORLD_NATIVE_ROW_FORMAT and benchmark != 'appworld')):
         raise ValueError(f'unsupported row format for {benchmark}: {row_format}')
     return row_format
 
@@ -214,6 +218,9 @@ def render_package(benchmark, snapshot, payload=None, row_format=None):
     row_format = row_format_for(benchmark, row_format)
     package, old_rows = snapshot['package'], snapshot['rows']
     if benchmark == 'appworld':
+        if row_format == APPWORLD_NATIVE_ROW_FORMAT:
+            from tools.table1_appworld_format import render_rows
+            return render_rows(snapshot)
         # The audit sealed the exact trace prefixes and teacher text already.
         return [render_legacy_row(row, row['messages'], row['response']) for row in old_rows]
     if payload is None:

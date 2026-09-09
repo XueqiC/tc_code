@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Materialize trainer pools by revealing only a validated purchased prefix.
 
-BFCL defaults to native-fc-v2 in results/table1_audit/pools_native; legacy pools
-remain in pools. data/ is read-only. No model, teacher API, or environment runs.
+BFCL/AppWorld default to native formats in results/table1_audit/pools_native;
+legacy pools remain in pools. No model, teacher API, or environment runs.
 """
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ from pathlib import Path
 
 from tools import table1_common as io
 from tools.table1_random_acquisition import acquire
+from tools.table1_appworld_format import (
+    APPWORLD_NATIVE_ROW_FORMAT, annotate_manifest, rejected_emission,
+)
 from tools.table1_row_format import (
     NATIVE_ROW_FORMAT, NATIVE_THINK_PREFIX, ROW_FORMATS, bfcl_evaluation_prompt,
     bfcl_native_rejected, read_bank_payload,
@@ -74,6 +77,10 @@ def build_pools(snapshots, acquisition, protocol, rendered_rows=None, *, row_for
                 rejected = s['pbsd_rejected'][str(i)]
                 paired['_rejected'] = (bfcl_native_rejected(rejected)
                                        if row_format == NATIVE_ROW_FORMAT else rejected)
+                if row_format == APPWORLD_NATIVE_ROW_FORMAT:
+                    if i != 0:
+                        raise ValueError('AppWorld cached rejection must be a first turn')
+                    paired['_rejected'] = rejected_emission(rejected)
             pbsd.append(paired)
             if acquisition['benchmark'] == 'bfcl' or i in s['bbopd_matches']:
                 bbopd.append(deepcopy(row))
@@ -96,12 +103,18 @@ def build_pools(snapshots, acquisition, protocol, rendered_rows=None, *, row_for
 
     demos = defaultdict(list)
     for row, origin in zip(base, row_origins):
+        if row_format == APPWORLD_NATIVE_ROW_FORMAT and origin['package_row_index'] != 0:
+            continue
         demos[evidence_key(row)].append(dict(package_id=origin['package_id'],
             state_prompt=row['prompt'], response=row['response'], turn_index=row['turn_index']))
     agent = []
     for row, origin in zip(base, row_origins):
         r = deepcopy(row)
         r['c'] = deepcopy(demos[evidence_key(row)])
+        if row_format == APPWORLD_NATIVE_ROW_FORMAT:
+            for evidence in r['c']:
+                evidence['source_state_prompt'] = evidence['state_prompt']
+                evidence['state_prompt'] = row['prompt']
         agent.append(r)
     # No archived ranking has a recoverable ranking-call ID and output cost.
     # Task overlap is necessary but insufficient to use extra teacher evidence.
@@ -264,7 +277,7 @@ def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     benchmark = acquisition['benchmark']
     row_format = row_format_for(benchmark, row_format)
     if pool_root is None:
-        pool_root = io.DEFAULT_OUT / ('pools_native' if row_format == NATIVE_ROW_FORMAT else 'pools')
+        pool_root = io.DEFAULT_OUT / ('pools' if row_format == 'legacy-messages-v1' else 'pools_native')
     sources = (io.read_json(directory / 'ledger.json')['sources']
                if benchmark != 'appworld' else {})
     rendered = {}
@@ -277,6 +290,8 @@ def materialize(directory, acquisition_path, pool_root=None, row_format=None):
     _, sealed_manifest = build_pools(snapshots, acquisition, protocol)
     if manifest_without_row_format(manifest) != manifest_without_row_format(sealed_manifest):
         raise ValueError('rendering changed sealed manifest/accounting')
+    if row_format == APPWORLD_NATIVE_ROW_FORMAT:
+        annotate_manifest(manifest)
     base_manifest = deepcopy(manifest)
     if row_format == NATIVE_ROW_FORMAT:
         pools, manifest = replay_native_rankings(directory, pools, manifest)
@@ -310,13 +325,15 @@ def materialize(directory, acquisition_path, pool_root=None, row_format=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--audit-root', type=Path, default=io.DEFAULT_OUT)
-    ap.add_argument('--out', type=Path, help='pool root (default: pools_native for native-fc-v2; pools for legacy)')
+    ap.add_argument('--out', type=Path, help='pool root (default: pools_native for native formats; pools for legacy)')
     ap.add_argument('--benchmark', choices=io.BENCHMARKS)
     ap.add_argument('--row-format', choices=ROW_FORMATS,
-                    help='default: native-fc-v2 for BFCL; native-fc is a v2 alias; legacy-messages-v1 otherwise')
+                    help='default: native-fc-v2 for BFCL, native-appworld-awb3-v1 for AppWorld, legacy for ALFWorld')
     args = ap.parse_args()
     if args.row_format in (NATIVE_ROW_FORMAT, 'native-fc') and args.benchmark != 'bfcl':
         ap.error('native-fc-v2 requires --benchmark bfcl')
+    if args.row_format == APPWORLD_NATIVE_ROW_FORMAT and args.benchmark != 'appworld':
+        ap.error('native-appworld-awb3-v1 requires --benchmark appworld')
     for benchmark in [args.benchmark] if args.benchmark else io.BENCHMARKS:
         directory = args.audit_root / benchmark
         for path in sorted(directory.glob('acquired_B*_seed*.json')):
