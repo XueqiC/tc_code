@@ -308,6 +308,39 @@ one teacher ranking call per purchased task, charged to $C_m$. STaR
 trains on the initial student's own verified samples and charges no
 teacher token.
 
+\paragraph{AppWorld failure mode of the imitation arms.}
+On AppWorld the student column sits near the floor and the reason is
+specific. In the sealed DeepSeek pool 39\% of the purchased assistant
+turns are documentation lookups (\texttt{apis.api\_docs.*}), the phase in
+which the teacher reads the API surface before acting. Several trained
+runs imitate exactly this phase: at every step they emit a well-formed
+code block that queries the documentation of one app, receive the same
+output, and repeat it until the 24-step cap, so the environment state
+never changes and only the tests that hold on an untouched state pass.
+Runs that escape the loop act on the environment and pass more tests
+but rarely finish a task within the cap. We therefore report the pooled
+test pass ratio next to the task goal completion for this column as a
+diagnostic; the two agree on ordering.
+
+\paragraph{Version 1.0 arms (record).}
+Before the mechanism of Section~\ref{sec:distill} was fixed, an earlier
+design (v1.0) used a fixed injection $\alpha=0.5$ with no return-chosen
+replacement (R0, random acquisition), the full acquisition and selection
+loop (R1), and a learned scalar gate in place of the state injection
+(R1s), all under sealed replay of the same pool over three budget
+rounds. On BFCL v4 the three arms finished at 46.75 (R0, seven
+packages, 686 tokens), 45.31 (R1, six packages, 571 tokens, evaluated
+on a different device whose base reference is 46.27) and 46.53 (R1s,
+six packages, 523 tokens) against a base of 46.06 on the same device
+as R0 and R1s. On ALFWorld valid\_seen (140 tasks, greedy) they
+finished at 52.86 (R0, five packages, 870 tokens), 43.57 (R1, seven
+packages, 2,059 tokens) and 53.57 (R1s, seven packages, 2,059 tokens)
+against a base of 7.14. No v1.0 arm separates from its control beyond
+evaluation noise on BFCL, and on ALFWorld the full loop falls below
+the control at the third round. These runs are the reason the
+replacement decision was moved from the teacher text to the student's
+own return in v1.1, and they are not part of the main table.
+
 \paragraph{Component-study selection and data-generation baselines.}
 Beyond the main-table branches, component studies compare against
 selection baselines spanning classical and current families, namely
