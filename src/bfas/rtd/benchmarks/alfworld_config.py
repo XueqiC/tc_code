@@ -164,7 +164,8 @@ def validate_config(value):
     if type(limits["alfworld"]["agent_action"]) is not int:
         raise ValueError("positive integer action cap required")
     identity.checked_config(config)
-    config["score_consistency_tolerance"] = vars(ScoreTolerance.from_config(config))
+    # Preserve the frozen declaration; diagnostics record effective code defaults.
+    ScoreTolerance.from_config(config)
     MemoryPolicy.from_config(config)
     if config["memory_reserve_gb"] >= config["memory_peak_budget_gb"]:
         raise ValueError("memory reserve must be smaller than peak budget")

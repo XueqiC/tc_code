@@ -13,12 +13,15 @@ class ScoreTolerance:
     max_abs: float = 1.
     max_abs_outlier_tokens: int = 2
     max_abs_hard: float = 8.
+    min_tokens_for_mean: int = 8
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in (self.mean_abs, self.max_abs, self.max_abs_hard)):
             raise ValueError('score tolerances must be finite and nonnegative')
         if type(self.max_abs_outlier_tokens) is not int or self.max_abs_outlier_tokens < 0:
             raise ValueError('max_abs_outlier_tokens must be a nonnegative integer')
+        if type(self.min_tokens_for_mean) is not int or self.min_tokens_for_mean < 0:
+            raise ValueError('min_tokens_for_mean must be a nonnegative integer')
 
     @classmethod
     def from_config(cls, config):
@@ -56,15 +59,19 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
     outlier_fraction = outlier_count / len(gen) if delta is not None else None
     total = float(score.detach())
     sequence_abs = abs(total - action.generation_logprob) if finite else None
-    within = (mean_abs is not None and mean_abs <= tolerance.mean_abs
+    p, n = len(action.prompt_ids), len(action.action_ids)
+    # Short actions lack enough tokens for a mean check; allow no max_abs outliers.
+    mean_criterion = 'short_action_max_abs' if n < tolerance.min_tokens_for_mean else 'mean_abs'
+    within = (mean_abs is not None
+              and (max_abs <= tolerance.max_abs if mean_criterion == 'short_action_max_abs'
+                   else mean_abs <= tolerance.mean_abs)
               and outlier_count <= tolerance.max_abs_outlier_tokens and max_abs <= tolerance.max_abs_hard)
     if score_atol is not None or score_rtol is not None:
         within = within and sequence_abs <= (score_atol or 0.) + (score_rtol or 0.)*abs(action.generation_logprob)
-    p, n = len(action.prompt_ids), len(action.action_ids)
     # JSON forbids NaN/Inf in the durable hash chain. Keep their identity as text.
     def numbers(values):
         return [float(v) if math.isfinite(float(v)) else str(float(v)) for v in values]
-    return dict(version='rtd-score-consistency-v1', protocol_version='1.0.6', n_tokens=n,
+    return dict(version='rtd-score-consistency-v1.1', protocol_version='1.0.6', n_tokens=n,
         state_hash=digest(dict(prompt_ids=action.prompt_ids)),
         prompt_ids=action.prompt_ids, action_ids=action.action_ids, generated_text=action.text,
         expected_prompt_ids=expected_prompt_ids,
@@ -72,6 +79,7 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
         generation_logprob=action.generation_logprob,
         teacher_forced_logprob=total if finite else str(total),
         mean_abs_difference=mean_abs, max_abs_difference=max_abs, sequence_abs_difference=sequence_abs,
+        mean_criterion=mean_criterion,
         outlier_token_count=outlier_count, outlier_positions=outlier_positions, outlier_fraction=outlier_fraction,
         tolerance=asdict(tolerance), sequence_atol=score_atol, sequence_rtol=score_rtol,
         passed=bool(within and not errors), structural_errors=errors,

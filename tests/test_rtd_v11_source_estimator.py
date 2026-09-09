@@ -326,7 +326,10 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # Pin values captured by executing main HEAD's unmodified cli/runtime.
     monkeypatch.setattr(cli, 'ROOT', ROOT)
     legacy_config = cli.load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
-    assert digest(legacy_config) == '96c08a0e77c1c260caf65cc4e5b8e761992ae8754e938e3af8fa2a23c0956d09'
+    # D15 records one new default; compare the historical declaration to its oracle.
+    historical_config = json.loads(json.dumps(legacy_config))
+    assert historical_config['score_consistency_tolerance'].pop('min_tokens_for_mean') == 8
+    assert digest(historical_config) == '96c08a0e77c1c260caf65cc4e5b8e761992ae8754e938e3af8fa2a23c0956d09'
     path = tmp_path/'explicit-hard2.yaml'
     path.write_text(yaml.safe_dump(dict(legacy_config, source_estimator='hard2', cv_cs_mode='loo')))
     explicit = cli.load_config(path)
@@ -340,6 +343,8 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # derived config hash are normalized. Code provenance still uses real files
     # in this fixed synthetic BFCL checkout, rather than a stubbed source hash.
     normalized = json.loads(json.dumps(after).replace(str(c.root), '{ROOT}'))
+    normalized['config']['score_consistency_tolerance'].pop('min_tokens_for_mean')
+    normalized['score_consistency']['tolerance'].pop('min_tokens_for_mean')
     normalized['config_hash'] = digest(normalized['config'])
     # D7 adds report labels outside the frozen scoring projection. Preserve
     # honest current source provenance, then normalize this one operational

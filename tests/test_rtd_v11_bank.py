@@ -157,6 +157,8 @@ def stable_manifest(manifest, root):
 
 def test_legacy_manifest_bytes_match_prechange_fixture(manifest_inputs, monkeypatch):
     c = manifest_inputs
+    # Reproduce the historical declaration before D15 added an effective default.
+    c.config['score_consistency_tolerance'].pop('min_tokens_for_mean')
     monkeypatch.setattr(cli, 'source_identity', lambda root: dict(hash='frozen-source'))
     monkeypatch.setattr(cli, 'evaluation_harness_identity', lambda *args: dict(hash='frozen-harness'))
     current = stable_manifest(cli.make_manifest(c.config, 'R1', c.audit), c.root)

@@ -73,7 +73,7 @@ def test_legacy_manifest_resumes_identically_and_audits_defaults(
         assert event['manifest_hash'] == digest(saved)
         assert event['rtd_source_hash'] == current['rtd_source']['hash']
         assert event['tolerance'] == dict(
-            mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8.)
+            mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8., min_tokens_for_mean=8)
     assert path.read_text() == original
     assert json.dumps(saved, indent=2) == original
 
@@ -89,7 +89,8 @@ def test_updated_yaml_records_all_explicit_tolerance_keys(manifest_inputs, name)
     identity.validate_resume(c.root, c.root, manifest, manifest, training=False)
     event, = ComputeJournal(c.root/'code_drift.jsonl').events
     assert event['context'] == 'evaluation_resume'
-    assert event['tolerance'] == asdict(ScoreTolerance.from_config(config)) == declared
+    assert event['tolerance'] == asdict(ScoreTolerance.from_config(config)) == dict(
+        declared, min_tokens_for_mean=8)
 
 
 @pytest.mark.parametrize('field', ['generation', 'scoring', 'reinforce_likelihood'])
