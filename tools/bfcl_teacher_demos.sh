@@ -4,7 +4,7 @@
 # attempts per task (greedy, then two sampled at temperature 0.7).
 # Usage: bfcl_teacher_demos.sh <model e.g. deepseek-v4-pro-FC>
 set -u
-MODEL=${1:-deepseek-v4-pro-FC}
+MODEL=${1:-${BFAS_BFCL_TEACHER:-deepseek-v4-pro-FC}}
 # resolve from this script's own location: hardcoding a home path made
 # every hpg run skip evaluation silently ("NO ADAPTER") while still
 # printing DONE, because /home/xueqi does not exist there
@@ -52,15 +52,20 @@ sys.exit(0 if demand <= have else 1)
 PYCHK
 }
 cd "$BFCL_DIR"; . .venv/bin/activate
-export OPENAI_BASE_URL="https://ollama.com/v1"
-for KF in ~/.ollama_api_key ~/.ollama_api_key2; do
-  CODE=$(curl -s -m 20 -X POST "$OPENAI_BASE_URL/chat/completions" \
-    -H "Authorization: Bearer $(cat $KF)" -H "Content-Type: application/json" \
-    -d '{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hi"}],"max_tokens":5}' \
-    -o /dev/null -w "%{http_code}")
-  [ "$CODE" = "200" ] && { export OPENAI_API_KEY="$(cat $KF)"; echo "[bfcldemos] using key file $KF"; break; }
-done
-[ -n "${OPENAI_API_KEY:-}" ] || { echo "[bfcldemos] NO WORKING KEY"; exit 1; }
+# Azure resolves its own env/file credentials; it must not probe Ollama.
+if [[ "$MODEL" == azure/* ]]; then
+  bfcl() { "$BFCL_DIR/.venv/bin/python" "$PROJ/tools/bfcl_cli.py" "$@"; }
+else
+  export OPENAI_BASE_URL="https://ollama.com/v1"
+  for KF in ~/.ollama_api_key ~/.ollama_api_key2; do
+    CODE=$(curl -s -m 20 -X POST "$OPENAI_BASE_URL/chat/completions" \
+      -H "Authorization: Bearer $(cat $KF)" -H "Content-Type: application/json" \
+      -d '{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hi"}],"max_tokens":5}' \
+      -o /dev/null -w "%{http_code}")
+    [ "$CODE" = "200" ] && { export OPENAI_API_KEY="$(cat $KF)"; echo "[bfcldemos] using key file $KF"; break; }
+  done
+  [ -n "${OPENAI_API_KEY:-}" ] || { echo "[bfcldemos] NO WORKING KEY"; exit 1; }
+fi
 for A in 1 2 3; do
   TEMP=0.001; [ "$A" -gt 1 ] && TEMP=0.7
   # teacher quota is the scarce resource here: an attempt already covering the
