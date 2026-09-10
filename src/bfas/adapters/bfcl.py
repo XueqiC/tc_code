@@ -23,7 +23,7 @@ from ..adapter import (
     TeacherEpisode,
     Turn,
 )
-from ..bfcl_teacher import ollama_credentials, read_results, teacher_task_ids
+from ..bfcl_teacher import PROVIDERS, ollama_credentials, provider_credentials, read_results, teacher_task_ids
 from ..protocol import SupportSplit, make_support_split
 
 
@@ -461,15 +461,16 @@ class BFCLAdapter(BenchmarkAdapter):
     ) -> dict[str, str]:
         env = self._subprocess_env()
         model = str(args[args.index("--model") + 1]) if "--model" in args else ""
+        prefix = model.split("/", 1)[0]
         is_azure = model.startswith("azure/")
         command = self._bfcl_command("generate", *args)
-        # API-served teacher models (e.g. deepseek-v4-pro-FC) must not get
-        # local vllm server args; they need the OpenAI-compatible creds for
-        # the Ollama endpoint instead.
-        is_api_model = is_azure or "deepseek" in model or model.startswith(("gpt-", "ollama/"))
-        if is_api_model and not is_azure:
+        if prefix in PROVIDERS:
+            # Validate before launching the worker. The native-tools handler
+            # resolves the same provider settings independently of OPENAI_*.
+            env["OPENAI_BASE_URL"], env["OPENAI_API_KEY"] = provider_credentials(prefix)
+        elif not is_azure and ("deepseek" in model or model.startswith("gpt-")):
             env["OPENAI_BASE_URL"], env["OPENAI_API_KEY"] = ollama_credentials()
-        elif not is_api_model:
+        elif not is_azure:
             command.extend([
                 "--backend", "vllm",
                 "--num-gpus", "1",
@@ -489,7 +490,7 @@ class BFCLAdapter(BenchmarkAdapter):
 
     @staticmethod
     def _bfcl_command(*args: str) -> list[str]:
-        if any(str(arg).startswith(("azure/", "ollama/")) for arg in args):
+        if any(str(arg).split("/", 1)[0] in {"azure", *PROVIDERS} for arg in args):
             return [str(BFCL_BIN.with_name("python")), str(BFCL_CLI), *args]
         return [str(BFCL_BIN), *args]
 

@@ -1,4 +1,4 @@
-"""Ollama-hosted native FC models, registered without editing the BFCL checkout."""
+"""API-hosted native FC models, registered without editing the BFCL checkout."""
 
 import os
 import threading
@@ -11,15 +11,15 @@ from bfcl_eval.model_handler.api_inference.openai_completion import OpenAIComple
 from bfcl_eval.model_handler.base_handler import BaseHandler
 from openai import OpenAI
 
-from .bfcl_teacher import ollama_credentials
+from .bfcl_teacher import PROVIDERS, provider_credentials
 from .ledger import append_record
 
 
-class OllamaOpenAIHandler(OpenAICompletionsHandler):
+class OpenAICompatibleHandler(OpenAICompletionsHandler):
     def __init__(self, model_name, temperature, registry_name, is_fc_model, **kwargs):
         BaseHandler.__init__(self, model_name, temperature, registry_name, is_fc_model, **kwargs)
         self.model_style = ModelStyle.OPENAI_COMPLETIONS
-        base_url, key = ollama_credentials()
+        base_url, key = provider_credentials(registry_name.split("/", 1)[0])
         self.client = OpenAI(base_url=base_url, api_key=key, max_retries=0)
         # BFCL shares one handler among inference threads.
         self._usage = threading.local()
@@ -98,22 +98,31 @@ class OllamaOpenAIHandler(OpenAICompletionsHandler):
         return super().decode_execute(result, has_tool_call_tag)
 
 
-def register_ollama_models():
+def register_api_models():
     from bfcl_eval.constants.model_config import (
         MODEL_CONFIG_MAPPING, ModelConfig, api_inference_model_map,
     )
     from bfcl_eval.constants.supported_models import SUPPORTED_MODELS
 
-    for model, display, org in (
-        ("gpt-oss:120b", "GPT-OSS 120B", "OpenAI"),
-        ("mistral-large-3:675b", "Mistral Large 3 675B", "Mistral AI"),
+    for name, display, org, license in (
+        ("ollama/gpt-oss:120b-FC", "GPT-OSS 120B Ollama", "OpenAI", "Apache-2.0"),
+        ("ollama/mistral-large-3:675b-FC", "Mistral Large 3 675B Ollama", "Mistral AI", "Apache-2.0"),
+        ("openrouter/openai/gpt-5.4-FC", "GPT-5.4 OpenRouter", "OpenAI", "Proprietary"),
+        ("openrouter/anthropic/claude-sonnet-5-FC", "Claude Sonnet 5 OpenRouter", "Anthropic", "Proprietary"),
+        ("openrouter/google/gemini-3.1-pro-preview-FC", "Gemini 3.1 Pro Preview OpenRouter", "Google", "Proprietary"),
+        ("openrouter/openai/gpt-5.6-luna-FC", "GPT-5.6 Luna OpenRouter", "OpenAI", "Proprietary"),
     ):
-        name = f"ollama/{model}-FC"
+        prefix, model = name.split("/", 1)
         config = ModelConfig(
-            model_name=model, display_name=f"{display} Ollama (FC)",
-            url="https://ollama.com", org=org, license="Apache-2.0",
-            model_handler=OllamaOpenAIHandler, is_fc_model=True, underscore_to_dot=True,
+            model_name=model.removesuffix("-FC"), display_name=f"{display} (FC)",
+            url=PROVIDERS[prefix][2], org=org, license=license,
+            model_handler=OpenAICompatibleHandler, is_fc_model=True, underscore_to_dot=True,
         )
         MODEL_CONFIG_MAPPING[name] = api_inference_model_map[name] = config
         if name not in SUPPORTED_MODELS:
             SUPPORTED_MODELS.append(name)
+
+
+# Preserve imports used by existing collectors and tests.
+OllamaOpenAIHandler = OpenAICompatibleHandler
+register_ollama_models = register_api_models

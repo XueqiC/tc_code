@@ -9,12 +9,22 @@ from pathlib import Path
 from . import ledger
 
 
-def ollama_credentials() -> tuple[str, str]:
-    base = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com/v1").rstrip("/")
-    if not base.endswith("/v1"):
+# Shared by registration, the handler, and adapter routing. New compatible
+# providers need only an entry here (plus their model registrations).
+PROVIDERS = {
+    "ollama": ("OLLAMA_BASE_URL", "OLLAMA_API_KEY", "https://ollama.com/v1"),
+    "openrouter": ("OPENROUTER_BASE_URL", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1"),
+}
+
+
+def provider_credentials(prefix: str) -> tuple[str, str]:
+    base_env, key_env, default_url = PROVIDERS[prefix]
+    base = os.environ.get(base_env, default_url).rstrip("/")
+    if prefix == "ollama" and not base.endswith("/v1"):
         base += "/v1"
-    key = os.environ.get("OLLAMA_API_KEY", "").strip()
-    if not key:
+    key = os.environ.get(key_env, "").strip()
+    # Only the historical Ollama provider supports credentials from files.
+    if not key and prefix == "ollama":
         for name in (".ollama_api_key2", ".ollama_api_key"):
             path = Path.home() / name
             if path.is_file():
@@ -22,8 +32,12 @@ def ollama_credentials() -> tuple[str, str]:
                 if key:
                     break
     if not key:
-        raise RuntimeError("Ollama credentials not found: set OLLAMA_API_KEY")
+        raise RuntimeError(f"{prefix.capitalize()} credentials not found: set {key_env}")
     return base, key
+
+
+def ollama_credentials() -> tuple[str, str]:
+    return provider_credentials("ollama")
 
 
 def teacher_task_ids(task_ids, *, record_inventory=True):
