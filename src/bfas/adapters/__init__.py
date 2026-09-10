@@ -4,13 +4,14 @@ from importlib import import_module
 from typing import Any
 
 
-__all__ = ["ALFWorldAdapter", "AppWorldAdapter", "BFCLAdapter", "Tau2Adapter"]
+__all__ = ["ALFWorldAdapter", "AppWorldAdapter", "BFCLAdapter", "Tau2Adapter", "WebShopAdapter"]
 
 _MODULES = {
     "ALFWorldAdapter": ".alfworld",
     "AppWorldAdapter": ".appworld",
     "BFCLAdapter": ".bfcl",
     "Tau2Adapter": ".tau2",
+    "WebShopAdapter": ".webshop",
 }
 
 
