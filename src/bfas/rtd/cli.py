@@ -40,6 +40,9 @@ def validate_config(config, *, arm=None, replay_schedule=None, **replay_options)
     config = dict(config) if isinstance(config, dict) else config
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import validate_config as validate_unified
+        return validate_unified(config, arm=arm, replay_schedule=replay_schedule, **replay_options)
     if config.get('arm') or arm or replay_schedule or replay_options:
         config, _ = arm_config(config, arm, replay_schedule, **replay_options)
     v11 = config.get('protocol_version') == '1.1.0'
@@ -138,6 +141,9 @@ def harness_hash(root, config):
 
 
 def data_identity(root, config, bank):
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        return data_identity(root, runtime_config(config), bank)
     root, bank = Path(root), Path(bank)
     if config.get('benchmark', 'bfcl') != 'bfcl':
         from .benchmarks.config import data_identity as identity
@@ -152,6 +158,9 @@ def data_identity(root, config, bank):
 
 
 def bank_audit(config, *, build=False):
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        return bank_audit(runtime_config(config), build=build)
     bank = ROOT / config['replay_bank_path']
     if config.get('protocol_version') == '1.1.0':
         from .bank_v11 import build_v11_bank, validate_v11_certificate, CERTIFICATE
@@ -211,6 +220,21 @@ def bank_audit(config, *, build=False):
 
 
 def make_manifest(config, arm, audit, *, smoke=False):
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config, manifest_fields
+        if arm != config['arm']:
+            raise ValueError('manifest arm differs from unified preset')
+        manifest = make_manifest(runtime_config(config), arm, audit, smoke=smoke)
+        manifest.update(config=config, config_hash=digest(config))
+        manifest.update(manifest_fields(config, manifest))
+        manifest.update(acquisition_protocol='fixed_recorded_pool_and_exposure',
+            acquisition_label='disabled_in_P1', paired_validation='disabled_in_P1_all_arms',
+            step_size_selection='preregistered_shared_fixed_eta',
+            feedback_roles=['acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback'])
+        if arm != 'D1':
+            for key in ('alpha_features', 'alpha_update', 'd_feedback_reference', 'comparison_labels'):
+                manifest.pop(key, None)
+        return manifest
     validate_arm(config, arm)
     from tools.bfcl_hub_merge_export import _snapshot_for_model
     model = Path(config['student'])
@@ -358,12 +382,21 @@ def run_command(args):
                 raise ValueError('resume replay schedule changed')
     else:
         config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None), **replay_options)
+    if config.get('method') == 'rtd_unified':
+        from .unified.experiment import P1Experiment
+        RTDExperiment = P1Experiment
+        if not smoke and not config.get('replay_schedule'):
+            raise ValueError('P1 run requires --replay-schedule <completed V0 run>; standalone smoke is exempt')
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     smoke_deadline_seconds = getattr(args, 'smoke_deadline_seconds', 900)
     if smoke:
         config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
                      baseline='action-independent zero', max_seconds=smoke_deadline_seconds))
+        if config.get('method') == 'rtd_unified':
+            config['smoke_override'].update(slots=config['p1']['smoke_slots'],
+                max_new_packages=config['p1']['smoke_packages'],
+                feedback_tasks=config['p1']['smoke_feedback_tasks'], rollouts=config['p1']['smoke_rollouts'])
     audit = bank_audit(config)
     directory = Path(args.run_dir or ROOT / config['output_root'] / (args.arm + ('_smoke' if smoke else ''))).resolve()
     with exclusive_run(directory):
@@ -435,7 +468,7 @@ def resume_config(path, saved):
         if supplied != config:
             replay_options = {k: config[k] for k in ('replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds') if k in config}
             loaded = (load_config(path, arm=saved['arm'], replay_schedule=config.get('replay_schedule'), **replay_options)
-                      if saved.get('arm') in {'V0', 'V1', 'V2'} else load_config(path))
+                      if saved.get('arm') in {'V0', 'V1', 'V2'} or config.get('method') == 'rtd_unified' else load_config(path))
             if loaded != config:
                 raise ValueError('resume config changed; omit --config to use the saved manifest')
     return config
@@ -560,7 +593,8 @@ def main(argv=None):
             p.add_argument('--acknowledge-code-drift', action='store_true',
                            help='acknowledge recorded RTD source changes before continuing training')
         if name in ('smoke', 'run', 'resume'):
-            p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2'], default=os.environ.get('RTD_ARM'))
+            from .unified.arms import ARMS as P1_ARMS
+            p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2', *P1_ARMS], default=os.environ.get('RTD_ARM'))
             p.add_argument('--smoke-deadline-seconds', type=positive_seconds, default=900,
                            help='smoke time limit in seconds (default: 900; resume must match the saved config)')
             p.add_argument('--replay-schedule', type=Path, help='V1: V0 run directory or exposure_schedule.json')

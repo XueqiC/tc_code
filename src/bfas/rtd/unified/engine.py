@@ -7,7 +7,7 @@ from .execution import trial_distillation, commit_distillation
 from .feedback import FeedbackCheckpoint, collect_task_feedback
 from .interfaces import validate_and_report
 from .problem import TeachingContext, build_teaching_problem, attach_feedback
-from .solver import solve_exact
+from .arms import ARMS, solve_arm
 
 
 @dataclass(frozen=True)
@@ -51,6 +51,9 @@ class UnifiedConfig:
 class UnifiedEngine:
     def __init__(self, config):
         self.config = UnifiedConfig.from_config(config)
+        self.arm = config.get('arm', 'D3')
+        if self.arm not in ARMS or ARMS[self.arm].trainer != 'unified':
+            raise ValueError('D0/D1 use the P1 benchmark runner and their existing trainers')
 
     def build_problem(self, *, parameters, source_snapshot, source_policy_hash, preconditioner,
                       owned_evidence, frozen_exposure, **context_options):
@@ -73,7 +76,7 @@ class UnifiedEngine:
             evaluate=lambda parameters: collect_task_feedback(
                 FeedbackCheckpoint(parameters, backend, rollout, feedback_version), feedback_split))
         problem = attach_feedback(problem, feedback)
-        solution = solve_exact(problem)
-        commit = commit_distillation(problem, solution.coefficients, model=backend.model)
-        run = dict(problem=problem, solution=solution, commit=commit)
+        solution, coefficients, permutation = solve_arm(problem, self.arm)
+        commit = commit_distillation(problem, coefficients, model=backend.model)
+        run = dict(problem=problem, solution=solution, commit=commit, permutation=permutation)
         return run | dict(report=validate_and_report(run))

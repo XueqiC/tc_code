@@ -154,6 +154,8 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                     evaluation_harness_hash=identities['harness_hash'],
                     evaluation_temperature=(0.001 if manifest['config'].get('student_call_format') == 'gemma4'
                                             else manifest['config']['evaluation_temperature']))
+    if manifest['config'].get('method') == 'rtd_unified':
+        identity.update(arm=manifest['arm'], p1_campaign=manifest['campaign_identity'])
     tag, campaign_identity = _completed_campaign_identity(root, manifest, identity, identities, round_number)
     out = root / 'results/bfcl_std' / tag
     completed = directory / f'evaluation-{round_number}.json'

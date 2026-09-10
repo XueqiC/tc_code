@@ -134,6 +134,38 @@ def training_lr() -> float:
     if lr <= 0:
         raise ValueError(f"AW_LR must be a positive float; got {raw!r}")
     return lr
+
+
+def rtd_sft_kl_gradient(backend, pairs, weights, parameters, frozen_snapshot, *,
+                        mode, teacher_weight, kl_weight, normalization):
+    """AW_DISTILL=rtd_sft_kl: scheduled Table-1 trainer entry for P1 D0.
+
+    One window of teacher SFT + forward soft KL on freshly sampled SOURCE
+    prefixes. The RTD shell owns initialization, frozen round snapshot, ledger,
+    exposure and the single frozen-P optimizer commit. No truncation, shuffle,
+    additional epoch, or preference stage is inserted by this entry.
+    """
+    from bfas.rtd.functional_step import gradients
+    from bfas.rtd.source_scoring import source_gradient_pair
+    from bfas.rtd.student import teacher_tokens
+    if (mode != 'rtd_sft_kl' or normalization not in {'per_sequence_mean', 'total_token_nll'}
+            or any(not math.isfinite(v) or v <= 0 for v in (teacher_weight, kl_weight))):
+        raise ValueError('invalid AW_DISTILL=rtd_sft_kl configuration')
+    gradient = {n: torch.zeros_like(p) for n, p in parameters.items()}
+    for pair, weight in zip(pairs, weights):
+        for sample in pair.sources:
+            _, soft, _ = source_gradient_pair(backend, sample, parameters, frozen_snapshot)
+            scale = sample.length if normalization == 'per_sequence_mean' else 1
+            for name in gradient:
+                gradient[name].add_(soft[name], alpha=float(weight)*kl_weight/(2*scale))
+        teacher = pair.record.teacher
+        if teacher is not None:
+            length = len(teacher_tokens(backend, teacher)[0])
+            loss = -backend.score_behavior(teacher, parameters)
+            hard = gradients(loss/(length if normalization == 'per_sequence_mean' else 1), parameters)
+            for name in gradient:
+                gradient[name].add_(hard[name], alpha=float(weight)*teacher_weight)
+    return gradient
 MAX_PROMPT_TOKENS = 640
 MAX_RESPONSE_TOKENS = 512
 

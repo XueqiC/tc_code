@@ -32,6 +32,9 @@ def schedule_path(path):
 
 def arm_config(config, arm=None, replay_schedule=None, **replay_options):
     """A first-class arm selects every coupled setting before validation/hash."""
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import arm_config as unified_arm_config
+        return unified_arm_config(config, arm, replay_schedule, **replay_options)
     arm = arm or config.get('arm') or ('V2' if 'gate_mode' in config else 'R1')
     if arm not in ARMS:
         if arm not in {'R0', 'R1'} or config.get('protocol_version') == '1.1.0' or 'gate_mode' in config:

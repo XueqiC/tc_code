@@ -11,6 +11,7 @@ from ..functional_step import gradients
 from ..persistence import digest
 from ..source_scoring import sampled_prefix_positions
 from ..transport import SamplingRequest, sample_sources
+from ..student import teacher_tokens
 from .estimators import hard_loss, soft_retention_loss
 from .immutable import Parameters, Array
 from .problem import Exposure, Evidence
@@ -76,10 +77,7 @@ def score_teacher(backend, behavior, context, *, query_id, version):
     layout, tokenizer = context.theta, backend.tokenizer
     parameters = layout.tensors(device=device)
     prompt = tuple(tokenizer.encode(behavior.state.prompt, add_special_tokens=False))
-    tokens = tuple(tokenizer.encode(behavior.text, add_special_tokens=False))
-    eos = tokenizer.eos_token_id
-    if not tokens or tokens[-1] != eos:
-        tokens += (eos,)
+    tokens, eos = teacher_tokens(backend, behavior)
     from ..transport import validate_sampled_action
     validate_sampled_action(tokens, eos, False)
     if not prompt:
@@ -89,3 +87,44 @@ def score_teacher(backend, behavior, context, *, query_id, version):
     return Evidence(query_id, version, behavior.state.state_hash, behavior.state.parent_hash, behavior.text,
         behavior_identity(behavior.state.state_hash, tokens, eos, False), layout.hash, context.loss.hash,
         layout.flatten(gradient))
+
+
+def score_streamed(backend, pair, context, parameters, source, *, slot_id, weight):
+    """Production adapter: streamed head VJPs, never sequence × vocabulary KL.
+
+    The per-sequence correction is applied to each source BEFORE averaging.
+    Teacher scoring uses the backend's complete, untruncated response NLL.
+    """
+    from ..source_scoring import source_gradient_pair
+    definition, layout = context.loss, context.theta
+    if definition.soft_mode != 'length_corrected_prefix':
+        raise ValueError('streaming P1 supports the length-corrected prefix estimator')
+    hard, soft = [], []
+    for sample in pair.sources:
+        gh, gs, _ = source_gradient_pair(backend, sample, parameters, source)
+        h, s = layout.flatten(gh).numpy(), layout.flatten(gs).numpy()
+        if definition.normalization == 'per_sequence_mean':
+            c = definition.retention_scale
+            s = c*s+(1/sample.length-c)*h
+            h = h/sample.length
+        hard.append(h); soft.append(s)
+    state = pair.record.state
+    exposure = Exposure(slot_id, state.state_hash, state.parent_hash,
+        tuple(behavior_identity(state.state_hash, s.token_ids, s.eos_token_id, s.truncated) for s in pair.sources),
+        tuple(digest(asdict(s)) for s in pair.sources), pair.draw_ids,
+        context.source_policy_hash, layout.hash, definition.hash, Array.of(hard),
+        Array.of((soft[0]+soft[1])/2), weight)
+    teacher = pair.record.teacher
+    if teacher is None:
+        return exposure, None
+    if pair.record.query_id not in context.owned_query_ids:
+        raise ValueError('teacher must be ledger-owned before scoring')
+    tokens, eos = teacher_tokens(backend, teacher)
+    loss = -backend.score_behavior(teacher, parameters)
+    if definition.normalization == 'per_sequence_mean':
+        loss = loss/len(tokens)
+    gradient = layout.flatten(gradients(loss, parameters))
+    evidence = Evidence(pair.record.query_id, str(pair.record.record_index), state.state_hash,
+        state.parent_hash, teacher.text, behavior_identity(state.state_hash, tokens, eos, False),
+        layout.hash, definition.hash, gradient)
+    return exposure, evidence

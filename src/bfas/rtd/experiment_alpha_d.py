@@ -306,17 +306,19 @@ class AlphaDExperimentMixin:
         statistic = s['d_feedback']
         if getattr(statistic, 'feedback_role', None) != 'same_batch_reference_feedback':
             raise ValueError('historical d feedback must come from the same-batch reference role')
-        z, error = statistic.project(ref.directions, self.alpha_option('z_error_mode'))
-        K = gram(ref.directions, s['step_rule'].diagonal)
+        with self.scope('alpha_d_gram') if hasattr(self, 'p1_config') else nullcontext():
+            z, error = statistic.project(ref.directions, self.alpha_option('z_error_mode'))
+            K = gram(ref.directions, s['step_rule'].diagonal)
         if s['decision']:
             s['d_calibration'] = calibrate_d(K, self.alpha_option('d_lambda_normalisation'))
         warmup = s['alpha_window_index'] <= self.alpha_option('d_warmup_windows')
-        d, comparison = control(z, error, K, ref.alpha, mode=self.alpha_option('acquisition_value_mode'),
-            zero_reason='configured_zero' if self.alpha_option('d_mode') == 'zero' else 'warmup' if warmup else None,
-            d_lambda=self.alpha_option('d_lambda'), tolerance=self.alpha_option('d_solver_tolerance'),
-            d_lambda_normalisation=self.alpha_option('d_lambda_normalisation'), calibration=s['d_calibration'],
-            max_iterations=self.alpha_option('d_solver_max_iterations'),
-            redundancy_threshold=self.alpha_option('d_redundancy_cosine_threshold'))
+        with self.scope('alpha_d_qp') if hasattr(self, 'p1_config') else nullcontext():
+            d, comparison = control(z, error, K, ref.alpha, mode=self.alpha_option('acquisition_value_mode'),
+                zero_reason='configured_zero' if self.alpha_option('d_mode') == 'zero' else 'warmup' if warmup else None,
+                d_lambda=self.alpha_option('d_lambda'), tolerance=self.alpha_option('d_solver_tolerance'),
+                d_lambda_normalisation=self.alpha_option('d_lambda_normalisation'), calibration=s['d_calibration'],
+                max_iterations=self.alpha_option('d_solver_max_iterations'),
+                redundancy_threshold=self.alpha_option('d_redundancy_cosine_threshold'))
         solver = comparison['solver']
         bound = np.minimum(ref.alpha.double().numpy(), 1-ref.alpha.double().numpy())
         solver.update(active_lower=np.flatnonzero(np.isclose(d, -bound, atol=1e-8, rtol=0)).tolist(),

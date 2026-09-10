@@ -1,5 +1,6 @@
 """ONE definition of update and F for solve, trial, commit and counterfactuals."""
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 
@@ -9,6 +10,7 @@ from .immutable import Parameters, Array
 @dataclass(frozen=True)
 class TeachingObjective:
     problem: object
+    control_gram: object = None
 
     def increment(self, coefficients):
         p = self.problem
@@ -32,9 +34,19 @@ class TeachingObjective:
         a = p.check_coefficients(coefficients)
         return p.U.numpy() @ (a-p.a_ref.numpy())
 
-    def quadratic(self):
+    @cached_property
+    def _quadratic(self):
         p = self.problem
-        return p.context.regularization*p.K.numpy(), -(p.U.numpy().T @ p.h.numpy())
+        K = p.K.numpy() if self.control_gram is None else self.control_gram
+        # U may have millions of rows. Project h once per immutable objective,
+        # not on every auxiliary-QP callback. Cached arrays are still read-only.
+        Q, linear = p.context.regularization*K, -(p.U.numpy().T @ p.h.numpy())
+        if not np.isfinite(Q).all() or not np.isfinite(linear).all():
+            raise ValueError('QP coefficients overflowed; rescale the frozen problem explicitly')
+        return Array.of(Q).numpy(), Array.of(linear).numpy()
+
+    def quadratic(self):
+        return self._quadratic
 
     def value(self, coefficients):
         p = self.problem

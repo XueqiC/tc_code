@@ -159,13 +159,17 @@ def validate_and_report(run):
     if solution.problem_id != problem.identity or commit.problem_id != problem.identity:
         raise ValueError('report problem/version mismatch')
     expected = TeachingObjective(problem)
-    if (not np.array_equal(solution.coefficients.numpy(), commit.coefficients.numpy())
+    permutation = np.asarray(run.get('permutation', np.arange(len(problem.coordinates))))
+    if sorted(permutation.tolist()) != list(range(len(problem.coordinates))):
+        raise ValueError('invalid source coefficient permutation')
+    if (not np.array_equal(solution.coefficients.numpy()[permutation], commit.coefficients.numpy())
             or expected.parameters(commit.coefficients).hash != commit.parameters.hash
-            or abs(expected.value(commit.coefficients)-solution.value) > problem.context.qp_tolerance
+            or abs(expected.value(solution.coefficients)-solution.value) > problem.context.qp_tolerance
             or commit.rl_updates != 0):
         raise ValueError('solution/commit/objective mismatch')
     return dict(status='unified_local_step_validated', problem_id=problem.identity,
-        objective=solution.value, qp_stationarity=solution.stationarity,
+        objective=expected.value(commit.coefficients), qp_stationarity=solution.stationarity,
+        qp_certificate_applies_to='solver_coefficients_before_optional_permutation',
         qp_feasibility=solution.feasibility, qp_complementarity=solution.complementarity,
         gram_repair=vars(problem.psd_repair), uncertainty=problem.uncertainty_label,
         feedback_version=problem.feedback_version, increment_error=commit.increment_error,

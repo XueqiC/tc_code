@@ -39,3 +39,12 @@ def termination_ids(backend):
     if any(type(i) is not int or i == backend.tokenizer.unk_token_id for i in ids):
         raise ValueError('configured student lacks native termination tokens')
     return tuple(dict.fromkeys(ids))
+
+
+def teacher_tokens(backend, behavior):
+    """Exact authored target used by score_behavior, including native stops."""
+    action = tuple(backend.tokenizer.encode(behavior.text, add_special_tokens=False))
+    eos = action[-1] if action and action[-1] in termination_ids(backend) else backend.tokenizer.eos_token_id
+    if not action or action[-1] != eos:
+        action += (eos,)
+    return action, eos

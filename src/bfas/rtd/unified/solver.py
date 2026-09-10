@@ -53,8 +53,18 @@ def kkt_certificate(objective, y, A, b, scale, tolerance):
     return dual*scale, stationarity, feasibility, complementarity
 
 
-def solve_exact(problem):
-    objective = TeachingObjective(problem)
+def solve_exact(problem, *, equality=None, control_gram=None):
+    """Optional homogeneous constraints on x; report value under the full F.
+
+    Equality rows are encoded as paired inequalities so the same independent
+    KKT certificate verifies unrestricted and restricted local problems.
+    """
+    if control_gram is not None:
+        from .problem import checked_psd
+        control_gram = checked_psd(control_gram, problem.context.psd_tolerance)[0].numpy()
+        if control_gram.shape != problem.K.shape:
+            raise ValueError('control Gram shape mismatch')
+    objective = TeachingObjective(problem, control_gram)
     n = len(problem.coordinates)
     if n == 0:
         empty = Array.of([])
@@ -67,6 +77,12 @@ def solve_exact(problem):
     if not np.isfinite(scale):
         raise ValueError('QP numerical scale overflowed')
     A, b = auxiliary_constraints(problem)
+    if equality is not None:
+        equality = np.asarray(equality, dtype=float)
+        if equality.ndim != 2 or equality.shape[1] != n or not np.isfinite(equality).all():
+            raise ValueError('finite equality rows on x required')
+        E = np.c_[equality, np.zeros_like(equality)]
+        A, b = np.vstack([A, E, -E]), np.r_[b, np.zeros(2*len(E))]
     def fun(y):
         value, grad = objective.auxiliary_value_gradient(y)
         return value/scale, grad/scale
@@ -88,8 +104,8 @@ def solve_exact(problem):
             or max(stationarity, feasibility, complementarity) > problem.context.qp_tolerance):
         raise RuntimeError(f'QP failed KKT tolerance: {stationarity=}, {feasibility=}, '
                            f'{complementarity=}; SLSQP: {result.message}')
-    value = objective.value(a)
-    if value < -problem.context.qp_tolerance*scale:
+    value = TeachingObjective(problem).value(a)
+    if objective.value(a) < -problem.context.qp_tolerance*scale:
         raise RuntimeError('QP degraded its feasible reference')
     return ExactSolution(problem.identity, Array.of(a), Array.of(x), Array.of(np.abs(x)),
         Array.of(dual), value, int(result.nit), stationarity, feasibility, complementarity, scale)

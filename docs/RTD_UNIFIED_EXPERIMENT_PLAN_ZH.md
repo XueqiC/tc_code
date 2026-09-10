@@ -1,6 +1,8 @@
 # RTD unified replacement：P1–P3 实验计划
 
-状态：**P1、P2、P3 及下列所有实验臂均为 PLANNED**。本文记录可检验协议，不填写预期成绩。本次交付只有 P0 CPU 代码、数学契约、预算审计；没有 GPU、API、Gemma 或 benchmark 运行。
+状态：**P1 preparation 启动工程已实现；P1、P2、P3 性能实验及所有实验臂结果仍为 PLANNED**。P1 的配置、D0–D3/归因 presets、共同 recorded exposure、统一 smoke/stage profiling 与命令见 `RTD_UNIFIED_P1_PREP_ZH.md`。只有 CPU 验证与只读 bank 审计；没有 GPU、API、Gemma 或 benchmark 性能运行。
+
+P1 preparation 的本轮最终 CPU 验证：**2,436 passed、4 skipped、6 warnings，931.44 s，退出码 0**；独立 focused suite 55 passed。GPU/API 实验 0；不据此填写任何任务收益或 GPU 速度。
 
 ## P0 实际交付记录
 
@@ -82,7 +84,7 @@ PLANNED 报告两种预算视角：相同骨干训练量下的任务表现与总
 - BFCL 官方 Overall，先验证全量生成完整性；temperature .001 与严格 greedy 0 分开；不同硬件 base 不是训练 seeds。
 - ALFWorld valid_seen 用开发；反复使用的 valid_unseen 不能重新称 untouched test。低初始能力/已有能力学生可互补验证，但同数学程序。
 - AppWorld 官方完整任务 TGC；pooled unit-test pass ratio 仅诊断。dev40/max24 与历史 dev57 不直接合并。
-- 确认/校准集不参与特征归一化、采购、控制器训练、调参或 checkpoint 选择。训练反馈与独立确认严格分开。
+- 独立确认集不参与特征归一化、采购、控制器训练、调参或 checkpoint 选择。P1 preparation 按本次用户协议单列 calibration split，仅用于预登记的 D0 SFT/KL 权重选择；该 split 是开发用途，不能再称 untouched confirmation。训练反馈、calibration 与独立确认按父任务分开。
 - P1–P3 最终可能支持选择性、剂量、稳定性、采购或计算中的某一部分；按证据缩小主张。P0 正确性不是性能有效或创新性证据。
 
 ## 复现入口
@@ -96,4 +98,4 @@ PYTHONPATH=src:. /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m bfas.r
 PYTHONPATH=src:. /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest -q tests
 ```
 
-P1–P3 的 GPU/API 启动命令为 **PLANNED**，尚未声称存在可运行的 Gemma benchmark CLI。下一项最有信息量的工作是 P1 身份/采样/损失口径适配后，同合法固定池的小预算 D0–D3 配对闭环；先量成本再扩大。
+P1 的 run/smoke/resume/evaluate 启动路径、D0 baseline entry、每个 arm 的命令及 matched 协议见 `RTD_UNIFIED_P1_PREP_ZH.md`；生产 GPU 运行尚未执行。下一项是先在已授权单卡上执行 ALFWorld D3 一窗口 smoke，查看阶段成本，再运行同合法固定池的小预算 D0–D3。P2/P3 仍为 PLANNED。

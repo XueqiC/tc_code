@@ -68,6 +68,8 @@ def evaluate_adapter(root, directory, round_number, *, port=None, base_evaluatio
         data_hash=manifest['data_hash'], base_checkpoint_hash=manifest['base_checkpoint_hash'],
         tokenizer_hash=manifest['tokenizer_hash'], hardware_hash=digest(hardware['hard']),
         expected_hash=digest(expected), evaluation_harness_hash=identities['harness_hash'], evaluation_temperature=0.)
+    if config.get('method') == 'rtd_unified':
+        identity.update(arm=manifest['arm'], p1_campaign=manifest['campaign_identity'])
     tag = f"rtd_{benchmark}_{manifest['arm']}_{digest(identity)[:16]}_r{round_number}"
     out = root/'results'/f'{benchmark}_std'/tag
     completed = directory/f'evaluation-{round_number}.json'

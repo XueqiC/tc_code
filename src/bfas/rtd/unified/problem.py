@@ -266,13 +266,16 @@ class TeachingProblem:
             feasible='box_and_per_source_teacher_version_simplex'))
 
 
-def build_teaching_problem(context, owned_evidence, frozen_exposure, *, a_ref=None):
+def build_teaching_problem(context, owned_evidence, frozen_exposure, *, a_ref=None, evidence_by_slot=None):
     exposure, evidence = tuple(frozen_exposure), tuple(owned_evidence)
     if (not exposure or len({e.slot_id for e in exposure}) != len(exposure)
             or len({e.key for e in evidence}) != len(evidence)
             or abs(sum(e.weight for e in exposure)-1) > 1e-10):
         raise ValueError('unique slots/evidence and fixed exposure weights summing to one required')
     theta_hash, p = context.theta.hash, context.preconditioner.numpy()
+    if evidence_by_slot is not None and (set(evidence_by_slot) != {e.slot_id for e in exposure}
+            or any(key is not None and key not in {t.key for t in evidence} for key in evidence_by_slot.values())):
+        raise ValueError('each scheduled slot must bind its purchased teacher or explicit retention-only baseline')
     for e in (*exposure, *evidence):
         g = e.soft if isinstance(e, Exposure) else e.gradient
         if (e.theta_hash != theta_hash or e.loss_hash != context.loss.hash
@@ -293,6 +296,8 @@ def build_teaching_problem(context, owned_evidence, frozen_exposure, *, a_ref=No
     opened = set()
     for t in evidence:
         for e in exposure:
+            if evidence_by_slot is not None and evidence_by_slot[e.slot_id] != t.key:
+                continue
             if (e.state_hash, e.parent_hash) != (t.state_hash, t.parent_hash):
                 continue
             for j, hard in enumerate(e.hard.numpy()):

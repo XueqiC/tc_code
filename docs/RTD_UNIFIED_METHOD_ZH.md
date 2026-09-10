@@ -247,3 +247,12 @@ CLI 只验证和描述 P0 配置，不下载模型、不启动训练。编程入
 CPU suite 的实测结果和耗时见实验计划的 P0 记录。GPU/rollout/Gram/反馈/commit 的生产成本剖析仍为 PLANNED；不拿 CPU QP 毫秒数推测总体加速。
 
 本次 CPU 环境：PyTorch 2.13.0+cu130、NumPy 2.5.2、SciPy 1.18.0；测试未执行 GPU 实验。BFCL 官方支持的 `BFCL_PROJECT_ROOT` 指向 writable scratch，避免在只读共享环境创建 `.file_locks`；数据目录仍由 PACKAGE_ROOT 决定。OMP/MKL 单线程仅为 CPU 小矩阵测试降低并行开销。独立 worktree 的旧 AppWorld suite 还需要主 checkout 中被 `logs/` 规则忽略的原始测试 fixture，恢复记录和 hash 见实验计划。另修正一个 pre-P0 HEAD 也失败的历史 manifest-byte 测试：先断言 Azure BFCL merge 未改冻结 scoring projection，再仅归一历史 raw adapter hash；保留原 manifest/梯度 oracle，不改任何 v1.1 runtime。复现证据见实验计划。
+
+
+## 12. P1 preparation 接线（未运行性能实验）
+
+`tools/rtd_experiment.py` 按 unified 配置派发到 `unified.experiment.P1Experiment`，复用 v1.1 的持久化/账本/benchmark harness。D1 调用原 α/d mixin；D2/D3 与归因臂调用同一 `TeachingObjective` 与 exact solver。D0 通过 `appworld_train.rtd_sft_kl_gradient` 的 AW_DISTILL=rtd_sft_kl 窗口入口提供教师 SFT+source-prefix KL。完整配置、匹配/口径说明和命令见 `RTD_UNIFIED_P1_PREP_ZH.md`。
+
+新增限制为 homogeneous equality E(a−a_ref)=0。D2 对同状态坐标设置相等；fixedmean 对每曝光槽设置系数和固定；nocross 仅替换求解器所用的 Gram，TeachingProblem 保留完整 K；shuffle 在 exact 求解之后随机置换同槽 source pairing。限制与干预均记录在 manifest/campaign，不能把打乱后的系数或对角代理 optimum 称为原完整问题的 optimum。
+
+streamed head VJP 提供 total hard/soft 梯度，再逐来源执行 §4.2 长度修正；D0 的常规 KL 按来源自身长度平均，不声称等于 corrected soft retention。teacher 长度包含真实 native turn/handoff terminator，已有 terminator 不额外加 EOS。所有提交仍为一次冻结 P 的蒸馏更新，没有额外 backbone RL step。CPU 验证不构成 Gemma GPU 显存、总体速度或任务收益的证据。

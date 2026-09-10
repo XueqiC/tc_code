@@ -66,6 +66,9 @@ class ALFWorldExperimentSupport:
     """BFCLSupport-shaped view of C26-B's frozen parent/reset protocol."""
     def __init__(self, root, config):
         _privileged()
+        if config.get('method') == 'rtd_unified':
+            from ..unified.config import runtime_config
+            config = runtime_config(config)
         from .alfworld_config import bank_audit
         from .alfworld_support import ALFWorldSupport
         from ..transport import FullState
@@ -185,6 +188,9 @@ def alfworld_cap_policy(request_class, *, limits=None, evidence=()):
 
 def alfworld_harness_identity(root, config):
     _privileged()
+    if config.get('method') == 'rtd_unified' or config.get('p1'):
+        from .webshop_identity import evaluation_harness_identity as identity
+        return identity(root, config)
     from .alfworld_config import model_directory, validate_config
     from .alfworld_identity import evaluation_harness_identity
     config = validate_config(config)
@@ -213,7 +219,7 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
     from .alfworld_evaluation import evaluate
     root, directory = Path(root), Path(directory)
     saved = json.loads((directory / 'manifest.json').read_text())
-    if saved['config'].get('protocol_version') == '1.1.0':
+    if saved['config'].get('protocol_version') == '1.1.0' or saved['config'].get('method') == 'rtd_unified':
         from .webshop_evaluation import evaluate_adapter
         return evaluate_adapter(root, directory, round_number, port=port, base_evaluation=base_evaluation,
             lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
