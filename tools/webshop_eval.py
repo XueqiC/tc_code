@@ -21,7 +21,7 @@ from typing import Optional
 
 WEBSHOP_REPO = Path(__file__).resolve().parents[1] / "envs/webshop/repo"
 MAX_STEPS = 15
-OBS_CHARS = 2500
+OBS_CHARS = 6000
 HISTORY_OBS_CHARS = 600
 MAX_PROMPT_CHARS = 60000
 SYSTEM_PROMPT = """You are shopping in WebShop. Follow the user's shopping instruction
