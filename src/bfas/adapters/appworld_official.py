@@ -417,7 +417,7 @@ class AppWorldOfficialAdapter(BenchmarkAdapter):
         """
         import appworld_teacher
 
-        model = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        model = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         if model in appworld_teacher.AZURE_OPENAI_MODELS:
             endpoint, api_key = appworld_teacher._azure_credentials()
             extra = {

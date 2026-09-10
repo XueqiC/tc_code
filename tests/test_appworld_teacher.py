@@ -276,10 +276,36 @@ def test_alfworld_ledger_records_resolved_teacher_and_usage(monkeypatch, alfworl
     task = "pick_and_place_simple-Apple-None-DiningTable-1/trial"
     assert task in ledger.acquire_demos("alfworld", alfworld_adapter, [task], 1)
     row, = ledger.read_records("alfworld")
-    assert row["teacher"] == (name or "deepseek-v4-pro")
+    assert row["teacher"] == (name or "gpt-5.4")
     assert row["tokens_spent"] == 90
     assert row["usage"] == {"completion_tokens": 90, "prompt_tokens": 212}
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("method", ["teacher_episode", "teacher_demo", "teacher_demo_incremental"])
+def test_alfworld_defaults_to_gpt54_when_teacher_unset(monkeypatch, alfworld_adapter, method):
+    monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    monkeypatch.setenv("AZURE_LLM_ENDPOINT", "https://azure.example")
+    monkeypatch.setenv("AZURE_LLM_KEY", "azure-test-key")
+    calls = stub_client(monkeypatch, [payload(), payload()])
+    task = "pick_and_place_simple-Apple-None-DiningTable-1/trial"
+    if method == "teacher_episode":
+        episode = alfworld_adapter.teacher_episode(task, 0, 0.0)
+        assert episode.verified
+        assert episode.teacher == "gpt-5.4"
+    elif method == "teacher_demo":
+        assert task in alfworld_adapter.teacher_demo([task], 1)
+    else:
+        results = []
+        assert task in alfworld_adapter.teacher_demo_incremental(
+            [task], 1, lambda task_id, demo: results.append((task_id, demo)))
+        assert len(results) == 1 and results[0][0] == task and results[0][1] is not None
+    assert len(calls) == 2
+    assert all(
+        request.full_url == "https://azure.example/openai/deployments/gpt-5.4/chat/completions"
+        f"?api-version={teacher.AZURE_OPENAI_API_VERSION}"
+        for request, _ in calls
+    )
 
 
 @pytest.mark.parametrize("bad_reply", ["http", "invalid_choices"])

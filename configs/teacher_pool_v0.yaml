@@ -1,4 +1,4 @@
-models: [deepseek-v4-pro, kimi-k2.7-code]
+models: [gpt-5.4]
 domains: [gsm8k-code, pandas, sql]
 per_domain_limit: 350
 rpm: 20

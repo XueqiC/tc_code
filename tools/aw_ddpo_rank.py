@@ -31,7 +31,7 @@ RANK_PROMPT = (
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--teacher", default="deepseek-v4-pro")
+    ap.add_argument("--teacher", default="gpt-5.4")
     ap.add_argument("--out", default="data/appworld_sft/pool_ddpo.jsonl")
     args = ap.parse_args()
     config = at.load_teacher_config(args.teacher)

@@ -772,7 +772,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         config = appworld_teacher.load_teacher_config(teacher_name)
         session = TeacherSession(config)
         # An initial HTTP 429 escapes to the run-level pause/resume wrapper.
@@ -833,7 +833,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         quota_gate = _TeacherQuotaGate(appworld_teacher)
 
         def collect_task(

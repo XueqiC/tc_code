@@ -246,18 +246,23 @@ def test_failed_attempts_are_charged_once_and_success_is_cached(harness, teacher
 
 
 @pytest.mark.parametrize("name", [
-    "gpt-5.6-luna", "gpt-oss:120b", "mistral-large-3",
+    None, "gpt-5.6-luna", "gpt-oss:120b", "mistral-large-3",
     "openrouter/openai/gpt-5.4", "openrouter/anthropic/claude-sonnet-5",
     "openrouter/google/gemini-3.1-pro-preview", "openrouter/openai/gpt-5.6-luna",
 ])
-def test_teacher_environment_selection_and_ledger_label(harness, teacher, monkeypatch, name):
+def test_teacher_default_or_environment_selection_and_ledger_label(harness, teacher, monkeypatch, name):
     adapter, bridge, _ = harness
-    monkeypatch.setenv("BFAS_TEACHER", name)
+    if name is None:
+        monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    else:
+        monkeypatch.setenv("BFAS_TEACHER", name)
+    expected = name or "gpt-5.4"
+    assert adapter.teacher_name() == expected
     bridge.done_after = 1
     bridge.rewards = [0.0, 1.0]
     assert set(adapter.teacher_demo(["500"], attempts=2)) == {"500"}
-    assert [config.name for config in teacher.configs] == [name, name]
-    assert [row["teacher"] for row in ledger_records()] == [name, name]
+    assert [config.name for config in teacher.configs] == [expected, expected]
+    assert [row["teacher"] for row in ledger_records()] == [expected, expected]
 
 
 def test_ledger_uses_resolved_config_name(harness, teacher, monkeypatch):

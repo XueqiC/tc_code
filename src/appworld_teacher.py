@@ -4,8 +4,8 @@
 
 OpenRouter teachers use ``openrouter/<vendor>/<model>`` and require
 OPENROUTER_API_KEY. OPENROUTER_BASE_URL defaults to https://openrouter.ai/api/v1.
-BFAS adapters select their teacher with BFAS_TEACHER (WebShop defaults to
-gpt-5.4; ALFWorld defaults to deepseek-v4-pro).
+BFAS adapters select their teacher with BFAS_TEACHER (WebShop and ALFWorld
+both default to gpt-5.4).
 """
 
 from __future__ import annotations

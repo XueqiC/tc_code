@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 OUTPUT = ROOT / "data" / "evol_pool_v1.jsonl"
 DOMAIN = "gsm8k-code"
-TEACHER = "deepseek-v4-pro"
+TEACHER = "gpt-5.4"
 VERIFY_TIMEOUT_SECONDS = 10
 
 # These templates and operations are kept verbatim (apart from newline style)

@@ -631,7 +631,7 @@ class BFCLAdapter(BenchmarkAdapter):
     def teacher_demo(
         self, task_ids: Sequence[str], attempts: int
     ) -> dict[str, Demo]:
-        model = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
+        model = os.environ.get("BFAS_BFCL_TEACHER", "gpt-5.4")
         remaining = list(task_ids)
         demos: dict[str, Demo] = {}
         for attempt in range(attempts):
@@ -678,7 +678,7 @@ class BFCLAdapter(BenchmarkAdapter):
     def teacher_episode(
         self, task_id: str, attempt_index: int, temperature: float
     ) -> TeacherEpisode:
-        model = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
+        model = os.environ.get("BFAS_BFCL_TEACHER", "gpt-5.4")
         results, result_dir, score_dir = self._official_pass(
             model, [task_id], temperature
         )

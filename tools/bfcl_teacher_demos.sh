@@ -2,9 +2,9 @@
 # Collect verified teacher demos for the BFCL demand split via the
 # official pipeline, with protocol parity to AppWorld: up to three
 # attempts per task (greedy, then two sampled at temperature 0.7).
-# Usage: bfcl_teacher_demos.sh <model e.g. deepseek-v4-pro-FC>
+# Usage: bfcl_teacher_demos.sh [model, default: gpt-5.4]
 set -u
-MODEL=${1:-deepseek-v4-pro-FC}
+MODEL=${1:-gpt-5.4}
 # resolve from this script's own location: hardcoding a home path made
 # every hpg run skip evaluation silently ("NO ADAPTER") while still
 # printing DONE, because /home/xueqi does not exist there
@@ -53,10 +53,15 @@ PYCHK
 }
 cd "$BFCL_DIR"; . .venv/bin/activate
 export OPENAI_BASE_URL="https://ollama.com/v1"
+PROBE_PAYLOAD=$(python - "${MODEL%-FC}" <<'PYPROBE'
+import json, sys
+print(json.dumps({"model": sys.argv[1], "messages": [{"role": "user", "content": "hi"}], "max_tokens": 5}))
+PYPROBE
+)
 for KF in ~/.ollama_api_key ~/.ollama_api_key2; do
   CODE=$(curl -s -m 20 -X POST "$OPENAI_BASE_URL/chat/completions" \
     -H "Authorization: Bearer $(cat $KF)" -H "Content-Type: application/json" \
-    -d '{"model":"deepseek-v4-pro","messages":[{"role":"user","content":"hi"}],"max_tokens":5}' \
+    -d "$PROBE_PAYLOAD" \
     -o /dev/null -w "%{http_code}")
   [ "$CODE" = "200" ] && { export OPENAI_API_KEY="$(cat $KF)"; echo "[bfcldemos] using key file $KF"; break; }
 done

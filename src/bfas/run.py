@@ -666,7 +666,7 @@ def _wait_for_teacher_quota(waited: float) -> tuple[bool, float]:
         )
         time.sleep(sleep_s)
         waited += sleep_s
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         config = appworld_teacher.load_teacher_config(teacher_name)
         try:
             appworld_teacher.generate_reply(

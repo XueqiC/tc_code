@@ -319,8 +319,8 @@ def _teacher_name(benchmark: str | Path, adapter: BenchmarkAdapter) -> str:
     if callable(configured):
         return str(configured())
     if str(benchmark) == "bfcl":
-        return os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
-    return os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        return os.environ.get("BFAS_BFCL_TEACHER", "gpt-5.4")
+    return os.environ.get("BFAS_TEACHER", "gpt-5.4")
 
 
 def _is_quota_error(exc: BaseException) -> bool:
