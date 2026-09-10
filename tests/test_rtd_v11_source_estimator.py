@@ -355,6 +355,12 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # projection remains pinned by test_rtd_identity_update; real manifests
     # retain the current raw source hash, as asserted above.
     normalized['rtd_source']['files']['tools/behavior_atom/checker_bridge.py'] = 'e928dcb48ed58c47d4c37fa234821e40fc645cc76208560e20de1b303f3a3bfd'
+    # The pre-P0 Azure BFCL merge changed operational adapter code. Its frozen
+    # scoring projection is unchanged; pin that fact before normalizing only
+    # the raw file hash to c3300f2 for this historical manifest-byte oracle.
+    adapter = 'src/bfas/adapters/bfcl.py'
+    assert after['evaluation_harness']['tools'][adapter] == 'f6d6d341e937d3330a9ae2a1030713085a411c53ef727517cd6ac64c79ef677a'
+    normalized['rtd_source']['files'][adapter] = 'fd26057630d1d37b04d27bf94be0e058b5890fe1debea6f0934b2aeb85fa5537'
     normalized['rtd_source']['hash'] = digest(normalized['rtd_source']['files'])
     assert digest(normalized) == '428e3d9bfd56011060e763bb6cc781e7c9007115b393cd12a77980a16c4ba3af'
     b, p, targets, chi, phi = legacy_problem()

@@ -1,0 +1,49 @@
+{
+  "actual_spend": 0,
+  "available_packages": 420,
+  "benchmark": "bfcl",
+  "certified_pool_content_tokens": 55370,
+  "config_hash": "96b08f65a8dc36ce451476eeddc2f4158886cfc1cc69729e7ae0dd35f2515b74",
+  "cost_regime": "sealed_replay_cached_content",
+  "estimated_cost_method": "inherited bank recorded estimates; not independently re-estimated",
+  "failed_attempts": 0,
+  "gpu_experiments": 0,
+  "historical_collection_costs": {
+    "demo_output_tokens_exact": 1233607,
+    "generation_output_tokens_estimated": 142727,
+    "source": "configs/rtd/v1_1_bfcl.yaml; separate historical scopes"
+  },
+  "integer_token_caps": [
+    5537,
+    13843
+  ],
+  "limitations": [
+    "No new teacher response files revealed in this audit",
+    "Certificate and aggregate audit verified; model-specific P1 pool/harness access and costs remain to be frozen"
+  ],
+  "new_api_calls": 0,
+  "new_teacher_output_tokens": 0,
+  "other_pool_collection_cost_16748": "different pool/scope from task book; not combined or independently verified",
+  "pool_certificate_hash": "caa729a786671562434dbe60f9c3cbf77996ae26b249352da48d955c71d1f25d",
+  "pool_public_hash": "f77ab8a114670d00a4647ba940a4e3bf3d23a7b01f9982cf08c480e5434994b7",
+  "pool_version": "rtd-v1.1.0-bfcl-bank",
+  "recorded_pool_cost_components": {
+    "estimated": 34167,
+    "exact": 21203
+  },
+  "remaining_budget_by_cap": [
+    5537,
+    13843
+  ],
+  "retries": 0,
+  "split_hash": "1e374eddc6024488a22dee8c8d4427f5bec803baa45a16f9fdeab53ea7f3c571",
+  "split_version": "parent_hash_two_fold",
+  "status": "P0_CPU_ONLY",
+  "student": "google/gemma-4-12B-it",
+  "student_init_hash": null,
+  "student_init_hash_status": "PLANNED; no model loaded",
+  "teacher_id": null,
+  "teacher_id_status": "P1 requires per-package provenance; no teacher payload opened in P0 audit",
+  "version": "unified-P0-budget-audit-1",
+  "zero_new_calls_does_not_mean_zero_teacher_cost": true
+}

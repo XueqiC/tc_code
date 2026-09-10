@@ -1,0 +1,111 @@
+# Derived from v1_1_bfcl.yaml. P0 CPU engine config; P1-P3 remain PLANNED.
+# Model loading / Gemma harness compatibility are not asserted by this config.
+method: rtd_unified
+mode: sealed_replay
+training_seed: 0
+same_hardware_required: true
+harness_frozen: true
+teacher_access: text_only
+support_split: parent_hash_two_fold
+certificate_isolation: strict
+
+rounds: 2
+decision_steps_per_round: [1, 4, 7, 10]
+replay_is_explicit_choice: true
+budget_checkpoints_bank_fraction: [0.10, 0.25]
+online_max_teacher_turns: 8
+replay_request_lengths: recorded_only
+
+source_refresh: round
+source_samples_per_state: 2
+source_temperature: 1.0
+source_top_p: 1.0
+behavior_probability: complete_action_with_termination
+exposure_unit: state_teacher_record_plus_two_source_actions
+microbatch_states: 4
+slots_per_step: 40
+exposure_slots_per_window: 40
+max_new_packages_per_window: 20
+drift_reference_packages: 4
+value_noise_floor: 1.0e-8
+committed_steps_per_round: 12
+
+
+optimizer: fixed_preconditioned_single_step
+preconditioner: train_only_rms_diagonal
+preconditioner_refresh: round
+preconditioner_damping_relative: 0.01
+preconditioner_mean_diagonal: 1.0
+step_size_selection: frozen_training_only_kl_pilot
+pilot_kl_target_per_step: 0.005
+meta_feedback_steps: [1, 4, 7, 10]
+insertion_reference: virtual_same_start
+extra_reference_compute_accounting: separate
+meta_tasks_per_feedback: 8
+rollouts_per_meta_task: 4
+reward: official_terminal_metric
+baseline: leave_one_out_same_task
+
+hard_cost_reservation: true
+
+benchmark: bfcl
+parameter_space: lora_trainables
+new_teacher_calls: false
+new_teacher_tokens: 0
+replay_bank_path: data/rtd/v1_1_bfcl
+replay_public_cap_output_tokens_by_class: {demo_attempt: 2048, generator_item: 512}
+replay_cap_scope: sealed_bank_class_content_envelope
+support_manifest: configs/rtd/v1_bfcl_support.json
+source_policy_generation: same_backend_torch_categorical
+historical_demo_output_tokens_exact: 1233607
+historical_generation_output_tokens_estimated: 142727
+feedback_scope: rotating_meta_training
+experiment_scope: exploratory
+support_parent_tasks_m: 40
+
+protocol_version: unified-p0-1
+budget_basis: usable_recorded_output_tokens
+meta_tasks_multi_turn: 4
+rollouts_multi_turn: 2
+student: google/gemma-4-12B-it
+model_local_files_only: true
+output_root: results/rtd_unified
+max_action_tokens_by_benchmark:
+  bfcl: {single_turn: 512, multi_turn: 1024}
+max_context_tokens: 32768
+max_state_batch_size: 2
+memory_peak_budget_gb: 38
+memory_reserve_gb: 2
+memory_state_estimate_gb: 16
+pilot_eta_candidates: [0.000001, 0.000003, 0.00001, 0.00003, 0.0001, 0.0003, 0.001]
+initial_eta: 0.00001
+source_backend: hf_generate
+generation_batch: {prompts_per_batch: 8, max_batch_tokens: 16384, forward_prompts_per_batch: 0}  # D13 forward batching disabled in production (A100 bench max |Δlogprob| 0.42 nat bf16)
+score_consistency_tolerance: {mean_abs: 0.05, max_abs: 1.0, max_abs_outlier_tokens: 2, max_abs_hard: 8.0}
+lora_rank: 16
+lora_alpha: 32
+lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+evaluate_after_round: true
+evaluation_temperature: 0.0
+
+# Cached-content budget: these are integer caps, not new API authorization.
+budget_caps_output_tokens: [5537, 13843]
+unified:
+  m: 2
+  # Generic initialization hyperparameter, uniform across states and sources.
+  # A later teacher version starts at zero; existing references never re-average.
+  a_ref: 0.5
+  lambda: 1.0
+  H: inverse_diagonal_preconditioner
+  epsilon: feedback_standard_errors
+  uncertainty_label: uncertainty regulariser
+  qp_tolerance: 1.0e-8
+  qp_max_iterations: 10000
+  psd_tolerance: 1.0e-10
+  estimator: cv
+  loss_definition:
+    normalization: per_sequence_mean
+    soft_mode: length_corrected_prefix
+    # Frozen before each action; generic 1/1024 control-variate scale.
+    # Correct for either 512 or 1024 cap; affects variance, not expectation.
+    retention_scale: 0.0009765625
