@@ -33,21 +33,22 @@ including completions that fail verification.
 \end{definition}
 
 The teacher exposes text only. For a state $s$ (the task prompt plus
-the history executed so far) it returns a continuation $y$ drawn from
-an unknown distribution $\nu_T(\cdot\mid s)$, at a cost per emitted
-token, with no logits, hidden states, or gradients. The student, in
-contrast, exposes its full distribution $\pi_\theta(\cdot\mid s)$ over
-complete actions $y$. The conventional approach uses a purchased
-completion directly as an imitation target, which moves the student
-toward $\nu_T$ as a whole; the update cannot tell which of the
-existing behaviors of the student should be replaced by those of the
-teacher and which should be kept. Our method, \emph{return-targeted
-distillation} (RTD), keeps the teacher text as supervision but
-installs it through a \emph{legal probability transfer} whose teacher
-mass is fixed per state and whose \emph{replacement target} among the
-behaviors of the student is chosen by the realized learning return of
-the student update. Three coupled decisions follow, namely what to
-buy, how to use it, and when to stop, and
+the history executed so far) it returns a continuation $y^T$ drawn
+from an unknown distribution, at a cost per emitted token, with no
+logits, hidden states, or gradients. The student, in contrast, exposes
+its full distribution $\pi_\theta(\cdot\mid s)$ over complete actions.
+The conventional approach uses a purchased completion directly as an
+imitation target, which moves the student toward the teacher as a
+whole; the update cannot tell which of the existing behaviors of the
+student should give way to the teacher and which should be kept. Our
+method, \emph{return-targeted distillation} (RTD), keeps the teacher
+text as supervision but installs it through a \emph{source-to-teacher
+replacement}. At every supervised state the student first exhibits its
+own behaviors by sampling, each sampled behavior receives its own
+replacement coefficient, and the coefficients of a whole training
+step are chosen jointly by the realized learning return of the
+student update. Three coupled decisions follow, namely what to buy,
+how to use it, and when to stop, and
 Sections~\ref{sec:acquire}--\ref{sec:behavior} treat them in turn.
 Before training we partition $\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$;
 only $\mathcal{S}_d$ enters acquisition and optimization, and
@@ -72,161 +73,149 @@ teacher to produce. Purchases happen in \emph{decision windows}, with
 at most $K$ packages per window under the remaining authorization
 $B_t$, and the budget is a cap rather than a prescribed expenditure.
 
-\paragraph{Value of evidence as marginal gain of the joint update.}
-Because purchased evidence is consumed by one student update together
-with everything already owned, a package is valued by how much it
-improves what the whole evidence set can achieve in the shared update
-space, not by an independent insertion score. For an evidence set
-$\mathcal{E}$ let $\theta_{\mathcal{E}}(0)$ be the one-step update on
-$\mathcal{E}$ without source selection (Section~\ref{sec:distill}),
-$\theta_{\mathrm{ref}}$ a common reference point, and
-$\Delta_{\mathcal{E}}(d)=\theta_{\mathcal{E}}(0)-\theta_{\mathrm{ref}}
-+\sum_i d_i v_i$ the full update including the selective term. With
-the return gradient $\hat g_J$ estimated once at the reference point,
-the surrogate
+\paragraph{Value of evidence as the gain of the same teaching problem.}
+Purchased evidence is consumed by one student update together with
+everything already owned, so a package is valued by how much it
+improves what the whole evidence set can achieve, not by an
+independent insertion score. Section~\ref{sec:distill} defines, for an
+evidence set $\mathcal{D}$, a local \emph{teaching problem} whose
+optimal value $F^{\star}(\mathcal{D})$ is the best predicted learning
+gain of one update over a common reference. The value of a candidate
+purchase $Q$ is the expected improvement of that optimum,
 \[
-\hat F(\mathcal{E})
-=\max_{d}\Bigl[\hat g_J^{\top}\Delta_{\mathcal{E}}(d)
--\tfrac{\lambda}{2}\,\|\Delta_{\mathcal{E}}(d)\|_H^2
--\textstyle\sum_i\hat\varepsilon_i|d_i|\Bigr]
+A(Q)=\mathbb{E}\bigl[F^{\star}(\mathcal{D}\cup\mathrm{Ev}(Q))
+-F^{\star}(\mathcal{D})\;\big|\;\text{pre-purchase information}\bigr].
 \]
-is exactly the source-selection objective of
-Section~\ref{sec:distill} on the full set, and on a reduced set it
-also accounts for the teacher injection that would be lost, so that
-uniform teacher supervision keeps its value even where selective
-replacement contributes nothing. The surrogate marginal value of an
-owned package is
-$\hat V(q\mid\mathcal{E})=\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$,
-where the exposure units of the removed package are back-filled with
-predetermined old-pool evidence so that all other weights remain
-unchanged; all comparisons share one reference point and one return
-gradient, and no candidate is ever evaluated in the environment.
+The comparison holds the current student, the return gradient, the
+reference point, the exposure plan, and the weights of the old
+evidence fixed, and the new evidence enters only as additional
+replacement directions. New evidence can therefore always be assigned
+zero use, in which case the old problem and its update are recovered
+exactly, and the value counts the teaching that the new package alone
+makes possible, including the case in which the two sampled behaviors
+of the student coincide and only the teacher can move the state. Since
+the problem below is convex and its feasible set is nested, the local
+optimum never decreases when evidence is added; no such guarantee is
+claimed for the true task return.
 
-\paragraph{Pre-purchase posterior and batch purchase.}
-Unpurchased responses are invisible, so a persistent posterior maps
-pre-purchase information to surrogate marginal values. Its inputs are
-the public features of the package together with the training context
-available before purchase (round and step, a summary of the owned
-set, the current injection profile, and the age of the last return
-feedback), with strong shrinkage while predictive power is low.
-Realized paired gains, the measured return difference between two
-independently executed updates on a different feedback batch, are
-journaled only to validate the surrogate and never feed the posterior
-that chose it. Each window solves a budgeted batch selection under
-$\sum_q\hat c(q)\le B_t$ and $|\mathcal{A}_t|\le K$, then executes it
-through the ledger in a fixed deterministic order, reserving at the
-public cap, revealing and settling at the recorded cost, and building
-the training batch only from what was actually acquired. The control
-arm replaces the posterior by a random draw under the same budget,
-cap, and cost model.
+\paragraph{Pre-purchase prediction and batch purchase.}
+Unpurchased responses are invisible, so $A(Q)$ is predicted from
+pre-purchase information only, namely the public features of the
+package, freely available student behavior at its state, the request
+cap, and a summary of the current teaching problem, the remaining
+budget, and the evidence already owned. After a purchase the realized
+directions and the realized value of the same problem are recorded as
+labels for the predictor, and prediction quality is validated on
+purchases grouped by parent task rather than on the candidates the
+predictor itself selected. Each window solves a budgeted batch
+selection under $\sum_q\hat c(q)\le B_t$ and $|\mathcal{A}_t|\le K$,
+executes it through the ledger in a fixed deterministic order,
+reserving at the public cap, revealing and settling at the recorded
+cost, and builds the training batch only from what was actually
+acquired. The control arm replaces the prediction by a random draw
+under the same budget, cap, and cost model.
 
 \subsection{Exposure units and student-provenance sources}\label{sec:explore}
 
 Supervision is organized in \emph{exposure units}. One unit is the
-teacher record of one state together with two \emph{source actions}
-$Y_1,Y_2$ drawn fresh from the student snapshot $p_t$ frozen at the
-start of the round; a commit step trains on $E$ units (so $2E$ source
-actions), at most $K$ of them from newly acquired packages and the
-rest from the accumulated pool, in micro-batches of four states. The
-source actions are the behaviors of the student itself at the
-supervised state, sampled at temperature one and never cached across
-steps, and they are what the transfer of Section~\ref{sec:distill}
-can keep or replace. Two quantities are fixed \emph{before} the
-sources are sampled and stay frozen for the step: the evidence weight
-$w_i$ of each unit ($\sum_i w_i=1$) and the \emph{injection}
-$\alpha_i=\alpha(s_i)=\sigma(\phi\cdot\chi(s_i))\in[0,1]$, the amount
-of teacher mass the state receives, produced by a gate over state-only
-features $\chi(s)$ that exclude anything about the sampled actions.
-Freezing both before sampling is what keeps the estimator of
-Section~\ref{sec:distill} unbiased. Before any purchase the units are
-reference-pool states without teacher evidence, for which
-$\alpha_i=0$ and only the distribution of the student itself is
-preserved, so training does not wait for the gate to be learned.
+teacher record of one state together with $m$ \emph{source actions}
+$Y_{i1},\ldots,Y_{im}$ drawn fresh from the student snapshot $p_t$
+frozen at the start of the round ($m=2$ throughout); a commit step
+trains on $E$ units, at most $K$ of them from newly acquired packages
+and the rest from the accumulated pool, in micro-batches of four
+states. The source actions are complete behaviors of the student
+itself at the supervised state, sampled at temperature one with the
+true termination token or the true cap, never cached across steps,
+and never filtered by format or correctness. The evidence weight $w_i$
+of each unit ($\sum_i w_i=1$) is fixed before the sources are sampled
+and stays frozen for the step. Before any purchase the units are
+reference-pool states without teacher evidence, for which every
+replacement coefficient is zero and only the distribution of the
+student itself is preserved, so training does not wait for evidence.
 
 \subsection{Learning from student-provenance trajectories}\label{sec:distill}
 
-\paragraph{Target distribution.}
-For a unit with injection $\alpha$ and source actions $Y_1,Y_2$ we
-define the \emph{source selection} $d=d(s,Y_1,Y_2)$ with
-$|d|\le\min\{\alpha,1-\alpha\}$ and the target
+\paragraph{Empirical target and replacement coefficients.}
+For a unit with teacher text $y_i^T$ and sources $Y_{ij}$, each
+source carries a coefficient $a_{ij}\in[0,1]$, the share of that
+source handed to the teacher demonstration. The empirical target of
+the unit is
 \[
-q=\tfrac{1-\alpha-d}{2}\,\delta_{Y_1}
-+\tfrac{1-\alpha+d}{2}\,\delta_{Y_2}
-+\alpha\,\nu_T(\cdot\mid s),
+\hat q_i=\frac{1}{m}\sum_{j=1}^{m}\bigl[(1-a_{ij})\,\delta_{Y_{ij}}
++a_{ij}\,\delta_{y_i^T}\bigr],
 \]
-a proper distribution whose teacher mass equals $\alpha$ for every
-legal $d$. A positive $d$ replaces $Y_1$ more aggressively and keeps
-$Y_2$; it never changes how much teacher supervision the state
-receives. Neither $\alpha$ nor $d$ is tied to call errors, format
-errors, or benchmark categories.
+a probability distribution for every legal $a$, with the mass of
+repeated behaviors merged. For $m=2$ the teacher dose
+$\alpha_i=(a_{i1}+a_{i2})/2$ and the selection
+$d_i=(a_{i1}-a_{i2})/2$ are read off as statistics; neither is a
+separate decision. The coefficients are chosen jointly for all units
+of a step by the procedure below, and they are frozen, together with
+the samples and the teacher text, when the gradient is taken.
 
 \paragraph{Estimator.}
-Let $\bar G_{\mathrm{soft}}$ be the average over the two sampled
-prefixes of the full-vocabulary soft source gradient (the
-per-position KL between the frozen snapshot $p_t$ and the current
-student), $G_T$ the gradient of the log-likelihood of the teacher
-text, and $G_1,G_2$ the log-likelihood gradients of the two hard
-samples. The update direction of the unit is
+Let $G_{ij}$ and $G_i^T$ be the gradients of the student loss on the
+source $Y_{ij}$ and on the teacher text, and $\bar G_i$ the average of
+the $G_{ij}$. The gradient of the frozen empirical target is
 \[
-\hat g_d=(1-\alpha)\,\bar G_{\mathrm{soft}}+\alpha\,G_T
--\tfrac{d}{2}\,(G_1-G_2).
+g_i^{\mathrm{raw}}=\bar G_i+\frac{1}{m}\sum_j a_{ij}\,(G_i^T-G_{ij}),
+\qquad
+g_i^{\mathrm{CV}}=G_i^{\mathrm{soft}}+\frac{1}{m}\sum_j a_{ij}\,(G_i^T-G_{ij}),
 \]
-The first term preserves the distribution of the student itself and
-is exactly zero at $\pi_\theta=p_t$, the second installs the teacher
-behavior, and the third decides which student behavior gives way.
-Because $\alpha$ and $w_i$ are fixed before sampling, $\hat g_d$ is an
-unbiased estimate of the gradient toward $q$ even though $d$ depends
-on both samples, and writing $G_k=u(s)+e_k$ shows that the component
-$u(s)$ shared by the two behaviors cancels algebraically in
-$G_1-G_2$, so the selective term acts on the difference between the
-two behaviors rather than on the task dialect they share. The
-selective term is re-estimated from fresh sources at every step and is
-never stored as a negative-weight target.
+and the second form, which we use, replaces the sampled retention term
+$\bar G_i$ by a soft retention gradient $G_i^{\mathrm{soft}}$ that
+integrates over the next-token distribution of the snapshot along the
+sampled prefixes. The two forms differ by $G_i^{\mathrm{soft}}-\bar G_i$,
+a term that carries no coefficient, so their unconditional
+expectations agree even though the coefficients depend on the very
+samples and on the feedback (Proposition~\ref{prop:target}). When the
+loss is normalized by the realized length of each sequence, the naive
+prefix term is biased, and $G^{\mathrm{soft}}$ is the length-corrected
+retention estimator of Appendix~\ref{app:method}, which keeps the
+identity at a scale fixed before sampling. The soft term vanishes
+exactly at $\pi_\theta=p_t$ under total-token normalization; under
+per-sequence normalization it cannot vanish and match at once, and we
+keep the matching form.
 
-\paragraph{Choosing the replacement by the learning return.}
-On the \emph{same batch} of evidence, weights, injections, and source
-samples, define the virtual reference student without source
-selection and the selected student,
+\paragraph{Teacher-conditioned directions and the joint problem.}
+With the preconditioner $P$ frozen for the step, the update is affine
+in the coefficients,
 \[
-\theta_S(0)=\theta-\eta\,P\sum_i w_i\bigl[(1-\alpha_i)\bar G_{\mathrm{soft},i}
-+\alpha_i G_{T,i}\bigr],
-\theta_S(d)=\theta_S(0)+\sum_i d_i v_i,
-v_i=\tfrac{\eta w_i}{2}\,P\,(G_{i1}-G_{i2}),
+\theta^{+}(a)=\theta-\eta P\sum_i w_iG_i^{\mathrm{soft}}+Ua,
+\qquad
+b_{ij}=-\frac{\eta w_i}{m}\,P\,(G_i^T-G_{ij}),
 \]
-with $P$ the optimizer preconditioner; the only difference between
-the two is $d$. Let $J(\theta)$ be the expected task return of the
-temperature-one policy executed from the task start on the feedback
-fold, and $z_i=\nabla J(\theta_S(0))^{\top}v_i$ the learning response
-of unit $i$. Under local smoothness of the update path, a single
-selection satisfies
-$J(\theta_S(d))-J(\theta_S(0))\ge d\,z-\tfrac{L_H}{2}d^2\|v\|_H^2$,
-so at equal teacher mass a small selective transfer beats the uniform
-one whenever the two student behaviors respond differently. The
-return gradient is noisy and $L_H$ is unknown, so we do not claim
-monotone improvement; instead the selection is the solution of a
-local surrogate problem over all units of the step,
+where the columns of $U$ are the directions $b_{ij}$, each the
+replacement of one concrete student behavior by one concrete teacher
+demonstration. Identical sources give identical columns, a source that
+equals the teacher gives a zero column, and a zero student gradient
+with a non-zero teacher gradient still leaves a direction to learn
+from; no direction is clustered, orthogonalized, or pre-filtered. A
+reference coefficient vector $a^{\mathrm{ref}}$, the same for every
+state and treated as an initialization constant, defines the reference
+student $\theta_{\mathrm{ref}}=\theta^{+}(a^{\mathrm{ref}})$, at which
+the return gradient $\hat h\approx\nabla J(\theta_{\mathrm{ref}})$ is
+estimated from full task rollouts on the feedback fold with a legal
+baseline (Appendix~\ref{app:method}). With $x=a-a^{\mathrm{ref}}$ the
+coefficients solve
 \[
-d^{\star}=\arg\max_{|d_i|\le\min\{\alpha_i,1-\alpha_i\}}
-\hat z^{\top}d-\tfrac{\lambda}{2}\,d^{\top}Kd
--\textstyle\sum_i\hat\varepsilon_i|d_i|,
-\qquad K_{ij}=v_i^{\top}Hv_j,
+\max_{-a^{\mathrm{ref}}\le x\le 1-a^{\mathrm{ref}}}\;
+F(x)=\hat h^{\top}Ux-\frac{\lambda}{2}\,x^{\top}Kx
+-\sum_{\ell}\varepsilon_\ell|x_\ell|,
+\qquad K=U^{\top}HU,
 \]
-where $\hat z$ is estimated from temperature-one rollouts at
-$\theta_S(0)$, $\hat\varepsilon_i$ is the standard error of $\hat z_i$
-along $v_i$ from the same rollouts, $H$ is the inverse of the diagonal
-preconditioner, and $K$ is normalized by its mean diagonal so that
-$\lambda$ is scale free. The quadratic term is the interaction between
-units; two directions that push the same way consume the update
-space without proportional return. Shrinkage to $d_i=0$ is a property
-of the joint problem, whose interior zero condition
-$|\hat z_i-\lambda\sum_{j\ne i}K_{ij}d_j|\le\hat\varepsilon_i$ involves
-the other coordinates, and no coordinate is pre-filtered by its raw
-$\hat z_i$. The return gradient only sets the distillation target; the
-backbone receives the distillation update $\theta_S(d^\star)$ and no
-reinforcement step. The gate parameters $\phi$ are updated in a
-blocked step from the return measured at $\theta_S(d^\star)$ with
-$d^\star$ held fixed, and $\alpha$ and $d$ receive no gradient at
-commit time.
+a convex problem after the absolute values are lifted to auxiliary
+variables, which we solve to a checked optimality tolerance. The
+linear term is the predicted return response of each replacement, the
+quadratic term charges replacements that move the student in shared
+directions, with the full cross terms kept, and the $\ell_1$ term is
+an uncertainty regularizer built from the standard errors of $\hat h$
+along each direction. The zero condition of a coefficient involves the
+other coefficients through $K$, so no coefficient is frozen by its own
+response alone; when feedback carries no information the same problem
+returns $x=0$ and the reference teaching proceeds. The return only
+sets the target. The backbone receives the single distillation update
+$\theta^{+}(a^{\star})$ with $P$ frozen, no gradient passes through
+the solved coefficients, and no reinforcement step is taken.
 
 \subsection{Training and deployment}\label{sec:behavior}
 
@@ -235,21 +224,22 @@ Training proceeds in budget rounds. Each round consists of twelve
 commit steps with four decision windows at which packages may be
 purchased, and the authorization at the end of a round is a fixed
 fraction of the budget denominator. A decision window follows a fixed
-order. It purchases and reveals with the historical posterior; freezes
-the batch, the weights, the injections, and the source samples; builds
-$\theta_S(0)$ on that batch; estimates the return gradient at
-$\theta_S(0)$ and solves for $d^\star$; commits $\theta_S(d^\star)$ on
-the same batch and then updates the gate from the return at
-$\theta_S(d^\star)$. The acquisition reference point and the selection
-reference point are journaled separately and never substituted for
-one another. Between decision windows the return gradient is reused,
-the source directions and $\hat\varepsilon$ are recomputed along the
-new $v_i$ at every step, and the age of the feedback is recorded.
-Acquisition stopping and training stopping are distinct; a window may
-buy nothing and train on the accumulated pool, and exhausting the
-authorization never ends learning. At the end of each round the
-current student is exported and evaluated under the official protocol
-of the benchmark as a development result.
+order. It purchases and reveals with the acquisition predictor;
+freezes the batch, the weights, and the source samples; builds the
+reference student on that batch; estimates the return gradient at the
+reference and solves the joint problem; and commits
+$\theta^{+}(a^{\star})$ on the same batch from the original
+parameters and optimizer state. Between decision windows the return
+gradient is reused, the directions and the uncertainty terms are
+recomputed on the new samples at every step, and the age of the
+feedback is recorded. Acquisition stopping and training stopping are
+distinct; a window may buy nothing and train on the accumulated pool,
+and exhausting the authorization never ends learning. At the end of
+each round the current student is exported and evaluated under the
+official protocol of the benchmark as a development result. An
+amortized controller that predicts the coefficients from
+pre-solve observables is a speed variant of the same problem and is
+evaluated separately.
 
 \paragraph{Deployment.}
 The trained student is deployed alone under the official decoding of

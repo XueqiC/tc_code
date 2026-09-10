@@ -1,9 +1,10 @@
 \section{Introduction}
-%% Storyline (v1.1): a text-only teacher says what to do, not what to
-%% replace; imitation replaces wholesale; return-targeted distillation
-%% fixes the teacher mass and chooses the replacement by the learning
-%% return; evidence is priced by its marginal gain to the joint
-%% update. House style: no em dashes, no colons, no prose
+%% Storyline (unified replacement): a text-only teacher says what to
+%% do, not what to replace; imitation replaces wholesale;
+%% return-targeted distillation gives every sampled student behavior
+%% its own share to hand to the demonstration and chooses the shares
+%% jointly by the learning return; evidence is priced by the gain it
+%% adds to the same teaching problem. House style: no em dashes, no colons, no prose
 %% parentheticals, one step of logic per sentence.
 
 Language-model agents are increasingly deployed for narrow, recurring
@@ -37,24 +38,26 @@ Preference-based and on-policy variants change what is compared, but
 they still let the teacher text decide both how much to move and what
 to move away from.
 
-We separate the two decisions. Return-targeted distillation (RTD)
-installs the teacher text through a legal probability transfer. At
-every supervised state a gate fixes, before anything is sampled, how
-much teacher mass the state receives, and two fresh samples from a
-frozen snapshot of the student define the behaviors that can give way.
-Which of the two gives way is not read off the teacher text. It is
-chosen by the learning return of the student itself, measured after a
-virtual update on the same batch, so that the component shared by the
-two student behaviors cancels and only their difference is decided.
-Because several pieces of evidence enter one update, the choice is
-made jointly, with an interaction term that charges evidence pushing
-the update in a direction already taken. The same joint problem prices
-acquisition. A candidate purchase is worth the marginal gain it adds
-to what the evidence already owned can achieve in the shared update
-space, including the teacher injection it brings, and purchases are
-executed through a hard ledger that bills failed completions at their
-recorded cost under a budget that is a cap rather than an amount to be
-spent.
+We make the two decisions one. Return-targeted distillation (RTD)
+installs the teacher text through a source-to-teacher replacement. At
+every supervised state the student first exhibits its own behaviors
+by sampling from a frozen snapshot, and each sampled behavior receives
+its own share to hand to the teacher demonstration; the teacher dose
+and the choice of what gives way are read off the shares rather than
+decided separately. The shares are not read off the teacher text. They
+are chosen jointly for a whole training step by the learning return
+of the student, measured after a virtual update on the same batch,
+through one convex problem in which every share is a concrete
+direction, the replacement of one student behavior by one
+demonstration, and an interaction term charges directions that push
+the update the same way. The estimator that installs the chosen
+target keeps the expectation of the target gradient even though the
+shares depend on the very samples. The same problem prices
+acquisition. A candidate purchase is worth the gain it adds to what
+the evidence already owned can teach, including the teaching that
+only the new demonstration makes possible, and purchases are executed
+through a hard ledger that bills failed completions at their recorded
+cost under a budget that is a cap rather than an amount to be spent.
 
 This paper makes three contributions. The first is a problem
 statement. Budgeted few-shot agent specialization asks, given a
@@ -62,18 +65,18 @@ few-shot description of an agent task and a budget on a per-token
 billed, text-only black-box teacher, for a small model that maximizes
 task performance; the budget is the single constraint and held-out
 task performance the single criterion. The second is a mechanism. We
-show that a probability transfer with fixed teacher mass and a
-return-chosen replacement target admits an unbiased gradient estimator
-in which the shared component of the competing student behaviors
-cancels, and that at equal teacher mass a small selective transfer
-improves the finite-step return over the uniform one whenever the two
-behaviors respond differently; the practical selection is a local
-surrogate with an explicit redundancy term and an estimation-error
-penalty, and the same surrogate defines the value of evidence. The
+show that the per-source replacement target is a legal distribution
+whose gradient estimator keeps its expectation under sample-dependent
+shares, that the resulting update is affine in the shares with the
+natural degeneracies, and that source selection is a strictly larger
+family than a per-state teacher dose; the practical selection is a
+convex local problem with an explicit interaction term and an
+uncertainty penalty, and the same problem defines the value of
+evidence. The
 third is a protocol with results. Under a common teacher budget cap per
 benchmark, with the agent harness fixed and only the student backbone
 changing, we compare RTD with implementation-faithful distillation
 baselines, and we isolate the mechanism with paired controls that hold
-the purchased data, the injection, and the source samples fixed and
-change only the replacement decision. \todo{finalize headline numbers
+the purchased data and the source samples fixed and change only the
+replacement decision. \todo{finalize headline numbers
 at freeze.}
