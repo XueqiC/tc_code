@@ -135,7 +135,8 @@ def teacher(monkeypatch):
             raise reply
         if state.report_usage:
             usage_callback({"completion_tokens": 37 + config.attempt,
-                            "prompt_tokens": 2000, "total_tokens": 2037 + config.attempt})
+                            "prompt_tokens": 2000, "total_tokens": 2037 + config.attempt,
+                            "prompt_tokens_details": {"cached_tokens": 1024}})
         return reply
 
     monkeypatch.setattr(appworld_teacher, "load_teacher_config", load)
@@ -237,7 +238,8 @@ def test_failed_attempts_are_charged_once_and_success_is_cached(harness, teacher
     assert [r["verified"] for r in records] == [False, False, True]
     assert [r["tokens_spent"] for r in records] == [37, 38, 39]
     assert [r["usage"] for r in records] == [
-        {"completion_tokens": count, "prompt_tokens": 2000} for count in (37, 38, 39)
+        {"completion_tokens": count, "prompt_tokens": 2000, "cached_tokens": 1024}
+        for count in (37, 38, 39)
     ]
     assert all(r["teacher"] == "gpt-5.4" and r["purpose"] == "teacher" and r["timestamp"] for r in records)
     assert ledger.load_ledger("webshop")["500"]["tokens_total"] == 114
@@ -249,6 +251,7 @@ def test_failed_attempts_are_charged_once_and_success_is_cached(harness, teacher
     None, "gpt-5.6-luna", "gpt-oss:120b", "mistral-large-3",
     "openrouter/openai/gpt-5.4", "openrouter/anthropic/claude-sonnet-5",
     "openrouter/google/gemini-3.1-pro-preview", "openrouter/openai/gpt-5.6-luna",
+    "openai/gpt-5.4", "openai/gpt-5.6-luna",
 ])
 def test_teacher_default_or_environment_selection_and_ledger_label(harness, teacher, monkeypatch, name):
     adapter, bridge, _ = harness
@@ -263,6 +266,10 @@ def test_teacher_default_or_environment_selection_and_ledger_label(harness, teac
     assert set(adapter.teacher_demo(["500"], attempts=2)) == {"500"}
     assert [config.name for config in teacher.configs] == [expected, expected]
     assert [row["teacher"] for row in ledger_records()] == [expected, expected]
+    assert [row["usage"] for row in ledger_records()] == [
+        {"completion_tokens": count, "prompt_tokens": 2000, "cached_tokens": 1024}
+        for count in (37, 38)
+    ]
 
 
 def test_ledger_uses_resolved_config_name(harness, teacher, monkeypatch):

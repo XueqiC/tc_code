@@ -145,6 +145,12 @@ def append_episode(
     timestamp: str | None = None,
     ledger_root: Path | None = None,
 ) -> dict[str, Any]:
+    """Append an episode with optional reported counters in ``usage``.
+
+    ``completion_tokens``, ``prompt_tokens`` and ``cached_tokens`` are sums of
+    API counters; cached input is included in prompt_tokens. Older rows may
+    omit any counter or the entire usage object and remain readable.
+    """
     if verified and demo is None:
         raise ValueError("a verified ledger episode requires a Demo")
     if not verified and demo is not None:

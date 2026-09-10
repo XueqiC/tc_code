@@ -4,6 +4,9 @@
 
 OpenRouter teachers use ``openrouter/<vendor>/<model>`` and require
 OPENROUTER_API_KEY. OPENROUTER_BASE_URL defaults to https://openrouter.ai/api/v1.
+Official OpenAI teachers use ``openai/<model>`` and require OPENAI_API_KEY.
+OPENAI_BASE_URL defaults to https://api.openai.com/v1. BFAS_OPENAI_SERVICE_TIER
+optionally selects ``flex`` or ``priority`` processing.
 BFAS adapters select their teacher with BFAS_TEACHER (WebShop and ALFWorld
 both default to gpt-5.4).
 """
@@ -45,7 +48,7 @@ DEFAULT_SEED = 42
 
 # Registry values are public model identifiers only. Credentials and the endpoint
 # are resolved from the environment when the selected teacher is loaded.
-# OpenRouter names resolve dynamically and do not need a registry entry.
+# OpenRouter and official OpenAI names resolve dynamically without registry entries.
 TEACHER_MODELS = {
     "deepseek-v4-pro": "deepseek-v4-pro",
     "kimi-k2.7-code": "kimi-k2.7-code",
@@ -62,6 +65,8 @@ AZURE_ANTHROPIC_MODELS = {"claude-sonnet-4-6", "claude-haiku-4-5"}
 AZURE_OPENAI_API_VERSION = "2024-10-21"
 OPENROUTER_PREFIX = "openrouter/"
 OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+OPENAI_PREFIX = "openai/"
+OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
 
 class BridgeError(RuntimeError):
@@ -86,7 +91,8 @@ class TeacherConfig:
     model: str
     endpoint: str
     api_key: str = field(repr=False)
-    backend: str = "openai"
+    backend: str = "openai"  # Legacy Ollama-compatible transport; official is openai_api.
+    service_tier: str | None = None
 
 
 class AppWorldBridge:
@@ -200,7 +206,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--teacher", required=True, type=_teacher_name,
-        help="Registered teacher name or openrouter/<vendor>/<model>",
+        help="Registered teacher name, openrouter/<vendor>/<model>, or openai/<model>",
     )
     parser.add_argument("--split", choices=("train",), default="train")
     parser.add_argument(
@@ -235,6 +241,14 @@ def _azure_credentials() -> tuple[str, str]:
 
 
 def _teacher_name(name: str) -> str:
+    if name.startswith(OPENAI_PREFIX):
+        model = name[len(OPENAI_PREFIX):]
+        if (
+            model and "/" not in model and model not in {".", ".."}
+            and not any(c.isspace() for c in model)
+        ):
+            return name
+        raise argparse.ArgumentTypeError("expected openai/<model>")
     if name.startswith(OPENROUTER_PREFIX):
         model = name[len(OPENROUTER_PREFIX):]
         if (
@@ -249,24 +263,33 @@ def _teacher_name(name: str) -> str:
 
 
 def load_teacher_config(name: str) -> TeacherConfig:
-    if name.startswith(OPENROUTER_PREFIX):
+    if name.startswith((OPENROUTER_PREFIX, OPENAI_PREFIX)):
         _teacher_name(name)
-        base_url = os.environ.get("OPENROUTER_BASE_URL", OPENROUTER_DEFAULT_BASE_URL).strip()
-        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        official_openai = name.startswith(OPENAI_PREFIX)
+        env_prefix = "OPENAI" if official_openai else "OPENROUTER"
+        default_url = OPENAI_DEFAULT_BASE_URL if official_openai else OPENROUTER_DEFAULT_BASE_URL
+        base_url = os.environ.get(f"{env_prefix}_BASE_URL", default_url).strip()
+        api_key = os.environ.get(f"{env_prefix}_API_KEY", "").strip()
         if not api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is not set")
+            raise RuntimeError(f"{env_prefix}_API_KEY is not set")
         parsed = urllib.parse.urlsplit(base_url)
         if (
             parsed.scheme not in {"http", "https"} or not parsed.netloc
             or parsed.query or parsed.fragment
         ):
-            raise RuntimeError("OPENROUTER_BASE_URL must be an absolute HTTP(S) base URL")
+            raise RuntimeError(f"{env_prefix}_BASE_URL must be an absolute HTTP(S) base URL")
+        service_tier = None
+        if official_openai:
+            service_tier = os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None
+            if service_tier not in {None, "flex", "priority"}:
+                raise RuntimeError("BFAS_OPENAI_SERVICE_TIER must be flex, priority, or unset")
         return TeacherConfig(
             name=name,
-            model=name[len(OPENROUTER_PREFIX):],
+            model=name.split("/", 1)[1],
             endpoint=base_url.rstrip("/") + "/chat/completions",
             api_key=api_key,
-            backend="openrouter",
+            backend="openai_api" if official_openai else "openrouter",
+            service_tier=service_tier,
         )
     model = TEACHER_MODELS[name]
     if name in AZURE_OPENAI_MODELS:
@@ -351,7 +374,7 @@ def _build_request_body(
             "messages": messages,
             "max_completion_tokens": MAX_COMPLETION_TOKENS,
         }
-        if temperature > 0:
+        if temperature > 0 and config.model != "gpt-5.6-luna":
             body["temperature"] = temperature
         return body
     if config.backend == "anthropic":
@@ -367,6 +390,19 @@ def _build_request_body(
         }
         if system_parts:
             body["system"] = "\n\n".join(system_parts)
+        return body
+    if config.backend == "openai_api":
+        body = {
+            "model": config.model,
+            "messages": messages,
+            "max_completion_tokens": MAX_COMPLETION_TOKENS,
+            "stream": False,
+        }
+        # Includes Luna: omit temperature even on sampled BFAS retries.
+        if not config.model.startswith(("gpt-5", "o1", "o3", "o4")):
+            body["temperature"] = temperature
+        if config.service_tier is not None:
+            body["service_tier"] = config.service_tier
         return body
     if config.backend == "openrouter":
         body = {
@@ -410,7 +446,7 @@ def _ollama_keys(primary: str) -> list[str]:
 
 
 def _request_headers(config: TeacherConfig) -> dict[str, str]:
-    if config.backend == "openrouter":
+    if config.backend in {"openrouter", "openai_api"}:
         return {
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json",

@@ -26,6 +26,12 @@ class TeacherSession:
                 count = usage.get(field)
                 if type(count) is int and count >= 0:
                     self.usage[field] = self.usage.get(field, 0) + count
+            details = usage.get("prompt_tokens_details")
+            if isinstance(details, Mapping):
+                cached = details.get("cached_tokens")
+                if type(cached) is int and cached >= 0:
+                    # Cached tokens are a subset of prompt_tokens, not output.
+                    self.usage["cached_tokens"] = self.usage.get("cached_tokens", 0) + cached
             count = usage.get("completion_tokens", usage.get("output_tokens"))
             if type(count) is int and count >= 0:
                 self.tokens_spent += count
