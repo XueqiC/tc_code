@@ -27,7 +27,7 @@ from bfas import run as bfas_run  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--benchmark", required=True, choices=("appworld", "bfcl", "alfworld", "tau2"))
+    parser.add_argument("--benchmark", required=True, choices=tuple(bfas_run.DEFAULT_MODELS))
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--gpu", default="0")

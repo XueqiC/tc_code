@@ -18,7 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -363,6 +363,8 @@ def generate_reply(
     config: TeacherConfig,
     messages: list[dict[str, str]],
     temperature: float | None = None,
+    *,
+    usage_callback: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> str:
     global _OLLAMA_KEY_IDX
     payload = json.dumps(
@@ -440,6 +442,8 @@ def generate_reply(
         raise TeacherAPIError("chat completion returned invalid JSON") from None
     if not isinstance(data, Mapping):
         raise TeacherAPIError("chat completion response is not an object")
+    if usage_callback is not None:
+        usage_callback(data.get("usage") or {})
     usage_log = os.environ.get("AZURE_USAGE_LOG")
     if usage_log and config.backend in ("azure_openai", "anthropic"):
         usage = data.get("usage") or {}
