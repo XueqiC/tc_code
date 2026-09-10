@@ -208,7 +208,9 @@ find and buy a product matching a natural-language instruction in a
 text rendering of a 1.18M-product store, acting through
 \texttt{search[$\cdot$]} and \texttt{click[$\cdot$]}; we use the
 standard 500 test instructions, a ReAct-style prompt with one fixed
-worked example, a 15-step cap, greedy decoding, and report the success
+worked example, a 15-step cap, an observation window of 6{,}000
+characters for the current page and 600 for earlier pages, greedy
+decoding, and report the success
 rate (reward equal to one), with the mean reward score kept as a
 diagnostic. \textbf{BFCL~v4} evaluates function calling across
 single-turn, live, multi-turn, memory, web-search, and relevance
@@ -256,7 +258,7 @@ evaluations of this checkpoint are reported separately from training
 variance: on BFCL two full runs of the same checkpoint gave $45.48$
 and $45.63$ (a spread of $0.15$ points from the low-temperature
 sampler), and the ALFWorld and WebShop values are single greedy runs.
-The WebShop score (mean reward) of the initial student is $53.7$. The
+The WebShop score (mean reward) of the initial student is $54.8$; with a 2{,}500-character observation window the same checkpoint scored $18.2$ / $53.7$, and the wider window was adopted because a results page holds ten products and the narrower window showed only the first three. The
 $\pm$ of every trained row is the standard deviation over its three
 training runs.
 
@@ -272,7 +274,7 @@ $\cdot$ are pending.}
  & ALFWorld & WebShop (SR / score) & BFCL v4\\
 \midrule
 Teacher (GPT-5.4) & $\cdot$ & $\cdot$ & $\cdot$\\
-Initial student (Gemma-4-12B) & $56.4$ & $18.2$ / $53.7$ & $45.6$\\
+Initial student (Gemma-4-12B) & $56.4$ & $19.4$ / $54.8$ & $45.6$\\
 \bottomrule
 \end{tabular}
 \end{table}
