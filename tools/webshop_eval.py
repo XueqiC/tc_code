@@ -301,7 +301,7 @@ def parse_args(argv=None):
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--n", type=int, default=500)
     parser.add_argument("--max-steps", type=int, default=15)
-    parser.add_argument("--obs-chars", type=int, default=2500)
+    parser.add_argument("--obs-chars", type=int, default=6000)
     parser.add_argument("--history-obs-chars", type=int, default=600,
                         help="Keep this many characters of each past observation, plus ' ...' if cut")
     parser.add_argument("--max-prompt-chars", type=int, default=60000,
