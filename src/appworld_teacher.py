@@ -1,6 +1,12 @@
 # Usage: .venv/bin/python src/appworld_teacher.py --teacher TEACHER --tag RUN_NAME
 # Outputs: data/appworld_traces/TEACHER/train.jsonl and metrics.json.
-"""Collect successful AppWorld trajectories from a remote teacher model."""
+"""Collect successful AppWorld trajectories from a remote teacher model.
+
+OpenRouter teachers use ``openrouter/<vendor>/<model>`` and require
+OPENROUTER_API_KEY. OPENROUTER_BASE_URL defaults to https://openrouter.ai/api/v1.
+BFAS adapters select their teacher with BFAS_TEACHER (WebShop defaults to
+gpt-5.4; ALFWorld defaults to deepseek-v4-pro).
+"""
 
 from __future__ import annotations
 
@@ -8,6 +14,7 @@ import argparse
 import ast
 import html
 import json
+import math
 import os
 import re
 import select
@@ -20,6 +27,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,10 +45,13 @@ DEFAULT_SEED = 42
 
 # Registry values are public model identifiers only. Credentials and the endpoint
 # are resolved from the environment when the selected teacher is loaded.
+# OpenRouter names resolve dynamically and do not need a registry entry.
 TEACHER_MODELS = {
     "deepseek-v4-pro": "deepseek-v4-pro",
     "kimi-k2.7-code": "kimi-k2.7-code",
     "qwen3.5:397b": "qwen3.5:397b",
+    "gpt-oss:120b": "gpt-oss:120b",
+    "mistral-large-3": "mistral-large-3",
     "gpt-5.6-luna": "gpt-5.6-luna",
     "gpt-5.4": "gpt-5.4",
     "claude-sonnet-4-6": "claude-sonnet-4-6",
@@ -49,6 +60,8 @@ TEACHER_MODELS = {
 AZURE_OPENAI_MODELS = {"gpt-5.6-luna", "gpt-5.4"}
 AZURE_ANTHROPIC_MODELS = {"claude-sonnet-4-6", "claude-haiku-4-5"}
 AZURE_OPENAI_API_VERSION = "2024-10-21"
+OPENROUTER_PREFIX = "openrouter/"
+OPENROUTER_DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 class BridgeError(RuntimeError):
@@ -185,7 +198,10 @@ def _tag(value: str) -> str:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--teacher", required=True, choices=tuple(TEACHER_MODELS))
+    parser.add_argument(
+        "--teacher", required=True, type=_teacher_name,
+        help="Registered teacher name or openrouter/<vendor>/<model>",
+    )
     parser.add_argument("--split", choices=("train",), default="train")
     parser.add_argument(
         "--max-tasks",
@@ -218,7 +234,40 @@ def _azure_credentials() -> tuple[str, str]:
     return endpoint.rstrip("/"), api_key
 
 
+def _teacher_name(name: str) -> str:
+    if name.startswith(OPENROUTER_PREFIX):
+        model = name[len(OPENROUTER_PREFIX):]
+        if (
+            "/" in model and all(model.split("/"))
+            and not any(c.isspace() for c in model)
+        ):
+            return name
+        raise argparse.ArgumentTypeError("expected openrouter/<vendor>/<model>")
+    if name not in TEACHER_MODELS:
+        raise argparse.ArgumentTypeError(f"unknown teacher: {name!r}")
+    return name
+
+
 def load_teacher_config(name: str) -> TeacherConfig:
+    if name.startswith(OPENROUTER_PREFIX):
+        _teacher_name(name)
+        base_url = os.environ.get("OPENROUTER_BASE_URL", OPENROUTER_DEFAULT_BASE_URL).strip()
+        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        if not api_key:
+            raise RuntimeError("OPENROUTER_API_KEY is not set")
+        parsed = urllib.parse.urlsplit(base_url)
+        if (
+            parsed.scheme not in {"http", "https"} or not parsed.netloc
+            or parsed.query or parsed.fragment
+        ):
+            raise RuntimeError("OPENROUTER_BASE_URL must be an absolute HTTP(S) base URL")
+        return TeacherConfig(
+            name=name,
+            model=name[len(OPENROUTER_PREFIX):],
+            endpoint=base_url.rstrip("/") + "/chat/completions",
+            api_key=api_key,
+            backend="openrouter",
+        )
     model = TEACHER_MODELS[name]
     if name in AZURE_OPENAI_MODELS:
         endpoint, api_key = _azure_credentials()
@@ -257,6 +306,17 @@ def load_teacher_config(name: str) -> TeacherConfig:
 
 def _retry_delay(retry_number: int) -> float:
     return float(2 ** (retry_number - 1))
+
+
+def _retry_after_delay(value: str | None, fallback: float) -> float:
+    try:
+        delay = float(value)
+    except (TypeError, ValueError):
+        try:
+            delay = parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError):
+            return fallback
+    return max(0.0, delay) if math.isfinite(delay) else fallback
 
 
 def _is_timeout_reason(reason: Any) -> bool:
@@ -308,6 +368,20 @@ def _build_request_body(
         if system_parts:
             body["system"] = "\n\n".join(system_parts)
         return body
+    if config.backend == "openrouter":
+        body = {
+            "model": config.model,
+            "messages": messages,
+            "max_tokens": MAX_COMPLETION_TOKENS,
+            "stream": False,
+        }
+        # OpenAI reasoning models reject non-default sampling temperatures.
+        # Other routes retain greedy decoding on the first teacher attempt.
+        if not config.model.startswith(
+            ("openai/gpt-5", "openai/o1", "openai/o3", "openai/o4")
+        ):
+            body["temperature"] = temperature
+        return body
     return {
         "model": config.model,
         "messages": messages,
@@ -336,6 +410,12 @@ def _ollama_keys(primary: str) -> list[str]:
 
 
 def _request_headers(config: TeacherConfig) -> dict[str, str]:
+    if config.backend == "openrouter":
+        return {
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
     if config.backend == "azure_openai":
         return {
             "api-key": config.api_key,
@@ -370,6 +450,7 @@ def generate_reply(
     payload = json.dumps(
         _build_request_body(config, messages, temperature), ensure_ascii=False
     ).encode("utf-8")
+    # Direct HTTP has no SDK auto-retries; all attempts are bounded below.
     opener = urllib.request.build_opener()
 
     total_attempts = CHAT_COMPLETION_RETRIES + 1
@@ -396,10 +477,9 @@ def generate_reply(
                     # rotate between available Ollama keys before waiting
                     with _OLLAMA_KEY_LOCK:
                         _OLLAMA_KEY_IDX += 1
-                try:
-                    delay = float(retry_after)
-                except (TypeError, ValueError):
-                    delay = min(5.0 * 2 ** (request_attempt - 1), 60.0)
+                delay = _retry_after_delay(
+                    retry_after, min(5.0 * 2 ** (request_attempt - 1), 60.0)
+                )
                 time.sleep(delay)
                 continue
             if status == 429:
@@ -408,11 +488,11 @@ def generate_reply(
                     f"{rate_limit_attempts} attempts"
                 ) from None
             if 500 <= status < 600 and request_attempt < total_attempts:
-                time.sleep(_retry_delay(request_attempt))
+                time.sleep(_retry_after_delay(retry_after, _retry_delay(request_attempt)))
                 continue
             if 500 <= status < 600:
                 raise TeacherAPIError(
-                    f"chat completion returned HTTP {status} after {total_attempts} attempts"
+                    f"chat completion returned HTTP {status} after {request_attempt} attempts"
                 ) from None
             raise TeacherAPIError(f"chat completion returned HTTP {status}") from None
         except (socket.timeout, TimeoutError):
@@ -420,7 +500,7 @@ def generate_reply(
                 time.sleep(_retry_delay(request_attempt))
                 continue
             raise TeacherAPIError(
-                f"chat completion timed out after {total_attempts} attempts"
+                f"chat completion timed out after {request_attempt} attempts"
             ) from None
         except urllib.error.URLError as exc:
             if _is_timeout_reason(exc.reason):
@@ -428,7 +508,7 @@ def generate_reply(
                     time.sleep(_retry_delay(request_attempt))
                     continue
                 raise TeacherAPIError(
-                    f"chat completion timed out after {total_attempts} attempts"
+                    f"chat completion timed out after {request_attempt} attempts"
                 ) from None
             raise TeacherAPIError(
                 f"chat completion request failed ({type(exc.reason).__name__})"

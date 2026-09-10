@@ -57,6 +57,10 @@ class TeacherEpisode:
     demo: Demo | None
     response_texts: tuple[str, ...] | list[str] = ()
     tokens_spent: int | None = None
+    # Bind accounting to the actual request config, not a later env lookup.
+    teacher: str | None = None
+    # Sums of reported API counters only; absent counters are not estimated.
+    usage: Mapping[str, int] | None = None
 
 
 COLLECTION_SCHEMA_VERSION = 1

@@ -139,6 +139,7 @@ def append_episode(
     temperature: float,
     verified: bool,
     tokens_spent: int,
+    usage: Mapping[str, int] | None = None,
     purpose: str = "teacher",
     demo: Demo | None = None,
     timestamp: str | None = None,
@@ -166,6 +167,8 @@ def append_episode(
     }
     if demo is not None:
         record["demo"] = demo_payload(demo)
+    if usage:
+        record["usage"] = dict(usage)
     append_record(ledger_path(benchmark, ledger_root=ledger_root), record)
     return record
 
@@ -432,11 +435,12 @@ def acquire_demos(
                 append_episode(
                     benchmark,
                     task_id=task_id,
-                    teacher=teacher,
+                    teacher=episode.teacher or teacher,
                     attempt_index=attempt_index,
                     temperature=temperature,
                     verified=episode.verified,
                     tokens_spent=tokens_spent,
+                    usage=episode.usage,
                     demo=episode.demo,
                     ledger_root=ledger_root,
                 )

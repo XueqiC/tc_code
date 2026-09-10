@@ -484,7 +484,7 @@ def test_alfworld_teacher_react_prompt_and_command_only_worked_example(
         def close() -> None:
             return None
 
-    def generate_reply(config, messages, temperature=None):
+    def generate_reply(config, messages, temperature=None, *, usage_callback=None):
         teacher_messages.append(messages)
         return reply
 
@@ -497,7 +497,8 @@ def test_alfworld_teacher_react_prompt_and_command_only_worked_example(
         lambda messages: json.dumps(messages, sort_keys=True),
     )
     monkeypatch.setattr(
-        appworld_teacher, "load_teacher_config", lambda name: object()
+        appworld_teacher, "load_teacher_config",
+        lambda name: appworld_teacher.TeacherConfig(name, name, "https://stub.invalid", "stub")
     )
     monkeypatch.setattr(appworld_teacher, "generate_reply", generate_reply)
 
