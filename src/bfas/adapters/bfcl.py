@@ -32,6 +32,7 @@ BFCL_DATA = BFCL_ROOT / "bfcl_eval/data"
 BFCL_BIN = ROOT / "envs/bfcl/.venv/bin/bfcl"
 VLLM_BIN_DIR = ROOT / "envs/vllm-serve/.venv/bin"
 MERGE_EXPORT = ROOT / "tools/bfcl_hub_merge_export.py"
+BFCL_CLI = ROOT / "tools/bfcl_cli.py"
 MODEL_NAME = "Qwen/Qwen3.5-4B-FC"
 # The official benchmark has no runnable "memory" category: BFCL_v4_memory.json
 # is a group that expands into one runnable category per backend, with task ids
@@ -46,6 +47,21 @@ GUIDE_HEADER = (
 
 class BFCLScoreError(RuntimeError):
     pass
+
+
+def _completion_tokens(results: Sequence[Mapping[str, Any]]) -> int | None:
+    def total(value: Any) -> int:
+        if isinstance(value, list):
+            return sum(total(item) for item in value)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            raise ValueError(f"invalid BFCL completion token count: {value!r}")
+        if int(value) != value:
+            raise ValueError(f"non-integral BFCL completion token count: {value!r}")
+        return int(value)
+
+    if not results or any(row.get("output_token_count") is None for row in results):
+        return None  # Historical result files may lack API usage.
+    return sum(total(row["output_token_count"]) for row in results)
 
 
 def _score_category(path: Path) -> str:
@@ -433,15 +449,14 @@ class BFCLAdapter(BenchmarkAdapter):
         policy_ref: PolicyRef | None = None,
     ) -> dict[str, str]:
         env = self._subprocess_env()
-        command = [str(BFCL_BIN), "generate", *args]
+        model = str(args[args.index("--model") + 1]) if "--model" in args else ""
+        is_azure = model.startswith("azure/")
+        command = self._bfcl_command("generate", *args)
         # API-served teacher models (e.g. deepseek-v4-pro-FC) must not get
         # local vllm server args; they need the OpenAI-compatible creds for
         # the Ollama endpoint instead.
-        is_api_model = "--model" in args and any(
-            "deepseek" in str(a) or str(a).startswith("gpt-")
-            for a in args
-        )
-        if is_api_model:
+        is_api_model = is_azure or "deepseek" in model or model.startswith("gpt-")
+        if is_api_model and not is_azure:
             env["OPENAI_BASE_URL"] = os.environ.get(
                 "OLLAMA_BASE_URL", "https://ollama.com"
             ).rstrip("/") + "/v1"
@@ -451,7 +466,7 @@ class BFCLAdapter(BenchmarkAdapter):
                 if key_file.exists():
                     key = key_file.read_text().strip()
             env["OPENAI_API_KEY"] = key
-        else:
+        elif not is_api_model:
             command.extend([
                 "--backend", "vllm",
                 "--num-gpus", "1",
@@ -466,6 +481,12 @@ class BFCLAdapter(BenchmarkAdapter):
         if checkpoint is not None and merged is not None:
             self._remove_merged_checkpoint(checkpoint, merged)
         return env
+
+    @staticmethod
+    def _bfcl_command(*args: str) -> list[str]:
+        if any(str(arg).startswith("azure/") for arg in args):
+            return [str(BFCL_BIN.with_name("python")), str(BFCL_CLI), *args]
+        return [str(BFCL_BIN), *args]
 
     def _official_pass(
         self,
@@ -491,11 +512,11 @@ class BFCLAdapter(BenchmarkAdapter):
                 "--temperature", str(temperature), "--num-threads", "4",
                 "--result-dir", result_name,
             ]
-            evaluate = [
-                str(BFCL_BIN), "evaluate", "--model", model_name,
+            evaluate = self._bfcl_command(
+                "evaluate", "--model", model_name,
                 "--result-dir", result_name, "--score-dir", score_name,
                 "--partial-eval",
-            ]
+            )
             env = self._run_generate(generate, policy_ref)
             self._run_evaluate(evaluate, env, BFCL_ROOT / score_name)
             result_dir = BFCL_ROOT / result_name
@@ -717,6 +738,11 @@ class BFCLAdapter(BenchmarkAdapter):
                 verified=demo is not None,
                 demo=demo,
                 response_texts=(target,) if target else (),
+                # BFCL preserves completion usage as a scalar (single turn) or
+                # nested turn/step lists. Charge every generated prerequisite
+                # too, including failed attempts; never estimate visible text
+                # when the provider reported its total (reasoning included).
+                tokens_spent=_completion_tokens(results),
             )
         finally:
             shutil.rmtree(result_dir, ignore_errors=True)
