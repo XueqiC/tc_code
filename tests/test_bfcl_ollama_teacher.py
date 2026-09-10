@@ -25,9 +25,11 @@ OPENROUTER_MODELS = (
     "openai/gpt-5.4", "anthropic/claude-sonnet-5",
     "google/gemini-3.1-pro-preview", "openai/gpt-5.6-luna",
 )
+OPENAI_MODELS = ("gpt-5.4", "gpt-5.6-luna")
 PROVIDER_MODELS = (
     *(("ollama", model) for model in MODELS),
     *(("openrouter", model) for model in OPENROUTER_MODELS),
+    *(("openai", model) for model in OPENAI_MODELS),
 )
 TEACHERS = tuple(f"{prefix}/{model}-FC" for prefix, model in PROVIDER_MODELS)
 FUNCTIONS = [{"name": "weather.lookup", "description": "Weather",
@@ -35,7 +37,7 @@ FUNCTIONS = [{"name": "weather.lookup", "description": "Weather",
                              "required": ["city"]}}]
 
 
-def completion(content=None, *, tools=True):
+def completion(content=None, *, tools=True, prompt_details=None):
     message = {"role": "assistant", "content": content}
     if tools:
         message["tool_calls"] = [
@@ -49,6 +51,7 @@ def completion(content=None, *, tools=True):
         "id": "stub", "object": "chat.completion", "created": 0, "model": "stub",
         "choices": [{"index": 0, "finish_reason": "tool_calls" if tools else "stop", "message": message}],
         "usage": {"prompt_tokens": 19, "completion_tokens": 80, "total_tokens": 99,
+                  **({"prompt_tokens_details": prompt_details} if prompt_details is not None else {}),
                   "completion_tokens_details": {"reasoning_tokens": 60}},
     })
 
@@ -62,8 +65,9 @@ def client(monkeypatch, tmp_path):
     monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
     monkeypatch.delenv("BFAS_BFCL_USAGE_LOG", raising=False)
     monkeypatch.delenv("BFAS_BFCL_SKIP_MEMORY_PREREQ", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "wrong-provider-key")
-    monkeypatch.setenv("OPENAI_BASE_URL", "https://wrong.invalid/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "stub-openai-key")
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("BFAS_OPENAI_SERVICE_TIER", raising=False)
     stub = SimpleNamespace(requests=[], constructor=None, response=completion(), error=None)
 
     def create(**kwargs):
@@ -99,15 +103,19 @@ def test_native_fc_mapping_and_tool_history(client, prefix, model):
     base_url, key = {
         "ollama": ("https://ollama.com/v1", "stub-key"),
         "openrouter": ("https://openrouter.ai/api/v1", "stub-openrouter-key"),
+        "openai": ("https://api.openai.com/v1", "stub-openai-key"),
     }[prefix]
     assert client.constructor == {"base_url": base_url, "api_key": key, "max_retries": 0}
-    assert request == {
+    expected = {
         "model": model, "messages": task["question"][0], "temperature": 0.7,
         "tools": [{"type": "function", "function": {
             **FUNCTIONS[0], "name": "weather_lookup",
             "parameters": {**FUNCTIONS[0]["parameters"], "type": "object"},
         }}],
     }
+    if prefix == "openai" and model == "gpt-5.6-luna":
+        expected.pop("temperature")
+    assert request == expected
     assert task == original
     assert h.decode_ast(result, "Python", False) == [
         {"weather_lookup": {"city": "Paris"}}, {"weather_lookup": {"city": "東京"}},
@@ -151,29 +159,87 @@ def test_credentials_base_normalization_and_file_fallback(client, monkeypatch, t
 
 
 @pytest.mark.parametrize("key", [None, "", " \n\t"])
-def test_openrouter_requires_own_env_key_without_file_fallback(client, monkeypatch, tmp_path, key):
+@pytest.mark.parametrize(("prefix", "model"), [
+    ("openrouter", OPENROUTER_MODELS[0]), ("openai", OPENAI_MODELS[0]),
+])
+def test_provider_requires_own_env_key_without_file_fallback(client, monkeypatch, tmp_path, key, prefix, model):
+    key_env = f"{prefix.upper()}_API_KEY"
     if key is None:
-        monkeypatch.delenv("OPENROUTER_API_KEY")
+        monkeypatch.delenv(key_env)
     else:
-        monkeypatch.setenv("OPENROUTER_API_KEY", key)
-    for name in (".ollama_api_key2", ".ollama_api_key", ".openrouter_api_key"):
+        monkeypatch.setenv(key_env, key)
+    for name in (".ollama_api_key2", ".ollama_api_key", ".openrouter_api_key", ".openai_api_key"):
         (tmp_path / name).write_text("file-key\n")
     # Neither other providers' env keys nor any key files may satisfy this.
-    with pytest.raises(RuntimeError, match="set OPENROUTER_API_KEY"):
-        handler(OPENROUTER_MODELS[0], "openrouter")
+    with pytest.raises(RuntimeError, match=f"set {key_env}"):
+        handler(model, prefix)
     monkeypatch.setattr(bfcl.subprocess, "run", lambda *_args, **_kwargs: pytest.fail("missing key must fail before launch"))
-    with pytest.raises(RuntimeError, match="set OPENROUTER_API_KEY"):
-        bfcl.BFCLAdapter()._run_generate(["--model", f"openrouter/{OPENROUTER_MODELS[0]}-FC"])
+    with pytest.raises(RuntimeError, match=f"set {key_env}"):
+        bfcl.BFCLAdapter()._run_generate(["--model", f"{prefix}/{model}-FC"])
     assert client.constructor is None and not client.requests
 
 
 @pytest.mark.parametrize("base", ["https://stub.invalid/api/v1", "https://stub.invalid/api/v1/", "https://stub.invalid/gateway"])
-def test_openrouter_custom_endpoint_and_env_key(client, monkeypatch, base):
-    monkeypatch.setenv("OPENROUTER_BASE_URL", base)
-    monkeypatch.setenv("OPENROUTER_API_KEY", "  env-key\n")
-    handler(OPENROUTER_MODELS[0], "openrouter")
+@pytest.mark.parametrize(("prefix", "model"), [
+    ("openrouter", OPENROUTER_MODELS[0]), ("openai", OPENAI_MODELS[0]),
+])
+def test_provider_custom_endpoint_and_env_key(client, monkeypatch, base, prefix, model):
+    monkeypatch.setenv(f"{prefix.upper()}_BASE_URL", base)
+    monkeypatch.setenv(f"{prefix.upper()}_API_KEY", "  env-key\n")
+    handler(model, prefix)
     assert client.constructor == {"base_url": base.rstrip("/"), "api_key": "env-key", "max_retries": 0}
     assert not client.requests
+
+
+@pytest.mark.parametrize(("prefix", "model"), [
+    ("ollama", MODELS[0]), ("openrouter", OPENROUTER_MODELS[0]),
+])
+def test_openai_endpoint_and_key_do_not_override_other_providers(client, monkeypatch, prefix, model):
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://wrong.invalid/v1")
+    monkeypatch.setenv("OPENAI_API_KEY", "wrong-provider-key")
+    handler(model, prefix)
+    assert client.constructor["base_url"] == bfcl_teacher.PROVIDERS[prefix][2]
+    assert client.constructor["api_key"] == ("stub-key" if prefix == "ollama" else "stub-openrouter-key")
+
+
+@pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
+@pytest.mark.parametrize("tier", [None, "", " \n\t", "flex", "priority", " flex\n"])
+def test_openai_service_tier_only_reaches_openai(client, monkeypatch, prefix, model, tier):
+    if tier is not None:
+        monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    h = handler(model, prefix)
+    inference_data = {"message": entry()["question"][0], "tools": []}
+    h._query_FC(inference_data)
+    request = client.requests[0]
+    if prefix == "openai" and tier and tier.strip():
+        assert request["service_tier"] == tier.strip()
+    else:
+        assert "service_tier" not in request
+    assert inference_data["inference_input_log"] == request
+
+
+@pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
+def test_invalid_service_tier_fails_only_for_openai(client, monkeypatch, prefix, model):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "invalid")
+    if prefix == "openai":
+        with pytest.raises(ValueError, match="BFAS_OPENAI_SERVICE_TIER.*flex.*priority"):
+            handler(model, prefix)
+        assert client.constructor is None and not client.requests
+    else:
+        handler(model, prefix).inference(entry(), False, True)
+        assert "service_tier" not in client.requests[0]
+
+
+@pytest.mark.parametrize("temperature", [0.0, 0.7])
+def test_openai_luna_omits_temperature_but_keeps_harness_value(client, temperature):
+    h = bfcl_ollama.OpenAICompatibleHandler(
+        "gpt-5.6-luna", temperature, "openai/gpt-5.6-luna-FC", True,
+    )
+    inference_data = {"message": entry()["question"][0], "tools": []}
+    h._query_FC(inference_data)
+    assert h.temperature == temperature
+    assert "temperature" not in client.requests[0]
+    assert "temperature" not in inference_data["inference_input_log"]
 
 
 def test_registration_and_cli_without_credentials():
@@ -183,12 +249,14 @@ register_ollama_models()
 register_ollama_models()
 from bfcl_eval.constants.model_config import MODEL_CONFIG_MAPPING, api_inference_model_map
 from bfcl_eval.constants.supported_models import SUPPORTED_MODELS
+from bfas.bfcl_teacher import PROVIDERS
 for name in TEACHERS:
     model = name.split('/', 1)[1].removesuffix('-FC')
     config = MODEL_CONFIG_MAPPING[name]
     assert config is api_inference_model_map[name]
     assert config.model_name == model and config.model_handler is OllamaOpenAIHandler
     assert config.is_fc_model and config.underscore_to_dot
+    assert config.url == PROVIDERS[name.split('/', 1)[0]][2]
     assert SUPPORTED_MODELS.count(name) == 1
 """
     env = {**os.environ, "PYTHONPATH": os.pathsep.join((str(ROOT / "src"), str(HARNESS)))}
@@ -219,20 +287,25 @@ def test_adapter_routes_ollama_through_registered_cli(client, monkeypatch, model
     assert not client.requests
 
 
-@pytest.mark.parametrize("model", OPENROUTER_MODELS)
-def test_adapter_routes_openrouter_through_registered_cli(client, monkeypatch, tmp_path, model):
+@pytest.mark.parametrize(("prefix", "model"), [
+    *(("openrouter", model) for model in OPENROUTER_MODELS),
+    *(("openai", model) for model in OPENAI_MODELS),
+])
+def test_adapter_routes_provider_through_registered_cli(client, monkeypatch, tmp_path, prefix, model):
     calls = []
     monkeypatch.setattr(bfcl.subprocess, "run", lambda command, **kwargs: calls.append((command, kwargs)))
     monkeypatch.delenv("OLLAMA_API_KEY")
-    monkeypatch.setenv("OPENROUTER_BASE_URL", "https://stub.invalid/api/v1/")
-    name = f"openrouter/{model}-FC"
+    monkeypatch.setenv(f"{prefix.upper()}_BASE_URL", "https://stub.invalid/api/v1/")
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "priority")
+    name = f"{prefix}/{model}-FC"
     usage_log = tmp_path / "bfas_usage.jsonl"
     bfcl.BFCLAdapter()._run_generate(["--model", name], usage_log=usage_log)
     command, kwargs = calls[0]
     assert command[:3] == [str(bfcl.BFCL_BIN.with_name("python")), str(bfcl.BFCL_CLI), "generate"]
     assert "--backend" not in command and "--num-gpus" not in command
     assert kwargs["env"]["OPENAI_BASE_URL"] == "https://stub.invalid/api/v1"
-    assert kwargs["env"]["OPENAI_API_KEY"] == "stub-openrouter-key"
+    assert kwargs["env"]["OPENAI_API_KEY"] == f"stub-{prefix}-key"
+    assert kwargs["env"]["BFAS_OPENAI_SERVICE_TIER"] == "priority"
     assert kwargs["env"]["BFAS_BFCL_USAGE_LOG"] == str(usage_log)
     assert str(bfcl.BFCL_CLI) in bfcl.BFCLAdapter._bfcl_command("evaluate", "--model", name)
     assert not client.requests
@@ -255,6 +328,7 @@ def test_provider_registry_drives_handler_and_adapter(client, monkeypatch):
 
 @pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
 def test_usage_survives_parser_error_and_is_thread_local(client, monkeypatch, tmp_path, prefix, model):
+    client.response = completion(prompt_details={"cached_tokens": 7})
     usage = tmp_path / "bfas_usage.jsonl"
     monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(usage))
     h = handler(model, prefix)
@@ -270,6 +344,29 @@ def test_usage_survives_parser_error_and_is_thread_local(client, monkeypatch, tm
         attempt_rows = [row for row in rows if row["bfas_attempt_id"] == metadata["bfas_attempt_id"]]
         assert [row["output_token_count"] for row in attempt_rows] == [0, 80]
         assert [row["input_token_count"] for row in attempt_rows] == [0, 19]
+        assert "cached_tokens" not in attempt_rows[0]
+        assert attempt_rows[1]["cached_tokens"] == 7
+
+
+@pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
+@pytest.mark.parametrize("prompt_details", [None, {}, {"cached_tokens": None}, {"cached_tokens": 0}, {"cached_tokens": 7}])
+def test_usage_journal_preserves_optional_cached_tokens(client, monkeypatch, tmp_path, prefix, model, prompt_details):
+    usage = tmp_path / "bfas_usage.jsonl"
+    monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(usage))
+    client.response = completion(prompt_details=prompt_details)
+    _, metadata = handler(model, prefix).inference(entry(), False, True)
+    assert "error" not in metadata
+    start, response = [json.loads(line) for line in usage.read_text().splitlines()]
+    assert start["bfas_attempt_id"] == response["bfas_attempt_id"] == metadata["bfas_attempt_id"]
+    assert response["id"] == "parallel_0"
+    assert response["input_token_count"] == metadata["input_token_count"] == 19
+    assert response["output_token_count"] == metadata["output_token_count"] == 80
+    assert "cached_tokens" not in start
+    cached_tokens = (prompt_details or {}).get("cached_tokens")
+    if cached_tokens is None:
+        assert "cached_tokens" not in response
+    else:
+        assert response["cached_tokens"] == cached_tokens
 
 
 @pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
@@ -297,9 +394,12 @@ def adapter(monkeypatch, tmp_path):
     return h
 
 
-@pytest.mark.parametrize("model", OPENROUTER_MODELS)
-def test_openrouter_gateway_usage_teacher_label_and_memory_skip(client, adapter, monkeypatch, tmp_path, model):
-    name = f"openrouter/{model}-FC"
+@pytest.mark.parametrize(("prefix", "model"), [
+    *(("openrouter", model) for model in OPENROUTER_MODELS),
+    *(("openai", model) for model in OPENAI_MODELS),
+])
+def test_provider_gateway_usage_teacher_label_and_memory_skip(client, adapter, monkeypatch, tmp_path, prefix, model):
+    name = f"{prefix}/{model}-FC"
     monkeypatch.setenv("BFAS_BFCL_TEACHER", name)
     monkeypatch.setenv("BFAS_BFCL_SKIP_MEMORY_PREREQ", "1")
 
@@ -307,7 +407,7 @@ def test_openrouter_gateway_usage_teacher_label_and_memory_skip(client, adapter,
         assert teacher == name and ids == ["parallel_0"]
         directory = tmp_path / "results"
         monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(directory / "bfas_usage.jsonl"))
-        h = handler(model, "openrouter")
+        h = handler(model, prefix)
         result, metadata = h.inference(entry(), False, True)
         (directory / "BFCL_v4_parallel_result.json").write_text(
             json.dumps({"id": "parallel_0", "result": result, **metadata}) + "\n")
@@ -528,6 +628,8 @@ if args[0] == 'generate':
     bfcl_ollama.OpenAI = lambda **kw: SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     os.environ['OLLAMA_API_KEY'] = 'stub-key'
     os.environ['OPENROUTER_API_KEY'] = 'stub-openrouter-key'
+    os.environ['OPENAI_API_KEY'] = 'stub-openai-key'
+    os.environ.pop('BFAS_OPENAI_SERVICE_TIER', None)
     h = bfcl_ollama.OpenAICompatibleHandler(model.split('/', 1)[1].removesuffix('-FC'), float(option('--temperature')), model, True)
     for task_id in selection['parallel']:
         result, metadata = h.inference({'id': task_id, 'function': [{'name': 'lookup', 'description': 'Lookup',

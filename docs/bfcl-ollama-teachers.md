@@ -1,4 +1,4 @@
-# BFCL Ollama and OpenRouter FC teachers
+# BFCL Ollama, OpenRouter, and OpenAI FC teachers
 
 The tracked `src/bfas/bfcl_ollama.py` extension registers these API models in
 BFCL's model mapping, API model map, and supported list:
@@ -48,10 +48,47 @@ export BFAS_BFCL_SKIP_MEMORY_PREREQ=1
 bash tools/bfcl_teacher_demos.sh
 ```
 
-OpenRouter and Ollama share `OpenAICompatibleHandler`, using OpenAI Chat
+## Official OpenAI
+
+The same extension registers these teachers against the official OpenAI API:
+
+| BFCL teacher | Model sent to OpenAI |
+| --- | --- |
+| `openai/gpt-5.4-FC` | `gpt-5.4` |
+| `openai/gpt-5.6-luna-FC` | `gpt-5.6-luna` |
+
+Set `OPENAI_API_KEY`; an unset, empty, or whitespace-only value raises an error
+before client construction or adapter worker launch. There is no file fallback,
+and other providers' keys do not satisfy this requirement. `OPENAI_BASE_URL`
+defaults to `https://api.openai.com/v1`; overrides preserve the supplied API base
+path with trailing slashes removed.
+
+Optionally set `BFAS_OPENAI_SERVICE_TIER` to `flex` or `priority`. The handler
+passes it as the Chat Completions `service_tier` parameter only for `openai/`
+teachers; Ollama and OpenRouter ignore this variable. Unset or blank values omit
+the parameter, and other values raise an error for OpenAI before client
+construction. See the [official OpenAI Chat Completions reference](https://developers.openai.com/api/reference/python/resources/chat/subresources/completions/methods/create)
+for service-tier and usage fields.
+
+For `openai/gpt-5.6-luna-FC`, requests omit `temperature` because Luna rejects
+positive temperatures. The handler retains the harness's `temperature`
+attribute so result naming and attempt labels continue to use the configured
+value. `openai/gpt-5.4-FC` retains the usual temperature parameter.
+
+```bash
+export OPENAI_API_KEY='your-openai-key'
+export BFAS_BFCL_TEACHER='openai/gpt-5.6-luna-FC'
+export BFAS_OPENAI_SERVICE_TIER='flex'  # optional; also accepts priority
+export BFAS_BFCL_SKIP_MEMORY_PREREQ=1
+bash tools/bfcl_teacher_demos.sh
+```
+
+## Shared provider behavior
+
+OpenAI, OpenRouter, and Ollama share `OpenAICompatibleHandler`, using OpenAI Chat
 Completions native `tools`, exact `usage.completion_tokens`, and the same usage
 journal and ledger importer. The full BFCL teacher name labels ledger rows and
-separates attempt budgets, including the `openrouter/` prefix and `-FC` suffix.
+separates attempt budgets, including the provider prefix and `-FC` suffix.
 Registration and CLI model listing do not require credentials or call APIs.
 
 Provider routing and credentials use the `PROVIDERS` table in
@@ -78,7 +115,7 @@ Both paths append gateway-schema rows to `data/teacher_ledger/bfcl.jsonl`.
 `output_token_count`, including nested multi-turn steps and generated memory
 prerequisites. Reasoning is already included and is never added twice. Failed
 inference, parsing, rendering, and evaluation attempts retain measured usage.
-SDK retries are disabled for both providers so collection owns the attempt budget.
+SDK retries are disabled for all three providers so collection owns the attempt budget.
 
 Each inference journals its usage before parsing to `bfas_usage.jsonl`
 inside the result directory. A unique attempt ID lets the batch importer recover
@@ -86,6 +123,14 @@ usage after an interrupted worker, charge a resumed call separately, and avoid
 double charging when the same artifacts are imported again. Raw batch artifacts
 remain available for auditing. Historical batch rows without provider usage
 stop import with an error instead of silently estimating their cost.
+
+Response journal rows store `usage.prompt_tokens` as `input_token_count` and
+`usage.completion_tokens` as `output_token_count`. When the provider reports
+`usage.prompt_tokens_details.cached_tokens`, the row also stores `cached_tokens`,
+including an explicit zero. Missing cache details leave that field absent.
+Cached tokens are part of the prompt total, and neither prompt nor cache counts
+are added to the completion-only `tokens_spent` budget. These counts survive
+parser failures because journaling happens immediately after each response.
 
 `BFAS_BFCL_SKIP_MEMORY_PREREQ=1` excludes every `memory_*` demand ID before
 prerequisite expansion. These IDs are recorded as `unavailable inventory` in

@@ -19,7 +19,13 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
     def __init__(self, model_name, temperature, registry_name, is_fc_model, **kwargs):
         BaseHandler.__init__(self, model_name, temperature, registry_name, is_fc_model, **kwargs)
         self.model_style = ModelStyle.OPENAI_COMPLETIONS
-        base_url, key = provider_credentials(registry_name.split("/", 1)[0])
+        self.provider = registry_name.split("/", 1)[0]
+        base_url, key = provider_credentials(self.provider)
+        self.service_tier = None
+        if self.provider == "openai":
+            self.service_tier = os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None
+            if self.service_tier not in {None, "flex", "priority"}:
+                raise ValueError("Invalid BFAS_OPENAI_SERVICE_TIER: expected 'flex' or 'priority'")
         self.client = OpenAI(base_url=base_url, api_key=key, max_retries=0)
         # BFCL shares one handler among inference threads.
         self._usage = threading.local()
@@ -46,14 +52,17 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
         finally:
             self._usage.task_id = None
 
-    def _record_usage(self, input_tokens, output_tokens):
+    def _record_usage(self, input_tokens, output_tokens, *, cached_tokens=None):
         if path := os.environ.get("BFAS_BFCL_USAGE_LOG"):
-            append_record(Path(path), {
+            record = {
                 "id": self._usage.task_id,
                 "bfas_attempt_id": self._usage.attempt_id,
                 "input_token_count": input_tokens,
                 "output_token_count": output_tokens,
-            })
+            }
+            if cached_tokens is not None:
+                record["cached_tokens"] = cached_tokens
+            append_record(Path(path), record)
 
     def generate_with_backoff(self, **kwargs):
         # Each BFAS attempt has one owner; disable hidden SDK retries and let
@@ -64,15 +73,24 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
             usage = response.usage
             self._usage.input_tokens += usage.prompt_tokens
             self._usage.output_tokens += usage.completion_tokens
-            self._record_usage(usage.prompt_tokens, usage.completion_tokens)
+            prompt_details = getattr(usage, "prompt_tokens_details", None)
+            self._record_usage(
+                usage.prompt_tokens, usage.completion_tokens,
+                cached_tokens=getattr(prompt_details, "cached_tokens", None),
+            )
         return response, time.monotonic() - start
 
     def _query_FC(self, inference_data):
         request = {
             "model": self.model_name,
             "messages": inference_data["message"],
-            "temperature": self.temperature,
         }
+        # Luna rejects nonzero temperature. Keep self.temperature for BFCL's
+        # result naming, but leave sampling to the official OpenAI endpoint.
+        if not (self.provider == "openai" and self.model_name == "gpt-5.6-luna"):
+            request["temperature"] = self.temperature
+        if self.service_tier is not None:
+            request["service_tier"] = self.service_tier
         if inference_data["tools"]:
             request["tools"] = inference_data["tools"]
         inference_data["inference_input_log"] = dict(request)
@@ -107,6 +125,8 @@ def register_api_models():
     for name, display, org, license in (
         ("ollama/gpt-oss:120b-FC", "GPT-OSS 120B Ollama", "OpenAI", "Apache-2.0"),
         ("ollama/mistral-large-3:675b-FC", "Mistral Large 3 675B Ollama", "Mistral AI", "Apache-2.0"),
+        ("openai/gpt-5.4-FC", "GPT-5.4 OpenAI", "OpenAI", "Proprietary"),
+        ("openai/gpt-5.6-luna-FC", "GPT-5.6 Luna OpenAI", "OpenAI", "Proprietary"),
         ("openrouter/openai/gpt-5.4-FC", "GPT-5.4 OpenRouter", "OpenAI", "Proprietary"),
         ("openrouter/anthropic/claude-sonnet-5-FC", "Claude Sonnet 5 OpenRouter", "Anthropic", "Proprietary"),
         ("openrouter/google/gemini-3.1-pro-preview-FC", "Gemini 3.1 Pro Preview OpenRouter", "Google", "Proprietary"),
