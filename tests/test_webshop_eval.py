@@ -294,7 +294,7 @@ def cli_args(evaluator, out, *extra):
 
 def test_cli_defaults(evaluator, tmp_path):
     args = cli_args(evaluator, tmp_path)
-    assert (args.start, args.n, args.max_steps, args.obs_chars) == (0, 500, 15, 2500)
+    assert (args.start, args.n, args.max_steps, args.obs_chars) == (0, 500, 15, 6000)
     assert args.history_obs_chars == 600
     assert args.max_prompt_chars == 60000
     assert args.num_products is None
