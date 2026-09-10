@@ -3,41 +3,43 @@
 
 This section provides the implementation details omitted from
 Section~\ref{sec:method}: the complete procedure of one decision
-window, the exposure and ledger conventions, the gate, the estimator
-components, the source-selection solver, the acquisition surrogate
-with its posterior, and the paired controls used to isolate the
+window, the exposure and ledger conventions, the estimator components
+with the length correction, the joint solver, the acquisition labels
+and predictor, and the attribution controls used to isolate the
 mechanism.
 
 \paragraph{Complete procedure.}
 Training runs in budget rounds of twelve commit steps; steps 1, 4, 7,
 and 10 are decision windows. A decision window executes, in this
-order: (i) select and purchase up to $K$ packages with the historical
-posterior under the remaining authorization, revealing and settling
+order: (i) select and purchase up to $K$ packages with the acquisition
+predictor under the remaining authorization, revealing and settling
 each at its recorded cost through the ledger; (ii) fix the evidence
-of the step, the exposure weights $w_i$, and the injections
-$\alpha_i$, and draw two fresh source actions per unit from the frozen
-snapshot of the round; (iii) build the virtual reference $\theta_S(0)$
-on this batch; (iv) estimate the return gradient at $\theta_S(0)$ with
-temperature-one rollouts on the feedback fold and solve for $d^\star$;
-(v) commit $\theta_S(d^\star)$ on the same batch, estimate the return
-at $\theta_S(d^\star)$, and update the gate in a blocked step with
-$d^\star$ fixed. The acquisition reference (the old-evidence virtual
-update used for surrogate labels) and the selection reference
-$\theta_S(0)$ are separate rollout batches with separate compute
-accounting and are never substituted for one another. Non-decision
-steps sample units from the accumulated pool under the frozen rules,
-reuse the latest return gradient, recompute the directions $v_i$ and
-the errors $\hat\varepsilon_i$ along them from stored per-trajectory
-contributions, and journal the feedback age.
+of the step and the exposure weights $w_i$, and draw $m=2$ fresh
+source actions per unit from the frozen snapshot of the round;
+(iii) score the sources and the teacher texts to obtain the hard,
+soft, and teacher gradients, and assemble the teaching problem, that
+is, the base update, the directions $b_{ij}$, the Gram $K$, and the
+box; (iv) build the reference student $\theta^{+}(a^{\mathrm{ref}})$
+in a trial from the current parameters, estimate the return gradient
+$\hat h$ at it with temperature-one rollouts on the feedback fold, and
+restore the parameters, optimizer state, and random state; (v) solve
+the joint problem to a checked tolerance and commit
+$\theta^{+}(a^{\star})$ once from the original parameters with the
+frozen preconditioner. The acquisition labels and the selection share
+the same problem definition; nothing is recomputed with a second
+formula. Non-decision steps sample units from the accumulated pool
+under the frozen rules, reuse the latest return gradient, recompute
+the directions and the uncertainty terms on the new samples, and
+journal the feedback age.
 
 \paragraph{Exposure and ledger conventions.}
 One exposure unit is the teacher record of one state plus two source
 actions; each commit step uses $E=40$ units (eighty actions), at most
 $K=20$ of them from new packages, in micro-batches of four states and
 ten micro-batches per commit. Before any purchase the units are
-reference-pool states without teacher evidence, for which
-$\alpha_i=0$. The ledger keeps reserved plus settled cost at or below
-the authorization; a package is reserved at its public cap, revealed,
+reference-pool states without teacher evidence, for which every share
+is zero. The ledger keeps reserved plus settled cost at or below the
+authorization; a package is reserved at its public cap, revealed,
 settled at its recorded cost, and the remainder released; the same
 package is paid once; a failed completion is charged. The budget
 denominator is the recorded content cost of the sealed pool, and the
@@ -47,77 +49,104 @@ between rounds; the inner fold supplies source states and candidates,
 and the feedback fold supplies returns only and never enters a
 gradient, the preconditioner, or any normalization.
 
-\paragraph{Gate.}
-$\alpha(s)=\sigma(\phi\cdot\chi(s))$ uses state-only features (a fixed
-projection of the hidden representation of the state, the prompt
-length, and the turn index); it excludes the length, likelihood, or
-projection of the sampled actions and excludes benchmark categories
-and error types. The control arm uses the constant $\alpha=0.5$. The
-gate parameters are updated once per decision window from the
-post-commit return with $d^\star$ fixed.
+\paragraph{Estimator components and length correction.}
+Sources are complete behaviors with their true termination token or
+the true cap, never re-sampled for diversity and never filtered by
+format or correctness. For a source $Y$ of realized length $L$ with
+prefixes $h_t$, let $g_t(v)$ be the gradient of the negative
+log-probability of token $v$ at prefix $h_t$ and
+$s_t=\sum_v p_t(v\mid h_t)\,g_t(v)$ the snapshot-averaged gradient at
+that prefix. Under total-token normalization the hard gradient is
+$G_{\Sigma}=\sum_{t\le L}g_t(Y_t)$ and the soft retention gradient
+$S_{\Sigma}=\sum_{t\le L}s_t$ has the same expectation, because the
+event of reaching prefix $t$ is measurable with respect to the past;
+it vanishes at $\pi_\theta=p_t$. Under per-sequence normalization the
+hard gradient is $G_{\Sigma}/L$, and the factor $1/L$ depends on the
+current and future tokens, so $S_{\Sigma}/L$ is biased. We use the
+length-corrected estimator
+$G^{\mathrm{soft}}=cS_{\Sigma}+(1/L-c)\,G_{\Sigma}$ with a constant
+$c$ fixed before sampling, so that
+$G^{\mathrm{soft}}-G_{\Sigma}/L=c\,(S_{\Sigma}-G_{\Sigma})$ has zero
+expectation with no random multiplier; $c=1/1024$ throughout. Hard
+sources and teacher texts are each normalized by their own token
+count, and the teacher length includes its native turn terminator.
+The identity holds for every measurable, frozen choice of the shares.
+Generation-time per-token log-probabilities are checked against
+teacher-forced rescoring under a fixed tolerance, so that a sample
+whose recorded scores disagree with the model is rejected before it
+enters any gradient.
 
-\paragraph{Estimator components.}
-For a unit with prefixes $Y_1,Y_2$, the soft source gradient at each
-sampled prefix position is the gradient of the full-vocabulary
-KL between the frozen snapshot $p_t$ and the current student, averaged
-over the two prefixes; $G_T$ is the gradient of the log-likelihood of
-the teacher text; $G_1,G_2$ are the log-likelihood gradients of the
-two sampled actions, with the sampled end-of-sequence token included
-and no token appended at a length cap. Generation-time per-token
-log-probabilities are checked against teacher-forced rescoring under a
-fixed tolerance, so that a sample whose recorded scores disagree with
-the model is rejected before it enters any gradient.
+\paragraph{Joint solver.}
+With $x=a-a^{\mathrm{ref}}$ and auxiliary variables $t\ge|x|$, the
+problem of Section~\ref{sec:distill} is the convex program
+$\min\ \tfrac{1}{2}\lambda x^{\top}Kx-(U^{\top}\hat h)^{\top}x
++\varepsilon^{\top}t$ subject to $t\ge x$, $t\ge -x$, and the box on
+$x$. $K$ is symmetrized and its negative eigenvalues within a relative
+tolerance are clipped to zero, with the minimum eigenvalue, the
+asymmetry residual, and the repair norm recorded; a significantly
+indefinite $K$ is an error. The program is solved by a sequential
+quadratic method, the non-negative multipliers are recovered, and the
+solution is accepted only when primal feasibility, stationarity, and
+complementary slackness hold to the configured tolerance after
+division by a common positive scale of the objective. $\lambda$ is
+configured in the original units of $K$; no implicit rescaling by the
+mean diagonal is applied. $\varepsilon_\ell$ is the leave-one-out
+standard error of $\hat h^{\top}b_\ell$ over the feedback rollouts and
+is labeled an uncertainty regularizer. $a^{\mathrm{ref}}=\tfrac12$ for
+the first teacher version of every source and $0$ for any later
+version; the first window of each run uses the reference shares.
+Journaled per step: $U^{\top}\hat h$, $\varepsilon$, the spectrum
+statistics of $K$, $a^{\star}$, the active constraints, the objective
+value, the parameter increment error against the affine prediction,
+and the feedback age.
 
-\paragraph{Source-selection solver.}
-$d^\star$ maximizes $\hat z^{\top}d-\tfrac{\lambda}{2}d^{\top}\tilde K d
--\sum_i\hat\varepsilon_i|d_i|$ over $|d_i|\le\min\{\alpha_i,1-\alpha_i\}$
-by projected coordinate ascent with a convergence test, where
-$\tilde K=K/s$ with $s$ the mean diagonal of $K$ over units with a
-non-zero direction and $\hat z$, $\hat\varepsilon$ scaled by
-$1/\sqrt{s}$, so that the solution is invariant to the overall scale
-of the directions and $\lambda=1$ means that the normalized curvature
-of one unit equals one unit of its linear gain. The estimation error
-$\hat\varepsilon_i$ is the leave-one-out standard error of $\hat z_i$
-over the feedback rollouts along $v_i$ and is recomputed along the new
-directions at every step. The first window of each run uses $d=0$
-(warm-up). Journaled per step are $\hat z$, $\hat\varepsilon$, the
-interaction statistics of $K$, $d^\star$, the active constraints, and
-the feedback age.
+\paragraph{Return gradient.}
+For each feedback task $t$ with independent full trajectories
+$\tau_{tk}$ and fixed task weights $\omega_t$,
+$\hat h=\sum_t\frac{\omega_t}{n_t}\sum_k(R_{tk}-b_{tk})\,\nabla\sum_{u}
+\log\pi_{\theta_{\mathrm{ref}}}(y_u\mid s_u)$, the sum over the actions
+of the student in the trajectory; tool outputs and environment text
+are conditioning, not scored actions. The baseline $b_{tk}$ is the
+leave-one-out mean of the other trajectories of the same task, which
+does not depend on the current trajectory, or a fixed zero. Rollouts
+are generated at temperature one and top-$p$ one by the same backend
+that scores them. Only the projections $U^{\top}\hat h$ and their
+standard errors are stored.
 
-\paragraph{Acquisition surrogate and posterior.}
-For the evidence $\mathcal{E}$ of the current window the surrogate
-value of an owned package is
-$\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$ with
-$\Delta_{\mathcal{E}}(d)$ built at the acquisition reference point
-and the units of the removed package back-filled with predetermined
-old-pool evidence in the same slots and weights; the label is stored
-as an acquisition surrogate, distinct from realized paired gains,
-which are measured with a different feedback batch and used only to
-validate the surrogate. The persistent posterior is a Bayesian linear
-model over the public features of the package and the pre-purchase
-training context (round and step progress, number of purchased
-packages and states, a summary of purchased state projections, mean
-and spread of the current $\alpha$, and feedback age) with a separate
-cost model over public features only; its mean is shrunk toward zero
-unless at least four windows and eight labels show positive
-out-of-window predictive power. Nothing in the procedure reads
-unpurchased content; the selector sees public identifiers and cost
-bounds only, which is enforced by a leak test.
+\paragraph{Acquisition labels and predictor.}
+For a purchased package the label is
+$F^{\star}(\mathcal{D}\cup\{q\})-F^{\star}(\mathcal{D})$ computed at
+the same reference, with the same $\hat h$, and with the old weights
+unchanged, by appending the revealed directions to the same problem
+and re-solving it. A source slot supporting several teacher versions
+carries shares $a_{ijv}\ge0$ with $\sum_v a_{ijv}\le1$; a new version
+enters with reference share zero, so setting it to zero recovers the
+old problem, its optimum, and its parameter increment exactly. The
+predictor is a small model over pre-purchase features only, namely the
+public features of the package, free student behavior at its state,
+the request cap, and a summary of the current teaching problem and of
+the evidence already owned; it reads no unpurchased text, no teacher
+gradient, no verification result, and no realized output length, and
+it is validated on purchases grouped by parent task. The control arm
+replaces it by a random draw under the same budget and cost model.
+Within a window, candidates are first screened by the marginal
+derivative of the current objective with respect to a new direction
+and only a short list is re-solved.
 
-\paragraph{Paired controls.}
-On frozen checkpoints and fixed window evidence, the paired
-interventions execute two one-step updates from the same start and
-evaluate both on a fixed task set and on held-out feedback tasks:
-learned $d^\star$ against $d=0$ at the same $\alpha$ (the isolation of
-the mechanism); the update with $Y_1$ and $Y_2$ swapped (symmetry:
-$d$ flips sign and the update is unchanged); learned $d$ against a
-shuffled source pairing that keeps $\alpha$, the teacher targets, and
-the multiset of gate values; the joint solver against the independent
-solver that drops the off-diagonal of $K$; and the source-estimator
-diagnostic (two hard samples, the soft term, eight hard samples,
-syntax-filtered hard samples). Each intervention reports the
-fixed-set parse-failure rate, greedy repair and damage counts under
-equal teacher mass, the held-out return, and the update norm.
+\paragraph{Attribution controls.}
+On one purchased pool and one recorded exposure schedule, the arms of
+Table~\ref{tab:ablation} share initialization, samples, feedback
+protocol, optimizer, rank, and step count and differ only in the
+control: D0 trains teacher SFT plus a source-prefix KL to the snapshot
+on the same rows; D1 is the earlier block procedure with a state-only
+gate and a separate split solver; D2 adds the equality
+$a_{i1}=a_{i2}$ to the joint problem; D3 is the full problem; the
+variants drop the off-diagonal of $K$ in the solver only, replace the
+control-variate estimator by the raw one, permute the source pairing
+after solving, or fix the mean share per slot and free the split. The
+restriction or intervention is recorded in the run manifest, and the
+shuffled or diagonal solutions are never reported as optima of the
+full problem.
 
 \section{Full experimental details}\label{app:details}
 
@@ -428,45 +457,111 @@ and a commit. Code, logs, and the amendment history will be released.
 
 \section{Additional analysis}\label{app:analysis}
 
-\paragraph{Proof of Proposition~\ref{prop:transfer}.}
-(i) The three coefficients $\tfrac{1-\alpha-d}{2}$,
-$\tfrac{1-\alpha+d}{2}$, and $\alpha$ are non-negative for
-$|d|\le\min\{\alpha,1-\alpha\}$ and sum to one, and the teacher
-component has coefficient $\alpha$ independently of $d$. (ii) The
-cross-entropy to $q$ decomposes into the three components with the
-same coefficients; its gradient in expectation over
-$Y_1,Y_2\sim p_t$ equals $(1-\alpha)\,\mathbb{E}[\bar G_{\mathrm{soft}}]
-+\alpha G_T-\tfrac{1}{2}\mathbb{E}[d\,(G_1-G_2)]$ because the
-$(1-\alpha)$ part of the hard-sample terms, whose coefficient does
-not depend on the samples, can be replaced by the full-vocabulary
-soft term with the same expectation, while the $d$ part keeps the
-sampled actions since $d$ depends on them; the estimator $\hat g_d$
-is the corresponding single-sample form, and its expectation matches
-term by term. At $\pi_\theta=p_t$ the per-position KL is minimized,
-so its gradient is zero. (iii) Substituting $G_k=u(s)+e_k$ gives
-$G_1-G_2=e_1-e_2$.
+\paragraph{Proof of Proposition~\ref{prop:target}.}
+(i) Each source contributes non-negative masses $(1-a_{ij})/m$ and
+$a_{ij}/m$ that sum to $1/m$, so $\hat q\ge0$ and $\sum\hat q=1$;
+merging repeated behaviors adds masses and preserves both. A
+permutation $\Pi$ of the sources with their shares maps $U\to U\Pi$,
+$K\to\Pi^{\top}K\Pi$, $x\to\Pi^{\top}x$ and leaves $\hat q$, both
+estimators, $Ua$, the objective, and the feasible box unchanged. (ii)
+Expanding $\sum_y\hat q(y)\nabla\ell_\theta(y)$ with $\hat q$ frozen
+gives $g^{\mathrm{raw}}$ for either loss normalization. The difference
+$g^{\mathrm{CV}}-g^{\mathrm{raw}}=G^{\mathrm{soft}}-\bar G$ contains no
+share, so its expectation over the sources and the selection process
+is $\mathbb{E}[G^{\mathrm{soft}}-\bar G]$, which is zero whenever the
+soft term matches the hard term in expectation; no independence
+between the shares and the samples is needed, and nothing is claimed
+conditionally on the realized samples. (iii) For total-token
+normalization, reaching prefix $t$ is measurable with respect to the
+history, so $\mathbb{E}[s_t-g_t(Y_t)\mid h_t]=0$ prefix by prefix and
+$\mathbb{E}[S_{\Sigma}-G_{\Sigma}]=0$; at $\pi_\theta=p_t$ every
+$s_t$ is the gradient of a minimized per-prefix divergence and
+vanishes. For per-sequence normalization the length-corrected
+estimator differs from the hard gradient by
+$c\,(S_{\Sigma}-G_{\Sigma})$ with $c$ fixed before sampling, hence by
+a zero-mean term. The impossibility statement is the following
+example. A root with probability $\tfrac12$ of ending at length one
+and $\tfrac12$ of continuing to a forced second token, evaluated at the
+snapshot, has a length-normalized hard gradient whose root coordinate
+is $+\tfrac12$ or $-\tfrac14$ with equal probability, with expectation
+$\tfrac18$; any estimator that matches this expectation cannot vanish
+on both samples, while the naive prefix term divided by $L$ vanishes
+and is therefore biased.
 
-\paragraph{Proof of Proposition~\ref{prop:lowerbound}.}
-$L_H$-smoothness of $J$ along the segment from $\theta_S(0)$ to
-$\theta_S(d)$ in the $H$-norm gives
-$J(\theta_S(d))\ge J(\theta_S(0))+\nabla J(\theta_S(0))^{\top}(d\,v)
--\tfrac{L_H}{2}\|d\,v\|_H^2$, which is the stated bound with
-$z=\nabla J(\theta_S(0))^{\top}v$. For $z\ne 0$ the right-hand side
-is positive for $d$ of the sign of $z$ with $|d|<2|z|/(L_H\|v\|_H^2)$,
-and the box $|d|\le\min\{\alpha,1-\alpha\}$ contains such $d$ whenever
-$0<\alpha<1$. Replacing $z$ by an estimate with $|\hat z-z|\le\varepsilon$
-lowers the bound by at most $\varepsilon|d|$.
+\paragraph{Counterexample for the earlier weighted form.}
+Two actions $A$ and $B$ with snapshot probability $\tfrac12$ each,
+loss gradients $-\tfrac12$ and $+\tfrac12$, teacher text $A$, and
+$G^{\mathrm{soft}}=0$. Let the selector set $\alpha=1$, $d=0$ when the
+first source is $B$ and $\alpha=0$ otherwise. Enumerating the four
+source pairs gives $\mathbb{E}\,g^{\mathrm{raw}}=\mathbb{E}\,g^{\mathrm{CV}}=-\tfrac38$
+while the earlier form
+$(1-\alpha)G^{\mathrm{soft}}+\alpha G^T-\tfrac{d}{2}(G_1-G_2)$ gives
+$-\tfrac14$; its difference from the raw gradient is
+$(1-\alpha)(G^{\mathrm{soft}}-\bar G)$, which carries the adaptive
+multiplier. The same example with both sources equal to $B$ and
+$a=(1,1)$ gives $g^{\mathrm{CV}}=-1$, outside the range of gradients
+of any non-negative mixture of the two actions, which is why a single
+batch of the control-variate estimator is not read as the gradient of
+a non-negative target.
 
-\paragraph{Joint selection over several units.}
-With $\Delta\theta=\sum_i d_i v_i$ the same argument yields
-$J(\theta_S(d))-J(\theta_S(0))\ge z^{\top}d-\tfrac{L_H}{2}d^{\top}Kd$
-with $K_{ij}=v_i^{\top}Hv_j$; the off-diagonal terms are the cost of
-two units pushing the update in a shared direction. The interior zero
-condition of the surrogate for coordinate $i$ is
-$|\hat z_i-\lambda\sum_{j\ne i}\tilde K_{ij}d_j|\le\hat\varepsilon_i$,
-which involves the other coordinates; a unit with a small direct
-response can therefore be used to offset the cost of other directions,
-and no coordinate is discarded before the joint problem is solved.
+\paragraph{Proof of Proposition~\ref{prop:affine}.}
+Substituting $g_i^{\mathrm{CV}}$ into the frozen linear step
+$\theta-\eta P\sum_i w_ig_i$ gives
+$\theta-\eta P\sum_i w_iG_i^{\mathrm{soft}}
+-\sum_{ij}a_{ij}\,\tfrac{\eta w_i}{m}P(G_i^T-G_{ij})=\theta_{\mathrm{base}}+Ua$.
+The degeneracies follow from the column definition. The displacement
+from the reference is $U(a-a^{\mathrm{ref}})=Ux$.
+
+\paragraph{Convexity, optimality, and the zero condition.}
+For $\varepsilon\ge0$ an optimal solution of the lifted program has
+$t=|x|$, so it is equivalent to the original problem; $H\succeq0$
+gives $K=U^{\top}HU\succeq0$, so the program is convex and the
+Karush--Kuhn--Tucker conditions, primal feasibility, stationarity, and
+complementary slackness, certify a global optimum of the local
+problem. Stationarity at an interior coordinate $\ell$ with $x_\ell=0$
+reads $|\hat h^{\top}b_\ell-\lambda\sum_{k\ne\ell}K_{\ell k}x_k|\le\varepsilon_\ell$,
+which involves the other coordinates. Instance for the cross terms:
+$K=\bigl(\begin{smallmatrix}1&1\\1&2\end{smallmatrix}\bigr)$,
+$U^{\top}\hat h=(0.8,0)$, $\varepsilon=(0,0.1)$, $a^{\mathrm{ref}}=(\tfrac12,\tfrac12)$,
+$\lambda=1$ has the optimum $x=(0.5,-0.2)$, so the second coordinate
+moves although its own response is within its uncertainty. Instance
+for the scalar restriction: $b_1=(1,1)$, $b_2=(1,-1)$, $\hat h=(0,1)$,
+$H=I$, $\lambda=1$, $\varepsilon=0$, $a^{\mathrm{ref}}=(\tfrac12,\tfrac12)$
+gives $F=0$ under $x_1=x_2$ and $F=\tfrac12$ at $x=(\tfrac12,-\tfrac12)$,
+which hands one behavior fully to the teacher and keeps the other. A
+general sufficient condition is that some feasible difference of
+source directions lies in the null space of a retained response and
+aligns positively with $h$ while the scalar family contains no such
+direction; the comparison class is the scalar restriction on the same
+batch and estimator.
+
+\paragraph{Proof of Proposition~\ref{prop:gain}.}
+The lower smoothness bound gives
+$J(\theta_{\mathrm{ref}}+Ux)-J(\theta_{\mathrm{ref}})\ge h^{\top}Ux-\tfrac{L_H}{2}\|Ux\|_H^2$.
+With $\lambda\ge L_H$ the quadratic term is dominated by
+$\tfrac{\lambda}{2}x^{\top}Kx$, and the simultaneous error control
+gives $h^{\top}Ux\ge\hat h^{\top}Ux-\sum_\ell\varepsilon_\ell|x_\ell|$;
+together these yield $F(x)$. Simultaneity is what allows the bound to
+be applied to an $x$ chosen after seeing $\hat h$; per-coordinate
+empirical standard errors do not provide it. For a realized
+displacement $Ux+e$, the same expansion loses
+$(M+L_H\|Ux\|_H)\rho+L_H\rho^2/2$, and an approximate solver loses its
+suboptimality $\delta$. Alignment errors not covered by $\varepsilon$
+and errors in $K$ enter as additional $\zeta^{\top}|x|$ and
+$\lambda\|E_K\|_2\|x\|^2/2$ terms, which must not be counted twice
+with $e$.
+
+\paragraph{Value of evidence and nesting.}
+With the base update, the old weights, the reference, and $\hat h$
+fixed, appending directions with zero shares and a zero-share teacher
+version recovers the old objective and the old parameter increment
+exactly, up to the recorded numerical repair of $K$; the old feasible
+solutions embed in the new problem, so $F^{\star}$ does not decrease
+and $A(Q)\ge0$, with equality exactly when the new directions receive
+zero use at the optimum. Forcing a new retention term for an added
+state would change the base update even at zero share and break this
+nesting, so candidate slots and their free retention are fixed before
+purchase and only the teacher directions are opened by a purchase.
 
 \paragraph{Budgeted acquisition.}
 The ledger invariant, reserved plus settled cost at or below the

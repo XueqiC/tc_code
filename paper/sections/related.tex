@@ -24,11 +24,12 @@ moves by matching or reverse-matching distributions
 methods adjust example weights by a validation gradient
 \citep{ren2018learning}; the former needs signals that a text-only
 teacher does not expose, and the latter decides only how much each
-example counts. Our transfer differs in the decision it makes. The
-teacher mass of a state is fixed before sampling and is not a learned
-weight; what the return decides is which of the behaviors of the
-student gives way, and the component shared by those behaviors is
-cancelled rather than reweighted. Self-improvement with verifiers is
+example counts. Our replacement differs in the object it decides. The
+unit of decision is the replacement of one sampled student behavior
+by one demonstration, each with its own share; the return decides
+these shares jointly, so the teacher dose and the choice of what gives
+way are one decision, and a per-state weight is the special case in
+which the shares of a state are tied. Self-improvement with verifiers is
 the closest teacher-free line. STaR retrains on self-generated
 solutions that pass a checker \citep{zelikman2022star},
 rejection-sampling fine-tuning and ReST generalize this into

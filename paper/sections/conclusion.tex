@@ -4,21 +4,22 @@ practice, an act of imitation, and imitation answers only half of the
 question. A purchased demonstration says what the teacher would do at
 a state; it does not say which of the existing behaviors of the
 student should give way, and maximum-likelihood training replaces all
-of them. Return-targeted distillation separates the two decisions. A
-gate fixes, before sampling, how much teacher mass a state receives,
-two fresh student samples define the behaviors that can give way, and
-the learning return of the student, measured after a virtual update on
-the same batch, decides which one does, so that what the two behaviors
-share is left untouched and only their difference is decided. The
-decision is made jointly across the evidence of a step with an
-explicit charge for redundancy, and the same problem prices every
-purchase by the marginal gain it adds to the full update of the
-evidence already owned, under a ledger that bills failed completions.
-Around this mechanism we built a complete budgeted procedure with a
-fixed harness, a common budget cap, and paired controls that change
-only the replacement decision on identical purchased data. Beyond the
-specific system, the durable contribution is the separation itself.
-How much to move and what to move away from are different decisions,
-and only the second can be delegated to the return of the student.
+of them. Return-targeted distillation makes the replacement explicit.
+The student first exhibits its own behaviors by sampling, each
+behavior receives its own share to hand to the teacher demonstration,
+and the shares of a whole step are chosen by the learning return of
+the student through one convex problem that charges redundant
+directions and discounts uncertain ones. The estimator that installs
+the chosen target keeps the expectation of the target gradient under
+sample-dependent shares, and the same problem prices every purchase by
+the gain it adds to what the owned evidence can teach, under a ledger
+that bills failed completions. Around this mechanism we built a
+complete budgeted procedure with a fixed harness, a common budget cap,
+and paired controls that change only the replacement decision on
+identical purchased data. Beyond the specific system, the durable
+contribution is the object itself. A demonstration is not a target to
+be copied but a set of concrete replacements of the behaviors of the student
+itself, and which of them to make is a decision that can be
+delegated to the return of the student.
 \todo{finalize once the full benchmark panel and the two budget
 rounds land.}

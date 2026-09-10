@@ -1,100 +1,122 @@
 \section{Theoretical analysis}\label{sec:theory}
 %% One page. Brief intro, then two subsections of comparable length:
-%% (i) what the transfer optimizes; (ii) what the acquisition surrogate
-%% guarantees and what it does not. Proofs in Appendix~\ref{app:analysis}.
+%% (i) what the transfer optimizes; (ii) what the joint problem and the
+%% acquisition value guarantee. Proofs in Appendix~\ref{app:analysis}.
 
 We analyze the two components on which the claims of the method rest.
-The first subsection characterizes the transfer of
-Section~\ref{sec:distill}. It states that the teacher mass is
-invariant to the replacement decision, that the estimator is unbiased
-with the shared behavior component cancelled, and that a small
-selective transfer improves the finite-step return whenever the two
-student behaviors respond differently. The second subsection states
-what the acquisition surrogate of Section~\ref{sec:acquire} does and
-does not guarantee. Supporting derivations appear in
-Appendix~\ref{app:analysis}.
+The first subsection characterizes the replacement of
+Section~\ref{sec:distill}. It states that the empirical target is a
+legal distribution that behaves consistently under relabeling of the
+sources, that the estimator keeps the expectation of the target
+gradient even though the coefficients are chosen from the same samples
+and from feedback, and that the update is affine in the coefficients
+with the natural degeneracies. The second subsection states what the
+joint problem and the acquisition value do and do not guarantee.
+Supporting derivations appear in Appendix~\ref{app:analysis}.
 
-\subsection{What the transfer optimizes}\label{sec:theory-mech}
-Fix a supervised state $s$ with injection $\alpha\in[0,1]$ decided
-before sampling, two source actions $Y_1,Y_2\sim p_t(\cdot\mid s)$,
-and a selection $d=d(s,Y_1,Y_2)$ with $|d|\le\min\{\alpha,1-\alpha\}$.
-Maximum-likelihood training on the teacher text alone follows
-$-\nabla_\theta D_{\mathrm{KL}}(\nu_T\|\pi_\theta)$ per state, so its
-expected update moves the student toward the teacher behavior
-distribution as a whole and cannot separate the movement the task
-requires from the replacement of behaviors the student already had
-right. The target $q$ of Section~\ref{sec:distill} replaces this by a
-mixture whose teacher component is fixed.
+\subsection{What the replacement optimizes}\label{sec:theory-mech}
+Fix a unit with teacher text $y^T$, sources $Y_1,\ldots,Y_m$ drawn
+from the snapshot $p_t$, and coefficients $a\in[0,1]^m$. Maximum-
+likelihood training on the teacher text alone follows the divergence
+between the teacher and student behavior distributions as a whole and
+cannot separate the movement the task requires from the replacement
+of behaviors the student already had right. The target $\hat q$ of
+Section~\ref{sec:distill} makes the replacement explicit per source.
 
-\begin{proposition}[Fixed teacher mass and unbiased selective
-transfer]\label{prop:transfer}
-(i) For every legal $d$, $q$ is a probability distribution whose
-teacher mass equals $\alpha$; the selection changes only which of
-$Y_1,Y_2$ loses mass. (ii) If $\alpha$ and the unit weights $w_i$ are
-fixed before $Y_1,Y_2$ are sampled, then
-$\hat g_d=(1-\alpha)\bar G_{\mathrm{soft}}+\alpha G_T-\tfrac{d}{2}(G_1-G_2)$
-is an unbiased estimate of the gradient of the expected
-cross-entropy to $q$, even though $d$ may depend on both samples, and
-the soft term vanishes exactly at $\pi_\theta=p_t$. (iii) Writing
-$G_k=u(s)+e_k$, the selective term equals $-\tfrac{d}{2}(e_1-e_2)$;
-the component $u(s)$ shared by the two behaviors cancels
-identically.
+\begin{proposition}[Legal target and consistent estimator]
+\label{prop:target}
+(i) For every $a\in[0,1]^m$, $\hat q$ is a probability distribution;
+merging repeated behaviors only adds their masses. Permuting the
+sources together with their coefficients leaves $\hat q$, both
+estimators, and the update $\theta^{+}(a)$ unchanged. (ii) The
+gradient of the frozen empirical target is $g^{\mathrm{raw}}$, and
+$g^{\mathrm{CV}}-g^{\mathrm{raw}}=G^{\mathrm{soft}}-\bar G$ carries no
+coefficient. Hence if $\mathbb{E}\,G^{\mathrm{soft}}=\mathbb{E}\,\bar G$
+under the source sampling, then for every measurable choice of $a$
+from the samples and the feedback,
+$\mathbb{E}\,g^{\mathrm{CV}}=\mathbb{E}\,g^{\mathrm{raw}}$, the
+expectation being over sources and the selection process jointly.
+(iii) Under total-token normalization the identity holds and
+$G^{\mathrm{soft}}$ vanishes at $\pi_\theta=p_t$; under per-sequence
+length normalization the length-corrected estimator of
+Appendix~\ref{app:method} keeps the identity, and no estimator can keep
+it and vanish at the snapshot for every sample.
 \end{proposition}
 
-The proof is given in Appendix~\ref{app:analysis}, and the
-finite-action case is also verified by enumeration in the
-implementation. Point (ii) is the reason the injection and the weights
-are frozen before sampling, since a weight that depends on the current
-samples or gradients introduces a bias term
-$\mathbb{E}[w_i(G_{\mathrm{hard}}-G_{\mathrm{soft}})]\ne 0$. Point
-(iii) is what allows the selection to act on the difference between
-competing student behaviors without first identifying that difference
-across events.
+Point (ii) is the property that the earlier weighted form
+$(1-\alpha)G^{\mathrm{soft}}+\alpha G^T-\tfrac{d}{2}(G_1-G_2)$ lacks
+once $\alpha$ depends on the samples; Appendix~\ref{app:analysis}
+gives a two-action example in which that form has expectation $-1/4$
+while both estimators above have $-3/8$. The identity is
+unconditional; given the realized samples and coefficients a single
+batch of $g^{\mathrm{CV}}$ need not be the gradient of a non-negative
+target, and the endpoint $a=\mathbf{1}$ equals the pure teacher
+gradient only in expectation, with a variance we measure rather than
+assume away. Point (iii) is why the loss normalization is fixed before
+sampling and matched across arms.
 
-\begin{proposition}[Selective transfer improves the finite-step
-return]\label{prop:lowerbound}
-Let $\theta_S(0)$ and $\theta_S(d)=\theta_S(0)+d\,v$ be the virtual
-reference and selected students built on the same batch, weights,
-injections, and source samples, and let
-$z=\nabla J(\theta_S(0))^{\top}v$. If $J$ is $L_H$-smooth along the
-update path in the $H$-norm, then
-$J(\theta_S(d))-J(\theta_S(0))\ge d\,z-\tfrac{L_H}{2}d^2\|v\|_H^2$.
-Hence whenever $z\ne 0$ there is a legal $d$ of the sign of $z$ with
-strictly positive gain at unchanged teacher mass, and with an
-estimate $\hat z$ satisfying $|\hat z-z|\le\varepsilon$ the guaranteed
-gain is $d\hat z-\varepsilon|d|-\tfrac{L_H}{2}d^2\|v\|_H^2$.
+\begin{proposition}[Affine update and degeneracies]\label{prop:affine}
+With $P$, $\eta$, the samples, and the teacher texts frozen, the
+update of Section~\ref{sec:distill} is
+$\theta^{+}(a)=\theta_{\mathrm{base}}+Ua$ with
+$\theta_{\mathrm{base}}=\theta-\eta P\sum_i w_iG_i^{\mathrm{soft}}$ and
+the columns $b_{ij}$. Equal sources give equal columns and a
+non-unique but equivalent coefficient split; a source equal to the
+teacher gives a zero column; a zero student gradient with a non-zero
+teacher gradient leaves $b_{ij}=-(\eta w_i/m)PG_i^T$. A coefficient
+vector reached by the solver and a reference vector differ by a
+displacement $Ux$ from the common reference.
 \end{proposition}
 
-The bound is the origin of the surrogate solved at every step. The
-linear term is the estimated response, the $\ell_1$ term is the
-estimation error along each direction, and the quadratic term, with
-$L_H$ unknown and replaced by a scale-free $\lambda$ on the normalized
-interaction matrix $K$, penalizes both the step size and the
-redundancy between units. We do not claim monotone improvement. The
-return gradient is estimated from rollouts, the smoothness constant is
-unknown, and between decision windows the estimate is stale, which the
-implementation records as feedback age and does not correct.
+\subsection{What the joint problem and the value guarantee}\label{sec:theory-acq}
+The joint problem of Section~\ref{sec:distill} is convex once
+$|x_\ell|$ is lifted to auxiliary variables, its Gram $K=U^{\top}HU$ is
+positive semidefinite for positive semidefinite $H$, and a solution
+is accepted only when primal feasibility, stationarity, and
+complementary slackness hold to a recorded tolerance
+(Appendix~\ref{app:analysis}). Two consequences shape how the
+solution is read. First, the zero condition of coordinate $\ell$ is
+$|\hat h^{\top}b_\ell-\lambda\sum_{k\ne\ell}K_{\ell k}x_k|\le\varepsilon_\ell$,
+which involves the other coordinates; a source whose own response is
+within its uncertainty can still be moved to offset the cost of
+another direction, so coordinatewise thresholding would be wrong.
+Second, source selection is a strictly larger family than a per-state
+scalar dose. Restricting $a_{i1}=a_{i2}$ is a homogeneous equality
+constraint on the same problem, and Appendix~\ref{app:analysis} gives
+a two-column instance in which the restricted optimum is zero while
+the full problem attains a positive value and keeps one behavior
+untouched; the comparison class is the scalar restriction on the same
+batch and estimator, not every other algorithm.
 
-\subsection{What the acquisition surrogate guarantees}\label{sec:theory-acq}
-On the full evidence set, $\hat F(\mathcal{E})$ coincides with the
-selection objective, so the value of an owned package,
-$\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$, is a
-leave-one-out difference of the same surrogate evaluated at one
-reference point with one return gradient. It counts the teacher
-injection the package brings, since $\Delta_{\mathcal{E}}(0)$ does not
-vanish when the selection shrinks to zero, and it is comparable across
-packages only because the exposure of the removed package is
-back-filled so that every other weight is unchanged. Two delimitations
-matter. First, the surrogate is a first-order-plus-quadratic model of
-the finite update. It is validated, not certified, by realized paired
-gains measured on a feedback batch different from the one that chose
-$d$, and the posterior that maps pre-purchase features to surrogate
-values is shrunk toward zero while its out-of-window predictive power
-is low. Second, the responses of unpurchased packages are invisible,
-so their pairwise interactions cannot be computed. The posterior
-predicts the marginal gains of purchased packages from public features
-and the pre-purchase training context, and nothing in the procedure
-reads unpurchased content. The budget itself is enforced by the ledger
-invariant that reserved plus settled cost never exceeds the
-authorization, with every revealed package, successful or not, billed
-at its recorded cost.
+\begin{proposition}[Conditional local gain]\label{prop:gain}
+Let $J$ satisfy a lower smoothness bound with constant $L_H$ in the
+$H$-norm on the feasible region around $\theta_{\mathrm{ref}}$, let
+$\lambda\ge L_H$, and let the feedback errors be controlled
+simultaneously, $|b_\ell^{\top}(\hat h-h)|\le\varepsilon_\ell$ for all
+$\ell$. Then for every feasible $x$,
+$J(\theta_{\mathrm{ref}}+Ux)-J(\theta_{\mathrm{ref}})\ge F(x)$.
+If the realized displacement is $Ux+e$ with $\|e\|_H\le\rho$ and
+$\|h\|_{H,*}\le M$, the bound loses
+$(M+L_H\|Ux\|_H)\rho+L_H\rho^2/2$; an approximate solution within
+$\delta$ of the optimum loses $\delta$.
+\end{proposition}
+
+The bound is the origin of the surrogate, and its assumptions are the
+reason we call $F$ a local proxy rather than a guarantee. The
+uncertainty terms are per-direction standard errors of a finite
+rollout batch; they are not simultaneous confidence bounds after
+selection, the smoothness constant is unknown, and between decision
+windows the estimate is stale, which the implementation records as
+feedback age and does not correct. Realized paired gains on a feedback
+batch that did not choose $x$ are therefore the validation we report,
+and an independent confirmation split remains necessary. For
+acquisition, the value $A(Q)$ of Section~\ref{sec:acquire} is a
+difference of optima of nested convex problems, so it is non-negative
+and equals zero exactly when the new directions receive zero use at
+the optimum; it counts the base teaching the new package makes
+possible, and it is a local one-step quantity that neither includes
+future information gain nor certifies stopping. The predictor that
+estimates $A(Q)$ before purchase reads only pre-purchase information,
+and the budget itself is enforced by the ledger invariant that
+reserved plus settled cost never exceeds the authorization, with every
+revealed package, successful or not, billed at its recorded cost.
