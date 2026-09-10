@@ -1545,3 +1545,60 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 15:45Z v1.1 rai 从头重跑(worktree tc-alignment-v11c,branch rtd-v11-c = 653be11 + D15 c3300f2;data/* 子目录、envs、.venv 链接到主目录;config configs/rtd/v1_1_bfcl.yaml,2 轮 10%/25%,D13 关):V0 pid 2492264 GPU4(aaebd5af)、V2 pid 2492265 GPU1(97762062)、V1 流式 GPU3(8b270cf8,--replay-schedule results/rtd_v1_1/V0 --replay-mode streaming)。日志 tc-alignment-v11c/logs/rtd_v11_{V0,V1,V2}.log;结果 results/rtd_v1_1/<arm>/evaluation-{1,2}.json。GPU0/GPU2 为他人占用;rai 无空卡(用户指示迁移)。
 - ⟳ RESTART CHECKLIST addendum (9/9 15:45Z): hpg 账号暂停,hpg 一切搁置(V2 relay 41402977 hold;AppWorld 阵列 10–15 未收)。live rai v1.1: V0 2492264 / V2 2492265 / V1 (pgrep "rtd_experiment.py run --arm V1") in tc-alignment-v11c;重启后重挂 rai v1.1 监视器(phase/错误/evaluation-*.json)与整点 :23 cron;Table 1 暂停不重启 lane。
 - 9/9 15:50Z 用户:Table 1 行名简化为原论文方法名(仅改名):SFT/SAD/BBOPD/dDPO/PBSD (offline pref.)/PBSD/STaR;推送 f65480c。RTD 在 BFCL 无 std(全部单次运行),格子保持 46.4†。
+- 9/9 16:00Z 用户:主表去掉 offline PBSD 行(数字记附录);Teacher/Initial student 行移到附录 tab:reference。推送 eed0cec。
+- 9/9 16:40Z 用户:停掉所有 Qwen 相关实验(rai v1.1 V0/V1/V2 已杀,监视器已停),保险起见 DeepSeek 也停(当前无在线调用);考虑新的 student–teacher pair。现有非中资教师资产:gpt-5.4 池(ALFWorld ledger 219 调用;AppWorld 42 调用 + appworld_events 池);Azure 两个凭证可用。已试学生:Gemma-4-E4B(AppWorld dev40 base 0/40)、Llama-3.1-8B。
+- 9/9 16:50Z 新 pair 提案已发:教师 GPT-5.4(Azure;ALFWorld/AppWorld 已有 GPT-5.4 池,BFCL 需新采);学生候选 gemma-4-E4B-it(本地有权重;BFCL 无 handler 条目需加)、Llama-3.1-8B-Instruct(本地有;BFCL 有 FC handler)、Phi-4-mini(需下载;3.8B 低于 4B 线)、gemma-4-31B 本地可作备选教师。等用户定学生后跑三基准基座分。修正:Llama-3.1-8B 此前未被我们测过(那是同学的 vllm)。
+- 9/9 16:58Z 用户担心 E4B 太小(Qwen 4B 在 AppWorld 只有几分)。回复:候选升档 Llama-3.1-8B-Instruct(首选,本地权重+BFCL FC handler)、phi-4 14B(MIT,需下载)、gemma-3-12b-it、gpt-oss-20b(需升级 BFCL harness);建议先跑基座三基准分再定。等用户点头。
+- 9/9 17:15Z HF 核查:Llama 无新小模型(最新 Llama-4 Scout/Maverick 2025-05,≤20B 仅 3.2-3B/3.1-8B);Gemma 4(2026-07):E2B/E4B/12B(11.95B,Apache-2.0,原生 tool calling)/26B-A4B(25.2B 总/3.8B 激活)/31B,均有 -it。建议主选 gemma-4-12B-it,备选 26B-A4B-it;BFCL 官方与上游均无 gemma-4 handler,需自加 FC handler(Codex)。等用户确认。
+- 9/9 17:30Z gemma-4-12B-it 权重已下到本机 HF 缓存(23GB,单 safetensors,含 chat_template.jinja)。
+- 9/9 17:40Z Gemma 4 环境核查:.venv transformers 5.14.1 可加载 gemma4_unified;chat template 工具格式:turn 标记 <|turn>model\n,生成提示尾部带空思考通道 <|channel>thought\n<channel|>,工具调用文本 <|tool_call>call:f{x:1}<tool_call|>,工具响应 <|tool_response>…;工具 schema 用自有紧凑语法(<|"|> 引号)。BFCL handler 需按此写 native-FC(与 Qwen native-fc v2 同思路)。
+- 9/9 17:50Z 用户:12B 先测三基准,勉强但有分为佳;还行就不测 26B。已起:AppWorld dev40 基座(GPU4,pid 2663519,logs/gemma4_12b_base_dev40.log → results/appworld/gemma4_12b_base_dev40);ALFWorld valid_seen 基座(GPU3,pid 2691575,bfas_eval_ckpt + vLLM,→ results/bfas/alfworld/vs_gemma4_12b_base_s0);Codex 写 BFCL Gemma 4 原生 FC handler(logs/codex_gemma4fc_launch.log)。环境变更:envs/vllm-serve transformers 5.15.1 → 5.14.1(vLLM 0.27.1 加载 gemma4_unified 时 5.15 的 per-layer head_dim 报错;vllm 要求 >=5.5.3,兼容);Qwen 相关评测若恢复需留意。
+- 9/9 18:40Z gemma-4-12B-it AppWorld 基座:HF generate 约 37 s/步,任务 4–10 步即止(非循环),3 题各 pass 1/fail 1;预计 ~3h 跑完,不改 vLLM 路线。BFCL:Codex 提交 b35f86e(gemma4_fc handler + 12 CPU 测试通过),GPU1 上 simple_python 冒烟中(logs/bfcl_gemma4_smoke.log)。
+- 9/9 18:55Z BFCL 冒烟第一次 0%:LOCAL_SERVER_PORT=8999 被他人的 python 服务(pid 1674887)占用,OSSHandler 见端口在用即不启 vLLM,直接把请求发到了别人的服务(404 model not found)。教训:起 bfcl generate 前先 ss -ltn 确认端口空闲。已换端口重跑冒烟(logs/bfcl_gemma4_smoke2.log)。
+- 9/9 19:05Z BFCL 冒烟(端口 8977)simple_python 95.0%,handler 正常;全量 BFCL v4 基座(google/gemma-4-12B-it-FC)在 GPU1 跑中:result_gemma4_12b_base_full / score_gemma4_12b_base_full(logs/bfcl_gemma4_base_{gen,eval}.log)。8999 是本机 tools/ollama_proxy.py(HQ 代理),非他人。
+- 9/9 19:20Z gemma-4-12B-it ALFWorld valid_seen 基座 = 56.43%(79/140)。
+- 9/9 19:50Z gemma-4-12B-it BFCL v4 基座 = 45.48(NL 82.4 / Live 80.2 / MT 53.3 / Mem 28.6 / Irrel 75.3 / Web 0.0);Web 0 待查。
+- 9/9 19:55Z BFCL Web 0.0 原因:handler 未按评测器形状记录最终纯文本回答('Cannot find the last chat message that is not a function call',200/200);Codex 修复任务已起(logs/codex_gemma4fc_fix_launch.log),修完只重跑 web_search 两类并重算。
+- 9/9 20:10Z BFCL Web 0 定性:无 SERPAPI_API_KEY,搜索工具对所有模型均失败;Qwen 基座 9% 来自凭记忆作答,Gemma 12B 重试搜索 21 次不作答 → 0;协议一致,45.48 定为基座分,不重跑。handler 修复 f5462ba 保留(14 CPU 测试通过)。
+- 9/9 20:35Z 用户:修好就重新测。BFCL 全量用修复后 handler(f5462ba)重跑:result_gemma4_12b_base_full2 / score_..._full2(logs/bfcl_gemma4_base2_{gen,eval}.log),GPU1。
+- 9/9 20:50Z 事故(轻微):旧的 GPU2 等待器(b42b0q6uj)在 GPU2 空出时自动 resume 了 rai R0(Qwen v1.0)pid 3120471;发现后立即处理,进程已不在(见 logs/rtd_resume_rai_R0_r3.log),GPU2 无我方进程;已停旧 v1.0 触发器 bprn48qj4。现无任何 Qwen 进程。
+- 9/9 21:40Z gemma-4-12B-it BFCL v4 基座重跑 = 45.63(NL 82.2 / Live 80.2 / MT 52.8 / Mem 30.3 / Irrel 75.1 / Web 0.0),与首跑 45.48 差 0.15(评测噪声);定为基座分。
+- 9/9 22:30Z gemma-4-12B-it AppWorld dev40 基座 = 0/40(pooled 21.28%,平均 11.25 步)。三基准汇总:ALFWorld 56.43 / BFCL 45.63 / AppWorld 0.0 → AppWorld 不满足'勉强有分',按用户规则转测 26B-A4B(先 AppWorld)。
+- 9/9 22:40Z 26B-A4B-it 下载中(pid 3342470,logs/dl_gemma4_26b.log);后台链(buxo33me2)下完自动起 AppWorld dev40 基座(GPU4,logs/gemma4_26b_base_dev40.log → results/appworld/gemma4_26b_base_dev40)。重启后若链丢失:检查下载 DONE 后手动起评测。
+- 9/9 23:05Z 26B-A4B-it 下载完成(49GB);AppWorld dev40 基座评测已起(GPU4,pid 3378941);等待器 bbg30rozp 收结果。
+- 9/10 00:45Z 发现旧记录:官方 AppWorld 脚手架(dev57,50 步)下 Qwen 4B 基座 TGC 14.0%,我们的 dev40/24 步 harness 为 0 → AppWorld 地板是 harness 所致。已向用户提议 AppWorld 改回官方脚手架;已准备 envs/appworld-repo/experiments/configs/simplified_react_code_agent/local/gemma4-{12b,26b}-base_dev.jsonnet(端口 8950,served name gemma4-<m>-base)。启动方式参考 tools/awoff_9b_only.sh(Gemma 不加 enable_thinking kwarg)。等用户同意。
+- 9/10 00:45Z 用户同意 AppWorld 改官方脚手架。起 12B(GPU1, vLLM 8950)与 26B(GPU3, vLLM 8951)官方 dev57 基座评测,输出 envs/appworld-repo/experiments/outputs/simplified_react_code_agent/local/gemma4-{12b,26b}-base_dev;日志 logs/awoff_gemma4-*-base_dev.log。
+- 9/10 00:50Z 官方脚手架:12B vLLM 在 GPU1 起来(链 bkn0numc9);26B 在 GPU3 起 vLLM 失败(空闲 49.5GB < 0.85×79GB,GPU3 有 sdl 两个训练),改为链 b0h11kc16:等 26B dev40(pid 3378941)结束后在 GPU4 起 vLLM :8951 再跑官方 dev57(日志 logs/vllm_awoff_gemma4-26b-base_gpu4.log, logs/awoff_gemma4-26b-base_dev.log)。
+- 9/10 01:15Z gemma-4-26B-A4B-it AppWorld dev40(简化 harness)= 0/40,pooled 20.74%,平均 12.1 步 → 与 12B、Qwen 4B 同地板。GPU4 已释放,26B 官方脚手架链(b0h11kc16)接手。
+- 9/10 01:40Z 26B 官方脚手架 dev57:TGC 61.4 / SGC 36.8(Qwen 4B 同口径 14.0)。12B 官方评测 GPU1 仍在跑。
+- 9/10 01:50Z 26B 官方 dev57 TGC 61.4/SGC 36.8(15 min)。12B 官方评测慢(55 min 仅 18 次生成、5/57),疑似长输出/循环,检查中。GPU4 链:26B ALFWorld valid_seen(vLLM :8962)→ 26B BFCL 全量(handler gemma4_fc,端口 8979/8980)。
+- 9/10 02:35Z 12B 官方 AppWorld 评测停滞(5/57;00:55Z 后无新 lm_calls,worker CPU 0%)→ 已杀(appworld 4 worker + vLLM :8950),待有空卡时以 skip_if_finished 重起。26B ALFWorld 客户端 50 min 无请求,排查锁/就绪检查中。
+- 9/10 01:45Z 更正:我把本地时间当成了 UTC,误判 12B 官方评测'停滞 45 min'并杀掉(实际最后一次请求在 01:36Z,只是慢:5/57 用了 55 min);已在 GPU1 重起(skip_if_finished,日志 logs/awoff_gemma4-12b-base_dev_2.log)。26B ALFWorld 自 01:37Z 正常在跑(6 min 842 次生成)。上一条整点汇报的时段标签应为 00:23–01:23Z。
+- 9/10 02:45Z 26B ALFWorld valid_seen 基座 = 30.71%(12B 56.43);26B BFCL 生成 84%。
+- 9/10 02:50Z 12B 官方 AppWorld 评测放弃:重起后单个请求以 47 tok/s 连续生成 55 min 不结束(失控循环生成),两次运行共完成 5/57;已杀,GPU1 释放。记录为'12B 在官方脚手架下有失控生成的失败模式'。
+- 9/10 03:00Z 26B BFCL 基座 = 48.88(NL 82.2 / Live 81.1 / MT 53.8 / Mem 42.2 / Irrel 79.9)。候选汇总:26B-A4B — AppWorld 官方 61.4 / ALFWorld 30.7 / BFCL 48.9;12B — AppWorld 官方失控未完成 / ALFWorld 56.4 / BFCL 45.6。建议学生 = gemma-4-26B-A4B-it。
+- 9/10 03:10Z 重采预算已发:ALFWorld GPT-5.4 池复用(0);BFCL 新采 2–5 万 token;AppWorld 官方脚手架重采估 4–6M token(旧池 42 调用 4.79M,中位 10 万/题,含推理 token)。等用户定学生(建议 26B-A4B)/教师/采法。rai 上无我方 GPU 进程。
+- 9/10 03:55Z 用户:考虑替换 AppWorld(harness 老出问题)。已建议:主表改 ALFWorld / WebShop / BFCL(+可选 HotpotQA-ReAct),依据 SAD(ALFWorld+WebShop+HotpotQA-ReAct)、AgentTuning(AgentBench)等;WebShop 轨迹短、教师示范 2–5k token;搭建走官方 WebShop 或 AgentGym。等用户点头。
+- 9/10 04:05Z WebShop 搭建要点(README):Python 3.8.13 + Java(Lucene 索引),setup.sh -d small(1,000 商品)/all;gym env WebAgentTextEnv-v0(observation_mode=text),6,910 goals(默认 test 前 500 为常用评测集,论文里 500 题);AgentGym 提供 agentenv-webshop HTTP 服务封装(/createEnv,/reset,/step)。安装必须在 envs/webshop/ 沙盒内进行(数据安全规则)。
+- 9/10 12:15Z 用户:测两个候选在 WebShop 的基座表现。开始:envs/webshop/repo(princeton-nlp/WebShop)搭建 + Codex 写 tools/webshop_eval.py;test 前 500 指令,ReAct 式 search/click,greedy,vLLM 服务。
+- 9/10 12:25Z WebShop 数据改用 HF 镜像 YWZBrandon/webshop-data(symlink 进 repo/data);本地修改 envs/webshop/repo/web_agent_site/utils.py 两行默认路径指向全量文件(items_shuffle.json / items_ins_v2.json);convert+索引重跑中。
+- 9/10 12:40Z rai 五卡均被同学占用大半(GPU4 剩 ~42GB):26B vLLM 起不来;先起 12B(GPU4,util 0.42,:8950)测 WebShop,26B 等 GPU 空出。WebShop 评测器 tools/webshop_eval.py 已提交(e6a9cea,31 测试)。
+- 9/10 12:45Z WebShop 全量索引完成(1,181,430 件,12:24Z);冒烟链 bfsp3c3cb 等 12B 服务就绪后跑 5 题;26B 等 ≥70GB 空卡(waiter bxibe3tq0)。
+- 9/10 13:00Z WebShop venv 最终钉版(py3.8):spacy 3.3.0 + en_core_web_sm/lg 3.3.0(--no-deps 装 wheel)、pydantic 1.10.18、typing_extensions 4.12.2、openai 1.59.9、httpx<0.28、selenium 4.2.0、werkzeug 2.1.2、gym 0.24.0、pyserini 0.17.0;uv 每次装包都会改动依赖,装完必须 --reinstall pydantic/typing_extensions 并验证 import spacy+openai。
+- 9/10 13:05Z WebShop 冒烟通过(12B 5 题 score 55.4);全量 500 题 12B 运行中(logs/webshop_gemma4_12b_base.log → results/webshop/gemma4_12b_base)。
+- 9/10 13:20Z 12B WebShop 全量在第 9 题因 prompt 超 16k 上下文 400 中断(前 8 题 score 50.3);重起服务 max-model-len 32768;Codex 给评测器加历史截断与超长兜底(b8gknzw0e)。事故:用 pgrep -f 含自身命令行的模式杀进程,再次自杀工具 shell(exit 144),旧服务已被杀,新服务需重起——已重起。
+- 9/10 12:41Z 时间戳更正:上面标 13:00Z/13:05Z/13:20Z 的三条实际发生在 12:25–12:35Z(此后时间一律取自 date -u)。
+- 9/10 12:45Z 评测器补丁提交(历史观察 600 字符截断、prompt ≤60k 字符丢最旧对、400 兜底;71 测试);12B 全量 500 题从头重跑(results/webshop/gemma4_12b_base_v2)。
+- 9/10 13:41Z GPU1 空出;26B vLLM(:8951)+ WebShop 500 题链已起(logs/webshop_gemma4_26b_base.log → results/webshop/gemma4_26b_base);12B 327/500 score 53.8。
+- 9/10 14:01Z 26B 在 GPU1 起服务时又被同学抢占(空闲 25GB)。改为抢卡链 webshop_26b_grab.sh(每 60 s 找 ≥70GB 空卡,起服务并跑 500 题,失败重试;log logs/webshop_26b_grab.log)。
+- 9/10 14:06Z WebShop 12B 基座 = score 53.65 / success 18.2%(500 题,平均 7.6 步,31 题因连续 3 次格式失败结束)。26B 等抢卡链。
+- 9/10 15:31Z WebShop 26B 基座 = score 31.20 / success 12.6%(12B 53.65 / 18.2%)。
+- 9/10 15:31Z 建议已发:学生 gemma-4-12B-it,主表 ALFWorld/WebShop/BFCL,教师 GPT-5.4;等确认后冻结协议、采池、Codex 改 Gemma 4 渲染。rai 无我方 GPU 进程(26B 服务已由链自行关闭)。
+- 9/10 15:34Z 用户确认新 pair:学生 gemma-4-12B-it,教师 GPT-5.4(Azure),主表 ALFWorld / WebShop / BFCL v4(AppWorld 撤下)。开工:冻结协议 → 教师池(ALFWorld 复用;BFCL、WebShop 新采,预算 <2M token)→ Codex(WebShop adapter;Gemma 4 学生渲染 + bank)→ rai V0/V1/V2。
+- 9/10 15:36Z Azure GPT-5.4 连通性:~/.azure_llm_api 里的 key 已失效(401);用 ~/hq/secrets/llm_apis.env 的 AZURE_APIM_ENDPOINT(前三段为 host)+ AZURE_P1_PRIMARY 导出为 AZURE_LLM_ENDPOINT/AZURE_LLM_KEY 后 gpt-5.4 与 gpt-5.4-mini 都返回 OK。采集脚本启动时按此导出(不改家目录文件,不打印密钥)。
+- 9/10 15:37Z ALFWorld 封存 bank data/rtd/v1_alfworld_c26(public/sealed/requests/support)可复用(教师示范与学生无关);但 v1.1 只跑过 BFCL(configs/rtd/v1_1_bfcl.yaml),ALFWorld 与 WebShop 需要 v1.1 配置与 bank 构建——留给 Codex C(rtd-v11-c 树)。docs/protocol_v2_gemma4_gpt54.md 已提交(292ba3e)。
+- 9/10 16:08Z Codex A/B 交付并提交:tc-alignment-ws a076898(WebShop adapter,93 测试;默认学生 gemma-4-12B-it),tc-alignment-g4 55647f4(Azure GPT-5.4 FC 教师 + Gemma 4 行渲染,22 测试;渲染器 --verify 通过 23 行)。冒烟:WebShop 桥 reset/step 正常;教师单题(600,greedy)未通过、77 token、275 s;BFCL Azure FC 单题 irrelevance_16 通过、156 token、11 s。启动 BFCL 全量教师采集(g4 树,logs/bfcl_teacher_gpt54.log)。
+- 9/10 16:25Z GPT-5.4 教师延迟:reasoning none 1.6 s/步、low 7.6 s/步、medium 触发 APIM 429(8 次重试失败)→ WebShop 教师只能用 none 或 low;none 的验证率 1/5(与 12B 基座持平)。正在测 low 在 605–609 的验证率(logs/webshop_teacher_low_probe.log)。BFCL 采集正常推进(先跑 memory 前置链,慢)。
+- 9/10 16:27Z rtd-v11-c 合并 main + webshop-adapter + gemma4-bfcl(5bbe357;子集 55 测试通过);Codex D16 已起(tc-alignment-v11c):学生泛化到 gemma-4-12B-it、Gemma 4 decode、WebShop v1.1 包、ALFWorld v1.1 配置/bank 转换、bank 构建工具、三个新 config(logs/codex_d16_launch.log)。BFCL GPT-5.4 采集运行中(等待器 bl3kln3ho);WebShop reasoning-low 探针运行中(b8lz825y0)。
+- 9/10 16:49Z Azure APIM 限流:并行的 BFCL 采集 + WebShop 探针 + 单集追踪互相争抢 TPM,追踪 500 s 内没跑完(429 重试)。规则:同一时间只跑一条 Azure 采集;追踪等探针结束再做。
+- 9/10 17:03Z 用户:先更新论文 §5/§6(pair、benchmark、Table 1 含基座分),再按附件《RTD 统一蒸馏任务书》改方法(统一来源替换 a_ij、gCV 估计器、联合 QP、采购价值 A(Q)、摊销控制器;P0→P3)。附件存为 docs/RTD_UNIFIED_DISTILLATION_TASKBOOK_ZH.md。计划:论文先改;D16 落地后从 rtd-v11-c 开 unified 分支,Codex 做 P0(数学契约+玩具测试+接口)。

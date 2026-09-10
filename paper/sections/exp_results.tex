@@ -17,40 +17,41 @@ subsections answer these questions in turn.
 
 \begin{table}[t]
 \centering
-\caption{Main comparison with distillation baselines (DeepSeek-V4-Pro
-teacher, Qwen3.5-4B student). The agent harness, tools, prompts, and
-decoding are fixed per benchmark and only the student backbone changes.
+\caption{Main comparison with distillation baselines (GPT-5.4 teacher,
+Gemma-4-12B student). The agent harness, tools, prompts, and decoding
+are fixed per benchmark and only the student backbone changes.
 Teacher-using methods share the same teacher budget cap $B$ per
 benchmark, with actual spend reported in Appendix~\ref{app:details};
 STaR uses no teacher call. Trained rows are mean$\pm$std over three
-training runs; the reference values of the teacher and of the initial
-pretrained student are given in Table~\ref{tab:reference} of
-Appendix~\ref{app:details}. AppWorld reports TGC on the
-\texttt{dev40} subset (24 steps), BFCL~v4 the official overall
-accuracy, and ALFWorld the \texttt{valid\_seen} success rate, all in
-percent. $\Delta_{\mathrm{avg}}$ is the mean improvement in percentage
-points over the initial student across the three columns and is
-computed only for rows with all three. Cells marked $\cdot$ are
-pending, and $^{\dagger}$ marks a cell with fewer than three training
-runs, reported provisionally until they complete; the RTD entry is the
-full method at the 10\% authorization point of a single run.
-The AppWorld column still shows the earlier mixed-teacher pools
-(awb3) and will be replaced by the unified-budget runs.}
+training runs; the initial student row is a single reference
+evaluation on the same machine (Appendix~\ref{app:details}). ALFWorld
+reports the \texttt{valid\_seen} success rate, WebShop the success
+rate on the 500 test instructions (the reward score is in
+Appendix~\ref{app:details}), and BFCL~v4 the official overall
+accuracy, all in percent. $\Delta_{\mathrm{avg}}$ is the mean
+improvement in percentage points over the initial student across the
+three columns and is computed only for rows with all three. Cells
+marked $\cdot$ are pending, and $^{\dagger}$ marks a cell with fewer
+than three training runs, reported provisionally until they complete.
+Results under the earlier teacher--student pair are kept in
+Table~\ref{tab:earlier} of the appendix.}
 \label{tab:main}
 \small
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Method} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
+\textbf{Method} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
-SFT & $4.2_{\pm3.8}$ & $30.9_{\pm5.5}$ & $\cdot$ & $\cdot$\\
-SAD & $2.5_{\pm4.3}$ & $28.2_{\pm6.9}$ & $\cdot$ & $\cdot$\\
-BBOPD & $0.0_{\pm0.0}$ & $26.5_{\pm5.3}$ & $\cdot$ & $\cdot$\\
-dDPO & $2.5_{\pm4.3}$ & $41.0_{\pm6.3}$ & $\cdot$ & $\cdot$\\
-PBSD & $0.0^{\dagger}$ & $38.4^{\dagger}$ & $\cdot$ & $\cdot$\\
-STaR & $2.5_{\pm2.5}$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\rowcolor{rowhead}Initial student (Gemma-4-12B) & $56.4$ & $18.2$ & $45.6$ & --\\
 \midrule
-\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $46.4^{\dagger}$ & $\cdot$ & $\cdot$\\
+SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+BBOPD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+dDPO & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+PBSD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+STaR & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\midrule
+\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}
@@ -111,7 +112,7 @@ column set. Bold marks the best and underline the second best.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Acquisition} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
+\textbf{Acquisition} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
 \rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Selection}}\\
 Random subset & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
@@ -157,7 +158,7 @@ the second best.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Distillation} & AppWorld (TGC) & BFCL v4 & ALFWorld & $\Delta_{\mathrm{avg}}$\\
+\textbf{Distillation} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
 SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
@@ -187,11 +188,10 @@ mass and a return-chosen replacement keeps it.
 
 \begin{table}[t]
 \centering
-\caption{Component ablation on BFCL~v4. Entries are single runs at the
-10\% authorization point and will be replaced by the 25\% point when
-the second budget round lands; the base student on the same hardware
-scores 46.06. Each row changes one component of the previous one, and
-$\Delta$ is the change from the row above in percentage points.}
+\caption{Component ablation on BFCL~v4 at the 25\% budget point. Each
+row changes one component of the previous one, and $\Delta$ is the
+change from the row above in percentage points. Entries under the
+earlier teacher--student pair are kept in Appendix~\ref{app:details}.}
 \label{tab:ablation}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -199,11 +199,11 @@ $\Delta$ is the change from the row above in percentage points.}
 \toprule
 \textbf{Configuration} & BFCL v4 & $\Delta$\\
 \midrule
-Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $47.08$ & --\\
+Random acquisition, fixed $\alpha=0.5$, $d=0$ (V0) & $\cdot$ & --\\
 \quad learned $\alpha$, $d=0$ & $\cdot$ & $\cdot$\\
 \quad learned $\alpha$, independent $d$ (no interaction term) & $\cdot$ & $\cdot$\\
-\quad learned $\alpha$, joint $d$ (V1, replays the purchases of V0) & $45.97$ & $-1.11$\\
-+ acquisition by the joint-update surrogate (V2, full method) & $46.35$ & $+0.38$\\
+\quad learned $\alpha$, joint $d$ (V1, replays the purchases of V0) & $\cdot$ & $\cdot$\\
++ acquisition by the joint-update surrogate (V2, full method) & $\cdot$ & $\cdot$\\
 \bottomrule
 \end{tabular*}
 \end{table}
