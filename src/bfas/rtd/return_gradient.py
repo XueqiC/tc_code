@@ -136,6 +136,8 @@ class TorchPolicyBackend:
         eos = self.tokenizer.eos_token_id
         if type(eos) is not int:
             raise ValueError("one configured EOS token required")
+        from .student import termination_ids
+        stops = termination_ids(self)
         action, token_logprobs = [], []
         room = self.max_context_tokens - len(prompt_ids)
         if room < 1:
@@ -149,9 +151,10 @@ class TorchPolicyBackend:
                 token = int(torch.multinomial(logps.exp(), 1, generator=generator))
                 action.append(token)
                 token_logprobs.append(float(logps[token]))
-                if token == eos:
+                if token in stops:
                     break
-        truncated = action[-1] != eos
+        truncated = action[-1] not in stops
+        eos = eos if truncated else action[-1]
         return ActionTrace(prompt_ids, tuple(action), eos,
             self.tokenizer.decode(action if truncated else action[:-1], skip_special_tokens=False),
             sum(token_logprobs), self.backend_id, self.identity(parameters), tuple(token_logprobs),
@@ -210,7 +213,10 @@ class TorchPolicyBackend:
         prompt = self.tokenizer.encode(behavior.state.prompt, add_special_tokens=False)
         action = list(self.tokenizer.encode(behavior.text, add_special_tokens=False))
         eos = self.tokenizer.eos_token_id
-        # Authored text may include an explicit terminator. Never append two.
+        from .student import termination_ids
+        # Authored native targets already include their turn/handoff terminator.
+        if action and action[-1] in termination_ids(self):
+            eos = action[-1]
         if not action or action[-1] != eos:
             action.append(eos)
         return self.score_tokens(prompt, action, parameters, eos_token_id=eos)
@@ -268,7 +274,7 @@ class TorchPolicyBackend:
 
 
 def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *, checker=None):
-    """Run the existing Qwen BFCL harness from a fresh copy of the task start.
+    """Run the configured student BFCL harness from a fresh copy of the task start.
 
     The model query uses the local scoreable backend; RTD-only decoding guards
     preserve malformed samples as failed actions. Multi-turn observations and
@@ -277,7 +283,9 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
     """
     from ..adapters.bfcl import BFCLAdapter
     # _handler adds the repository's vendored BFCL path. It does not start a server.
-    handler = BFCLAdapter()._handler()
+    config = getattr(backend, 'student_config', {})
+    from .bfcl_decode import student_handler
+    handler = student_handler(config, getattr(backend, 'tokenizer', None))
     from bfcl_eval.utils import contain_multi_turn_interaction, populate_test_cases_with_predefined_functions
     from bfcl_eval.constants.enums import ReturnFormat
     from types import MethodType
@@ -292,9 +300,11 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
         if not actions[-1].malformed:
             actions[-1] = replace(actions[-1], malformed=True,
                 malformed_exception_type=type(exc).__name__, malformed_stage=stage)
-    guard_rtd_decoding(handler, record_malformed)
+    guard_rtd_decoding(handler, record_malformed, student_call_format=config.get('student_call_format', 'qwen'))
     def query(_handler, inference_data):
-        prompt = thinking_off(_handler._format_prompt(inference_data["message"], inference_data["function"]))
+        prompt = _handler._format_prompt(inference_data["message"], inference_data["function"])
+        if config.get("student_call_format", "qwen") == "qwen":
+            prompt = thinking_off(prompt)
         with backend.action_limit(category) if hasattr(backend, 'action_limit') else nullcontext():
             action = backend.sample_action(prompt, parameters, generator, temperature=1., top_p=1.)
         actions.append(action)
@@ -317,7 +327,8 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
             if key.startswith(prefix) and key.endswith("_instance"):
                 delattr(multi_turn_utils, key)
     owns_checker = checker is None
-    checker = checker or CheckerBridge()
+    checker = checker or (CheckerBridge(config['student']+'-FC',
+        student_call_format=config.get('student_call_format', 'qwen')) if config.get('student') else CheckerBridge())
     try:
         if contain_multi_turn_interaction(task["id"]):
             verdict = checker.check_multi_turn(task, result, truth, category)

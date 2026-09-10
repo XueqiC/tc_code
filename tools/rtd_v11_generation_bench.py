@@ -180,6 +180,7 @@ def main(argv=None, *, forward_only=False):
         tokenizer_hash=manifest['tokenizer_hash'], max_action_tokens=batched.max_action_tokens,
         max_context_tokens=batched.max_context_tokens, action_caps=batched.action_caps,
         journal=journal, score_tolerance=batched.score_tolerance)
+    legacy.student_config = dict(config)
     # Warm both paths with a real short prompt and a separate, discarded RNG.
     prompt = min((s.prompt for s in support.states.values()), key=lambda p: len(batched._prompt_ids(p)))
     for b in (legacy, batched):

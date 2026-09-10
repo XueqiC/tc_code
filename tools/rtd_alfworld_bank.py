@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from bfas.rtd.benchmarks.alfworld_bank import (
-    LEDGER, TOKENIZER_SNAPSHOT, audit_bank, build_alfworld_bank,
+    LEDGER, audit_bank, build_alfworld_bank,
     inventory_alfworld, markdown_report,
 )
 
@@ -43,8 +43,8 @@ def main(argv=None):
         p = sub.add_parser(command)
         p.add_argument("--root", type=Path, default=ROOT, help="read-only historical repository")
         p.add_argument("--ledger", action="append", help="JSONL ledger path relative to --root (repeatable)")
-        p.add_argument("--tokenizer", type=Path, default=Path.home() / ".cache/huggingface/hub" /
-                       "models--Qwen--Qwen3.5-4B/snapshots" / TOKENIZER_SNAPSHOT / "tokenizer.json")
+        p.add_argument("--config", type=Path, default=ROOT / "configs/rtd/v1_alfworld_c26.yaml")
+        p.add_argument("--tokenizer", type=Path)
         p.add_argument("--out", type=Path, default=ROOT / (
             "results/rtd_v1/alfworld_bank_audit" if command == "inventory" else "data/rtd/v1_alfworld_c26"))
     p = sub.add_parser("audit")
@@ -56,7 +56,10 @@ def main(argv=None):
         print(json.dumps(audit_bank(args.bank, root=args.root,
                                    expected_manifest_sha256=args.expected_manifest_sha256), indent=2))
         return 0
-    kwargs = dict(ledger_paths=tuple(args.ledger or [LEDGER]), tokenizer_path=args.tokenizer)
+    from bfas.rtd.benchmarks.alfworld_config import load_config, model_directory
+    config = load_config(args.config)
+    tokenizer = args.tokenizer or model_directory(args.root, config) / "tokenizer.json"
+    kwargs = dict(ledger_paths=tuple(args.ledger or [LEDGER]), tokenizer_path=tokenizer, student=config['student'])
     if args.command == "inventory":
         summary = inventory_alfworld(args.root, **kwargs)
         paths = write_report(summary, args.out)

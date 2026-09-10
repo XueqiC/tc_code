@@ -90,6 +90,10 @@ def _flatten_adapter(manifest, checkpoint, destination):
     merged = model.merge_and_unload(safe_merge=True)
     merged.save_pretrained(destination, safe_serialization=True, max_shard_size='100GB')
     AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True).save_pretrained(destination)
+    for name in ('preprocessor_config.json', 'processor_config.json', 'feature_extractor_config.json', 'video_preprocessor_config.json'):
+        source = Path(manifest['model_path'])/name
+        if source.is_file():
+            shutil.copy2(source, destination/name)
     if not (destination / 'model.safetensors').exists():
         raise ValueError('campaign requires the flattened model.safetensors export')
 
@@ -117,6 +121,10 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
              lock_timeout=None, lock_log_interval=None):
     root, directory = Path(root).resolve(), Path(directory).resolve()
     manifest = json.loads((directory / 'manifest.json').read_text())
+    if manifest['config'].get('benchmark', 'bfcl') != 'bfcl':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(manifest['config']).official_evaluation(root, directory, round_number,
+            port=port, base_evaluation=base_evaluation, lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
     checkpoint = directory / f'round-{round_number}'
     meta = verified_checkpoint(directory, manifest, round_number)
     if tree_hash(manifest['model_path']) != manifest['base_checkpoint_hash']:
@@ -144,7 +152,8 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                     # manifests; guard_hardware checks the effective class above.
                     hardware_hash=manifest['hardware_hash'], expected_hash=digest(expected),
                     evaluation_harness_hash=identities['harness_hash'],
-                    evaluation_temperature=manifest['config']['evaluation_temperature'])
+                    evaluation_temperature=(0.001 if manifest['config'].get('student_call_format') == 'gemma4'
+                                            else manifest['config']['evaluation_temperature']))
     tag, campaign_identity = _completed_campaign_identity(root, manifest, identity, identities, round_number)
     out = root / 'results/bfcl_std' / tag
     completed = directory / f'evaluation-{round_number}.json'
@@ -238,7 +247,9 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             env = dict(os.environ, BFCLSTD_PREMERGED=str(merged), BFCLSTD_PRESERVE_GENERATION='1',
                        BFCLSTD_BASE_MODEL=manifest['model_path'],
                        BFCLSTD_TAG_LOCK_FD=str(tag_fd), BFCLSTD_PORT_LOCK_FD=str(port_fd),
-                       BFCLSTD_TEMPERATURE=str(manifest['config']['evaluation_temperature']))
+                       BFCLSTD_TEMPERATURE=str(0.001 if manifest['config'].get('student_call_format') == 'gemma4' else manifest['config']['evaluation_temperature']))
+            if manifest['config'].get('student'):
+                env['BFCLSTD_MODEL_NAME'] = manifest['config']['student'] + '-FC'
             env.pop('BFCLSTD_LOCKED', None)  # always enter the validating wrapper
             log = stage / f'campaign-{time.time_ns()}.log'
             start = time.monotonic()
@@ -273,6 +284,7 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             merged_hash=export['merged_hash'], expected=expected, code_drift=drift,
             evaluation_harness_metadata=evaluation_harness_metadata(root),
             artifacts_hash=tree_hash(out), overall_accuracy_percent=score, validation=validation,
+            checkpoint_spend=meta.get('actual_spend'), authorized_budget=meta.get('authorized_budget'),
             campaign_log=str(log) if log else None, campaign_seconds=elapsed, reused_campaign=reused,
             evaluation_lock_idle_seconds=wait_seconds,
             port=port, output_directory=str(out))
@@ -318,7 +330,11 @@ def report(directories, output):
                 out = Path(result['output_directory'])
                 if result['artifacts_hash'] != tree_hash(out):
                     raise ValueError('evaluation artifacts changed')
-                validate_evaluation(result['expected'], out / 'resultdir', out / 'scoredir')
+                if manifest['config'].get('benchmark', 'bfcl') == 'bfcl':
+                    validate_evaluation(result['expected'], out / 'resultdir', out / 'scoredir')
+                else:
+                    from .benchmarks.webshop_evaluation import validate_records
+                    validate_records(manifest['config']['benchmark'], out, result['metrics'], result['expected'])
             ids = set(checkpoint['owned'])
             charges = [e for e in ledger.events if e['kind'] == 'reveal' and e['query_id'] in ids]
             if not ids <= ledger.owned_ids or sum(e['cost'] for e in charges) != checkpoint['actual_spend']:
@@ -374,6 +390,10 @@ def report(directories, output):
                 official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
                 hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
+            if manifest['config'].get('benchmark', 'bfcl') != 'bfcl' or manifest['config'].get('student_call_format') == 'gemma4':
+                rows[-1].pop('historical_demo_output_exact')
+                rows[-1].pop('historical_generation_output_estimated')
+                rows[-1]['benchmark'] = manifest['config']['benchmark']
             if manifest['config'].get('protocol_version') == '1.1.0':
                 from .conventions import DEVELOPMENT, ADAPTIVE_EFFECT, CORE_CONTROL
                 rows[-1].update(evaluation_label=DEVELOPMENT, adaptive_distillation_comparison=ADAPTIVE_EFFECT,

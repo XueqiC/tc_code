@@ -72,7 +72,7 @@ def source_score_scope(backend, actions, parameters):
 class HFForwardBatchMixin:
     def _forward_head(self):
         head = self.model.get_output_embeddings()
-        if head is None or getattr(self.model.config, 'final_logit_softcapping', None):
+        if head is None:
             raise ValueError('batched scoring requires a positionwise output head without post-head transforms')
         prefix = next(n for n, module in self.model.named_modules() if module is head)
         return head, prefix + '.' if prefix else ''
@@ -106,7 +106,8 @@ class HFForwardBatchMixin:
 
     def _project(self, head, prefix, parameters, hidden):
         bound = {n[len(prefix):]: p for n, p in parameters.items() if n.startswith(prefix)}
-        return functional_call(head, bound, (hidden,))
+        from .source_scoring import cap_logits, logit_softcap
+        return cap_logits(functional_call(head, bound, (hidden,)), logit_softcap(self.model))
 
     def _score_group(self, rows, parameters):
         head, prefix = self._forward_head()

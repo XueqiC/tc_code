@@ -128,6 +128,9 @@ def default_config():
 
 
 def validate_config(value):
+    if isinstance(value, dict) and value.get('protocol_version') == '1.1.0':
+        from ..cli import validate_config as validate_v11
+        return validate_v11(value)
     if not isinstance(value, dict) or any(not isinstance(k, str) for k in value):
         raise ValueError("configuration must be a string-keyed mapping")
     if value.get("benchmark") != "alfworld":

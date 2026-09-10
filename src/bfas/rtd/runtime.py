@@ -83,11 +83,13 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
         if not prompt_ids or room < 1:
             raise IncompleteRolloutError('complete prompt exceeds context; no truncation')
         eos = self.tokenizer.eos_token_id
+        from .student import termination_ids
+        stops = termination_ids(self)
         if type(eos) is not int:
             raise ValueError('one configured EOS token required')
         settings = GenerationConfig(do_sample=True, temperature=1., top_p=1., top_k=0,
             typical_p=1., repetition_penalty=1., num_beams=1, num_return_sequences=1,
-            max_new_tokens=min(room, self.max_action_tokens), eos_token_id=eos,
+            max_new_tokens=min(room, self.max_action_tokens), eos_token_id=list(stops),
             pad_token_id=eos, bos_token_id=self.tokenizer.bos_token_id,
             use_cache=True, return_dict_in_generate=True, output_scores=True)
         devices = [device.index or 0] if device.type == 'cuda' else []
@@ -113,7 +115,8 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
                     hook.remove()
                 generator.set_state((torch.cuda.get_rng_state(device) if devices else torch.get_rng_state()).cpu())
             ids = tuple(output.sequences[0, len(prompt_ids):].tolist())
-            truncated = bool(ids and ids[-1] != eos)
+            truncated = bool(ids and ids[-1] not in stops)
+            eos = eos if truncated or not ids else ids[-1]
             if self.journal:
                 self.journal.append('generated_tokens', context=self.context, action_tokens=len(ids),
                                     complete=bool(ids and ids[-1] == eos), truncated=truncated, policy_id=identity)
@@ -368,7 +371,7 @@ def load_backend(config, manifest, journal):
             gradient_checkpointing='non_reentrant_eval_functional_lora', checkpoint_layers=checkpoint_layers,
             max_live_action_graphs=1, parameter_space='lora_trainables',
             trainable_numel=sum(p.numel() for p in lora_parameters(model).values()))
-    return HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
+    backend = HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
         harness_hash=manifest['harness_hash'], tokenizer_hash=manifest['tokenizer_hash'], journal=journal,
         score_tolerance=ScoreTolerance.from_config(config),
         max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
@@ -376,3 +379,10 @@ def load_backend(config, manifest, journal):
             {'single_turn': 512, 'multi_turn': 1024}
             if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
         memory_policy=MemoryPolicy.from_config(config), generation_batch=GenerationBatch.from_config(config))
+
+    backend.student_config = dict(config)
+    if config['benchmark'] != 'bfcl':
+        from types import MethodType
+        from .benchmarks.registry import get_benchmark
+        backend.action_limit = MethodType(get_benchmark(config).action_limit, backend)
+    return backend
