@@ -185,7 +185,7 @@ def test_rollout_prompts_and_decoding_equal_validated_evaluator(harness, tuple_r
     client.responses = iter(responses)
     reference_env = StubBridge(done_after=14, tuple_reset=tuple_reset)
     reference_client = StubClient(responses)
-    expected = webshop_eval.run_episode(reference_env, reference_client, 500, "bfas-policy", 15, 2500)
+    expected = webshop_eval.run_episode(reference_env, reference_client, 500, "bfas-policy", 15, webshop_eval.OBS_CHARS)
     actual = adapter.rollout("stub-policy", ["500"], 0.0)[0]
     assert client.calls == reference_client.calls
     assert actual.verified == expected["success"] is True
