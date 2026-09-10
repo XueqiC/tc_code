@@ -1,0 +1,142 @@
+"""Shared credentials, inventory, and accounting for BFCL teacher collection."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+from . import ledger
+
+
+def ollama_credentials() -> tuple[str, str]:
+    base = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com/v1").rstrip("/")
+    if not base.endswith("/v1"):
+        base += "/v1"
+    key = os.environ.get("OLLAMA_API_KEY", "").strip()
+    if not key:
+        for name in (".ollama_api_key2", ".ollama_api_key"):
+            path = Path.home() / name
+            if path.is_file():
+                key = path.read_text().strip()
+                if key:
+                    break
+    if not key:
+        raise RuntimeError("Ollama credentials not found: set OLLAMA_API_KEY")
+    return base, key
+
+
+def teacher_task_ids(task_ids, *, record_inventory=True):
+    """Exclude memory demand before expanding any prerequisite write chains."""
+    task_ids = list(dict.fromkeys(task_ids))
+    if os.environ.get("BFAS_BFCL_SKIP_MEMORY_PREREQ") != "1":
+        return task_ids
+    skipped = {task_id for task_id in task_ids if task_id.startswith("memory_")}
+    if skipped and record_inventory:
+        teacher = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
+        path = ledger.ledger_path("bfcl").with_name("bfcl_inventory.jsonl")
+        with ledger._purchase_lock(path):
+            existing = {
+                (row["teacher"], row["task_id"])
+                for row in (json.loads(line) for line in path.read_text().splitlines())
+            } if path.exists() else set()
+            for task_id in sorted(skipped):
+                if (teacher, task_id) not in existing:
+                    ledger.append_record(path, {
+                        "task_id": task_id, "teacher": teacher,
+                        "status": "unavailable inventory",
+                        "reason": "BFAS_BFCL_SKIP_MEMORY_PREREQ=1",
+                        "timestamp": ledger._timestamp(),
+                    })
+    return [task_id for task_id in task_ids if task_id not in skipped]
+
+
+def read_results(result_dir: Path) -> list[dict]:
+    """Recover usage even when a process failed before BFCL wrote its result."""
+    from .adapters.bfcl import _completion_tokens
+
+    results = {}
+    for path in sorted(result_dir.rglob("*_result.json")):
+        for line in path.read_text().splitlines():
+            if line.strip():
+                row = json.loads(line)
+                if row["id"] in results:
+                    raise ValueError(f"duplicate BFCL result: {row['id']}")
+                results[row["id"]] = row
+    usage_path = result_dir / "bfas_usage.jsonl"
+    usage = {}
+    if usage_path.exists():
+        for line in usage_path.read_text().splitlines():
+            if line.strip():
+                row = json.loads(line)
+                counts = usage.setdefault((row["id"], row.get("bfas_attempt_id")), [0, 0])
+                counts[0] += row["input_token_count"]
+                counts[1] += _completion_tokens([row])
+    recovered = []
+    for (task_id, attempt_id), (input_tokens, output_tokens) in usage.items():
+        row = results.get(task_id)
+        if row is not None and row.get("bfas_attempt_id") == attempt_id:
+            results.pop(task_id)
+        else:
+            row = {
+                "id": task_id, "result": "Error during inference: no completed BFCL result",
+                "error": "incomplete_generation", "bfas_attempt_id": attempt_id,
+            }
+        # Preserve BFCL's nested turn/step structure when it reconciles.
+        if _completion_tokens([row]) != output_tokens:
+            row["output_token_count"] = output_tokens
+        row["input_token_count"] = input_tokens
+        recovered.append(row)
+    return [*results.values(), *recovered]
+
+
+def result_source_id(result_dir, model, result):
+    source = f"{Path(result_dir).resolve()}:{model}:{result['id']}"
+    if result.get("bfas_attempt_id"):
+        source += ":" + result["bfas_attempt_id"]
+    return source
+
+
+def record_attempt(adapter, result_dir, score_dir, task_ids, model, attempt_index, temperature):
+    """Import a batch once into the gateway schema, including failed/prereq rows."""
+    from .adapters.bfcl import _completion_tokens, extract_verdicts
+
+    result_dir, score_dir = Path(result_dir), Path(score_dir)
+    results = read_results(result_dir)
+    by_id = {row["id"]: row for row in results}
+    categories = adapter.task_categories()
+    verdicts = {}
+    # The checker excludes prerequisite writes. The adapter categorizes those
+    # with their memory backend for generation, so remove them from scoring
+    # inventory while still charging them below.
+    scored = {tid for tid in by_id if tid in categories and "prereq" not in tid}
+    # Include old demand left in a resumed directory when reconciling summaries.
+    for category in {categories[tid] for tid in scored}:
+        expected = {tid: category for tid in scored if categories[tid] == category}
+        try:
+            verdicts.update(extract_verdicts(score_dir, expected))
+        except Exception as exc:
+            print(f"[bfcldemos] unverified {category}: {exc}", flush=True)
+    demand = set(task_ids)
+    with ledger._purchase_lock("bfcl"):
+        recorded = {row.get("source_id") for row in ledger.read_records("bfcl")}
+        for result in results:
+            task_id = result["id"]
+            source_id = result_source_id(result_dir, model, result)
+            if source_id in recorded:
+                continue
+            tokens = _completion_tokens([result])
+            if tokens is None:
+                raise ValueError(f"{task_id}: missing BFCL provider usage; keep raw artifacts for reconciliation")
+            demo = None
+            if task_id in demand and verdicts.get(task_id) and not result.get("error"):
+                try:
+                    demo = adapter._teacher_demo_from_result(result, attempt_index)
+                except Exception as exc:
+                    print(f"[bfcldemos] cannot render {task_id}: {exc}", flush=True)
+            ledger.append_episode(
+                "bfcl", task_id=task_id, teacher=model, attempt_index=attempt_index,
+                temperature=temperature, verified=demo is not None,
+                tokens_spent=tokens, demo=demo, source_id=source_id,
+            )
+    return verdicts

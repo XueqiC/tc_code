@@ -143,6 +143,7 @@ def append_episode(
     demo: Demo | None = None,
     timestamp: str | None = None,
     ledger_root: Path | None = None,
+    source_id: str | None = None,
 ) -> dict[str, Any]:
     if verified and demo is None:
         raise ValueError("a verified ledger episode requires a Demo")
@@ -166,6 +167,8 @@ def append_episode(
     }
     if demo is not None:
         record["demo"] = demo_payload(demo)
+    if source_id is not None:
+        record["source_id"] = source_id
     append_record(ledger_path(benchmark, ledger_root=ledger_root), record)
     return record
 
@@ -368,14 +371,22 @@ def acquire_demos(
     if attempts < 0:
         raise ValueError("attempts must be non-negative")
     requested = list(dict.fromkeys(task_ids))
+    inventory_filter = getattr(adapter, "teacher_task_ids", None)
+    if inventory_filter is not None:
+        requested = inventory_filter(requested)
     interval = _minimum_interval()
     path = ledger_path(benchmark, ledger_root=ledger_root).resolve()
+    teacher = _teacher_name(benchmark, adapter)
+
+    def current_states():
+        records = read_records(benchmark, ledger_root=ledger_root)
+        if getattr(adapter, "ledger_teacher_scoped", False):
+            records = [record for record in records if record["teacher"] == teacher]
+        return compact_records(records, attempts=attempts)
+
     with _purchase_lock(benchmark, ledger_root=ledger_root):
-        states = load_ledger(
-            benchmark, attempts=attempts, ledger_root=ledger_root
-        )
+        states = current_states()
         purchased = path in _PURCHASED_LEDGERS
-        teacher = _teacher_name(benchmark, adapter)
         for task_id in requested:
             state = states.setdefault(task_id, _empty_state(attempts))
             if state["best_demo"] is not None or state["infeasible"] is True:
@@ -411,6 +422,9 @@ def acquire_demos(
                 except BaseException as exc:
                     if _is_quota_error(exc):
                         raise
+                    # A benchmark may fail after paid inference (e.g. in its
+                    # evaluator). Preserve measured usage carried by that error.
+                    tokens_spent = getattr(exc, "tokens_spent", 0)
                     append_episode(
                         benchmark,
                         task_id=task_id,
@@ -418,12 +432,13 @@ def acquire_demos(
                         attempt_index=attempt_index,
                         temperature=temperature,
                         verified=False,
-                        tokens_spent=0,
+                        tokens_spent=tokens_spent,
                         ledger_root=ledger_root,
                     )
                     purchased = True
                     _PURCHASED_LEDGERS.add(path)
                     state["attempts_used"] += 1
+                    state["tokens_total"] += tokens_spent
                     if not isinstance(exc, Exception):
                         raise
                     print(f"[bfas][demo] task={task_id} failed: {exc}", flush=True)
@@ -452,9 +467,7 @@ def acquire_demos(
                 and state["attempts_used"] >= attempts
             )
 
-        final_states = load_ledger(
-            benchmark, attempts=attempts, ledger_root=ledger_root
-        )
+        final_states = current_states()
         requested_states: dict[str, dict[str, Any]] = {}
         for task_id in requested:
             requested_states[task_id] = final_states.get(
