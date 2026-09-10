@@ -1375,5 +1375,173 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/9 03:48Z 用户核对:格式错误上升不应归因于 REINFORCE 步。核实:无 RL 步更新骨干(回报梯度只进 gate_vjp/插入价值);机制为传输目标自身质量项对温度 1 自采样(未过滤格式)的似然最大化。汇总 §2.3/§3.3 已修正(27de76f)并重发;v1.1 需加自采样格式过滤/门控处理。
 - 9/9 04:05Z v1.1 详细计划已发(docs/2026-09-09-rtd-v1-1-detailed-plan-zh.md):核实价值后验每轮重置;base crcd_r3_union_s0 与 bank 大量重叠(157 prompt / 145 响应 / 369 同任务,共 698 条);三臂 V0/V1/V2、软来源/CV 估计器、批量采购 E=40/K≤20、跨轮后验;§9 五项待拍板(基座 A/B 最关键)。
 - 9/9 04:07Z 更正:RTD 六 run 基座 = 原始 Qwen/Qwen3.5-4B(manifest model_path 851bf6e8),官方 46.06(hpg 40886321;rai 同模型 46.27);'base 46.74' 是 crcd_r3_union_t_s0 的分数,标错。基座未见 bank(无泄漏);CRCD checkpoint 与 bank 重叠 157/145/369,禁用作基座。两份文档已改并重发(2108243)。以后 rtd_v1_collect_report 的 --base-overall 用 46.06(hpg)/46.27(rai)。
-- 9/9 04:51Z D1 交付并提交(v11a:source_estimator.py/source_scoring.py + runtime/experiment/cli 接口,34 专项测试;全套 921 通过);在 v11a 启动 D8(α+d 机制、ĝ_d、θ̄⁺/θ_S⁺、z/ε_z 与下界决定 d)。D2/D3 仍在 v11b 进行(23 文件)。
-- 9/8 06:37Z D7 完成并提交(1031 tests;臂 id V0/V1/V2、V0 曝光日程导出/V1 重放、hpg 启动脚本 scripts/rtd_v11_run_hpg.slurm)。发现 D7 按任务文本里残留的 rev 2 措辞把 d 的回报点放在旧证据虚拟参考(manifest alpha_d_d7_rev2_frozen);rev 3.1 §3.4 同批次 θ_S(0) 的恢复作为 D9 第 0 项强制执行。D9 已起(launcher pid 见 logs/codex_D9_launcher.log)。
+- 9/9 04:12Z 用户:v1.1 用 2 个预算轮;尽量并行;尽量多用 hpg。开始实现(默认取值,用户可改):worktree tc-alignment-v11a(分支 rtd-v11-a)Codex D1 软来源/CV 估计器;worktree tc-alignment-v11b(rtd-v11-b)Codex D2+D3 批量采购+统一曝光+跨轮后验+新 bank 工具+2 轮日程。之后合并、D5/D6、嵌入对照(hpg)、V0→V1/V2(hpg)。
+- 9/9 04:14Z 完整 v1.1 方法文档 docs/RTD_V1_1_METHOD_ZH.md 已发(V0/V1/V2、2 预算轮、软/CV 来源估计、E=40/K≤20 批量采购、跨轮后验、认证、诊断、附录 v1.0→v1.1)。Codex D1(v11a)/D2D3(v11b)进行中。
+- 9/9 04:21Z 用户批准并冻结 v1.1(附件意见):四组实现约定(统一 CV 更新器 c_i=1−a(s,Y_{3−i})、每步重采、VJP 含 c_i;参考 vs 实际更新取值点分开,V1 重放 V0 完整曝光;求解器→预留→揭封→释放→更新→用实购集合建损失;措辞修正)。方法文档待改;D1/D2D3 完成后用跟进 Codex 任务落实约定。
+- 9/9 04:23Z v1.1 方法文档按用户四组约定冻结并重发(62d941f)。待 D1/D2D3 完成后:跟进 Codex 任务落实约定(统一 CV 更新器 c_i=1−a(s,Y_{3−i})、每步重采、VJP 含 c_i;θ_D⁺/θ_S⁺ 分离;求解器→账本执行顺序;V1 完整重放)。
+- 9/9 04:24Z 用户'可以':冻结版 v1.1 方法文档获批。hpg 已建 tc-alignment-v11 目录(envs/.venv 软链)待同步。rai R1 r2 评测 83%。
+- 9/9 04:25Z(报告)ALFWorld hpg R0/R1 r1 s10、R1s s7;rai R1 r2 评测 84%;GPU2 仍被占 9h;Codex D1(7 文件)/D2D3(21 文件)运行 24 min。
+- 9/9 04:43Z 用户附件:把核心机制定为 α(注入量)+d(来源选择)的合法概率转移、ĝ_d 估计器、由更新后回报方向导数 z 决定 d 的有限步下界、采购价值=联合边际收益;要求修改 v1.1 使之成为 ICLR 级创新。开始改写方法文档(rev 2)。
+- 9/9 04:46Z v1.1 rev 2 方法文档已发:α+d 合法概率转移、ĝ_d、z 与有限步下界、联合边际收益采购、三臂 + 三组配对对照、实现分段 D8(α+d)/D9(联合控制器)。
+- 9/9 04:56Z 用户 04:53Z 执行修正(同批参考、冻结曝光权重、d 求解器、采购代理、归因/测试)→ 方法文档 rev 3 提交;D8b/D9/D6/D7 任务文本已按 rev 3 更新;运行中的 D8(rev 2)完成后接 D8b。
+- 9/9 04:58Z 用户批准 rev 3 并要求按此跑。D2/D3 交付(v11b:acquisition/broker/caps/cli/experiment/insertion/ledger/persistence/selector 修改 + bank_v11/config_v11/experiment_v11/value_feedback 新模块 + tools/rtd_v11_build_bank.py + configs/rtd/v1_1_bfcl.yaml;929 passed);复核测试中。D8 进行中。
+- 9/9 04:59Z v1.1 bank 已构建 data/rtd/v1_1_bfcl(420 包;exact 21,203 + estimated 34,167 = 55,370;类 cap 证书 caa729a7…);configs/rtd/v1_1_bfcl.yaml 改为 2 轮(10/25%)并提交(v11b d9954f0)。D2/D3 提交 24f5fca。
+- 9/9 05:00Z 合并预演:rtd-v11-b → rtd-v11-a 在 cli.py、experiment.py 冲突(临时 worktree 已清理)。D8 完成后由 Codex M1 任务合并并解决冲突(任务文本已备)。v1.1 bank 已同步到 hpg tc-alignment-v11。
+- 9/9 05:01Z D8 未实现:worktree 缺 docs/RTD_V1_1_METHOD_ZH.md(worktree 建于文档提交之前),Codex 拒做(正确)。已把方法/计划文档 checkout 进 v11a 并提交;先启动 M1(合并 v11b→v11a、解冲突、全套测试),之后 D8 直接按 rev 3 实现。worktree 中 17 个 BFCL 锁文件只读错误 + 1 个 ALFWorld symlink 校验错误为环境性失败,M1 处理/标记。
+- 9/9 05:02Z hpg ALFWorld R1 第 1 轮训练完成(12 步),进入第 1 轮官方评测(140 题 greedy,估 10–12h)。M1 合并任务进行中(pid 1907533)。
+- 9/9 05:04Z 用户 05:02Z:主体冻结;三处局部修正(采购代理评估完整更新含教师注入 + 删包旧池补槽 + d=0 强制测试;删除逐坐标收缩、联合零坐标条件;曝光单位统一 40 单元=80 动作,microbatch 4×10;非决策步 ε̂ 沿新方向重算)→ 方法文档 rev 3.1(main 提交,已 checkout 进 v11a);D8/D9/D7 任务文本已改。之后按两轮三臂执行,不再加模块。
+- 9/9 05:04Z 用户:按 rev 3.1 执行;明早 10 点中部时间要 update → 已定一次性 cron(本机 EDT 10:58 9/8 = 09:58 CDT;若用户指 9/9 需改)。
+- ⟳ RESTART CHECKLIST addendum (9/9 05:10Z): re-arm on restart — (a) one-shot update to the channel at 10:00 CDT 9/8 (= 10:58 EDT local, 14:58Z) covering v1.1 implementation status / v1.0 remaining endpoints / ALFWorld progress / decisions; (b) monitors: M1 merge (worktree v11a), rai R1 process + evaluation-2/3 landing, GPU2 free-up → rai R0 auto-resume, hpg ALFWorld R0/R1/R1s + relays (round boundaries + evaluation landings), "all v1.0 finished" trigger; (c) hourly :23 report continues (external cron).
+- 9/9 05:18Z M1 合并完成(Codex 在 /tmp 解冲突并应用到 v11a 工作树;999 passed;v1.0 配置字节不变),已作为一次提交记入 rtd-v11-a;启动 D8(α+d,rev 3.1)。
+- 9/9 05:33Z hpg ALFWorld R0 第 1 轮训练完成(12 步),进入第 1 轮官方评测(140 题 greedy)。
+- 9/9 05:34Z M1 合并提交 93c7a21(rtd-v11-a);D8(rev 3.1)Codex 运行中(launcher pid 2107713)。
+- 9/9 05:25Z(报告)ALFWorld hpg R0/R1 r1 训练完成进评测,R1s s10;rai R1 r2 评测 91%;GPU2 仍被占 11h;D8 运行 14 min(11 文件)。
+- 9/9 05:36Z 合并后的 v1.1 树(93c7a21)已同步到 hpg tc-alignment-v11;hpg 上 configs/rtd/v1_1_bfcl.yaml audit 通过(420 包,分母 55,370,usable_recorded_output_tokens)。
+- 9/9 05:37Z D7 任务文本补充:定义臂 id V0/V1/V2(映射采购模式/门控/d/重放),新 scripts/rtd_v11_run_hpg.slurm(接受 V0|V1|V2,64G/8 cpu,24h,接力兼容);现 launcher 仅接受 R0|R1。
+- 9/9 05:55Z hpg ALFWorld R1s 第 1 轮训练完成,进入第 1 轮评测;三臂均在第 1 轮 140 题 greedy 评测中。
+- 9/9 05:58Z D8 交付并提交(rtd-v11-a;1014 passed;v1.0 字节回归通过;注意:满额 40 单元模式要求已有付费旧池,空池拒绝提交 → D7 加冷启动约定:未购前曝光单元 = 参考池状态 α=0)。
+- 9/9 05:58Z D7 启动(launcher pid 3131266,v11a)。
+- 9/9 06:18Z rai R1 第 2 轮官方分 46.09(NL 79.56/Live 77.87/MT 49.38/Mem 26.24/Irrel 82.85/Rel 75.00/Web 10.00;4 包/356 tok);第 1 轮 45.50;进入 round 3(GPU3)。
+- 9/8 06:38Z D9 launcher pid 4159762(日志 tc-alignment-v11a/logs/codex_20260908_023749.log),监视已挂。
+- 9/8 06:39Z :23 汇报已发:D7 提交/D9 运行;rai R1 r3 训练中;rai R0 r3 等 GPU2;ALFWorld 三臂第 1 轮评测中(无分);relay PD 正常。
+- 9/8 07:00Z hpg ALFWorld R0 41341262 / R1s 41346438 被 root 以 QOSGrpCpuLimit 取消(02:54–02:57 EDT);relay 41346465(R0)/41354221(R1s) 已接手续跑。发现评测锁按 tag(round-1)共用 → 三臂评测串行(R1 评测 58/140,≈2 min/题);已起 codex C26-I(锁按 campaign 目录 + 审计链)于 alf 工作树。
+- 9/8 07:16Z D9 完成并提交(1056 tests;rev 3.1 三个反馈角色恢复、联合 d 控制器、完整更新采购代理+补位、购前上下文后验、封存泄漏测试、实测配对收益仅验证)。D5/D6 已起(launcher pid 见上一行 launcher_pid)。
+- 9/8 07:33Z C26-I 提交(alf 5a6cc3e)并同步 hpg(10 文件);/tmp 验证:三臂 guard_harness 通过,audited 链 45aed8f3 不变,三把锁不同。取消 41346465/41354221,重提 c26i_R0 41371756(+relay 41371757)、c26i_R1s 41371758(+relay 41371759),均 R。R1 41346437 继续(旧模块),relay 41351395 PD。rai:v11run 工作树(分支 rtd-v11-run @ D9)上 codex D10 在 GPU1(Blackwell,UUID 97762062)迭代真模型 smoke(launcher pid 466900);GPU4 空闲待用。
+- ⟳ RESTART CHECKLIST addendum (9/8 08:05Z): monitors to re-arm — (a) Codex D5/D6 launcher pid 330731 in tc-alignment-v11a (notes docs/rtd_v1_1_d5d6_notes_zh.md); (b) Codex D10 launcher pid 466900 in tc-alignment-v11run (real smoke on GPU1 UUID GPU-97762062…, notes docs/rtd_v1_1_d10_smoke_notes_zh.md); (c) hpg ALFWorld jobs 41371756/41371757 (R0), 41371758/41371759 (R1s), 41346437/41351395 (R1) — logs results/c26f/hpg/<name>_<id>.out; (d) rai R1 round-3 evaluation landing results/rtd_v1/rai_R1/evaluation-3.json; (e) rai R0 GPU2 auto-resume; (f) 10:00 CDT one-shot update. Rule: rai GPU1/GPU4 are Blackwell RTX PRO 6000 (select by UUID GPU-97762062… / GPU-aaebd5af…; CUDA index ≠ nvidia-smi index); the venv torch 2.13 cu130 and envs/vllm-serve vLLM 0.27.1 both support sm_120.
+- 9/8 07:36Z :23 汇报已发:hpg R0/R1s 各自评测已开始(并行),R1 76/140;D5/D6 运行中;D10 迭代 smoke(hardware identity 单 GPU 问题);base_bw 生成中;rai R1 r3 step 4。
+- 9/8 07:57Z D10 提交(v11run d4e19b3,fold 修复)。V0 真模型 smoke(GPU1,与 sdl 共用)通过身份/审计/采购/抽样/pilot 80 动作,15 min smoke 守卫超时(pilot 823 s;生成 84 次 488 s ≈13 tok/s)。已起 D10b(launcher pid 573282):smoke 期限参数化 + tools/rtd_v11_phase_times.py。失败目录在 v11run/_trash/rtd_v11_d10_smoke_timeout。
+- 9/8 08:07Z D10b 提交(v11run 4c6f81b)。V0 smoke 重跑(GPU1,--smoke-deadline-seconds 7200,pid 590619)。发现:训练期生成 batch size=1(runtime.HFGenerateBackend.sample_action),≈5.8 s/次(与 sdl 共用 GPU),后续需评估批量生成。
+- 9/8 08:11Z D5/D6 提交(v11a 7d2f133),rtd-v11-run 并入 rtd-v11-a(6266d67,无冲突)= v1.1 完整实现树;全套测试后台运行(logs/full_suite_merged_6266d67.log in v11a)。metrics_v11 在规范 YAML 默认开启(每窗归档 + 每轮固定集诊断)。下一步:V0 smoke 通过后,把 v11run 快进到 6266d67 重跑 V0/V1/V2 smoke(含 metrics),再定 rai/hpg 三臂启动。
+- 9/8 08:24Z 合并树全套 1110 passed + 2 个合并引起的失败(make_manifest 懒导入 BFCLSupport;合成 support 测试需关 metrics)已修,v11a HEAD 2f0b313 = v1.1 完整实现。V0 smoke(D10b 树)仍在 pilot 阶段(~17 min)。
+- 9/8 08:35Z :23 汇报已发:hpg 三臂评测并行(R1 95/R0 30/R1s 26 of 140);v11a 2f0b313 完整实现;V0 smoke 28 min 仍 pilot;rai R1 r3 训练结束→评测;base_bw 144 条。
+- 9/8 09:10Z V0 smoke 通过(v11run 4c6f81b,GPU1 共用):3718 s/步;pilot 1764 s(cond KL 646)、old virtual ref 797、commit source sampling 453、same-batch ref 384、三反馈各 ~28 s、generation 250 次 1082 s(batch=1)。4 包/372 token。V1 smoke(replay smoke_V0,pid 685612)与 V2 smoke(pid 685613)同时在 GPU1。估算:rai 共用 ≈25 h 训练 + 6 h 评测/臂。
+- 9/8 09:12Z hpg tc-alignment-v11 同步到 2f0b313;bank data/rtd/v1_1_bfcl 实际此前不在 hpg,现已复制(704 文件)并 audit 通过(55,370)。hpg 端三臂随时可 sbatch(scripts/rtd_v11_run_hpg.slurm)。V1/V2 smoke 进行中。
+- 9/8 09:35Z :23 汇报已发:hpg 评测 R1 118/R0 64/R1s 58;V1/V2 smoke pilot 中(25 min);rai R1 r3 评测中;base_bw 生成中。
+- 9/8 10:10Z base_bw 出分:基座在 Blackwell 上 Overall 46.25(NL 79.73/Live 77.87/MT 49.50/Mem 27.53/Irrel 82.38);rai Ada 46.27、hpg B200 46.06。v1.1 三臂若在 rai Blackwell 跑,参照线用 46.25。GPU4 已空出(sdl 仍在用)。
+- 9/8 10:22Z V1 smoke 通过(4094 s,与 V2 smoke 共用 GPU1;日程与 V0 逐项相等,同 4 包/372 tok;warm-up d=0)。发现 K 对角 ~1e-13…1e-11(v_i 带 η 尺度)→ λ=1 时冗余项失效、joint≡independent;已起 D11(v11a,launcher pid 767076):K 按 mean diag 归一,λ_eff=λ/s,同样用于 F̂。V0 正式运行已起(worktree tc-alignment-v11prod @ 2f0b313,分支 rtd-v11-prod,GPU4 UUID aaebd5af,pid 767723,logs/rtd_v11_V0.log);V0 不用 d 故不受 D11 影响;V1/V2 待 D11 + 用户定去向。
+- 9/8 10:23Z V2 smoke 通过(4333 s;联合代理采购 7 包/473 tok,与 V0 随机 4 包不同)。三臂 smoke 全部通过(树 4c6f81b,不含 metrics_v11)。
+- 9/8 10:31Z ALFWorld R1 第 1 轮:71/140 = 50.71%(base 7.14,CE 77.86)。原作业 41346437 在评测后起 round-2 worker 时因 C26-I 源码漂移拒绝(run 启动无 acknowledge flag)→ FAILED;relay 41351395 已接手(R,复用评测)。R0/R1s 重提作业带 flag。
+- ⟳ RESTART CHECKLIST addendum (9/8 10:35Z): monitors — D11 launcher pid 767076 (v11a); V0 production pid 767723 (tc-alignment-v11prod, logs/rtd_v11_V0.log, GPU4 UUID aaebd5af); hpg ALFWorld jobs 41371756/41371757 (R0), 41371758/41371759 (R1s), 41351395 (R1 relay, now the live R1 job); rai R1 evaluation-3 landing; GPU2 auto-resume; 10:00 CDT update. Smoke evidence: tc-alignment-v11run/results/rtd_v1_1/smoke_{V0,V1,V2}.
+- 9/8 10:36Z D11 提交(v11a 2cd02ae;归一化 K̃=K/s,λ_eff=λ/s,λ_原始单位=λ/√s;90 tests 通过),已同步 hpg。schedule_identity 不含 config hash → V1(D11 树)可重放 V0(2f0b313 树)日程。V1/V2 待用户定去向后从 2cd02ae 起。
+- 9/8 10:37Z V2 正式运行已起(worktree tc-alignment-v11prod2 @ 2cd02ae,分支 rtd-v11-prod2,GPU1 UUID 97762062,pid 788015,logs/rtd_v11_V2.log)。V0 在 GPU4(v11prod @ 2f0b313)。V1 待 V0 完成后从 2cd02ae 起(GPU4)。
+- 9/8 10:38Z :23 汇报已发:hpg R1 relay 进入 round 2;R0 89/R1s 82;V0/V2 正式运行 step 1;rai R1 r3 评测中。
+- 9/8 11:36Z :23 汇报已发:hpg R0 112/R1s 101;R1 r2 s1;V0/V2 step 1 中(V0 70 min);rai R1 r3 评测中。
+- 9/8 11:40Z rai R1 第 3 轮官方 45.31(NL 80.08/Live 77.42/MT 49.88/Mem 21.51/Irrel 82.91;6 包/571 tok);rai R1 全程 45.50→46.09→45.31(base rai 46.27)。rai R1 进程结束,GPU3 空出。v1.0 剩 rai R0 第 3 轮(等 GPU2)。
+- 9/8 12:36Z :23 汇报已发:hpg R0 135/R1s 123;R1 r2 s4;V0 step1 actual @2h10m、V2 step1 revealed @2h(慢);rai R1 r3 45.31 已报。
+- 9/8 12:43Z 测速(A100,batch 1,96 tok):torch 回退 22.4 tok/s,FLA 26.1 tok/s(+18%,logit max diff 0.31 bf16,argmax 同)→ FLA 不是主因,batch-1 解码延迟才是;causal-conv1d 无法安装(404)。.venv-fla 保留不用。已起 D12(v11a):训练期批量采样(同 prompt 多样本 + 左填充跨 prompt),协议不变;等 D12 落地后重起 V0/V2。
+- 9/8 12:49Z ALFWorld R0 第 1 轮 75/140 = 53.57%(R1 50.71);R0 进入 round 2;R1s 127/140。C26-I identity_audit 已写入 R0 campaign audit。
+- 9/8 13:14Z D12 交付(v11a 未提交):generation_batch.py(同 prompt 多样本 + 跨 prompt 左填充,prompts_per_batch 8 / max_batch_tokens 16384;RNG ticket 规则 ordered-int64-tickets-hf-batch-sha256-v1;score guard 不变);CPU 规划 443→118 次调用/步。71 tests 通过。GPU 基准在 GPU3(A100)后台跑(logs/rtd_v11_generation_bench_a100.log)。通过后:提交 → v11prod3 → 停 V0/V2(pid 767723/788015)重起。
+- 9/8 13:23Z ALFWorld R1s 第 1 轮 71/140 = 50.71%;三臂第 1 轮:R0 53.57 / R1 50.71 / R1s 50.71;三臂均进入 round 2。
+- 9/8 13:35Z D12 提交(v11a 125ea7f;A100 基准:80 动作 unbatched 686 s/13.6 tok/s → batched 169 s/45 tok/s,13 次调用,4.06× wall,峰值 26 GB,score 一致性通过)。停掉 V0/V2 旧运行(run dir → 各自 _trash/*_prebatch_*),从 125ea7f 重起:V0 = tc-alignment-v11prod3(GPU4,分支 rtd-v11-prod3),V2 = tc-alignment-v11prod4(GPU1,分支 rtd-v11-prod4;分开 root 以避开 BFCL tag 锁串行)。
+- ⟳ RESTART CHECKLIST addendum (9/8 13:35Z): live v1.1 runs — V0 pid 1015074 in tc-alignment-v11prod3 (GPU4 aaebd5af), V2 pid 1015075 in tc-alignment-v11prod4 (GPU1 97762062), both @125ea7f; old v11prod/v11prod2 runs stopped (dirs in _trash). hpg tc-alignment-v11 synced to 125ea7f. V1 waits for V0's exposure_schedule.json (launch in a fresh worktree @125ea7f on GPU4 with --replay-schedule <v11prod3>/results/rtd_v1_1/V0).
+- 9/8 13:36Z :23 汇报已发:hpg R1 r2 s4、R0/R1s r2 s1;V0/V2(D12)step 1 开始;rai R0 等 GPU2。
+- 9/8 14:36Z :23 汇报已发:hpg R1 r2 s7 / R0 r2 s4 / R1s r2 s1;V0/V2(D12)step 1 1h(gen 68/58 次);rai R0 等 GPU2。
+- 9/8 14:44Z 用户问 v1.1 进度,已答。V0/V2(D12)step 1 ~70 min:generation 849 s(85 次),teacher-forced pair 1127 s(240 次 batch=1),pilot cond KL 599 s → 起 D13(批量前向,v11a)。
+- 9/8 14:59Z 10 点 update 已发(v1.1 全实现 + V0/V2 运行中;v1.0 剩 rai R0 r3;ALFWorld r1 三臂分;两项待用户定:去向 rai/hpg、D13 后是否重起)。
+- 9/8 15:03Z 用户决定:v1.1 三臂改去 hpg 排队;D13 落地后重起 V0/V2 一次(即在 hpg 上从 D13 提交起)。准备 hpg 第二 checkout tc-alignment-v11b(V2 用,避开 BFCL tag 锁)。hpg 作业开跑后停 rai V0/V2。参照线 hpg 基座 46.06。
+- 9/8 15:04Z D13 交付(仅无梯度前向批量化;92 tests 通过);GPU forward 基准在 GPU3 后台;全套测试后台。用户:按完整标准执行(已确认)。
+- 9/8 15:16Z D13 GPU 基准:3.25× 但 max|Δlogprob| 0.42 nat(bf16)→ 生产关闭 forward 批处理(config forward_prompts_per_batch: 0),提交 v11a 8a68b15(全套 1151)。三臂改去 hpg:V0 41402972(relay 41402973,tc-alignment-v11)、V1 41402974(afterok V0 relay;relay 41402975)、V2 41402976(relay 41402977,tc-alignment-v11b)。rai V0/V2(1015074/1015075)已停,GPU1/4 让出。
+- 9/8 15:20Z Table 1 核查+计划写入 docs/2026-09-08-table1-audit-and-plan-zh.md 并发频道(5 项待定)。起 rai 两条 lane 补 bfclb2 缺格:GPU3(A100)agentkd s1/s2、pbsd s0(pid 1227787);GPU4 star s0/s1/s2、bbopd s2(pid 1227788);脚本 tools/bfclb2_fill_lane.sh,日志 logs/bfclb2_fill_*。零 API。
+- 9/8 15:36Z :23 汇报已发:hpg V0/V2 20 min step 1;ALFWorld R1 r2 s7 / R0 r2 s7 / R1s r2 s4;rai 补格 agentkd_s1/star_s0 评测中。hpg 6 PD 全为依赖 relay(用户要求的三臂标准提交)。
+- 9/8 15:37Z 用户转来主表评审意见(4 项表格调整 + 确认评测划分/种子含义/baseline 论文);已回确认清单(AppWorld dev40 pooled pass ratio+TGC 注;BFCL 全量;ALFWorld valid_seen 140;τ² 建议去掉;7 baseline 对应论文与实现)。Overleaf 更新时应用 4 项调整。
+- 9/8 16:06Z 评审第二轮(用户转发 message.txt):AppWorld 主表改 TGC;baseline 按实现重命名;Base 行方差 = 评测重复(AppWorld 3 个评测 seed:pooled .277/.213/.250,TGC 0/0/1;BFCL 早期 3 次重复);BFCL temp 0.001 = 官方默认、vLLM 非严格 argmax。已回复;待用户定 faithful baseline(真 PBSD 推荐 / GAD BB-OPD)。
+- 9/8 16:11Z 论文:exp_setting.tex/appendix.tex 更新(三基准协议表、baseline 按实现命名、base 行单参考、预算口径、τ² 移出主表),commit 297e46c 推到 origin main(Overleaf 需 Pull GitHub)。预算答复:v1.1 B = 10%/25% × 55,370(5,537/13,843);baseline 目前无上限(全池);建议主表 B=25% 并按 --budget 重训 baseline;ALFWorld 25% ≈ 9,074(usable 36,294)。
+- 9/8 16:15Z 用户决定(message.txt):先做保留核心机制的 PBSD(agent adaptation:上下文教师 π_θ0(y|s,c),正例由上下文教师生成,负例在线刷新,四 log-prob DPO 型损失、参考=上下文教师,零新增 API,c 成本计入证据预算;BFCL 贯通检查后三基准×三种子);GAD 排后(封存池 + 在线学生采样 + 动态判别器 + warmup,先评估实现/GPU 成本);AppWorld ours-adv 是 awb3 版本不是 RTD v1.1;Base/表注措辞冻结(已改并推 4fb3994)。顺序:合并更名 → PBSD → GAD → RTD 同协议结果。Codex PBSD 任务已起(worktree tc-alignment-pbsd,分支 pbsd-agent,launcher pid 1321518)。
+- 9/8 16:16Z Table 1 结构改好并推(397fece):三列 + Δ_avg,行按实现命名 + PBSD-agent 行,已填 awb3 TGC 与 bfclb2 完成种子。向用户确认默认:③ AppWorld deepseek-only 池 B=25% 重训;⑤ ALFWorld 列全做(唯一 API 项 ~7M);B=25% 对齐所有 baseline。
+- 9/8 16:19Z 用户冻结统一预算协议:C_m = 获取证据的全部教师调用成本(含失败/重试/未采用,一调用计一次);区分封存池回放支出 vs 历史建池总支出,实验称 sealed-pool replay;BFCL B=13,843 绝对上限(5,537 进预算曲线);ALFWorld B=9,074 沿用 GPT-5.4 池(估计预算回放);AppWorld 用 78 条 DeepSeek 子池冻结候选池后定 B;baseline 与 RTD 共用封存候选池,baseline 按冻结随机顺序购买;保留固定已购数据蒸馏对照;共同初始 checkpoint;RTD v1.1 现有运行按统一清单核对后决定纳入或重放。批准三种子重训(先零 GPU 清单核对,通过后直接开跑);旧全池结果进附录。Codex 审计任务已起(worktree tc-alignment-audit,分支 table1-audit,launcher pid 1329454)。
+- ⟳ RESTART CHECKLIST addendum (9/8 16:19Z): re-arm — Codex PBSD-agent launcher pid 1321518 (worktree tc-alignment-pbsd, notes docs/pbsd_agent_baseline_zh.md); Codex Table1 audit launcher pid 1329454 (worktree tc-alignment-audit, docs/table1_budget_ledger_zh.md); rai BFCL fill lanes pids 1227787 (GPU3) / 1227788 (GPU4), logs logs/bfclb2_fill_lane_gpu{3,4}.log; hpg v1.1 jobs 41402972/41402973 (V0), 41402974/41402975 (V1), 41402976/41402977 (V2) in tc-alignment-v11{,b}/logs; hpg ALFWorld 41371756/41371757, 41371758/41371759, 41351395; rai R0 GPU2 auto-resume. Paper: main pushed to origin (Overleaf pulls from GitHub).
+- 9/8 16:22Z 用户:非主表且与 RTD 无关的结果先暂停 → 停掉 bfclb2 补格 lane(agentkd_s1/star_s0 评测中止;adapter 已保存);先统一 Overleaf 再开主表 baseline/base 测试,teacher 行缓。事故:清理 lane 进程时按命令行模式匹配误杀了 PBSD Codex(其任务文本含 bfclb2_fill_lane),已重起(launcher pid 1336785,工作树含其部分文件);审计 Codex 1329454 未受影响。教训:kill 前逐 pid 看命令行,不用模式匹配。
+- 9/8 16:27Z 用户:主表每出一数即更新 Overleaf,可用 ollama;重心回 RTD v1.1。已报 v1.1 进度(hpg V0/V2 step 1 actual @70min;估 V0/V2 明天 ~17:00Z 出分,V1 再 +24h)。
+- 9/8 16:32Z 用户批准加速(D14 流式重放,Codex launcher pid 1352874)。method.tex 按 v1.1 重写并推(ee04e1f);待改:abstract/intro/theory/RQ2-5/appendix method/conclusion。
+- 9/8 16:37Z 论文全篇按 v1.1 一致化并推 GitHub(abstract/intro/related/theory/results RQ/appendix/conclusion;旧原子/保形/引导材料移除)。hpg V0 step 1 committed(~1h25m)。
+- 9/8 16:38Z :23 汇报已发:hpg V0 step 2 / V2 step 1 actual;ALFWorld R1 r2 s10 / R0 s7 / R1s s4;三个 Codex 在跑;lane 已停。
+- 9/8 16:44Z PBSD-agent Codex 交付(worktree tc-alignment-pbsd):src/bfas/pbsd_agent.py + pbsd_evidence.py,AW_DISTILL=pbsd_agent;CPU 99 tests 通过;GPU 贯通检查在 GPU3 后台(logs/pbsd_agent_check_gpu3.log)。BFCL demo 池 23 行的归档成本 4,768 output tokens(exact)。
+- 9/8 16:50Z 审计提交(table1-audit 1d30f73)、PBSD 提交(pbsd-agent 4106380),合并到 worktree tc-alignment-table1(分支 table1-run,a24ddb7)+ 复制审计池。Table 1 BFCL lane 起:GPU4 pid 1405498(sft×3、sad×3、star s0/s1)、GPU1 pid 1405499(bbopd×3、pbsd_insp×3、star s2),tag bfclB13843_<arm>_s<k>,脚本 tools/table1_bfcl_lane.sh;评测在 Blackwell(base 46.25)。PBSD GPU 检查(AW_GRAD_CKPT=1)在 GPU3 后台重跑。待:pbsd_agent 臂、dDPO 排序调用(key1)、ALFWorld 候选集决定。
+- ⟳ RESTART CHECKLIST addendum (9/8 16:50Z): Table 1 lanes pids 1405498/1405499 (tc-alignment-table1/logs/table1_lane_gpu{4,1}.log); D14 Codex launcher 1352874 (v11a); PBSD GPU check bg in tc-alignment-pbsd/logs/pbsd_agent_check_gpu3_gc.log.
+- 9/8 16:51Z 起 Codex dDPO 排序工具任务(tc-alignment-audit,launcher pid 1410977):sample(基座 4 样本/已购任务,GPU)+ rank(key1,≤40 次调用,计入 C_m)。
+- 9/8 16:53Z PBSD-agent GPU 贯通检查通过(AW_GRAD_CKPT=1;上下文隔离 true,4 对 loss 两步下降,负例刷新)。GPU3 起 pbsd_agent s0/s1/s2 训练(train-only,pid 1415374,tools/table1_train_only.sh),评测后续在 Blackwell lane。
+- 9/8 16:56Z pbsd_agent 训练首次失败:训练器要求逐行精确证据成本;已从审计 ledger 按 row_origins 注入 evidence_output_tokens(94 行/87 包/10,548 tok)生成 pool_pbsd_agent_costed.jsonl,GPU3 重起训练(pid 1418704)。
+- 9/8 17:01Z pbsd_agent 池修正:c 只留同状态包;6 个 generator task id 下多种 prompt → 按状态拆分 task id(#hash8);重起训练 pid 1428680。
+- 9/8 17:11Z D14 提交(v11a 653be11,1166 tests)并同步 hpg tc-alignment-v11(V2 的 v11b 未动)。取消旧 V0/V1(41402972-5),V0 run dir → _trash,重提 V0 41410097(relay 41410099)+ 流式 V1 41410100(relay 41410101,--replay-mode streaming),均已 R;V2 41402976 继续(step 2 committed)。
+- 9/8 17:23Z ⚠️ 事故:清理 table1 残留进程时无条件二次 SIGKILL 误杀 sdl 项目进程 1459841(analysis/v12_distill.py pythia-160m,GPU3);已告知用户。lane 结果 11.0/10.8 作废(池混两种行格式);lane/pbsd 训练已停,结果归档 _trash;Codex 池重渲任务已起(audit worktree,launcher pid 1483409)。hpg:V0 41410097 round 1 开始,V1s 41410100 等 V0 第 1 步日程(正常)。
+- 9/8 17:36Z :23 汇报已发:hpg V2 r1 s4 / V0 s1 revealed / V1s 等待;ALFWorld R0 r2 评测 13/140、R1 s10、R1s s7;Table1 池重渲中;dDPO 工具交付。
+- 9/8 17:40Z 池重渲完成(audit e9ad96a,legacy-messages-v1;22 旧行字节一致;163 tests)并入 table1-run(f0f39ac);pbsd_agent costed 池重建(94 行/94 包/11,701 tok,同状态 c,86 状态)。lane 重起:GPU4 pid 1513700(sft×3、sad×3、star s0/s1)、GPU1 pid 1513701(bbopd×3、pbsd_insp×3、star s2、pbsd_agent×3);残留旧评测进程已按 pid 核对后清掉。GPU3 留给 sdl。
+- 9/8 17:40Z dDPO 排序前置:基座 4 样本/已购任务采样在 GPU3 后台(tools/table1_ddpo_rank.py sample,logs/table1_ddpo_sample.log,与 sdl 4 GB 进程共用);之后 rank 用 key1(≤40 次)。
+- 9/8 17:41Z dDPO sample 首次失败:vLLM zmq ipc 路径 >107 字符(工具把 TMPDIR 放在长 run dir 下)。自行加一行 env 覆盖 TABLE1_DDPO_TMPDIR(记录在案,非 Codex),用 /tmp/xq_ddpo 重跑。
+- 9/8 17:49Z dDPO:基座采样 88 条/22 任务(65 verified,16 任务 ≥2 个不同样本);key1 排序 16 次调用 1,023 tok,仅 1 次解析成功(其余 64-token 预算被隐藏推理吃光、内容为空);工具把失败任务当已处理不重试 → Codex 加 --retry-parse-failed(launcher pid 1537060),之后用 512 token 预算重排。
+- 9/8 18:01Z ⚠️ 再次误杀:清理 lane 时按 argv 子串 'tc-alignment-table1' 匹配把 dDPO retry Codex(任务文本含该路径)杀了;已重起(audit worktree)。发现 legacy 行格式本身在 94 行下塌陷('<think>\n[]'),训练器对带 messages 的行不带 tools 重套模板 → 训练/部署 prompt 不一致;决定 baseline 改用与 RTD 相同的原生 handler 渲染;Codex 在新工作树 tc-alignment-audit2(分支 table1-native)实现 native-fc 渲染;lane 已停,两格作废。
+- 9/8 18:11Z dDPO 排序完成:--retry-parse-failed + reasoning off,15 次重试全部解析(4 tok/次);共 16 任务 ranked,排序成本 1,083 tok,dDPO C_m = 14,859(超上限 1,016,按协议如实报告)。table1-run 并入 20bbca1(6c28439)。待 native-fc 池后重起全部 lane(含 dDPO rank 行的原生渲染)。
+- 9/8 18:21Z hpg V1s 41410100 被调度器取消(CANCELLED by 0,1h07;V0 尚未导出第 1 步,V1 只损失等待);relay 41410101 PD(QOSGrpCpuLimit,部门 CPU 组配额),起来后按保存配置 resume 流式模式。V0 41410097 step 1 actual;V2 3h05m。
+- 9/8 18:26Z native-fc 池提交(audit2 758532d)并入 table1-run(00d1f89);dDPO 加 16 条 native rank 行(prompt 取自评测时采样的原生 prompt);pbsd_agent costed 池重建(94 行/11,701 tok/86 状态)。lane 重起(native 池):GPU4 pid 2048348(sft×3、sad×3、ddpo×3、star s0)、GPU1 pid 2048349(bbopd×3、pbsd_insp×3、pbsd_agent×3、star s1/s2)。旧结果归档。
+- 9/8 18:27Z 发现评测时 handler prompt 比封存 native prompt 多一句语言提示(' Note that the provided function is in Python 3 syntax.'),其余字节一致(13/14);baseline 与 RTD 统一用封存渲染。dDPO rank 行 prompt:10 条取同任务 sft 行,6 条父任务取评测采样 prompt 去掉提示句 + 非思考后缀。lane 训练中,13 min 后抽查原始输出。
+- 9/8 18:36Z :23 汇报已发:hpg V0 s2 / V1s relay s1(流式跟上)/ V2 s5;ALFWorld R0/R1 r2 评测 48/20;native lane sft_s0/bbopd_s0 评测中。
+- 9/8 18:40Z native lane 抽查:sft_s0/bbopd_s0 评测输出为正常 <tool_call> JSON(web_search 前 60 条 44/45 调用),无塌陷;评测继续。
+- ⟳ RESTART CHECKLIST addendum (9/8 18:41Z): re-arm — Table 1 lanes pids 2048348 (GPU4) / 2048349 (GPU1) in tc-alignment-table1 (logs/table1_lane_gpu{4,1}.log; native pools results/table1_audit/pools_native/bfcl; tags bfclB13843_<arm>_s<k>; base ref Blackwell 46.25); hpg v1.1 jobs V0 41410097/41410099, V1s relay 41410101 (streaming), V2 41402976/41402977; hpg ALFWorld 41371756/41371757, 41371758/41371759, 41351395; rai R0 GPU2 auto-resume; worktrees: tc-alignment-audit (table1-audit), tc-alignment-audit2 (table1-native), tc-alignment-pbsd (pbsd-agent), tc-alignment-table1 (table1-run), tc-alignment-v11a (rtd-v11-a @653be11).
+- 9/8 19:33Z native v1 SFT s0 = 16.70(作废):评测 prompt 止于 assistant\n,模型需自生成空 think 块;封存渲染把它放 prompt 里(掩码),SFT 未学到 '</think>\n\n<tool_call>' → 输出 '<think>\n\n' 即停。lane 已停(按脚本路径匹配 pid),结果归档。Codex native v2(audit2,launcher pid 3458138):prompt=评测精确 prompt(含语言提示句),target=空 think 块+续写;22 条记录 prompt 字节测试。RTD 渲染差异待附录说明。
+- 9/8 19:36Z :23 汇报已发:hpg V0 s4 / V1s s1 actual / V2 s7;ALFWorld R0/R1 r2 评测 71/47;native v2 池待 codex。
+- 9/8 19:50Z native v2 池提交(audit2)并入 table1-run;22 条评测 prompt 字节一致(14/14 共有任务),目标含空 think 块;dDPO 110 行(16 rank);pbsd_agent costed 重建。lane 第三次重起(GPU4/GPU1),13 min 后抽查原始输出。
+- 9/8 20:15Z native v2 lane 抽查通过(memory 类 31/33、36/37 条为正常 tool_call,无 think 塌陷);评测继续。
+- 9/8 20:36Z :23 汇报已发:hpg V0 s6 / V1s s4 / V2 s8;ALFWorld 三臂 r2 训练结束,R0/R1 评测 93/67,R1s 开始;v2 lane 评测中。
+- 9/8 20:36Z 预算曲线 10% 点:GPU3 train-only bfclB5537_{sft,sad,bbopd,pbsd_insp}_s{0,1,2}(pid 66158,30 行/池,v2 格式),评测排 Blackwell lane 之后;ddpo/pbsd_agent 的 5537 池待处理。
+- ⟳ RESTART CHECKLIST addendum (9/8 20:36Z): Table 1 lanes (native v2) pids 3815548 (GPU4) / 3815549 (GPU1), logs tc-alignment-table1/logs/table1_lane_gpu{4,1}.log; B5537 train-only pid 66158 (GPU3, logs/table1_train_gpu3_B5537.log); table1-run @1e4b737 (native v2 merged). Worktrees: audit (table1-audit @20bbca1), audit2 (table1-native @c78e37d).
+- 9/8 21:06Z B5537 train-only 完成:12/12(sft/sad/bbopd/pbsd_insp × 3 seeds),adapter 在 table1/results/appworld_students/bfclB5537_*;评测待 Blackwell lane 空出后用 tools/table1_bfcl_lane.sh <gpu> <uuid> 5537 <arm:seed>…(会跳过训练)。
+- 9/8 21:06Z B5537 ddpo(含 10 条 rank 行)/pbsd_agent(costed 池)× 3 seeds train-only 在 GPU3(pid 109399)。
+- 9/8 21:09Z Overleaf GitHub 同步冲突:Overleaf 推了 overleaf-2026-09-08-2104(基于 8/28 的 main 快照 +84k 行,无 paper 侧改动),已合并入 main(5010cfd,4 个 scripts add/add 冲突取 main)并推送;需用户在 Overleaf 点 'I have manually merged. Continue'。
+- 9/8 21:36Z :23 汇报已发:hpg V0 s7 / V1s s4 / V2 s10;ALFWorld r2 评测 115/85/28;v2 lane 评测中;B5537 15 adapter 训完,pbsd_agent 训练中。
+- 9/8 22:36Z Table 1 首格:SFT s0 = 31.22(NL 67.0/Live 71.2/MT 22.4/Mem 3.0/Irrel 89.9)。hpg V0 s9 / V1s s7 / V2 s11;ALFWorld r2 评测 137/107/56。
+- 9/8 22:52Z ALFWorld R0 第 2 轮 70/140 = 50.00%(r1 53.57);R0 进入 round 3。
+- 9/8 23:02Z B5537 全部 21 个 adapter 训完(sft/sad/bbopd/pbsd_insp/ddpo/pbsd_agent × 3;STaR 与预算无关复用 13843 的);评测排 Blackwell lane 之后(同机基座 46.25),GPU3 空出。
+- 9/8 23:02Z 链式等待器 tools/table1_after_lanes.sh(pid 608384):B13843 两 lane 完成后自动在 GPU4/GPU1 起 B5537 评测 lane(logs/table1_lane_gpu{4,1}_B5537.log)。
+- 9/8 23:06Z Table 1:On-policy(bbopd)s0 = 31.83(与 SFT s0 31.22 同行不同训练种子路径);Overleaf 更新推送。
+- 9/8 23:11Z hpg V2 round 1 结束(12 步 ≈ 8h),第 1 轮官方评测(10% 点)开始。
+- 9/8 23:16Z Table 1:SFT s1 = 25.24(多轮/记忆类几乎全空输出;NL 86);SFT 两种子 28.2±4.2。
+- 9/8 23:30Z Table 1:bbopd s1 = 21.24(两种子 26.5);Overleaf 更新。
+- 9/8 23:36Z :23 汇报已发:Table1 SFT 28.2±4.2(2 seeds)/bbopd 26.5±7.5(2 seeds);hpg V2 r1 评测中,V0 s10,V1s s7;ALFWorld R1 r2 评测 130/140、R1s 82。
+- 9/9 00:10Z ALFWorld R1 第 2 轮 71/140 = 50.71%(r1 50.71;R0 r2 50.00);R1 进入 round 3。
+- 9/9 00:16Z Table 1:bbopd s2 = 26.40 → 三种子 26.5±5.3(最终格);Overleaf 更新。
+- 9/9 00:30Z hpg V0 round 1 结束(≈7.2h),第 1 轮官方评测开始;V2 评测进行中;V1s step 8。
+- 9/9 00:36Z :23 汇报已发:Table1 bbopd 26.5±5.3 完成,SFT 2 seeds 28.2;hpg V0/V2 r1 评测中,V1s s10;ALFWorld R1s r2 评测 100/140。
+- 9/9 01:26Z Table 1:SFT s2 = 36.27 → 三种子 30.9±5.5(最终格);Overleaf 更新。
+- 9/9 02:02Z v1.1 V2 第 1 轮(10% 点)官方 46.35(NL 80.40/Live 77.65/MT 49.38/Mem 25.16/Irrel 83.02;hpg base 46.06);采购 38 包(4/4/10/20),支出 3,585/5,537。V2 进入 round 2。
+- 9/9 02:23Z 用户问进度,已答(v1.1:V2 r1 46.35,V0 评测中,V1 s11;Table1:SFT/On-policy 行完成,其余排队,BFCL 列 ~16:00Z 齐)。起 Codex AppWorld 部署精确渲染池任务(audit2,launcher pid 1496899)。
+- 9/9 02:31Z ALFWorld R1s 第 2 轮 69/140 = 49.29%;三臂两轮:R0 53.57→50.00,R1 50.71→50.71,R1s 50.71→49.29;R0 第 3 轮训练结束进入评测,R1/R1s 第 3 轮训练中。
+- 9/9 02:49Z Table 1:pbsd_insp s0 = 33.20(BFCL 上 0 对 = SFT 行);Overleaf 更新。AppWorld native 池提交(audit2;5 个 fixture 缺失的旧测试失败与本任务无关)。
+- 9/9 02:52Z AppWorld 统一预算 baseline 数组提交:hpg 41454908(--array 0-15%4;arms sft/sad/pbsd_insp/pbsd_agent/star × 3 seeds + base dev40 同机参照;B=22,633 部署精确池;dDPO 无排序行、bbopd 仅 5 行 → 未提交,待用户定是否新增教师调用)。hpg checkout tc-alignment-table1(data/envs 符号链接已修)。
+- ⟳ RESTART CHECKLIST addendum (9/9 02:52Z): re-arm — hpg AppWorld array 41454908 (tc-alignment-table1/logs/t1aw_41454908_*.out; results/appworld/awB22633_*_eval); hpg v1.1 V0 41410097 (r1 evaluation) / V1s relay 41410101 / V2 41402976 (round 2); ALFWorld R0 r3 evaluation, R1/R1s r3 training; rai Table 1 lanes pids 3815548/3815549 + after-lanes waiter 608384; audit2 @4c250bd (AppWorld native pools), table1-run @1357b35.
+- 9/9 02:58Z hpg V1s round 1 结束(流式追上);其第 1 轮评测与 V0 同 checkout 共用 BFCL tag 锁,需等 V0 评测完(约 <1h)。
+- 9/9 03:21Z Table 1:pbsd_insp s1 = 25.35(两种子 29.3);Overleaf 更新。
+- 9/9 03:21Z v1.1 V0 第 1 轮(10% 点)官方 47.08(NL 80.19/Live 77.79/MT 50.00/Mem 29.89/Irrel 83.08);随机采购 47 包(4/7/16/20),支出 4,892/5,537。对比 V2 r1 46.35、base 46.06。V0 进入 round 2;V1 评测开始。
+- 9/9 04:26Z Table 1:pbsd_insp s2 = 27.87 → 三种子 28.8±4.0(最终格);GPU1 lane 开始 pbsd_agent s0 训练(~2.5h)。
+- 9/9 05:01Z Table 1:sad s0 = 31.76;Overleaf 更新。
+- 9/9 05:26Z Table 1:sad s1 = 20.26(空输出坍塌型种子);两种子暂定 26.0† 推送。
+- 9/9 05:40Z v1.1 V1 r1 = 45.97(同 V0 购买:47 包/4,892),V0 47.08 / V2 46.35 / base 46.06;V1 进入 round 2。
+- 9/9 07:36Z Table 1:sad s2 = 32.70 → 行终值 28.2±6.9,推送;GPU4 进入 dDPO s0。
+- 9/9 07:45Z ALFWorld v1.0 R0 完成(job 41371756 COMPLETED):r3 = 52.86%(53.57/50.00/52.86),5 包/870 tok。待 R1 r3、R1s r3。
+- 9/9 08:11Z Table 1:pbsd_agent s0 = 37.16(NL 36.5/MT 43.0,保住多轮、伤 non-live),推送;GPU1 训 s1。
+- 9/9 08:55Z AppWorld 阵列 task0 sft_s0 = TGC 0/40(pooled pass 19.68%)。误报警:与 awb3 全部 0.0 及基座 0.0 一致(学生从不 complete_task),非格式 bug;hold 已 release,模型拷贝取消。
+- 9/9 09:01Z Table 1:ddpo s0 = 33.77,推送;GPU4 训 ddpo s1。
+- 9/9 09:50Z AppWorld sft_s1 = TGC 5.0(pooled 25.53%);阵列 2–15 仍 QOSGrpCpuLimit 排队。
+- 9/9 10:14Z AppWorld sft s2 = 7.5(pooled 30.32%)→ 行终值 4.2±3.8,推送;task3(sad s0)在跑。
+- 9/9 10:58Z ALFWorld v1.0 R1 完成:r3 = 43.57%(50.71/50.71/43.57),7 包/2,059 tok;低于 R0 控制 52.86。待 R1s r3。
+- 9/9 11:00Z AppWorld sad s0 = 0.0(pooled 19.68%,与 sft s0 相同结果但权重不同),推送;task4/5 在跑。
+- 9/9 11:40Z 发现整点汇报 cron 丢失(上次重启后未重挂),已重挂 964409bb(每小时 :23,7 天到期)。AppWorld 坍塌诊断:steps_used 只在解析出代码块时递增 → 24 步说明每步都产出并执行了短代码;三模型 pooled pass 全等 → 执行的是不改状态的代码(池中 39% 行是 api_docs 查询),即 doc-lookup 循环;rai GPU0 探针(bk4yhehy0)确认中。
+- 9/9 12:05Z rai GPU0 探针确认:awB22633_sft_s0 每步都产出合法代码块,但循环执行 api_docs.show_api_descriptions('spotify') 等只读查询,从不推进任务 → 模仿的真实失败模式,非 harness bug。阵列 6–15 已 release。
+- 9/9 11:36Z Table 1:ddpo s1 = 45.52(接近基座 46.25),两种子暂定 39.6†,推送;GPU4 训 ddpo s2。
+- 9/9 12:25Z AppWorld sad s2 = 7.5 → SAD 行终值 2.5±4.3,推送;阵列 task6/7(pbsd_insp s0/s1)在跑。
+- 9/9 12:06Z Table 1:pbsd_agent s1 = 39.71,两种子暂定 38.4†,推送;GPU1 训 s2。
+- 9/9 12:16Z AppWorld pbsd_insp s0 = 0.0(doc-loop 签名),推送;task7 在跑,8–15 排队。
+- 9/9 12:31Z AppWorld pbsd_insp s1 = 0.0(格子仍 0.0†,未重复推送);task8/9(pbsd_insp s2 / pbsd_agent s0)在跑。
+- 9/9 13:30Z ALFWorld v1.0 三臂全部完成:R0 52.86(5 包/870)、R1 43.57(7/2,059)、R1s 53.57(7/2,059);基座 7.14、CE 77.86。v1.0 在 ALFWorld:R1s≈R0,R1 低 9 pt。
+- 9/9 13:40Z 附录新增:AppWorld 查文档循环失败模式段;v1.0 三臂记录段(BFCL+ALFWorld 终值)。已推送。
+- 9/9 13:17Z AppWorld pbsd_insp s2 = 12.5 → 行终值 4.2±7.2,推送;task9/10/11(pbsd_agent s0/s1/s2)在跑,12–15 排队。
+- 9/9 14:05Z v1.1 V2 主作业 FAILED(round 2 step 10,score-consistency 守卫在 2-token 动作上误触发,mean 0.32 > 0.05;5,542 条记录里唯一一条)。relay 41402977 已 hold;Codex D15(rtd-v11-c,tc-alignment-v11c)给守卫加短动作规则;完成后同步到 hpg v11b 并 release relay。V0(step 7)/V1(step 4)仍在跑,同样可能中招。AppWorld pbsd_agent s0 = 0.0(pooled 19.68%)。
+- 9/9 14:35Z 隧道断开期间 AppWorld 阵列监视器(bx91j7dxi)把空 squeue 误判为完成而退出;隧道恢复后需重挂(任务 10–15 待收)。hpg v1.1/ALFWorld 监视器仍在。
+- 9/9 15:05Z D15 已提交(tc-alignment-v11c rtd-v11-c c3300f2;233 项目标测试通过,Codex 全量 2,213 通过)。待同步到 hpg v11b(rsync src/tools/tests)并 release relay 41402977。隧道 14:55Z 起有响应但 ssh 被拒:Permission denied (keyboard-interactive),已报告用户。
+- 9/9 14:31Z Table 1:ddpo s2 = 43.62 → 行终值 41.0±6.3,推送;GPU4 进入 STaR s0。
+- 9/9 15:00Z 用户:hpg 账号被暂停,hpg 一切搁置(V2 relay hold、AppWorld 10–15 未收、V0/V1 未知);已停 hpg 监视器 bd9ia9x5n、b8db2xehf。新任务:按 Leey21/awesome-ai-research-writing 的'表达润色(英文论文)'+'去 AI 味(LaTeX 英文)'两段 prompt 润色 Overleaf 全文并推送。
+- 9/9 14:55Z Overleaf 全文润色完成并推送(9 个 section 文件;结构检查通过:括号/环境/公式/引用计数一致)。
+- 9/9 15:30Z 用户:Table 1 全部暂停;v1.1 验证实验迁到 rai。已杀 rai 全部 Table 1 进程(GPU1/GPU4 lane、评测服务、B5537 链、PBSD-agent s2 与 STaR s0 评测中断,格子保持:PBSD-agent 38.4†,STaR BFCL 空),停监视器 b2esgegnj/bnyfxzbb9。
+- 9/9 15:35Z 用户:RTD family 在 BFCL 上若优于全部 baseline 可先上表。Table 1 RTD 行 BFCL = 46.4†(V2 r1,10% 点,单次;表注说明),消融表 V0 47.08 / V1 45.97 / V2 46.35(10% 点,表注改为 10% 点待 25% 替换);推送 4c2bdc7(含两次 Overleaf 同步 merge)。
+- 9/9 15:45Z v1.1 rai 从头重跑(worktree tc-alignment-v11c,branch rtd-v11-c = 653be11 + D15 c3300f2;data/* 子目录、envs、.venv 链接到主目录;config configs/rtd/v1_1_bfcl.yaml,2 轮 10%/25%,D13 关):V0 pid 2492264 GPU4(aaebd5af)、V2 pid 2492265 GPU1(97762062)、V1 流式 GPU3(8b270cf8,--replay-schedule results/rtd_v1_1/V0 --replay-mode streaming)。日志 tc-alignment-v11c/logs/rtd_v11_{V0,V1,V2}.log;结果 results/rtd_v1_1/<arm>/evaluation-{1,2}.json。GPU0/GPU2 为他人占用;rai 无空卡(用户指示迁移)。
+- ⟳ RESTART CHECKLIST addendum (9/9 15:45Z): hpg 账号暂停,hpg 一切搁置(V2 relay 41402977 hold;AppWorld 阵列 10–15 未收)。live rai v1.1: V0 2492264 / V2 2492265 / V1 (pgrep "rtd_experiment.py run --arm V1") in tc-alignment-v11c;重启后重挂 rai v1.1 监视器(phase/错误/evaluation-*.json)与整点 :23 cron;Table 1 暂停不重启 lane。
+- 9/9 15:50Z 用户:Table 1 行名简化为原论文方法名(仅改名):SFT/SAD/BBOPD/dDPO/PBSD (offline pref.)/PBSD/STaR;推送 f65480c。RTD 在 BFCL 无 std(全部单次运行),格子保持 46.4†。

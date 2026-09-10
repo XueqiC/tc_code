@@ -1,82 +1,100 @@
 \section{Theoretical analysis}\label{sec:theory}
 %% One page. Brief intro, then two subsections of comparable length:
-%% (i) the training mechanism; (ii) the deployment guarantee.
-%% Everything else lives in Appendix~\ref{app:analysis}.
+%% (i) what the transfer optimizes; (ii) what the acquisition surrogate
+%% guarantees and what it does not. Proofs in Appendix~\ref{app:analysis}.
 
-We analyze the two components on which the method's claims rest. The
-first subsection characterizes the training mechanism, contrasting
-the expected drift of the two supervision channels and stating the
-allocation and safety properties of the advantage weight. The second
-subsection states the finite-sample guarantee of the deployment
-certificate and delimits exactly what it does and does not cover.
-Supporting analyses of the remaining components appear in
+We analyze the two components on which the claims of the method rest.
+The first subsection characterizes the transfer of
+Section~\ref{sec:distill}. It states that the teacher mass is
+invariant to the replacement decision, that the estimator is unbiased
+with the shared behavior component cancelled, and that a small
+selective transfer improves the finite-step return whenever the two
+student behaviors respond differently. The second subsection states
+what the acquisition surrogate of Section~\ref{sec:acquire} does and
+does not guarantee. Supporting derivations appear in
 Appendix~\ref{app:analysis}.
 
-\subsection{What the training mechanism optimizes}\label{sec:theory-mech}
-The two data channels of Section~\ref{sec:distill} induce updates with
-qualitatively different expected drift. Maximum-likelihood training on
-teacher trajectories follows
-$-\nabla_\theta D_{\mathrm{KL}}(\pi_\phi\|\pi_\theta)$ per query, so
-its expected update moves the student toward the teacher's behavior
-distribution as a whole, and nothing in the objective distinguishes
-the movement required by the task from the movement that merely
-reproduces source-specific regularities. For trajectories drawn from
-the student's own policy the score-function expectation vanishes,
-$\mathbb{E}_{\tau\sim\pi_\theta}[\nabla_\theta\log\pi_\theta(\tau\mid
-x)]=0$, and weighting the same samples by the verifier yields the
-policy-gradient identity
-\begin{equation}
-\nabla_\theta J_x(\theta)
-=\mathbb{E}_{\tau\sim\pi_\theta}\!\left[V(x,\tau)\,
-\nabla_\theta\log\pi_\theta(\tau\mid x)\right],
-\label{eq:pg-identity}
-\end{equation}
-so the only systematic drift of the verifier-filtered channel is the
-ascent direction of task success. Both identities are standard; the
-proposition states what the advantage weight adds on top of them.
+\subsection{What the transfer optimizes}\label{sec:theory-mech}
+Fix a supervised state $s$ with injection $\alpha\in[0,1]$ decided
+before sampling, two source actions $Y_1,Y_2\sim p_t(\cdot\mid s)$,
+and a selection $d=d(s,Y_1,Y_2)$ with $|d|\le\min\{\alpha,1-\alpha\}$.
+Maximum-likelihood training on the teacher text alone follows
+$-\nabla_\theta D_{\mathrm{KL}}(\nu_T\|\pi_\theta)$ per state, so its
+expected update moves the student toward the teacher behavior
+distribution as a whole and cannot separate the movement the task
+requires from the replacement of behaviors the student already had
+right. The target $q$ of Section~\ref{sec:distill} replaces this by a
+mixture whose teacher component is fixed.
 
-\begin{proposition}[Deficit-proportional allocation with a safe fixed
-point]\label{prop:advantage}
-Let $\hat p(x)$ be the empirical unguided success rate of task $x$ and
-let the positive objective weight each verified trajectory of $x$ by
-$a(x)=(1-\hat p(x))_{+}$. Then in expectation over collection,
-(i) the update direction contributed by task $x$ is the
-policy-gradient ascent direction of Eq.~\eqref{eq:pg-identity} scaled
-by $a(x)$, so the training budget concentrates on tasks in proportion
-to their measured deficit;
-(ii) if $\hat p(x)=1$ for every support task, every weight is zero,
-the update vanishes, and the returned policy is the base student; and
-(iii) as $\hat p(x)\to 0$ uniformly, the objective reduces to the
-unweighted verifier-filtered objective.
+\begin{proposition}[Fixed teacher mass and unbiased selective
+transfer]\label{prop:transfer}
+(i) For every legal $d$, $q$ is a probability distribution whose
+teacher mass equals $\alpha$; the selection changes only which of
+$Y_1,Y_2$ loses mass. (ii) If $\alpha$ and the unit weights $w_i$ are
+fixed before $Y_1,Y_2$ are sampled, then
+$\hat g_d=(1-\alpha)\bar G_{\mathrm{soft}}+\alpha G_T-\tfrac{d}{2}(G_1-G_2)$
+is an unbiased estimate of the gradient of the expected
+cross-entropy to $q$, even though $d$ may depend on both samples, and
+the soft term vanishes exactly at $\pi_\theta=p_t$. (iii) Writing
+$G_k=u(s)+e_k$, the selective term equals $-\tfrac{d}{2}(e_1-e_2)$;
+the component $u(s)$ shared by the two behaviors cancels
+identically.
 \end{proposition}
 
-The proof, immediate from linearity in $a(x)$, is in
-Appendix~\ref{app:analysis}. Point (ii) is the property the
-experiments exercise most; on a benchmark where the base student
-already matches its attainable ceiling, the method's correct output
-is the base policy itself, and the pipeline emits a zero-update
-decision trace rather than a degraded checkpoint. Point (iii) states
-graceful degradation toward the pure self-improvement regime when the
-student fails everywhere, in which case guided collection supplies
-the verified trajectories that make the objective non-vacuous.
+The proof is given in Appendix~\ref{app:analysis}, and the
+finite-action case is also verified by enumeration in the
+implementation. Point (ii) is the reason the injection and the weights
+are frozen before sampling, since a weight that depends on the current
+samples or gradients introduces a bias term
+$\mathbb{E}[w_i(G_{\mathrm{hard}}-G_{\mathrm{soft}})]\ne 0$. Point
+(iii) is what allows the selection to act on the difference between
+competing student behaviors without first identifying that difference
+across events.
 
-\subsection{Deployment coverage guarantee}\label{sec:theory-cov}
-At deployment the certificate must decide, per query, whether the
-specialized student answers or the query falls back to the teacher,
-using only a black-box score of the student's output and the small
-calibration split $\mathcal{S}_c$. For exchangeable in-task queries,
-the split-conformal threshold calibrated on $\mathcal{S}_c$ yields the
-standard finite-sample marginal coverage guarantee
-\citep{vovk2005algorithmic, angelopoulos2023conformal}; no density
-estimation, parametric assumption, or asymptotic argument is
-involved, which is what makes the guarantee compatible with the
-few-shot premise. The guarantee degrades gracefully with calibration
-size, since with $|\mathcal{S}_c|=n$ the realized coverage
-concentrates around the nominal level following the known Beta law,
-so the certificate remains valid while honestly widening as $n$
-shrinks. Two delimitations matter. The guarantee is marginal over
-in-task queries, not conditional per query; and it concerns
-acceptance of in-task queries only, so rejection power out of task is
-an empirical quantity that we report as such. A fuller justification
-of the design choice against alternatives is given in
-Appendix~\ref{app:analysis}.
+\begin{proposition}[Selective transfer improves the finite-step
+return]\label{prop:lowerbound}
+Let $\theta_S(0)$ and $\theta_S(d)=\theta_S(0)+d\,v$ be the virtual
+reference and selected students built on the same batch, weights,
+injections, and source samples, and let
+$z=\nabla J(\theta_S(0))^{\top}v$. If $J$ is $L_H$-smooth along the
+update path in the $H$-norm, then
+$J(\theta_S(d))-J(\theta_S(0))\ge d\,z-\tfrac{L_H}{2}d^2\|v\|_H^2$.
+Hence whenever $z\ne 0$ there is a legal $d$ of the sign of $z$ with
+strictly positive gain at unchanged teacher mass, and with an
+estimate $\hat z$ satisfying $|\hat z-z|\le\varepsilon$ the guaranteed
+gain is $d\hat z-\varepsilon|d|-\tfrac{L_H}{2}d^2\|v\|_H^2$.
+\end{proposition}
+
+The bound is the origin of the surrogate solved at every step. The
+linear term is the estimated response, the $\ell_1$ term is the
+estimation error along each direction, and the quadratic term, with
+$L_H$ unknown and replaced by a scale-free $\lambda$ on the normalized
+interaction matrix $K$, penalizes both the step size and the
+redundancy between units. We do not claim monotone improvement. The
+return gradient is estimated from rollouts, the smoothness constant is
+unknown, and between decision windows the estimate is stale, which the
+implementation records as feedback age and does not correct.
+
+\subsection{What the acquisition surrogate guarantees}\label{sec:theory-acq}
+On the full evidence set, $\hat F(\mathcal{E})$ coincides with the
+selection objective, so the value of an owned package,
+$\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$, is a
+leave-one-out difference of the same surrogate evaluated at one
+reference point with one return gradient. It counts the teacher
+injection the package brings, since $\Delta_{\mathcal{E}}(0)$ does not
+vanish when the selection shrinks to zero, and it is comparable across
+packages only because the exposure of the removed package is
+back-filled so that every other weight is unchanged. Two delimitations
+matter. First, the surrogate is a first-order-plus-quadratic model of
+the finite update. It is validated, not certified, by realized paired
+gains measured on a feedback batch different from the one that chose
+$d$, and the posterior that maps pre-purchase features to surrogate
+values is shrunk toward zero while its out-of-window predictive power
+is low. Second, the responses of unpurchased packages are invisible,
+so their pairwise interactions cannot be computed. The posterior
+predicts the marginal gains of purchased packages from public features
+and the pre-purchase training context, and nothing in the procedure
+reads unpurchased content. The budget itself is enforced by the ledger
+invariant that reserved plus settled cost never exceeds the
+authorization, with every revealed package, successful or not, billed
+at its recorded cost.

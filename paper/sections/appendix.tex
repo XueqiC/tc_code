@@ -1,136 +1,123 @@
 
 \section{Additional methodology details}\label{app:method}
 
-This section provides implementation details omitted from
-Section~\ref{sec:method}, including the complete training procedure,
-gradient representation, acquisition estimators, reference-task
-interference measurement, guidance construction, importance weighting,
-the preference construction we tested and removed, and task-boundary
-calibration.
+This section provides the implementation details omitted from
+Section~\ref{sec:method}: the complete procedure of one decision
+window, the exposure and ledger conventions, the gate, the estimator
+components, the source-selection solver, the acquisition surrogate
+with its posterior, and the paired controls used to isolate the
+mechanism.
 
-\paragraph{Complete training algorithm.}
-The procedure begins by randomly partitioning
-$\mathcal{S}=\mathcal{S}_d\cup\mathcal{S}_c$ with
-$\mathcal{S}_d\cap\mathcal{S}_c=\emptyset$, reserving $\mathcal{S}_c$
-exclusively for final calibration, constructing the initial gradient
-representation and dictionary from admissible training-side data, and
-estimating the task-demand vector $r$ from $\mathcal{S}_d$. Each round
-then proceeds in four phases. Acquisition computes the remaining
-deficits $\delta_{r,j}=(r_j-s_{r,j})_+$, estimates coverage
-$C_r(x)$, unlock probability $\hat\rho_r(x)$, cost $\hat c(x)$, and
-interference $I_r(x)$ for each feasible candidate, and greedily
-acquires the highest-utility candidates while the budget lasts and
-$\max_x U_r(x)>0$; every delivered demonstration is verified and
-converted into a context $h(d_x)$. Collection samples $K$ unguided
-trajectories per query, records each trajectory, verifier outcome,
-provenance, and behavior-policy log-likelihood, and activates an
-acquired context only for queries whose unguided attempts all fail.
-Optimization computes clipped importance weights for guided
-trajectories, forms the verifier-weighted positive objective from all
-collected student trajectories, and updates the student with
-$\mathcal{L}=\mathcal{L}_{\mathrm{ver}}$; failed trajectories enter
-no loss term. Re-estimation
-re-evaluates unguided capability, updates supply $s_{r+1}$, unlock and
-interference estimates, and acquisition utilities, and stops when the
-unguided convergence criterion holds, the budget is exhausted, or all
-remaining candidates have non-positive utility. Calibration then
-freezes the student and every component of the routing score before
-touching $\mathcal{S}_c$.
+\paragraph{Complete procedure.}
+Training runs in budget rounds of twelve commit steps; steps 1, 4, 7,
+and 10 are decision windows. A decision window executes, in this
+order: (i) select and purchase up to $K$ packages with the historical
+posterior under the remaining authorization, revealing and settling
+each at its recorded cost through the ledger; (ii) fix the evidence
+of the step, the exposure weights $w_i$, and the injections
+$\alpha_i$, and draw two fresh source actions per unit from the frozen
+snapshot of the round; (iii) build the virtual reference $\theta_S(0)$
+on this batch; (iv) estimate the return gradient at $\theta_S(0)$ with
+temperature-one rollouts on the feedback fold and solve for $d^\star$;
+(v) commit $\theta_S(d^\star)$ on the same batch, estimate the return
+at $\theta_S(d^\star)$, and update the gate in a blocked step with
+$d^\star$ fixed. The acquisition reference (the old-evidence virtual
+update used for surrogate labels) and the selection reference
+$\theta_S(0)$ are separate rollout batches with separate compute
+accounting and are never substituted for one another. Non-decision
+steps sample units from the accumulated pool under the frozen rules,
+reuse the latest return gradient, recompute the directions $v_i$ and
+the errors $\hat\varepsilon_i$ along them from stored per-trajectory
+contributions, and journal the feedback age.
 
-\paragraph{Gradient features and coupled dictionary.}
-Gradient features are computed with respect to the same restricted
-parameter subset used for specialization; raw gradients are
-transformed by the Adam preconditioner before a fixed random
-projection $P\in\mathbb{R}^{p\times D}$ with $p\ll D$ is applied. When
-both prompt-side and outcome-side gradients are available, we fit a
-coupled sparse dictionary with shared latent coefficients; missing
-outcome views are handled through an explicit availability mask rather
-than zero imputation.
+\paragraph{Exposure and ledger conventions.}
+One exposure unit is the teacher record of one state plus two source
+actions; each commit step uses $E=40$ units (eighty actions), at most
+$K=20$ of them from new packages, in micro-batches of four states and
+ten micro-batches per commit. Before any purchase the units are
+reference-pool states without teacher evidence, for which
+$\alpha_i=0$. The ledger keeps reserved plus settled cost at or below
+the authorization; a package is reserved at its public cap, revealed,
+settled at its recorded cost, and the remainder released; the same
+package is paid once; a failed completion is charged. The budget
+denominator is the recorded content cost of the sealed pool, and the
+authorizations at the ends of the two rounds are ten and twenty-five
+percent of it. The support tasks are split into two folds that rotate
+between rounds; the inner fold supplies source states and candidates,
+and the feedback fold supplies returns only and never enters a
+gradient, the preconditioner, or any normalization.
 
-\paragraph{Demand, supply, and saturation.}
-Per-atom demand aggregates query-level normalized activations over
-$\mathcal{S}_d$, so that a few high-magnitude queries cannot dominate
-the estimate. A verified student trajectory contributes supply
-according to its projected gradient representation, and the positive
-part $(r_j-s_{r,j})_+$ gives acquisition diminishing returns along
-already-covered directions.
+\paragraph{Gate.}
+$\alpha(s)=\sigma(\phi\cdot\chi(s))$ uses state-only features (a fixed
+projection of the hidden representation of the state, the prompt
+length, and the turn index); it excludes the length, likelihood, or
+projection of the sampled actions and excludes benchmark categories
+and error types. The control arm uses the constant $\alpha=0.5$. The
+gate parameters are updated once per decision window from the
+post-commit return with $d^\star$ fixed.
 
-\paragraph{Estimating the unlock probability.}
-Before any guided observations exist, all candidates share a common
-prior, so initial acquisition is driven by demand coverage, predicted
-cost, and interference risk. Afterwards $\rho_r$ is updated from
-empirical guided success statistics with smoothing across nearby task
-representations. Teacher success is never used as an estimate of
-student success under guidance.
+\paragraph{Estimator components.}
+For a unit with prefixes $Y_1,Y_2$, the soft source gradient at each
+sampled prefix position is the gradient of the full-vocabulary
+KL between the frozen snapshot $p_t$ and the current student, averaged
+over the two prefixes; $G_T$ is the gradient of the log-likelihood of
+the teacher text; $G_1,G_2$ are the log-likelihood gradients of the
+two sampled actions, with the sampled end-of-sequence token included
+and no token appended at a length cap. Generation-time per-token
+log-probabilities are checked against teacher-forced rescoring under a
+fixed tolerance, so that a sample whose recorded scores disagree with
+the model is rejected before it enters any gradient.
 
-\paragraph{Reference-task interference.}
-The penalty $I_r(x)$ is estimated from a fixed set of free
-reference-task gradients through the reference coupling statistic
-$\kappa^r(x)$, which distinguishes task-aligned transfer,
-approximately orthogonal interaction, and antagonistic coupling;
-$I_r(x)$ is a monotone function of the antagonistic component.
-Section~\ref{sec:rq5} evaluates whether these geometric regimes
-predict measured reference-task interference after specialization.
+\paragraph{Source-selection solver.}
+$d^\star$ maximizes $\hat z^{\top}d-\tfrac{\lambda}{2}d^{\top}\tilde K d
+-\sum_i\hat\varepsilon_i|d_i|$ over $|d_i|\le\min\{\alpha_i,1-\alpha_i\}$
+by projected coordinate ascent with a convergence test, where
+$\tilde K=K/s$ with $s$ the mean diagonal of $K$ over units with a
+non-zero direction and $\hat z$, $\hat\varepsilon$ scaled by
+$1/\sqrt{s}$, so that the solution is invariant to the overall scale
+of the directions and $\lambda=1$ means that the normalized curvature
+of one unit equals one unit of its linear gain. The estimation error
+$\hat\varepsilon_i$ is the leave-one-out standard error of $\hat z_i$
+over the feedback rollouts along $v_i$ and is recomputed along the new
+directions at every step. The first window of each run uses $d=0$
+(warm-up). Journaled per step are $\hat z$, $\hat\varepsilon$, the
+interaction statistics of $K$, $d^\star$, the active constraints, and
+the feedback age.
 
-\paragraph{Guidance construction.}
-A purchased demonstration is transformed into a context block and
-inserted into the student's generation context according to the
-environment interface. Teacher-generated actions are never copied into
-the optimization target, and the context is removed when computing the
-deployment-policy likelihood $\pi_\theta(\tau\mid x)$.
+\paragraph{Acquisition surrogate and posterior.}
+For the evidence $\mathcal{E}$ of the current window the surrogate
+value of an owned package is
+$\hat F(\mathcal{E})-\hat F(\mathcal{E}\setminus\{q\})$ with
+$\Delta_{\mathcal{E}}(d)$ built at the acquisition reference point
+and the units of the removed package back-filled with predetermined
+old-pool evidence in the same slots and weights; the label is stored
+as an acquisition surrogate, distinct from realized paired gains,
+which are measured with a different feedback batch and used only to
+validate the surrogate. The persistent posterior is a Bayesian linear
+model over the public features of the package and the pre-purchase
+training context (round and step progress, number of purchased
+packages and states, a summary of purchased state projections, mean
+and spread of the current $\alpha$, and feedback age) with a separate
+cost model over public features only; its mean is shrunk toward zero
+unless at least four windows and eight labels show positive
+out-of-window predictive power. Nothing in the procedure reads
+unpurchased content; the selector sees public identifiers and cost
+bounds only, which is enforced by a leak test.
 
-\paragraph{Importance weighting and support.}
-Every collected trajectory stores its behavior-policy log-likelihood
-$\log\mu_r(\tau\mid x)$. The trajectory-level log ratio
-$\log w_\theta=\log\pi_\theta(\tau\mid x)-\log\mu_r(\tau\mid x)$ is
-computed in log space and clipped at $c$. The exact identity assumes
-absolute continuity, which contextual guidance does not guarantee,
-since a guidance context can make some unguided-reachable trajectories
-unreachable under the behavior policy; clipping controls variance on
-observed trajectories but cannot recover missing support. We report
-the empirical ratio distribution and compare no correction, unclipped
-correction where feasible, and clipped correction.
-
-\paragraph{Preference construction tested and removed.}
-An earlier version of the objective added a reference-free odds-ratio
-preference term \citep{hong2024orpo} on success-failure pairs sharing
-the environment state before their first action divergence $t^\star$,
-with tokens before $t^\star$ masked and pairs admitted through a
-length-normalized NLL gate tracked by an exponential moving average.
-Auditing the admitted pairs showed why this term degrades the method.
-Sampled trajectories diverge in surface form almost immediately, so
-the shared prefix averages five percent of the turn and the mask
-removes essentially nothing. The punished segment is then nearly the
-whole failed turn, of which ninety-six percent of tokens also occur
-in verified successful turns of other tasks and seventy-two percent
-occur in the paired chosen turn itself, so the negative gradient
-lands mostly on the shared task dialect that the positive objective
-is reinforcing. The admission gate passed almost every pair in every
-epoch, making the damage systematic rather than incidental.
-Empirically the term halves the rate of fully completed tasks and
-widens seed variance while providing no mean improvement. The final
-method therefore trains on $\mathcal{L}_{\mathrm{ver}}$ alone, and
-Section~\ref{sec:rq5} reports the paired comparison.
-
-\paragraph{Single-dose positive replay.}
-The primary verifier objective is computed from the actual sampled
-rollout distribution and does not select trajectories by length. When
-persistent positive replay is used, at most one verified anchor per
-query per collection stage is retained, sampled uniformly from
-eligible successful trajectories.
-
-\paragraph{Task-boundary calibration.}
-After all training decisions are complete, the student, dictionary,
-and score construction are frozen. The deployment score is
-$R(x)=\|g_p(x)-D_p z(x)\|_2$; calibration residuals on
-$\mathcal{S}_c$ give the finite-sample corrected quantile
-$\gamma_\alpha=R_{(k)}$ with $k=\lceil(m{+}1)(1{-}\alpha)\rceil$, and
-the routing rule sends $R(x)\le\gamma_\alpha$ to the specialist and
-rejects or escalates otherwise. Because the score construction is
-frozen before $\mathcal{S}_c$ is accessed, the guarantee is the
-standard split-conformal marginal guarantee under exchangeability and
-should not be read as a conditional or out-of-distribution detection
-guarantee.
+\paragraph{Paired controls.}
+On frozen checkpoints and fixed window evidence, the paired
+interventions execute two one-step updates from the same start and
+evaluate both on a fixed task set and on held-out feedback tasks:
+learned $d^\star$ against $d=0$ at the same $\alpha$ (the isolation of
+the mechanism); the update with $Y_1$ and $Y_2$ swapped (symmetry:
+$d$ flips sign and the update is unchanged); learned $d$ against a
+shuffled source pairing that keeps $\alpha$, the teacher targets, and
+the multiset of gate values; the joint solver against the independent
+solver that drops the off-diagonal of $K$; and the source-estimator
+diagnostic (two hard samples, the soft term, eight hard samples,
+syntax-filtered hard samples). Each intervention reports the
+fixed-set parse-failure rate, greedy repair and damage counts under
+equal teacher mass, the held-out return, and the update norm.
 
 \section{Full experimental details}\label{app:details}
 
@@ -139,7 +126,7 @@ guarantee.
 \caption{Support-set instantiation per benchmark under the sizing
 rule $N=\mathrm{clip}(0.05\,|\text{pool}|,\,50,\,250)$. The pool is
 the official training split when the benchmark ships one (ALFWorld,
-AppWorld) and the full task set otherwise (BFCL, $\tau^2$-bench).
+AppWorld) and the full task set otherwise (BFCL).
 Evaluation always uses the query side only; benchmarks with an
 official evaluation split disjoint from the pool use that split
 unchanged, and the others are evaluated on the full set with the
@@ -152,390 +139,309 @@ Benchmark & Task pool & $N$ & $|\mathcal{S}_d|$ & $|\mathcal{S}_c|$
 & Evaluation side\\
 \midrule
 BFCL~v4 & 4{,}706 & 235 & 188 & 47 & official set minus support\\
-ALFWorld & 3{,}553 & 178 & 142 & 36 & official unseen split\\
-AppWorld & 90 & 50 & 40 & 10 & official dev and test splits\\
-$\tau^2$-bench & 115 & 50 & 40 & 10 & official set minus support\\
+ALFWorld & 3{,}553 & 178 & 142 & 36 & \texttt{valid\_seen} (140 tasks)\\
+AppWorld & 90 & 50 & 40 & 10 & \texttt{dev40} subset\\
 \bottomrule
 \end{tabular}
 \end{table}
-\paragraph{Controlled suite.} Five domains built from public datasets:
-GSM8K in two action spaces (execution-verified Python and original
-chain-of-thought, an identical-query hard pair), DS-1000 Pandas
-\citep{lai2023ds1000}, Spider text-to-SQL, and Alpaca instructions
-\citep{taori2023alpaca} as the out-of-domain pool (sha256-stable splits).
-Teacher trajectories carry execution-based quality gates (95--96\%
-verified on GSM8K-code). Secondary agent environments for breadth:
-BFCL~v4 function calling, $\tau^2$-bench \citep{yao2024taubench},
-ALFWorld \citep{shridhar2021alfworld}, and WebShop \citep{yao2022webshop},
-matching environments used by agent-distillation baselines
-\citep{liu2025structured, kang2025distilling}.
-\paragraph{Additional baselines.} Distillation-side: vanilla trajectory
-SFT, capacity-aligned selection \citep{tang2026smartad}, segment-weighted
-losses \citep{liu2025structured}. Boundary-side: query- and
-trajectory-embedding subspaces under the same conformal pipeline, and
-activation-probe rejection \citep{li2026scope}.
-\paragraph{Evaluation details.} Per-environment metrics follow each
-benchmark's convention (execution accuracy for GSM8K-style tasks, task
-success for AppWorld/ALFWorld, score for WebShop, tool-call accuracy for
-BFCL, pass\^{}k-style success for $\tau^2$-bench). Decoding is greedy
-(pass@1) with a 320-token cap. Behavioral leakage channels (action-space
-adoption, format bleed, refusal rates) accompany the residue numbers.
-Certificates follow conformal risk practice \citep{vovk2005algorithmic,
-gibbs2025conditional}.
 \paragraph{Optimization and implementation constants.}
-AdamW, batch size 1 with gradient accumulation 8, learning rate
-$2\times10^{-4}$, three epochs per optimization phase,
-importance-ratio clip $c=1$; the removed preference variant used
-weight $\lambda_{\mathrm{pref}}=0.25$ and EMA decay $0.99$ for its
-admission gate. Gradient
-features use LoRA rank 16 with a fixed random projection to 64
-dimensions per module; the Adam preconditioner for the probe gradients
-is accumulated on the support queries themselves before any purchase,
-so no feature depends on purchased data. The coupled dictionary uses
-mini-batch sparse coding with $\lambda_z=0.05$ and atom count
-$\min(64,n/2)$ for $n$ available examples, refit as purchases and
-verified trajectories accumulate. Collection uses $K=4$ unguided and
-$K_g=4$ guided rollouts per query at temperature $0.7$. Acquisition
-rounds are bounded by a maximum of $R=2$ in the current experiments;
-unused budget carries forward and need not be spent. Single-dose
-positive replay retains at most one verified anchor per query per
-collection stage, sampled uniformly among eligible successes.
-Conformal calibration uses the ten held-out calibration queries.
-Experiments ran on one lab GPU node and a SLURM cluster of NVIDIA
-B200 accelerators.
+Students train LoRA adapters (rank 16, $\alpha_{\mathrm{LoRA}}=32$,
+dropout 0) with AdamW at learning rate $2\times10^{-4}$; the
+preconditioner $P$ used for the virtual reference and the directions
+$v_i$ is the diagonal preconditioner of the optimizer accumulated on
+the inner fold before any purchase. Each commit step uses $E=40$
+exposure units, $K\le 20$ new packages, micro-batches of four states,
+and ten micro-batches per commit; two source actions per unit at
+temperature one, top-$p$ one, resampled at every step; the action cap
+is 256 tokens on ALFWorld and the harness cap elsewhere. Return
+feedback uses the feedback fold with a fixed number of temperature-one
+rollouts per task and leave-one-out standard errors; $\lambda=1$ on
+the normalized interaction matrix; warm-up $d=0$ for the first window;
+gate features are state-only with a scalar variant
+$\alpha=\sigma(\phi_0)$; the control arm fixes $\alpha=0.5$. The
+acquisition posterior is shrunk to five percent of its mean until four
+windows and eight labels show positive out-of-window predictive power;
+public cost caps are 2{,}048 output tokens for demonstration packages
+and 512 for generator packages, certified against the sealed pool.
+Generation batches at most eight prompts within a padded-token budget;
+teacher-forced scoring is unbatched. Experiments ran on a lab node
+with mixed NVIDIA GPUs for evaluation and on NVIDIA B200 nodes for the
+acquisition arms; all arms of a comparison run on one hardware class.
 
+\paragraph{Benchmark protocols and evaluation metrics.}
+Table~\ref{tab:eval-protocol} fixes the evaluation protocol of every
+main-table column. \textbf{AppWorld} tasks an agent with day-to-day
+objectives across nine simulated applications; we report task goal
+completion (TGC), the fraction of tasks whose full evaluation test
+suite passes under the official evaluator, on a fixed 40-task subset
+of the development split (\texttt{dev40}) with a 24-step cap, and
+give the pooled unit-test pass ratio
+$\sum_i \mathrm{passed}_i/\sum_i \mathrm{tests}_i$ only as a
+diagnostic. The subset is a development result and is labelled as
+such. \textbf{BFCL~v4} evaluates function calling across single-turn,
+live, multi-turn, memory, web-search, and relevance categories and is
+reported as the official overall accuracy over all 5{,}217 entries
+under the official generation and evaluation scripts with the
+leaderboard default low-temperature sampling ($T=0.001$, served by
+vLLM; this is not strict greedy decoding). Trained checkpoints are
+always compared with the initial student evaluated on the same
+machine and configuration.
+\textbf{ALFWorld} tests embodied household instruction following in a
+text environment with a ReAct scaffold; we report the success rate on
+the 140 \texttt{valid\_seen} tasks with a 40-step cap under greedy
+decoding. \textbf{$\tau^2$-bench} places the agent in customer-service
+conversations with database-backed tools and a simulated user; with a
+metered simulator one episode costs on the order of $10^5$ teacher
+tokens, so a single main-table row would exceed the budgets studied
+here, and the benchmark is left to future work.
 
-\paragraph{Benchmark details and evaluation metrics.}
-\textbf{AppWorld} tasks an agent with day-to-day objectives across
-nine simulated applications; the main-text column reports the
-unit-test pass ratio under the official evaluator, with task and
-scenario goal completion (TGC and SGC) reported alongside at the
-test\_normal freeze. \textbf{BFCL~v4} evaluates function calling
-across single-turn, parallel, and multi-turn categories and is
-reported as the official overall accuracy. \textbf{$\tau^2$-bench}
-places the agent in customer-service conversations with
-database-backed tools and a simulated user, reported as
-pass\textsuperscript{1}; the user simulator is served by the same
-metered teacher, and its tokens are metered separately from the
-supervision budget so rollout volume is not conflated with teacher
-supervision. \textbf{ALFWorld} tests embodied household instruction
-following in a text environment, reported as success rate on the
-official unseen split. Budget efficiency is measured by the wasted
-fraction of purchased tokens and by the budget-to-target level
-$B^{*}(\tau)$, the smallest budget at which a method reaches target
-performance $\tau$; off-task behavior is reported as residue on
-scoped reference tasks and read as evidence of where the budget went
-rather than as an objective. The baseline branches follow the
-black-box taxonomy of \citet{xu2024kdsurvey}: the labeling branch
-distills teacher demonstrations, the feedback branch turns teacher
-rankings of student samples into preference objectives, the
-self-knowledge branch retrains on the student's own verified
-samples, and the on-policy branch purchases teacher supervision on
-student-visited states; feature-based white-box methods require
-teacher logits and fall outside the setting.
+\begin{table}[h]
+\centering
+\caption{Evaluation protocol per main-table column. All rows use the
+same harness, tools, prompts, action retries, and decoding; only the
+student backbone changes.}
+\label{tab:eval-protocol}
+\small
+\begin{tabular}{llllll}
+\toprule
+Benchmark & Evaluation set & Tasks & Step cap & Decoding & Metric\\
+\midrule
+AppWorld & dev subset (\texttt{dev40}) & 40 & 24 & greedy & TGC (pass ratio aux.)\\
+BFCL~v4 & official full suite & 5{,}217 & harness & official default $T{=}0.001$ & overall accuracy\\
+ALFWorld & \texttt{valid\_seen} & 140 & 40 & greedy & success rate\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Reference rows: teacher and initial student.}
+Table~\ref{tab:reference} lists the reference values that the main
+table is read against. The teacher row is the metered teacher run
+through the same harness, and the initial student row evaluates the
+released \texttt{Qwen3.5-4B} checkpoint with no adapter as one
+reference value per column, taken on the same machine and
+configuration as the trained rows it is compared with. Both rows are
+kept out of the main table because neither is a trained student under
+the budget.
+
+\begin{table}[h]
+\centering
+\caption{Reference values for the main table (same harness, tools,
+prompts, and decoding as Table~\ref{tab:main}; percent). Cells marked
+$\cdot$ are pending.}
+\label{tab:reference}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & AppWorld (TGC) & BFCL v4 & ALFWorld\\
+\midrule
+Teacher (DeepSeek-V4-Pro) & $50.0$ & $\cdot$ & $\cdot$\\
+Initial pretrained student (Qwen3.5-4B) & $0.0$ & $46.27$ & $7.14$\\
+\bottomrule
+\end{tabular}
+\end{table} Repeated evaluations of this checkpoint are reported
+separately from training variance. On AppWorld three evaluation seeds
+give TGC $0/40$, $0/40$, and $1/40$ (pass ratios $0.277$, $0.213$,
+$0.250$); on BFCL the standard campaign observed $46.27$, $46.25$, and
+$46.06$ on three GPU classes, a spread of $0.21$ points in this run,
+which is an observation rather than a bound. The $\pm$ of every
+trained row is the standard deviation over its three training runs.
+
+\paragraph{Budget accounting.}
+$B$ is a cap on teacher output tokens per benchmark, applied
+identically to every teacher-using method; the actual spend of each
+method is reported next to its score. Charged items are teacher
+demonstrations including discarded failures, teacher ranking outputs
+(dDPO), and teacher corrections on student-visited states (on-policy
+correction). Student rollouts, environment interaction, verification,
+and GPU time are reported separately and are not part of $B$. Where a
+method trains from the sealed demonstration pool of the acquisition
+experiments, its cost is the recorded output-token cost of the pool
+content it uses.
+
+\paragraph{Baseline implementations.}\label{app:baselines}
+All baselines train the same LoRA student (rank 16) on the same
+support set with identical optimization constants, and differ only in
+the training pool and loss. Losses are computed on assistant-generated
+spans only; environment observations and prompts are masked. The
+branches follow the black-box taxonomy of \citet{xu2024kdsurvey}.
+\textbf{SFT} \citep{mukherjee2023orca} minimizes the
+token-level NLL on verified teacher trajectories.
+\textbf{SAD} (Structured Agent Distillation, \citealp{liu2025structured})
+trains on the same pool with reasoning and action spans weighted
+separately in the NLL; the teacher-distribution alignment of the
+original method is not available from a black-box teacher and is
+replaced by hard labels. \textbf{BBOPD}
+(black-box on-policy distillation, adapted from \citealp{ye2025bbopd}) lets the rollouts of the student
+itself fix the visited states, queries the teacher once per visited
+state for the action it would take there, and trains the resulting
+(state, teacher action) pairs by NLL; this keeps the on-policy state
+distribution of black-box on-policy distillation but not its
+discriminator or adversarial objective, and on a single-turn benchmark
+the visited state is the query itself, so the pool coincides with the
+demonstration pool. \textbf{dDPO} (distilled DPO,
+\citealp{tunstall2023zephyr}) runs an SFT stage followed by
+DPO whose preference pairs are the samples of the student ranked best
+and worst by the teacher; the frozen initial student is the DPO
+reference model, and the ranking outputs are charged to $B$.
+\textbf{PBSD (offline pref.)} (an offline variant of
+\citealp{pbsd2026}) pairs teacher positives with the failed first turn
+of the student as the rejected side and trains jointly with the
+positive NLL; unlike PBSD it uses a static external teacher and a
+fixed negative rather than a context-augmented self-teacher with
+continually resampled negatives. \textbf{STaR} \citep{zelikman2022star}, without rationalization,
+iterates self-sampling, verifier filtering,
+and self-training on the verified samples of the student, with no
+teacher call and no teacher-generated initialization examples. The
+agent distiller of \citet{kang2025distilling} reduces, in this
+harness, to SFT on the same pool, since its retrieval and
+code-tool components are fixed by the benchmark harness for all
+methods, and it is therefore not listed as a separate row.
+
+\paragraph{Sealed-pool baseline runs.}
+Under the unified budget every baseline draws its evidence from the
+same sealed candidate pool as RTD, purchased in a frozen random order
+(one order shared by the three training runs, which differ only in
+training randomness) until the next package would exceed the cap;
+purchased failed attempts are charged and yield no positive. Purchased
+packages are rendered into training rows as deployment-exact text.
+The prompt is the string the official handler sends at evaluation
+(the tool list with the language note of the handler, ending at the
+assistant turn marker), and the target is what the model must emit
+there, the empty non-thinking block followed by the teacher
+continuation in native tool-call form. The rendering used by RTD for
+the same package differs only in placing the empty block inside the
+prompt; both are recorded in the run manifests. Two other renderings
+were tried and rejected at the unified data size because the resulting
+students emitted an empty block and stopped: the legacy pseudo-tag
+rows with the decoded call style of the leaderboard (their earlier
+23-row use had merely been under-trained) and rows with the empty
+block masked inside the prompt. On BFCL at $B=13{,}843$ the random
+order buys 103 packages over 22 tasks (94 positive rows, 9 charged
+failures, $C_m=13{,}776$); among these tasks no cached failed first
+turn of the student exists, so the offline PBSD arm has no
+preference pair and coincides with SFT on this benchmark,
+and the on-policy correction arm coincides with it by the single-turn
+identity above. The dDPO arm adds one teacher ranking call per
+purchased task, charged to $C_m$. The offline preference variant of
+PBSD (teacher positives against the failed first turn of the student,
+trained jointly with the positive NLL) scored $4.2_{\pm7.2}$ on
+AppWorld and $28.8_{\pm4.0}$ on BFCL~v4 under the same protocol and is
+not listed in the main table, which keeps the agent adaptation only. STaR trains on the verified samples
+of the initial student and charges no teacher token.
+
+\paragraph{AppWorld failure mode of the imitation arms.}
+On AppWorld the student column sits near the floor, and the reason is
+specific. In the sealed DeepSeek pool 39\% of the purchased assistant
+turns are documentation lookups (\texttt{apis.api\_docs.*}), the phase
+in which the teacher reads the API surface before acting. Several
+trained runs imitate exactly this phase. At every step they emit a
+well-formed code block that queries the documentation of one app,
+receive the same output, and repeat it until the 24-step cap, so the
+environment state never changes and only the tests that hold on an
+untouched state pass. Runs that escape the loop act on the environment
+and pass more tests but rarely finish a task within the cap. We
+therefore report the pooled test pass ratio next to the task goal
+completion for this column as a diagnostic; the two agree on ordering.
+
+\paragraph{Version 1.0 arms (record).}
+Before the mechanism of Section~\ref{sec:distill} was fixed, an earlier
+design (v1.0) used a fixed injection $\alpha=0.5$ with no return-chosen
+replacement (R0, random acquisition), the full acquisition and selection
+loop (R1), and a learned scalar gate in place of the state injection
+(R1s), all under sealed replay of the same pool over three budget
+rounds. On BFCL v4 the three arms finished at 46.75 (R0, seven
+packages, 686 tokens), 45.31 (R1, six packages, 571 tokens, evaluated
+on a different device whose base reference is 46.27) and 46.53 (R1s,
+six packages, 523 tokens) against a base of 46.06 on the same device
+as R0 and R1s. On ALFWorld valid\_seen (140 tasks, greedy) they
+finished at 52.86 (R0, five packages, 870 tokens), 43.57 (R1, seven
+packages, 2,059 tokens) and 53.57 (R1s, seven packages, 2,059 tokens)
+against a base of 7.14. No v1.0 arm separates from its control beyond
+evaluation noise on BFCL, and on ALFWorld the full loop falls below
+the control at the third round. These runs are the reason the
+replacement decision was moved from the teacher text to the return of
+the student itself in v1.1, and they are not part of the main table.
 
 \paragraph{Component-study selection and data-generation baselines.}
-Beyond the main-table branches, component studies compare against
+Beyond the main-table branches, the component studies compare against
 selection baselines spanning classical and current families, namely
 random subsets, embedding retrieval, LESS \citep{xia2024less}, GIST
 \citep{gist2026}, TRIM \citep{trim2025}, ICONS \citep{icons2025}, and
-SmartAD's capacity-aligned selection \citep{tang2026smartad}, and
-against data-generation baselines Self-Instruct
+the capacity-aligned selection of SmartAD \citep{tang2026smartad}, and
+against the data-generation baselines Self-Instruct
 \citep{wang2023selfinstruct}, Evol-Instruct \citep{xu2024wizardlm},
 and LLM2LLM \citep{lee2024llm2llm}.
 
-\section{Limitations and pre-registration}\label{app:limitations}
-Pilot-scale numbers are single-seed and use verified pseudo-trajectories or
-two teachers; sweep-scale results carry seeds and confidence intervals as
-they land. The capability-proxy gate governs what may enter the training
-loop: geometric readings stay outside it until the pre-registered validation
-passes. Suppression claims are behavioral unless paired with unlearning;
-base-model prior capability cannot be removed by distillation alone, and our
-base/instruct dual track separates what shaping adds from what priors
-contribute. Dictionary hyperparameters materially affect atom quality (an
-over-sparse setting fails); stability analyses are required before
-skill-level claims generalize. \todo{keep synchronized with amendment log.}
+\section{Limitations}\label{app:limitations}
+The acquisition arms are single-seed exploration runs on one hardware
+class, and the main-table rows are three training runs; all
+statements about the mechanism rest on paired controls at frozen
+checkpoints rather than on repeated end-to-end runs. The experiments
+are sealed-pool replays. The candidate pool, responses, and recorded
+costs are frozen in advance, so purchase decisions are real but the
+costs are recorded rather than incurred online, and estimated costs
+are labelled as such. The return gradient is estimated from a finite
+rollout batch and reused between decision windows; the feedback age
+is reported, and the resulting staleness bias is not corrected. The
+lower bound of Section~\ref{sec:theory-mech} assumes local smoothness
+along the update path with an unknown constant, so the solver is a
+local surrogate rather than a certified maximization. Certification on
+the held-out split is plumbing only in this version; no bootstrap
+bounds are reported.
 
 \subsubsection*{Reproducibility statement}
-All experiments run from configuration files with sha256-stable splits; every
-result row in this paper maps to a line in the experiment log and a commit.
-Code, logs, and the amendment history will be released.
-
-\section{Appendix}
-\todo{full protocols; verifier sandbox details; teacher prompts and
-anti-degeneracy filters; per-run manifests; additional figures.}
-
-
-% ===== Auxiliary tables moved from the results section (per PI: appendix) =====
-% ===== Table 2: two-sided capability match + certificates =====
-\begin{table}[t]
-\centering
-\caption{Two-sided capability match on the SQL-scoped task (2B, 20k tokens,
-3 seeds). All methods tie in-task; certified off-task residue separates
-them by an order of magnitude. Bounds at $\delta{=}0.1$.}
-\label{tab:twosided}
-\small
-\begin{tabular}{@{}l cc cc@{}}
-\toprule
-& \multicolumn{2}{c}{\textbf{In-task}} & \multicolumn{2}{c}{\textbf{Off-task residue}}\\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-\textbf{Method} & valid.\ rate & cert.\ LB & measured & cert.\ UB\\
-\midrule
-Random subset      & $1.000$ & $0.926$ & $0.856$ & $0.982$\\
-Embedding retrieval& $1.000$ & $0.926$ & $0.833$ & $0.941$\\
-\rowcolor{rowours}SpecDistill & $1.000$ & $0.926$ & $\mathbf{0.078}$ & $\mathbf{0.249}$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% ===== Table 3: reference-model robustness (fully filled) =====
-\begin{table}[t]
-\centering
-\caption{Boundary robustness across reference models: hard-pair AUROC and
-conformal coverage of the identical-query pair, using the same 600-example
-suite and pipeline for every model. The specification structure does not
-depend on the model used to read gradients.}
-\label{tab:robustness}
-\small
-\begin{tabular}{@{}l l cc@{}}
-\toprule
-\textbf{Reference model} & \textbf{Variant} & \textbf{Hard AUROC} & \textbf{Coverage}\\
-\midrule
-Qwen2.5-1.5B & instruct & $1.000$ & $0.93$\\
-Qwen3.5-0.8B & instruct & $1.000$ & $0.93$\\
-Qwen3.5-2B   & instruct & $1.000$ & $0.90$\\
-Qwen3.5-4B   & instruct & $1.000$ & $0.90$\\
-Qwen3.5-9B   & instruct & $1.000$ & $0.83$\\
-Qwen3.5-0.8B & base     & $1.000$ & $0.87$\\
-Qwen3.5-2B   & base     & $1.000$ & $0.97$\\
-Qwen3.5-4B   & base     & $1.000$ & $1.00$\\
-Qwen3.5-9B   & base     & $1.000$ & $0.93$\\
-Qwen3.6-27B  & instruct & $1.000$ & $0.97$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% Aux tables to add (skeletons in appendix): (size,budget) surface grid;
-% boundary-quality vs baselines with k-efficiency; ablations (lambda
-% frontier, early stop, submodular, atoms vs subspace); pre-registration
-% gate ledger; mechanism statistics (M1-M3). \todo{build as data freezes.}
-
-
-% ===== Ablation: method variants (moved from Table 1 per PI) =====
-\begin{table}[h]
-\centering
-\caption{Variant ablations at the main cell (2B, 20k tokens, 3 seeds).
-Behavioral stopping matches the base method at no cost and wins at the
-smallest budgets (2k: $0.500_{\pm.027}$ vs.\ field $0.478$); the refusal
-variant trades $0.044$ in-task for $98\%$ out-of-domain refusal at $0\%$
-in-domain over-refusal.}
-\label{tab:variants}
-\small
-\begin{tabular}{@{}l c c c@{}}
-\toprule
-\textbf{Variant} & In-task & Out-refusal & Over-refusal\\
-\midrule
-SpecDistill & $0.922_{\pm.016}$ & -- & --\\
-\quad + behavioral stop & $0.922_{\pm.016}$ & -- & --\\
-\quad + refusal & $0.878_{\pm.057}$ & $0.98$ & $0.00$\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\section{Mechanistic study on the controlled suite}\label{app:mechanism}
-\input{sections/results_table}
-
-%% Each subsection opens with its falsifiable question (skill rule).
-
-\subsection{Can boundaries be estimated where semantics fail?}\label{sec:boundary}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/pilot_pca.pdf}
-\caption{First two principal components of three feature spaces over five
-domains (120 examples each; pilot). In gradient space (left) the
-identical-query hard pair separates (GSM8K-code, blue, versus GSM8K-CoT,
-orange); trajectory embeddings (center) mix the pair; query embeddings
-(right) place the pair on identical coordinates by construction.}
-\label{fig:pca}
-\end{figure}
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.48\linewidth]{figs/pilot_roc_hard.pdf}\hfill
-\includegraphics[width=0.5\linewidth]{figs/pilot_k_curve.pdf}
-\caption{Left: hard-pair ROC (30 in-domain versus 30 probe examples;
-pilot). Gradient boundaries reach AUROC $1.000$; trajectory embeddings
-$0.687$; query embeddings $0.404$, chance by construction. Right: sample
-efficiency over $k$ (5 seeds, mean$\pm$std). Gradient boundaries saturate
-at $k{=}5$; embedding boundaries degrade as $k$ grows.}
-\label{fig:hardpair}
-\end{figure}
-\todo{E1 full: hard-pair table (grad 1.000 / emb-traj 0.687 / emb-query 0.404
-$\approx$ chance by construction), $k$-efficiency (saturation at $k{=}5$;
-embeddings degrade with $k$), dimension- and template-controls, nine-model
-robustness matrix, PCA figure.}
-
-\subsection{Do atoms resolve skills within a domain?}\label{app:atoms-resolve}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.75\linewidth]{figs/e1_intra.pdf}
-\caption{Within-domain boundary resolution (5 seeds, mean$\pm$std;
-pilot). Dense subspaces and embeddings on keyword-defined subgroup pairs;
-sparse atom support (Section~\ref{sec:atoms}) raises SQL-join resolution to
-$0.906{\pm}0.025$. The embedding baseline reads the discriminative keyword
-directly from the trajectory text and is therefore surface-advantaged on
-this test.}
-\label{fig:intra}
-\end{figure}
-\todo{Dense-vs-sparse table: SQL-join 0.906$\pm$0.025 vs.\ 0.615 (dense) and
-0.866 (embedding, surface-advantaged by construction); coarse-scale parity
-(0.94--1.00); atom interpretability panel; dictionary stability; pandas
-limitation (intra-line skills need finer blocks).}
-
-\subsection{Does measured capability track behavior?}\label{sec:capability}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/e2_gate.pdf}
-\caption{The failed pre-registered gate (pilot). Left: mean residual
-gradient norm and execution success across 66 optimizer steps; the norm
-falls, then rises as the student's own style diverges from teacher
-references while success is stable. Right: success rate by residual-norm
-decile; the lowest decile is highly predictive (96\% success) but the
-upper deciles are not, and the pooled correlation ($\rho=-0.40$) fails the
-$-0.5$ threshold.}
-\label{fig:gate}
-\end{figure}
-\todo{Gate narrative: v1/v2 failures with per-checkpoint analysis (late
-within-checkpoint $\rho=-0.70$; lowest-decile success 96\%), style-drift
-evidence (per-row residual 15.1 vs.\ 1.3), atom-supply validation on E3
-cohorts (pre-registered).}
-
-\subsection{Does boundary-guided distillation shape capability?}\label{app:distill-shape}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/pilot_distill.pdf}
-\caption{Narrow distillation sharpens the student into the task (pilot;
-90 in-domain trajectories, 33 steps). Teacher-forced loss (left) and median
-residual gradient norm (right) before (blue) and after (orange) training:
-both drop on the target domain (highlighted) and rise on all four
-out-of-domain test sets without any explicit suppression.}
-\label{fig:sharpen}
-\end{figure}
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figs/e3_tier1.pdf}
-\caption{Budget-matched selection conditions (pilot, single seed,
-1.5B student, 40k response tokens). Left: in-domain execution accuracy;
-gradient-guided selection (D) ties random selection at 90\% while all
-trained conditions capture the action space completely. Right: leakage and
-behavior metrics; the refusal variant separates in-domain from
-out-of-domain requests at 100\% versus 0\% refusal.}
-\label{fig:e3}
-\end{figure}
-\todo{Budget-matched conditions (all/random/embedding/gradient/refusal):
-in-domain execution, action-space capture (63\%$\to$0\% CoT in every
-condition), out-of-domain loss movement, refusal split; (size, budget)
-coverage surface from the 39-run sweep; supply-starvation mechanism (M1).}
-
-\subsection{Agent environments}\label{sec:agents}
-\todo{AppWorld / BFCL-v4 / $\tau^2$-bench topic-scoped results (tier 2);
-teacher pool from three current open teachers with execution-verified
-quality gates.}
+All experiments run from configuration files with sha256-stable splits;
+every result row in this paper maps to a line in the experiment log
+and a commit. Code, logs, and the amendment history will be released.
 
 \section{Additional analysis}\label{app:analysis}
 
-\paragraph{Proof of Proposition~\ref{prop:advantage}.}
-The weighted positive objective is
-$\sum_{x}a(x)\,\mathbb{E}_{\tau\sim\pi_\theta}[V(x,\tau)\log
-\pi_\theta(\tau\mid x)]$ up to the collection distribution, and its
-gradient is the corresponding weighted sum of the per-task
-policy-gradient directions of Eq.~\eqref{eq:pg-identity}, which gives
-(i). If $\hat p(x)=1$ for all $x$ then $a(x)=0$ for all $x$, the
-objective is identically zero, and every parameter setting is a
-maximizer, so the procedure returns the initialization, which gives
-(ii). If $\hat p(x)\to 0$ uniformly then $a(x)\to 1$ and the
-objective converges to the unweighted verifier-filtered objective,
-which gives (iii). \qed
+\paragraph{Proof of Proposition~\ref{prop:transfer}.}
+(i) The three coefficients $\tfrac{1-\alpha-d}{2}$,
+$\tfrac{1-\alpha+d}{2}$, and $\alpha$ are non-negative for
+$|d|\le\min\{\alpha,1-\alpha\}$ and sum to one, and the teacher
+component has coefficient $\alpha$ independently of $d$. (ii) The
+cross-entropy to $q$ decomposes into the three components with the
+same coefficients; its gradient in expectation over
+$Y_1,Y_2\sim p_t$ equals $(1-\alpha)\,\mathbb{E}[\bar G_{\mathrm{soft}}]
++\alpha G_T-\tfrac{1}{2}\mathbb{E}[d\,(G_1-G_2)]$ because the
+$(1-\alpha)$ part of the hard-sample terms, whose coefficient does
+not depend on the samples, can be replaced by the full-vocabulary
+soft term with the same expectation, while the $d$ part keeps the
+sampled actions since $d$ depends on them; the estimator $\hat g_d$
+is the corresponding single-sample form, and its expectation matches
+term by term. At $\pi_\theta=p_t$ the per-position KL is minimized,
+so its gradient is zero. (iii) Substituting $G_k=u(s)+e_k$ gives
+$G_1-G_2=e_1-e_2$.
 
-\paragraph{Guided collection and importance correction.}
-Guided trajectories are drawn from
-$\mu_r(\cdot\mid x)=\pi_{\theta_r}(\cdot\mid x,h(d_x))$ while the
-optimized policy is unguided. The importance-sampling identity of
-Section~\ref{sec:distill} holds under absolute continuity of
-$\pi_\theta(\cdot\mid x)$ with respect to $\mu_r(\cdot\mid x)$, which
-contextual guidance does not guarantee, and clipping the ratio at $c$
-introduces bias in exchange for bounded variance. We therefore treat
-the clipped estimator as an approximation whose ratio distribution we
-report, and we compare uncorrected, clipped, and where feasible
-unclipped variants empirically.
+\paragraph{Proof of Proposition~\ref{prop:lowerbound}.}
+$L_H$-smoothness of $J$ along the segment from $\theta_S(0)$ to
+$\theta_S(d)$ in the $H$-norm gives
+$J(\theta_S(d))\ge J(\theta_S(0))+\nabla J(\theta_S(0))^{\top}(d\,v)
+-\tfrac{L_H}{2}\|d\,v\|_H^2$, which is the stated bound with
+$z=\nabla J(\theta_S(0))^{\top}v$. For $z\ne 0$ the right-hand side
+is positive for $d$ of the sign of $z$ with $|d|<2|z|/(L_H\|v\|_H^2)$,
+and the box $|d|\le\min\{\alpha,1-\alpha\}$ contains such $d$ whenever
+$0<\alpha<1$. Replacing $z$ by an estimate with $|\hat z-z|\le\varepsilon$
+lowers the bound by at most $\varepsilon|d|$.
+
+\paragraph{Joint selection over several units.}
+With $\Delta\theta=\sum_i d_i v_i$ the same argument yields
+$J(\theta_S(d))-J(\theta_S(0))\ge z^{\top}d-\tfrac{L_H}{2}d^{\top}Kd$
+with $K_{ij}=v_i^{\top}Hv_j$; the off-diagonal terms are the cost of
+two units pushing the update in a shared direction. The interior zero
+condition of the surrogate for coordinate $i$ is
+$|\hat z_i-\lambda\sum_{j\ne i}\tilde K_{ij}d_j|\le\hat\varepsilon_i$,
+which involves the other coordinates; a unit with a small direct
+response can therefore be used to offset the cost of other directions,
+and no coordinate is discarded before the joint problem is solved.
 
 \paragraph{Budgeted acquisition.}
-The capped coverage term $\sum_j\min\{\delta_{r,j},\hat s_j(\cdot)\}$
-is monotone submodular in the acquired set, so greedy selection under
-a knapsack constraint inherits the classical near-optimality
-guarantees for that term alone \citep{khuller1999budgeted,
-krause2005near}. The deployed utility additionally contains the
-unlock probability and the interference penalty, and we do not claim
-that the guarantee extends to the penalized product form; greedy
-selection there is a heuristic whose value the acquisition ablations
-measure.
-
-\paragraph{Geometry preservation under sketching.}
-The gradient features compose an adapter sketch with a
-Johnson--Lindenstrauss projection \citep{johnson1984extensions}. The
-standard guarantee preserves norms and pairwise distances of a finite
-point set to multiplicative $(1\pm\varepsilon)$ with logarithmic
-dimension dependence, and by polarization the inner products the
-method consumes are preserved up to an additive distortion controlled
-by the same $\varepsilon$ and the vector norms. Inner products are
-the only property that demand estimation, supply accounting, and the
-interference statistic consume.
-
-\paragraph{First-order interference prediction.}
-For an update $\theta_{t+1}=\theta_t-\eta\sum_{x\in D}
-\nabla\ell(x;\theta_t)$, a first-order expansion gives
-$\Delta\ell(q)\approx-\eta\sum_{x\in D}
-\langle\nabla\ell(q;\theta),\nabla\ell(x;\theta)\rangle$, so predicted
-movement of a reference task is the kernel mass the training set
-supplies to it. The expansion is exact only in the lazy regime; we
-measure its predictive quality rather than assume the regime, and
-Section~\ref{sec:rq5} evaluates whether the coupling regimes estimated
-from these inner products predict measured reference-task interference
-after specialization.
-
-\paragraph{What imitation reproduces.}
-Nothing in the maximum-likelihood objective distinguishes task-required
-movement from source-specific regularities. We quantify the
-distinction with the projection diagnostic $R_{\mathrm{ext}}$ of
-Section~\ref{sec:atoms}, and Section~\ref{sec:rq2} tests whether it
-predicts the observed degradation ordering across supervision formats.
-The diagnostic is a measurement, not an assumption, since the
-dictionary provides a common basis rather than an intrinsic separation
-of helpful and harmful directions.
-
-\paragraph{Why split-conformal certification is the right tool here.}
-The deployment gate must decide, per query, whether the specialized
-student may answer or the query falls back to the teacher, under three
-constraints inherited from the problem setting. First, the student is
-served as a black box at deployment, so the score can only be a
-function of its observable output, and split-conformal calibration
-requires nothing more than such a score. Second, the few-shot premise
-gives one small exchangeable sample $\mathcal{S}_c$ from the in-task
-distribution and nothing else, and split-conformal is exactly the
-procedure whose finite-sample marginal guarantee consumes only
-exchangeability, with no density estimation, no parametric assumption,
-and no asymptotics. Third, the guarantee degrades gracefully with
-calibration size; with $|\mathcal{S}_c|=n$, realized coverage follows
-the known Beta law around the nominal level, so the certificate
-remains valid while honestly widening, which matches the budget-first
-design of the method. The alternatives all violate one of the
-constraints; held-out validation of a fixed threshold gives no
-finite-sample guarantee at these sample sizes, and density-ratio or
-Bayesian gates require modeling assumptions the black-box setting
-cannot check. The certificate is marginal over in-task queries, and we
-report out-of-task rejection as an empirical quantity because no
-distribution-free guarantee is possible there without assumptions on
-the out-of-task law.
+The ledger invariant, reserved plus settled cost at or below the
+authorization, holds at every event because a package is reserved at
+its public cap before its response is revealed and the difference
+between cap and recorded cost is released only after settlement; the
+batch selection under $\sum_q\hat c(q)\le B_t$ therefore never leads
+to a purchase that exceeds the authorization, and a package that the
+ledger cannot afford at its cap is dropped with a journaled reason
+rather than substituted.
