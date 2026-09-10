@@ -13,7 +13,7 @@ from bfas.rtd.cli import load_config, validate_config
 from bfas.rtd.hardware import host_class
 from bfas.rtd.return_gradient import TorchPolicyBackend
 from bfas.rtd.transport import FullState, Behavior
-from bfas.rtd.persistence import digest
+from bfas.rtd.persistence import digest, file_hash
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = dict(student='google/gemma-4-12B-it', student_call_format='gemma4', benchmark='bfcl')
@@ -107,6 +107,24 @@ def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context):
     b = json.loads((out/f'sealed/{q}.json').read_text())['behaviors'][0]
     rendered = bfcl_row(config, row, tokenizer)
     assert b['state']['prompt'] == rendered['prompt'] and b['text'] == rendered['response']
+    # Bind unknown collection spend without relabeling the usable denominator.
+    provenance = dict(ledger_sha256=file_hash(ledger), pool_cost_status='exact-plus-unknown-rerun',
+        historical_cost_status='recorded-lower-bound-plus-unknown', recorded_output_tokens=33,
+        missing_usage_attempts=[], adapter_rerun=dict(extra_calls='unknown', exact_output_tokens=None))
+    sidecar = ledger.with_suffix('.provenance.json')
+    sidecar.write_text(json.dumps(provenance))
+    recorded = build_bfcl_pool_bank(tmp_path, tmp_path/'bound', pool=pool, ledger=ledger,
+                                    config=config, entries={tid: entry}, tokenizer=tokenizer)
+    bound = validate_state_certificate(tmp_path/'bound', benchmark='bfcl', student=config['student'])
+    assert bound['core']['inputs']['ledger_provenance'] == file_hash(sidecar)
+    assert recorded['budget_denominator'] == 33
+    assert recorded['teacher_accounting']['pool_cost_status'] == 'exact-plus-unknown-rerun'
+    provenance['ledger_sha256'] = 'wrong'
+    sidecar.write_text(json.dumps(provenance))
+    with pytest.raises(ValueError, match='provenance binding'):
+        build_bfcl_pool_bank(tmp_path, tmp_path/'mismatch', pool=pool, ledger=ledger,
+                            config=config, entries={tid: entry}, tokenizer=tokenizer)
+    sidecar.unlink()
     paid['tokens_spent'] = -1
     ledger.write_text(json.dumps(paid)+'\n')
     with pytest.raises(ValueError, match='spend'):

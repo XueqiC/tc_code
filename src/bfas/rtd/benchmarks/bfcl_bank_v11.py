@@ -26,6 +26,20 @@ def build_bfcl_pool_bank(root, directory, *, pool, ledger, config, entries=None,
     for row in read_pool(pool):
         grouped[str(row['task_id'])].append(row)
     records, payloads, used = [], {}, set()
+    inputs = dict(pool=file_hash(pool), ledger=file_hash(ledger))
+    provenance_path = Path(ledger).with_suffix('.provenance.json')
+    provenance, accounting = None, None
+    if provenance_path.exists():
+        provenance = json.loads(provenance_path.read_text())
+        if provenance['ledger_sha256'] != inputs['ledger']:
+            raise ValueError('BFCL ledger provenance binding mismatch')
+        inputs['ledger_provenance'] = file_hash(provenance_path)
+        accounting = dict(pool_cost_status=provenance['pool_cost_status'],
+            historical_cost_status=provenance['historical_cost_status'],
+            recorded_output_tokens=provenance['recorded_output_tokens'],
+            unknown_usage_attempts=len(provenance['missing_usage_attempts']),
+            adapter_rerun_extra_calls=provenance['adapter_rerun']['extra_calls'],
+            adapter_rerun_exact_output_tokens=provenance['adapter_rerun']['exact_output_tokens'])
     rows = read_pool(ledger)
     historical = 0
     for i, paid in enumerate(rows):
@@ -35,7 +49,7 @@ def build_bfcl_pool_bank(root, directory, *, pool, ledger, config, entries=None,
         total, confidence = ledger_cost(paid, default_confidence='exact')
         historical += total
         q = digest(['bfcl-paid-episode', file_hash(ledger), i])
-        if not paid['verified'] or tid not in parents or tid not in grouped:
+        if not paid['verified'] or tid not in parents or tid not in grouped or not paid['demo']['turns']:
             records.append(state_record(q, None, 'demo_attempt', total, confidence,
                 parent=parents.get(tid, digest(['excluded', tid])), unavailable='failed or absent/protected demo'))
             payloads[q] = dict(cost=total, cost_confidence=confidence, usage=dict(output_tokens=total),
@@ -76,6 +90,10 @@ def build_bfcl_pool_bank(root, directory, *, pool, ledger, config, entries=None,
             historical_response=paid, behaviors=behaviors)
     if set(grouped) - {str(r['task_id']) for r in rows if r['verified']}:
         raise ValueError('pool includes unpurchased teacher evidence')
+    audit = dict(m=len(parents), historical_output_tokens=historical, historical_attempts=len(rows))
+    if provenance is not None:
+        if historical != provenance['recorded_output_tokens']:
+            raise ValueError('BFCL provenance recorded total mismatch')
+        audit['ledger_provenance'] = provenance
     return seal_v11(directory, records, payloads, benchmark='bfcl', student=config['student'],
-        public={'support.json': support}, audit=dict(m=len(parents), historical_output_tokens=historical,
-        historical_attempts=len(rows)), inputs=dict(pool=file_hash(pool), ledger=file_hash(ledger)))
+        public={'support.json': support}, audit=audit, inputs=inputs, teacher_accounting=accounting)

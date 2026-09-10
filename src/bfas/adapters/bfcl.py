@@ -649,6 +649,21 @@ class BFCLAdapter(BenchmarkAdapter):
             shutil.rmtree(result_dir, ignore_errors=True)
             shutil.rmtree(score_dir, ignore_errors=True)
 
+    def demo_from_result(self, result: Mapping[str, Any], attempt_index: int) -> Demo:
+        """Construct a verified Demo offline, exactly as teacher acquisition does.
+
+        The caller supplies the checker verdict. Stateful episodes deliberately
+        have no training turns: the adapter does not reconstruct step contexts.
+        """
+        task_id = str(result["id"])
+        target = self._target(result.get("result"))
+        context = {"messages": self._messages(task_id), "functions": self._functions(task_id)}
+        turns = []
+        if not self.task_categories()[task_id].startswith(("multi_turn", "web_search", "memory")):
+            turns.append(Turn(self._render(context["messages"], context["functions"]), target, context))
+        return Demo(task_id, turns, target[:4000],
+                    {"attempt": attempt_index + 1, "checker_verified": True})
+
     def teacher_demo(
         self, task_ids: Sequence[str], attempts: int
     ) -> dict[str, Demo]:
@@ -672,24 +687,7 @@ class BFCLAdapter(BenchmarkAdapter):
                     task_id = str(result["id"])
                     if not verdicts.get(task_id) or task_id in demos:
                         continue
-                    target = self._target(result.get("result"))
-                    context = {
-                        "messages": self._messages(task_id),
-                        "functions": self._functions(task_id),
-                    }
-                    turns: list[Turn] = []
-                    if not categories[task_id].startswith(("multi_turn", "web_search", "memory")):
-                        turns.append(Turn(
-                            self._render(context["messages"], context["functions"]),
-                            target,
-                            context,
-                        ))
-                    demos[task_id] = Demo(
-                        task_id,
-                        turns,
-                        target[:4000],
-                        {"attempt": attempt + 1, "checker_verified": True},
-                    )
+                    demos[task_id] = self.demo_from_result(result, attempt)
                 remaining = [task_id for task_id in remaining if task_id not in demos]
             finally:
                 shutil.rmtree(result_dir, ignore_errors=True)
@@ -713,26 +711,7 @@ class BFCLAdapter(BenchmarkAdapter):
             target = self._target(result.get("result")) if result else ""
             demo = None
             if verdicts.get(task_id) is True and result is not None:
-                context = {
-                    "messages": self._messages(task_id),
-                    "functions": self._functions(task_id),
-                }
-                turns: list[Turn] = []
-                if not category.startswith(("multi_turn", "web_search", "memory")):
-                    turns.append(Turn(
-                        self._render(context["messages"], context["functions"]),
-                        target,
-                        context,
-                    ))
-                demo = Demo(
-                    task_id,
-                    turns,
-                    target[:4000],
-                    {
-                        "attempt": attempt_index + 1,
-                        "checker_verified": True,
-                    },
-                )
+                demo = self.demo_from_result(result, attempt_index)
             return TeacherEpisode(
                 task_id=task_id,
                 verified=demo is not None,

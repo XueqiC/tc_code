@@ -15,6 +15,10 @@ banks must be built from the corresponding paid pool and ledger.
 
 ## Build the banks (CPU, cached tokenizer, no API)
 
+The GPT-5.4 BFCL harness recovery build, its actual certificate totals, and the
+missing-usage/stateful exclusions are documented in
+[rtd_v1_1_bfcl_gpt54_bank.md](rtd_v1_1_bfcl_gpt54_bank.md).
+
 From the repository root:
 
 ```bash

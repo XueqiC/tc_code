@@ -21,7 +21,8 @@ def privileged():
         raise PermissionError('selector cannot inspect or build a bank')
 
 
-def seal_v11(directory, records, payloads, *, benchmark, student, public, audit, inputs):
+def seal_v11(directory, records, payloads, *, benchmark, student, public, audit, inputs,
+             teacher_accounting=None):
     privileged()
     maxima, counts, confidence = {}, Counter(), Counter()
     for row in records:
@@ -56,6 +57,8 @@ def seal_v11(directory, records, payloads, *, benchmark, student, public, audit,
         budget_basis=V11_BUDGET_BASIS, budget_denominator=sum(confidence.values()),
         rounding='positive_integer_half_up', cost_scope='cached-content cost; not the full teacher bill',
         online_authorized=False)
+    if teacher_accounting is not None:
+        core['teacher_accounting'] = teacher_accounting
     core_hash = digest(core)
     for i, row in enumerate(records):
         if row.unavailable_reason is None:
@@ -72,6 +75,8 @@ def seal_v11(directory, records, payloads, *, benchmark, student, public, audit,
         bank_public_cap_sum=sum(r.spec.cost_upper_bound for r in usable),
         available_cost_by_confidence=dict(confidence), available_packages=len(usable),
         cap_certificate_sha256=file_hash(directory/CERTIFICATE), public_cost_assumption=core['public_cost_assumption'])
+    if teacher_accounting is not None:
+        summary['teacher_accounting'] = teacher_accounting
     atomic_json(directory/'sealed/audit_v11.json', summary)
     return summary
 
