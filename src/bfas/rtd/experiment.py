@@ -51,6 +51,11 @@ class BFCLSupport:
         parents = json.loads((Path(root) / config['support_manifest']).read_text())['parents']
         self.parents, self.states, self.entries, self.categories = {}, {}, {}, {}
         self.unavailable = {}
+        from .student import bfcl_prompt
+        tokenizer = None
+        if config.get('student_call_format') == 'gemma4':
+            from .bank_build import load_student_tokenizer
+            tokenizer = load_student_tokenizer(config)
         for p in parents:
             tid, h = p['official_id'], p['parent_hash']
             entry = entries[tid]
@@ -69,7 +74,7 @@ class BFCLSupport:
                 observed = populate_test_cases_with_predefined_functions([copy.deepcopy(entry)])[0]
             task = {k: observed[k] for k in ('function', 'initial_config', 'involved_classes', 'scenario') if k in observed}
             task['question'] = observed['question'][0]
-            prompt = thinking_off(render_prompt([observed['question'][0]], observed.get('function', [])))
+            prompt = bfcl_prompt(config, observed['question'][0], observed.get('function', []), tokenizer)
             self.states[h] = FullState.create(task, observed['question'][0], prompt, h)
         self._truth = {}
 
@@ -448,6 +453,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
     def feedback(self, parameters, label, *, trajectory_scores=None):
         s = self.state
         rollouts = []
+        if hasattr(self.support, 'feedback_context'):
+            self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
         with self.scope(label):
             for parent, count in s['feedback_tasks']:
                 for rollout in feedback_rollouts(self.support, parent, count, self.backend,
@@ -503,6 +510,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         s['inner'] = {h for h in parents if int(h, 16) % 2 == fold}
         s['feedback'] = parents - s['inner']
         self.broker.set_inner_parents(s['inner'])
+        if hasattr(self.support, 'feedback_context'):
+            self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
         if not self.fixed:
             self.ledger.authorize(self.ceilings[s['round']-1])
         s['source'] = snapshot(s['parameters'])

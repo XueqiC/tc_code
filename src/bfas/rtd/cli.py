@@ -33,6 +33,11 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def load_config(path, *, arm=None, replay_schedule=None, **replay_options):
     config = yaml.safe_load(Path(path).read_text())
+    return validate_config(config, arm=arm, replay_schedule=replay_schedule, **replay_options)
+
+
+def validate_config(config, *, arm=None, replay_schedule=None, **replay_options):
+    config = dict(config) if isinstance(config, dict) else config
     if not isinstance(config, dict):
         raise ValueError('configuration must be a mapping')
     if config.get('arm') or arm or replay_schedule or replay_options:
@@ -42,8 +47,21 @@ def load_config(path, *, arm=None, replay_schedule=None, **replay_options):
             or config.get('budget_basis') != (V11_BUDGET_BASIS if v11 else 'usable_public_cap_sum')):
         raise ValueError('use the v1.0.1 public-cap configuration')
     canonical = yaml.safe_load((ROOT / 'configs/rtd/v1_bfcl_c25.yaml').read_text())
+    benchmark = config.get('benchmark', 'bfcl')
+    from .benchmarks.registry import REGISTRY
+    if benchmark not in REGISTRY:
+        raise ValueError('unknown RTD benchmark: ' + str(benchmark))
+    if benchmark != 'bfcl':
+        if not v11:
+            raise ValueError('frozen protocol: interactive benchmarks require the v1.1 shared runner')
+        from .benchmarks.config import benchmark_protocol
+        canonical.update(benchmark_protocol(benchmark))
+        for key in ('historical_demo_output_tokens_exact', 'historical_generation_output_tokens_estimated'):
+            canonical.pop(key, None)
     if v11:
         config, canonical = v11_config(config, canonical)
+        if benchmark != 'bfcl':
+            canonical.update(benchmark_protocol(benchmark))
     elif (set(V11_DEFAULTS)-set(canonical)) & config.keys():
         raise ValueError('v1.1 batch settings require protocol_version 1.1.0')
     mutable = {'student', 'output_root', 'replay_bank_path', 'support_manifest', 'max_action_tokens',
@@ -82,14 +100,21 @@ def load_config(path, *, arm=None, replay_schedule=None, **replay_options):
     caps = config.setdefault('max_action_tokens_by_benchmark', {})
     if not isinstance(caps, dict):
         raise ValueError('benchmark action caps must be a mapping')
-    caps.setdefault('bfcl', {})
-    for benchmark, limits in caps.items():
-        if not isinstance(benchmark, str) or not isinstance(limits, dict) or set(limits)-{'single_turn', 'multi_turn'}:
+    if not isinstance(config.get('student'), str) or not config['student'].strip():
+        raise ValueError('student must be an explicit nonempty model reference')
+    if config.get('student_call_format', 'qwen') not in {'qwen', 'gemma4'}:
+        raise ValueError('student_call_format must be gemma4 or qwen')
+    if benchmark == 'bfcl':
+        caps.setdefault('bfcl', {})
+    for cap_benchmark, limits in caps.items():
+        allowed = {'agent_action'} if cap_benchmark in {'alfworld', 'webshop'} else {'single_turn', 'multi_turn'}
+        if not isinstance(cap_benchmark, str) or not isinstance(limits, dict) or set(limits)-allowed:
             raise ValueError('benchmark action caps require single_turn/multi_turn limits')
         if any(type(v) is not int or v < 1 for v in limits.values()):
             raise ValueError('positive integer action caps required')
     for kind, cap in [('single_turn', 512), ('multi_turn', 1024)]:
-        caps['bfcl'].setdefault(kind, cap)
+        if benchmark == 'bfcl':
+            caps['bfcl'].setdefault(kind, cap)
     for key in ('max_action_tokens', 'max_context_tokens'):
         if key in config and (type(config[key]) is not int or config[key] < 1):
             raise ValueError('positive integer token limits required')
@@ -114,6 +139,9 @@ def harness_hash(root, config):
 
 def data_identity(root, config, bank):
     root, bank = Path(root), Path(bank)
+    if config.get('benchmark', 'bfcl') != 'bfcl':
+        from .benchmarks.config import data_identity as identity
+        return identity(root, config, bank)
     data = root / 'envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data'
     identity = dict(public=file_hash(bank/'public/requests.json'), integrity=file_hash(bank/'sealed/integrity.json'),
                     support=file_hash(root/config['support_manifest']), official=tree_hash(data))
@@ -127,9 +155,15 @@ def bank_audit(config, *, build=False):
     bank = ROOT / config['replay_bank_path']
     if config.get('protocol_version') == '1.1.0':
         from .bank_v11 import build_v11_bank, validate_v11_certificate, CERTIFICATE
+        if build and (config['benchmark'] != 'bfcl' or config.get('student_call_format') == 'gemma4'):
+            raise ValueError('build this bank with tools/rtd_bank_build.py --benchmark --pool --ledger --out')
         if build:
             build_v11_bank(ROOT/'data/rtd/v1_bfcl_c25', bank)
-        certificate = validate_v11_certificate(bank)
+        from .bank_build import validate_state_certificate
+        saved_certificate = json.loads((bank/CERTIFICATE).read_text())
+        certificate = (validate_state_certificate(bank, benchmark=config['benchmark'], student=config['student'])
+                       if saved_certificate['core']['version'] == 'rtd-v1.1.0-state-bank'
+                       else validate_v11_certificate(bank))
         summary = json.loads((bank/'sealed/audit_v11.json').read_text())
         original = json.loads((bank/'sealed/audit.json').read_text())
         core = certificate['core']
@@ -217,6 +251,10 @@ def make_manifest(config, arm, audit, *, smoke=False):
             replay_semantics='unfilled slots use old data; no fixed empty prior',
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
+    if config['benchmark'] != 'bfcl' or config.get('student_call_format') == 'gemma4':
+        manifest['resources'].pop('historical_demo_output_exact', None)
+        manifest['resources'].pop('historical_generator_output_estimated', None)
+        manifest['resources']['bank_audit'] = audit
     if config.get('generation_batch') is not None:
         from .generation_batch import RNG_RULE
         manifest['score_consistency']['generation'] = 'hf-generate-kv-batched-categorical-v1'
@@ -264,12 +302,22 @@ def make_manifest(config, arm, audit, *, smoke=False):
             raise ValueError('v1.1 base must be the issuer checkpoint, without project bank adaptation')
         support_path = ROOT/config['support_manifest']
         if support_path.is_file():
-            manifest['parent_group_roles_by_fold'] = fold_roles(json.loads(support_path.read_text())['parents'])
+            from .benchmarks.registry import get_benchmark
             from .metrics_v11 import options as metric_options, freeze_tasks
-            from .experiment import BFCLSupport
+            support = None
+            if config['benchmark'] == 'bfcl':
+                parents = json.loads(support_path.read_text())['parents']
+            else:
+                support = get_benchmark(config).support_protocol(ROOT, config)
+                parents = [dict(parent_hash=h, official_id=t) for h, t in support.parents.items()]
+            manifest['parent_group_roles_by_fold'] = fold_roles(parents)
             if metric_options(config)['enabled']:
-                manifest['fixed_task_set_v11'] = freeze_tasks(json.loads(support_path.read_text())['parents'],
-                    short_fold=metric_options(config)['short_fold'], states=BFCLSupport(ROOT, config).states)
+                support = support or get_benchmark(config).support_protocol(ROOT, config)
+                manifest['fixed_task_set_v11'] = freeze_tasks(parents,
+                    short_fold=metric_options(config)['short_fold'], states=support.states)
+    if config['benchmark'] != 'bfcl' or config.get('student_call_format') == 'gemma4':
+        manifest['support_roles'] = dict(benchmark=config['benchmark'], training_parent_groups=audit['m'],
+            inner_feedback='rotating parent-hash folds; calibration excluded')
     for key in ('data_hash', 'base_checkpoint_hash', 'hardware_hash'):
         if config.get('fixed_source_' + key, manifest[key]) != manifest[key]:
             raise ValueError('fixed ledger source differs: ' + key)
@@ -351,11 +399,13 @@ def run_command(args):
             if not saved:
                 manifest['initial_parameter_hash'] = initial_hash
                 atomic_json(directory/'manifest.json', manifest)
-            support = BFCLSupport(ROOT, config)
+            from .benchmarks.registry import get_benchmark
+            support = get_benchmark(config).support_protocol(ROOT, config)
             atomic_json(directory/'support_access.json', dict(parents=support.parents,
                 runnable_source_feedback_parents=sorted(support.states), unavailable=support.unavailable,
                 labels='official truth accessed only by feedback scorer', calibration_training_access=False))
-            with _checker_context() as checker:
+            from contextlib import nullcontext
+            with (_checker_context(config) if config['benchmark'] == 'bfcl' else nullcontext()) as checker:
                 experiment = RTDExperiment(config, manifest, directory, backend, support, resume=resume,
                     smoke=smoke, checker=checker, journal=journal)
                 result = experiment.run(stop_after_round=args.through_round if args.training_worker else False)
@@ -367,6 +417,8 @@ def run_command(args):
                 atomic_json(directory/'audit.json', result)
             print(json.dumps(result, indent=2))
         finally:
+            if 'support' in locals() and hasattr(support, 'close'):
+                support.close()
             if smoke:
                 signal.setitimer(signal.ITIMER_REAL, 0)
                 signal.signal(signal.SIGALRM, previous)
@@ -451,12 +503,13 @@ def run_campaign(args, config):
     return 0
 
 
-def _checker_context():
+def _checker_context(config=None):
     from contextlib import contextmanager
     from tools.behavior_atom.checker_bridge import CheckerBridge
     @contextmanager
     def context():
-        checker = CheckerBridge()
+        checker = (CheckerBridge(checker_model=config['student']+'-FC',
+                   student_call_format=config.get('student_call_format', 'qwen')) if config else CheckerBridge())
         try:
             yield checker
         finally:

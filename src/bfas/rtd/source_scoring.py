@@ -39,14 +39,15 @@ def _hidden_at_head(backend, head, parameters, ids):
     raise ValueError('teacher-forced model did not call its output embedding head')
 
 
-def _position_vjps(head, current_head, frozen_head, hidden, frozen_hidden, labels):
+def _position_vjps(head, current_head, frozen_head, hidden, frozen_hidden, labels, *, softcap=None):
     """All vocabulary-sized temporaries die on return from this function."""
     leaf = hidden.detach().requires_grad_(True)
     with torch.no_grad():
         old = functional_call(head, frozen_head, (frozen_hidden,))
+        old = cap_logits(old, softcap)
         dtype = torch.float64 if old.dtype == torch.float64 else torch.float32
         logp = old.to(dtype).log_softmax(-1)
-    new = functional_call(head, current_head, (leaf,))
+    new = cap_logits(functional_call(head, current_head, (leaf,)), softcap)
     logq = new.to(dtype).log_softmax(-1)
     hard = -logq.gather(-1, labels[:, None]).sum()
     # Analytic CE/KL logit derivative q-p. Integrate this cotangent through the
@@ -84,9 +85,7 @@ def source_gradient_pair(backend, source, parameters, source_parameters, *, posi
     if head is None:
         raise ValueError('soft/CV scoring requires a positionwise output head')
     # Models with post-head nonlinear logit transforms need an explicit adapter.
-    config = getattr(backend.model, 'config', None)
-    if getattr(config, 'final_logit_softcapping', None):
-        raise ValueError('post-head logit softcapping requires a source-scoring adapter')
+    softcap = logit_softcap(backend.model)
     head_name = next(n for n, module in backend.model.named_modules() if module is head)
     prefix = head_name + '.' if head_name else ''
     head_names = {n: prefix+n for n, _ in head.named_parameters() if prefix+n in parameters}
@@ -109,7 +108,7 @@ def source_gradient_pair(backend, source, parameters, source_parameters, *, posi
             end = min(start + position_batch_size, source.length)
             sl = slice(positions[start], positions[end-1]+1)
             hard, soft, value = _position_vjps(head, current_head, frozen_head,
-                current_hidden[0, sl], frozen_hidden[0, sl], ids[0, len(prompt)+start:len(prompt)+end])
+                current_hidden[0, sl], frozen_hidden[0, sl], ids[0, len(prompt)+start:len(prompt)+end], softcap=softcap)
             hard_cotangent[0, sl] = hard[0]
             soft_cotangent[0, sl] = soft[0]
             for i, full in enumerate(head_names.values(), 1):
@@ -127,3 +126,14 @@ def source_gradient_pair(backend, source, parameters, source_parameters, *, posi
                         result[name].add_(value.detach())
     return gh, gs, dict(source_kl=kl, action_positions=source.length,
                         position_batch_size=position_batch_size, backbone_forwards=2)
+
+
+def logit_softcap(model):
+    config = getattr(model, 'config', None)
+    config = config.get_text_config() if hasattr(config, 'get_text_config') else config
+    return getattr(config, 'final_logit_softcapping', None)
+
+
+def cap_logits(logits, softcap):
+    # Same operations and dtype as the model's native forward.
+    return (logits / softcap).tanh() * softcap if softcap else logits

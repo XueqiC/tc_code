@@ -43,6 +43,10 @@ class ALFWorldFeedbackContext:
     env_factory: object
     journal: object
 
+    def check_syntax(self, text):
+        from ...adapters.alfworld import ALFWorldAdapter
+        return dict(valid=bool(ALFWorldAdapter._teacher_command_text(text).strip()))
+
 
 def alfworld_bank_builder(root, directory, *, entries=None, renderer=render_prompt):
     """Explicit C26-A inventory builder, never passed off as a verified B bank.
@@ -65,7 +69,15 @@ class ALFWorldExperimentSupport:
         from .alfworld_config import bank_audit
         from .alfworld_support import ALFWorldSupport
         from ..transport import FullState
-        audit = bank_audit(root, config)
+        if config.get('protocol_version') == '1.1.0':
+            from ..bank_build import validate_state_certificate
+            bank_path = Path(root)/config['replay_bank_path']
+            validate_state_certificate(bank_path, benchmark='alfworld', student=config['student'])
+            if json.loads((Path(root)/config['support_manifest']).read_text()) != json.loads((bank_path/'public/support.json').read_text()):
+                raise ValueError('external support differs from ALFWorld bank')
+            audit = {'bank_path': str(bank_path)}
+        else:
+            audit = bank_audit(root, config)
         bank = Path(audit['bank_path'])
         self.config = dict(config)
         self.protocol = ALFWorldSupport(json.loads((bank / 'public/support.json').read_text()))
@@ -86,6 +98,10 @@ class ALFWorldExperimentSupport:
                 raise ValueError('support must start at a full reset')
             self.states[h] = state
 
+    def syntax_success(self, text, state):
+        from .alfworld_rollout import parse_action
+        return not parse_action(text, json.loads(state.history_json)[-1]['admissible'])[1]
+
     def feedback_context(self, round_number, backend, journal):
         """C26-F feedback dispatch supplies a fresh explicit per-window context."""
         _privileged()
@@ -94,7 +110,9 @@ class ALFWorldExperimentSupport:
         from ...cc_pairs import thinking_off
         adapter = ALFWorldAdapter()
         adapter._tokenizer = backend.tokenizer
-        renderer = lambda request, history: thinking_off(adapter._render(prompt_messages(request, history)))
+        def renderer(request, history):
+            prompt = adapter._render(prompt_messages(request, history))
+            return prompt if self.config.get('protocol_version') == '1.1.0' else thinking_off(prompt)
         environment_hash = self.protocol.manifest['environment']['environment_hash']
         return ALFWorldFeedbackContext(self.protocol, round_number, renderer,
             lambda: RealStepper(environment_hash=environment_hash), journal)
@@ -103,6 +121,9 @@ class ALFWorldExperimentSupport:
         _privileged()
         if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
             raise ValueError('ALFWorld feedback needs its bound support/window context')
+        if getattr(backend, 'diagnostic_only', False):
+            from .interactive_diagnostics import alfworld_greedy
+            return alfworld_greedy(self.states[parent], backend, parameters, generator, checker)
         tid = self.parents[parent]
         return alfworld_feedback_rollout(self.states[parent], self.categories[tid], [],
             backend, parameters, generator, checker=checker)
@@ -167,6 +188,9 @@ def alfworld_harness_identity(root, config):
     from .alfworld_config import model_directory, validate_config
     from .alfworld_identity import evaluation_harness_identity
     config = validate_config(config)
+    if config.get('protocol_version') == '1.1.0':
+        from .webshop_identity import evaluation_harness_identity as identity
+        return identity(root, config)
     model = model_directory(root, config)
     return evaluation_harness_identity(root, config,
         data_root=Path(root) / config['alfworld_data_root'], model_path=model, tokenizer_path=model,
@@ -189,6 +213,10 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
     from .alfworld_evaluation import evaluate
     root, directory = Path(root), Path(directory)
     saved = json.loads((directory / 'manifest.json').read_text())
+    if saved['config'].get('protocol_version') == '1.1.0':
+        from .webshop_evaluation import evaluate_adapter
+        return evaluate_adapter(root, directory, round_number, port=port, base_evaluation=base_evaluation,
+            lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
     config = validate_config(saved['config'])
     if digest(config) != saved['config_hash']:
         raise ValueError('training config identity mismatch')
@@ -222,6 +250,17 @@ REGISTRY = MappingProxyType({
         cap_policy=('bfas.rtd.caps', 'public_cap'),
         affordability=('bfas.rtd.caps', 'affordability'),
         scoring_projection=('bfas.rtd.scoring_scope', 'scoring_projection'))),
+    'webshop': MappingProxyType(dict(
+        bank_builder=('bfas.rtd.benchmarks.webshop_bank', 'build_webshop_bank'),
+        broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),
+        support_protocol=('bfas.rtd.benchmarks.webshop_support', 'WebShopSupport'),
+        action_limit=('bfas.rtd.benchmarks.webshop_caps', 'action_limit'),
+        feedback_rollout=('bfas.rtd.benchmarks.webshop_rollout', 'webshop_task_rollout'),
+        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate'),
+        harness_identity=('bfas.rtd.benchmarks.webshop_identity', 'evaluation_harness_identity'),
+        cap_policy=('bfas.rtd.benchmarks.webshop_caps', 'public_cap'),
+        affordability=('bfas.rtd.benchmarks.webshop_caps', 'affordability'),
+        scoring_projection=('bfas.rtd.benchmarks.webshop_identity', 'scoring_projection'))),
     'alfworld': MappingProxyType(dict(
         bank_builder=(__name__, 'alfworld_bank_builder'),
         broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),

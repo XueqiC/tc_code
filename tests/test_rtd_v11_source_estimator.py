@@ -355,8 +355,22 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     # projection remains pinned by test_rtd_identity_update; real manifests
     # retain the current raw source hash, as asserted above.
     normalized['rtd_source']['files']['tools/behavior_atom/checker_bridge.py'] = 'e928dcb48ed58c47d4c37fa234821e40fc645cc76208560e20de1b303f3a3bfd'
+    # D16 intentionally changes the student dispatch/export identity. The
+    # hard2 mathematics/config remain byte-identical; normalize ONLY its new
+    # code bindings to the pre-D16 HEAD values for this historical oracle.
+    assert after['evaluation_harness'] == cli.evaluation_harness_identity(c.root, after['config'])
+    assert after['harness_hash'] == digest(after['evaluation_harness'])
+    normalized['evaluation_harness']['tools'].update({
+        'tools/bfcl_std_campaign.sh': '66279841742a043566b960c20cc486718a6411157cf4f2f48c70a1e0272a9b22',
+        'tools/behavior_atom/checker_bridge.py': '5c2827830118a5d5c35050da52cc42229ffd66e860dd6384ae1222d7003e6456',
+        'src/bfas/rtd/evaluation.py': 'a8897c3ae5df2911e072200f03322b4aa0a69ef36f95f2453d53b06fe8beda46',
+    })
+    normalized['harness_hash'] = digest(normalized['evaluation_harness'])
+    normalized['rtd_source']['files']['tools/bfcl_std_campaign.sh'] = '4455a42657b81eb7fe24316c7c62b3b178ff1cdf8710e5c2dc9a231e84be1786'
     normalized['rtd_source']['hash'] = digest(normalized['rtd_source']['files'])
-    assert digest(normalized) == '428e3d9bfd56011060e763bb6cc781e7c9007115b393cd12a77980a16c4ba3af'
+    # The merged pre-D16 HEAD already differs from the older 428e... oracle;
+    # this value was reproduced in an untouched archive of that HEAD.
+    assert digest(normalized) == 'e251f010dd29e4800c3eaa152d060c39515c9485521a4e6fe0cfeac8be293648'
     b, p, targets, chi, phi = legacy_problem()
     actual = streamed_gradient(targets, chi, phi, b, p, source_estimator='hard2')
     assert tensor_state_hash(actual) == '8ea394b94365283bf4b954871b5721715518307b174464d52878f245a89d5358'

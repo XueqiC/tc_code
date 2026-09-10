@@ -25,7 +25,11 @@ from rtd_identity_fixtures import put_tools
 ])
 def test_c25l_cleanup_and_reuse_preserve_frozen_scoring_projection(path, frozen_hash):
     # C25j's audited projections, also recorded in docs/rtd_v1_status.md.
-    assert scoring_hash(path, (ROOT/path).read_text()) == frozen_hash
+    bundle = json.loads((ROOT/update.EVIDENCE_PATH).read_text())
+    archived, = [r for r in bundle['files'] if r['path'] == path]
+    assert scoring_hash(path, archived['content']) == frozen_hash
+    # D16 changes student selection/export semantics and requires a new binding.
+    assert scoring_hash(path, (ROOT/path).read_text()) != frozen_hash
 
 
 def put(path, text='fixture'):
@@ -243,7 +247,7 @@ def test_reviewed_pre_manifest_sources_admit_plumbing_only_changes_without_git(r
     dest = c.root/update.EVIDENCE_PATH; dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT/update.EVIDENCE_PATH, dest)
     for row in bundle['files']:
-        put(c.root/row['path'], (ROOT/row['path']).read_text())
+        put(c.root/row['path'], row['content'] + '\n# Operational transport annotation.\n')
     before = snapshot(c.directory)
     result = update.update_identity(c.root, c.directory)
     assert result['updated']
@@ -296,7 +300,7 @@ def raw_bridge_run(c):
     dest = c.root/update.EVIDENCE_PATH
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT/update.EVIDENCE_PATH, dest)
-    put(c.root/BRIDGE, (ROOT/BRIDGE).read_text())
+    put(c.root/BRIDGE, row['content'] + '\n# Operational transport annotation.\n')
     return manifest, row, ns
 
 
@@ -400,4 +404,17 @@ def test_c25r_reviewed_evidence_preserves_c25j_and_binds_historical_bridge():
     old = bundle['files'][-1]
     assert old['path'] == BRIDGE
     assert old['sha256'] == '10926354526279ccb71e8c1d05153b82fd47e627cf778e88f990595508b0a195'
-    assert scoring_hash(BRIDGE, old['content']) == scoring_hash(BRIDGE, (ROOT/BRIDGE).read_text())
+    assert scoring_hash(BRIDGE, old['content']) != scoring_hash(BRIDGE, (ROOT/BRIDGE).read_text())
+
+
+def test_d16_student_dispatch_is_not_a_legacy_plumbing_update(run):
+    c = run
+    manifest, _, _ = raw_bridge_run(c)
+    put(c.root/BRIDGE, (ROOT/BRIDGE).read_text())
+    before = snapshot(c.directory)
+    with pytest.raises(update.IdentityUpdateRefused) as caught:
+        update.update_identity(c.root, c.directory)
+    assert any(row.get('path') == BRIDGE for row in caught.value.evidence['refusals'])
+    assert snapshot(c.directory) == before
+    with pytest.raises(ValueError, match='evaluation harness differs'):
+        identity.guard_harness(c.root, c.directory, manifest)

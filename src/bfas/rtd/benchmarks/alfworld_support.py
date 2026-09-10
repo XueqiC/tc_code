@@ -87,7 +87,7 @@ def environment_identity(root, tokenizer_directory):
         scaffold=scaffold, scaffold_hash=canonical_hash(scaffold),
         environment_data_version="json_2.1.1", worker_config=adapter._worker_config(Path("<task-directory>")),
         renderer=dict(react=True, observation_tail=2000, history_entries=8, feedback_head=300,
-                      chat_template="local Qwen tokenizer through ALFWorldAdapter._render",
+                      chat_template="configured student tokenizer through ALFWorldAdapter._render",
                       thinking="existing cc_pairs.thinking_off", prior_examples="six fixed harness examples"),
         max_episode_steps=40, worker_horizon=50, domain_randomization=False,
         cpu_only=True, python_hash_seed=0, environment_seed="existing adapter default",

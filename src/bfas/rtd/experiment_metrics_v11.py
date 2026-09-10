@@ -14,6 +14,8 @@ from .persistence import atomic_json
 
 def window_metrics(experiment):
     e, s = experiment, experiment.state
+    if hasattr(e.support, 'feedback_context'):
+        e.checker = e.support.feedback_context(s['round'], e.backend, e.journal)
     fixed, ref = e.manifest['fixed_task_set_v11'], s['d_reference']
     before = greedy_success(fixed, e.support, e.backend, s['alpha_start'], e.checker,
                             identity=[s['window_id'], 'window_before'])

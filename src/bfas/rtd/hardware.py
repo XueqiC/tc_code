@@ -30,6 +30,8 @@ def host_class(hostname, gpu, env=None):
            or re.fullmatch(r'c\d+[a-z]-s\d+(?:\..*)?', hostname) is not None)
     if hpg and re.search(r'\bB200\b', gpu, re.I):
         return 'hpg-b200'
+    if hostname.split('.')[0] == 'rai' and re.search(r'RTX PRO 6000.*Blackwell', gpu, re.I):
+        return 'rai-rtx-pro-6000-blackwell'
     return cluster or partition or hostname
 
 

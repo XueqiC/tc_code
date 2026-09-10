@@ -116,7 +116,8 @@ def parse_battery(fixed, support, backend, parameters, checker, *, identity):
             with action_scope(backend, support, row['parent_hash']):
                 for k, action in enumerate(sample_actions(backend, support.states[row['parent_hash']].prompt, 4,
                                                           parameters, rng, temperature=1., top_p=1.)):
-                    draws.append(row | dict(draw=k, success=syntax_success(checker, action.text),
+                    draws.append(row | dict(draw=k, success=(support.syntax_success(action.text, support.states[row['parent_hash']])
+                        if hasattr(support, 'syntax_success') else syntax_success(checker, action.text)),
                         action_hash=digest(list(action.action_ids)), truncated=action.truncated))
     return dict(**parse_rate(draws), by_fold={str(f): parse_rate([r for r in draws if r['fold'] == f]) for f in (0, 1)},
                 fixed_task_set_hash=fixed['hash'], K=4, temperature=1., draws=draws,
@@ -124,6 +125,7 @@ def parse_battery(fixed, support, backend, parameters, checker, *, identity):
 
 
 class GreedyBackend:
+    diagnostic_only = True
     """Evaluation-only proxy; same task runner/checker, deterministic decoding.
 
     Production HF uses cached generation. Tiny models use the functional logits
@@ -143,11 +145,13 @@ class GreedyBackend:
         if not prompt_ids or limit < 1:
             raise IncompleteRolloutError('complete greedy prompt exceeds context')
         eos, device = b.tokenizer.eos_token_id, next(iter(parameters.values())).device
+        from .student import termination_ids
+        stops = termination_ids(b)
         tokens, scores = [], []
         if isinstance(b, HFGenerateBackend):
             from transformers import GenerationConfig
             settings = GenerationConfig(do_sample=False, num_beams=1, max_new_tokens=limit,
-                eos_token_id=eos, pad_token_id=eos, bos_token_id=b.tokenizer.bos_token_id,
+                eos_token_id=list(stops), pad_token_id=eos, bos_token_id=b.tokenizer.bos_token_id,
                 repetition_penalty=1., use_cache=True, return_dict_in_generate=True, output_scores=True)
             with b.measured('diagnostic_greedy_generation'), installed_parameters(b.model, parameters), torch.no_grad():
                 output = b.model.generate(input_ids=torch.tensor([prompt_ids], device=device),
@@ -162,9 +166,10 @@ class GreedyBackend:
                     logp = logits.log_softmax(-1)
                     token = int(logits.argmax())
                     tokens.append(token); scores.append(float(logp[token]))
-                    if token == eos:
+                    if token in stops:
                         break
-        truncated = tokens[-1] != eos
+        truncated = tokens[-1] not in stops
+        eos = eos if truncated else tokens[-1]
         return ActionTrace(prompt_ids, tuple(tokens), eos,
             b.tokenizer.decode(tokens if truncated else tokens[:-1], skip_special_tokens=False),
             sum(scores), b.backend_id, b.identity(parameters), tuple(scores),

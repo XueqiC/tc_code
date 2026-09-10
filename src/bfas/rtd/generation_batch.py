@@ -208,6 +208,8 @@ class HFGenerationBatchMixin:
         import transformers
         from .runtime import installed_parameters
         eos = self.tokenizer.eos_token_id
+        from .student import termination_ids
+        stops = termination_ids(self)
         if type(eos) is not int:
             raise ValueError('one configured EOS token required')
         device = next(iter(parameters.values())).device
@@ -219,7 +221,7 @@ class HFGenerationBatchMixin:
             mask[i, -len(row['ids']):] = 1
         settings = GenerationConfig(do_sample=True, temperature=1., top_p=1., top_k=0,
             typical_p=1., repetition_penalty=1., num_beams=1, num_return_sequences=1,
-            max_new_tokens=rows[0]['limit'], eos_token_id=eos, pad_token_id=eos,
+            max_new_tokens=rows[0]['limit'], eos_token_id=list(stops), pad_token_id=eos,
             bos_token_id=self.tokenizer.bos_token_id, use_cache=True,
             return_dict_in_generate=True, output_scores=True)
         seed = int(digest([RNG_RULE, [r['ticket'] for r in rows]])[:15], 16)
@@ -252,10 +254,12 @@ class HFGenerationBatchMixin:
             sequences = tokens.cpu().tolist()
             result = []
             for row, sequence, logps in zip(rows, sequences, values):
-                if eos in sequence:
-                    length = sequence.index(eos)+1
+                terminal = next((i for i, t in enumerate(sequence) if t in stops), None)
+                if terminal is not None:
+                    length = terminal+1
                     sequence, logps = sequence[:length], logps[:length]
-                truncated = sequence[-1] != eos
+                truncated = sequence[-1] not in stops
+                action_eos = eos if truncated else sequence[-1]
                 if truncated and len(sequence) != row['limit']:
                     raise ValueError('malformed generation: expected first EOS or action limit')
                 metadata = dict(implementation='hf-generate-kv-batched-categorical-v1', use_cache=True,
@@ -267,7 +271,7 @@ class HFGenerationBatchMixin:
                     top_k=0, repetition_penalty=1., max_action_tokens=row['cap'], effective_action_limit=row['limit'],
                     rng_rule=RNG_RULE, rng_ticket=row['ticket'], batch_seed=seed, batch_rng_after=rng_after,
                     batch_size=size, padded_prompt_tokens=width, padding_side='left')
-                action = ActionTrace(row['ids'], tuple(sequence), eos,
+                action = ActionTrace(row['ids'], tuple(sequence), action_eos,
                     self.tokenizer.decode(sequence if truncated else sequence[:-1], skip_special_tokens=False),
                     sum(logps), self.backend_id, identity, tuple(logps), metadata, truncated=truncated)
                 result.append(action)

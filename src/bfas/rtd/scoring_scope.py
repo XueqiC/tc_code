@@ -14,7 +14,7 @@ from .persistence import digest
 PYTHON_SCOPES = {
     'tools/behavior_atom/checker_bridge.py': (
         'ROOT', 'BFCL', '_load_direct', '_content_hash', '_checker_version',
-        '_language_name', '_check_multi_turn', '_check_relevance',
+        '_language_name', '_response_handler', '_check_multi_turn', '_check_relevance',
         'CheckerBridge.__init__', 'CheckerBridge.check', 'CheckerBridge.__call__',
         'CheckerBridge.check_multi_turn', 'CheckerBridge.check_relevance',
         'CheckerBridge.check_many', 'CheckerBridge._request'),
@@ -80,6 +80,11 @@ def scoring_projection(name, content):
                 matches = [re.sub(r'--(?:num-gpus|num-threads|gpu-memory-utilization|result-dir) '
                                   r'(?:"[^"\n]*"|[^\s)]+)', '', s) for s in matches]
             result[label] = ['\n'.join(line.strip() for line in s.strip().splitlines() if line.strip()) for s in matches]
+        model_binding = re.findall(r'^MODEL_NAME=.*$', content, re.M)
+        if model_binding:
+            if len(model_binding) != 1:
+                raise ValueError('ambiguous campaign model selector')
+            result['model_binding'] = model_binding
         return result
     if name not in PYTHON_SCOPES:
         return None
@@ -97,6 +102,11 @@ def scoring_projection(name, content):
                  (isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == parts[-1]) or
                  (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == parts[-1]
                                                    for t in n.targets))]
+        if (name == 'tools/behavior_atom/checker_bridge.py' and symbol == '_response_handler'
+                and not nodes and not any(isinstance(n, ast.Name) and n.id == symbol for n in ast.walk(tree))):
+            # Pre-D16 bridges constructed Qwen directly. Their archived source
+            # remains auditable; deleting a helper still referenced by D16 fails.
+            continue
         if len(nodes) != 1:
             raise ValueError(f'evaluation harness scope {name}:{symbol}: expected one definition')
         selected.append(_ScientificAST(placement=symbol == '_flatten_adapter',

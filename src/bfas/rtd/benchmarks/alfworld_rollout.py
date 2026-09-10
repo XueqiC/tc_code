@@ -202,7 +202,8 @@ def _validate_action(action, state, backend, parameters):
         raise ValueError("generation backend/policy mismatch")
     if action.prompt_ids != tuple(backend.tokenizer.encode(state.prompt, add_special_tokens=False)):
         raise ValueError("prompt token boundary/template mismatch")
-    if action.eos_token_id != backend.tokenizer.eos_token_id:
+    from ..student import termination_ids
+    if action.eos_token_id not in termination_ids(backend):
         raise ValueError("configured EOS differs from sampled EOS")
     metadata = action.generation_metadata
     if any(metadata.get(k) != v for k, v in dict(temperature=1., top_p=1., top_k=0,

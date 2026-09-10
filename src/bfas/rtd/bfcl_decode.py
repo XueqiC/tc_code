@@ -9,7 +9,35 @@ from types import MethodType
 DECODE_ERRORS = (ValueError, KeyError, TypeError, SyntaxError, AttributeError)
 
 
-def guard_rtd_decoding(handler, record):
+def student_handler(config, tokenizer=None):
+    """Construct the configured harness handler without loading weights or APIs."""
+    from ..adapters.bfcl import BFCLAdapter, BFCL_ROOT
+    import sys
+    if str(BFCL_ROOT) not in sys.path:
+        sys.path.insert(0, str(BFCL_ROOT))
+    call_format = config.get('student_call_format', 'qwen')
+    if call_format == 'qwen':
+        if config.get('student'):
+            from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
+            name = config['student'] + '-FC'
+            handler = QwenFCHandler(model_name=name, temperature=1., registry_name=name, is_fc_model=True)
+        else:
+            handler = BFCLAdapter()._handler()
+    elif call_format == 'gemma4':
+        from bfcl_eval.model_handler.local_inference.gemma4_fc import Gemma4FCHandler
+        name = config['student'] + '-FC'
+        handler = Gemma4FCHandler(model_name=name, temperature=1., registry_name=name, is_fc_model=True)
+    else:
+        raise ValueError('student_call_format must be gemma4 or qwen')
+    if 'student' in config:
+        handler.model_name = config['student'] + '-FC'
+        handler.model_name_underline_replaced = handler.model_name.replace('/', '_')
+    if tokenizer is not None:
+        handler.tokenizer = tokenizer
+    return handler
+
+
+def guard_rtd_decoding(handler, record, *, student_call_format='qwen'):
     """Retain malformed text in history and use BFCL's failed-decode turn path.
 
     Qwen's extractor silently drops invalid JSON and admits invalid call shapes.
@@ -17,12 +45,17 @@ def guard_rtd_decoding(handler, record):
     Validate before that history is built; never repair arguments or resample.
     Plain assistant chat remains legal (including multi-turn completion messages).
     """
+    if student_call_format not in {'qwen', 'gemma4'}:
+        raise ValueError('student_call_format must be gemma4 or qwen')
     extract = handler._extract_tool_calls
     parse = handler._parse_query_response_prompting
 
     def checked_extract(_handler, response):
         if not isinstance(response, str):
             raise TypeError('model response must be text')
+        if student_call_format == 'gemma4':
+            from bfcl_eval.model_handler.local_inference.gemma4_fc import _parse_response
+            return _parse_response(response)[0]
         if not response.strip():
             raise ValueError('empty model response')
         # Match the official Qwen framing exactly, including its newlines.
@@ -51,6 +84,8 @@ def guard_rtd_decoding(handler, record):
         if not isinstance(text, str):
             raise TypeError('backend response text must be a string')
         try:
+            if student_call_format == 'gemma4':
+                checked_extract(_handler, text)
             return parse(response)
         except DECODE_ERRORS as exc:
             record(exc, 'parse_response')

@@ -68,13 +68,18 @@ def _content_manifest(paths):
 def evaluation_harness_identity(root, config):
     """Only relative names and file/config contents; no git or install state."""
     root = Path(root)
+    if config.get('benchmark', 'bfcl') != 'bfcl':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(config).harness_identity(root, config)
     files, data = _evaluation_harness_paths(root)
     checkout, data_manifest = _content_manifest(files), _content_manifest(data)
     return dict(version=CONTENT_VERSION, leaderboard=LEADERBOARD,
                 checkout_files=checkout, checkout_hash=digest(checkout),
                 data_manifest=data_manifest, data_hash=digest(data_manifest),
                 tools={p: scoring_hash(p, (root/p).read_bytes().decode('utf-8')) for p in EVALUATION_TOOLS},
-                config={k: v for k, v in config.items() if k.startswith('evaluation_')})
+                config=({k: v for k, v in config.items() if k.startswith('evaluation_')} |
+                    (dict(student=config['student'], student_call_format='gemma4', evaluation_temperature=0.001)
+                     if config.get('student_call_format') == 'gemma4' else {})))
 
 
 def _content_v2_identity(root, config, tool_names):
@@ -88,7 +93,9 @@ def _content_v2_identity(root, config, tool_names):
                 checkout_files=checkout, checkout_hash=digest(checkout),
                 data_manifest=data_manifest, data_hash=digest(data_manifest),
                 tools={p: file_hash(Path(root)/p) for p in tool_names},
-                config={k: v for k, v in config.items() if k.startswith('evaluation_')})
+                config=({k: v for k, v in config.items() if k.startswith('evaluation_')} |
+                    (dict(student=config['student'], student_call_format='gemma4', evaluation_temperature=0.001)
+                     if config.get('student_call_format') == 'gemma4' else {})))
 
 
 def evaluation_harness_metadata(root):

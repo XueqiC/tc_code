@@ -172,7 +172,7 @@ def _token_totals(rows, count):
                 rejected_tokens=sum(count(r.get("_rejected", "")) for r in rows))
 
 
-def collect_archive(root, *, ledger_paths=(LEDGER,), tokenizer_path=None, configuration=CapConfiguration()):
+def collect_archive(root, *, ledger_paths=(LEDGER,), tokenizer_path=None, configuration=CapConfiguration(), student=None):
     """Read a consistent CPU snapshot. Only ledger attempts create packages.
 
     Duplicate byte-identical ledger copies deduplicate via their content-bound
@@ -181,7 +181,7 @@ def collect_archive(root, *, ledger_paths=(LEDGER,), tokenizer_path=None, config
     """
     _privileged()
     sources = _Sources(root)
-    count, tokenization = None, dict(status="missing", model="Qwen/Qwen3.5-4B",
+    count, tokenization = None, dict(status="missing", model=student,
                                     snapshot=TOKENIZER_SNAPSHOT, add_special_tokens=False,
                                     eos_added=False, truncation=False, provider_usage=False)
     if tokenizer_path is not None:
