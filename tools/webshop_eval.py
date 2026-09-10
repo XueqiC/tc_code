@@ -59,20 +59,39 @@ def parse_action(response: Optional[str]) -> Optional[str]:
     return None
 
 
-def build_messages(history, observation: str, obs_chars: int):
-    """Rebuild two fresh messages; retain every prior turn and each observation head."""
-    turns = [WORKED_EXAMPLE.rstrip(), "\nLive episode:"]
+def build_messages(history, observation: str, obs_chars: int,
+                   history_obs_chars: int = 600, max_prompt_chars: int = 60000):
+    """Rebuild bounded messages without modifying the caller's history."""
+    messages, _ = _build_messages_with_drops(
+        history, observation, obs_chars, history_obs_chars, max_prompt_chars
+    )
+    return messages
+
+
+def _build_messages_with_drops(history, observation, obs_chars, history_obs_chars,
+                               max_prompt_chars):
+    prefix = WORKED_EXAMPLE.rstrip() + "\n\nLive episode:\n"
+    turns = []
     for previous_observation, response in history:
+        head = previous_observation[:history_obs_chars]
+        if len(previous_observation) > history_obs_chars:
+            head += " ..."
         turns.append(
-            "Observation: {}\nAction: {}".format(
-                previous_observation[:obs_chars], response
-            )
+            "Observation: {}\nAction: {}".format(head, response[:300])
         )
-    turns.append("Observation: {}\nAction:".format(observation[:obs_chars]))
-    return [
+    current = "Observation: {}\nAction:".format(observation[:obs_chars])
+    prompt_chars = len(prefix) + sum(len(turn) + 1 for turn in turns) + len(current)
+    dropped = 0
+    # Keep the instruction pair and the three latest pairs, even if this
+    # protected minimum exceeds the requested character budget.
+    while prompt_chars > max_prompt_chars and len(turns) > 4:
+        prompt_chars -= len(turns.pop(1)) + 1
+        dropped += 1
+    messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": "\n".join(turns)},
+        {"role": "user", "content": prefix + "\n".join(turns + [current])},
     ]
+    return messages, dropped
 
 
 def make_env(num_products=None):
@@ -105,11 +124,16 @@ def make_env(num_products=None):
 def make_client(base_url: str):
     from openai import OpenAI
 
-    return OpenAI(base_url=base_url, api_key=os.environ.get("OPENAI_API_KEY") or "EMPTY")
+    # Retry here at the episode level so the SDK cannot multiply our attempts.
+    return OpenAI(base_url=base_url, api_key=os.environ.get("OPENAI_API_KEY") or "EMPTY",
+                  max_retries=0)
 
 
-def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars: int):
-    """Steps count model attempts, including no-ops; elapsed is in seconds."""
+def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars: int,
+                history_obs_chars: int = 600, max_prompt_chars: int = 60000):
+    """Steps count model turns, including failed turns, but exclude API retries."""
+    from openai import APIError, BadRequestError
+
     started = time.monotonic()
     initial = env.reset(session=session)
     observation = initial[0] if isinstance(initial, tuple) else initial
@@ -119,15 +143,38 @@ def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars
     format_failures = 0
     consecutive_failures = 0
     final_action = None
+    dropped_history = 0
+    error = None
     for steps in range(1, max_steps + 1):
-        completion = client.chat.completions.create(
-            model=model,
-            messages=build_messages(history, observation, obs_chars),
-            temperature=0,
-            max_tokens=128,
-            stop=["\nObservation", "Observation:"],
+        messages, dropped = _build_messages_with_drops(
+            history, observation, obs_chars, history_obs_chars, max_prompt_chars
         )
-        response = (completion.choices[0].message.content or "").strip()
+        del history[1:1 + dropped]
+        dropped_history += dropped
+        # One initial attempt plus three retries, with a fixed two-second backoff.
+        for attempt in range(4):
+            try:
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=0,
+                    max_tokens=128,
+                    stop=["\nObservation", "Observation:"],
+                )
+                break
+            except APIError as exc:
+                if isinstance(exc, BadRequestError) and re.search(
+                    r"context[\s_-]+length", str(exc), re.IGNORECASE
+                ):
+                    error = "context_length"
+                    break
+                if attempt == 3:
+                    error = "{}: {}".format(type(exc).__name__, " ".join(str(exc).split()))[:200]
+                    break
+                time.sleep(2)
+        if error is not None:
+            break
+        response = completion.choices[0].message.content or ""
         history.append((observation, response))
         final_action = parse_action(response)
         if final_action is None:
@@ -150,6 +197,8 @@ def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars
         "format_failures": format_failures,
         "final_action": final_action,  # null if the last attempt was a no-op
         "elapsed": time.monotonic() - started,
+        "dropped_history": dropped_history,
+        "error": error,
     }
 
 
@@ -188,6 +237,7 @@ def compute_metrics(records, config):
         "score": 100 * sum(record["reward"] for record in records) / n if n else 0.0,
         "success_rate": sum(record["reward"] == 1.0 for record in records) / n if n else 0.0,
         "mean_steps": sum(record["steps"] for record in records) / n if n else 0.0,
+        "errored_episodes": sum(bool(record.get("error")) for record in records),
         "config": dict(config),
     }
 
@@ -206,14 +256,25 @@ def evaluate(args):
             with make_client(args.base_url) as client:
                 env = make_env(args.num_products)
                 try:
-                    for session in pending:
+                    for completed, session in enumerate(pending, 1):
                         record = run_episode(
-                            env, client, session, args.model, args.max_steps, args.obs_chars
+                            env, client, session, args.model, args.max_steps, args.obs_chars,
+                            args.history_obs_chars, args.max_prompt_chars,
                         )
                         stream.write(json.dumps(record, ensure_ascii=False) + "\n")
                         stream.flush()
                         os.fsync(stream.fileno())
                         records[session] = record
+                        if completed % 25 == 0:
+                            running = compute_metrics(
+                                (records[s] for s in sessions if s in records), {}
+                            )
+                            print(
+                                "WebShop progress n={}/{} score={:.2f}".format(
+                                    running["n"], args.n, running["score"]
+                                ),
+                                flush=True,
+                            )
                 finally:
                     env.close()
     config = dict(vars(args))
@@ -241,6 +302,10 @@ def parse_args(argv=None):
     parser.add_argument("--n", type=int, default=500)
     parser.add_argument("--max-steps", type=int, default=15)
     parser.add_argument("--obs-chars", type=int, default=2500)
+    parser.add_argument("--history-obs-chars", type=int, default=600,
+                        help="Keep this many characters of each past observation, plus ' ...' if cut")
+    parser.add_argument("--max-prompt-chars", type=int, default=60000,
+                        help="User-message budget; always retain the first and last three history pairs")
     parser.add_argument("--out", required=True)
     parser.add_argument("--num-products", type=int, choices=[100, 1000, 100000], default=None,
                         help="Omit for all products; subsets require the corresponding index")
@@ -249,8 +314,8 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.start < 0 or args.n < 0:
         parser.error("--start and --n must be nonnegative")
-    if args.max_steps < 1 or args.obs_chars < 1:
-        parser.error("--max-steps and --obs-chars must be positive")
+    if min(args.max_steps, args.obs_chars, args.history_obs_chars, args.max_prompt_chars) < 1:
+        parser.error("--max-steps, --obs-chars, --history-obs-chars and --max-prompt-chars must be positive")
     return args
 
 
