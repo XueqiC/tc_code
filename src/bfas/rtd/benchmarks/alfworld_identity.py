@@ -33,7 +33,10 @@ SCOPES = {
     "src/bfas/adapters/alfworld.py": (
         "TEACHER_REACT_INSTRUCTION", "TEACHER_REACT_PROMPT", "TEACHER_REACT_EXAMPLES",
         "PROMPT", "_ACTION_MARKER_RE", "_GOAL_RE", "_goal_line", "_obs_with_goal",
-        "_category", "_game_ids", "_worker_config", "_worker", "_EnvBridge.step",
+        "_category", "_game_ids", "_worker_config", "_worker", "_worker_episode",
+        "_rpc_timeout", "ALFWorldRPCError", "_EnvBridge._rpc_error_type",
+        "_EnvBridge._configure_rpc", "_EnvBridge._begin_rpc", "_EnvBridge._rpc_failure",
+        "_EnvBridge._read_lines", "_EnvBridge._read", "_EnvBridge.step",
         "ALFWorldAdapter._render", "ALFWorldAdapter._pick_command",
         "ALFWorldAdapter._teacher_command_text", "ALFWorldAdapter._teacher_command"),
     "src/alfworld_eval.py": ("pick_command",),
@@ -41,7 +44,7 @@ SCOPES = {
     "src/bfas/cc_pairs.py": ("thinking_off",),
     "tools/behavior_atom/gpu_driver.py": ("_thinking_off",),
     "src/bfas/rtd/benchmarks/alfworld_support.py": (
-        "prompt_messages", "FrozenRenderer", "BoundedEnvBridge._read_lines", "BoundedEnvBridge._read"),
+        "prompt_messages", "FrozenRenderer", "EnvironmentUnavailable", "BoundedEnvBridge._rpc_error_type"),
     "src/bfas/rtd/benchmarks/alfworld_evaluation.py": (
         "Generation", "_checked_state", "official_episode", "validate_records",
         "aggregate_records", "compare_base", "HFBackend", "EvaluationEnvBridge.__init__"),

@@ -20,6 +20,7 @@ sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 from bfas.rtd import cli, runtime
 from bfas.rtd.benchmarks import alfworld_support, registry
 from bfas.rtd.benchmarks.alfworld_state import Observation
+from bfas.rtd.benchmarks.alfworld_support import EnvironmentUnavailable
 from bfas.rtd.functional_step import lora_parameters
 from bfas.rtd.persistence import ComputeJournal, digest
 from bfas.rtd.unified.arms import ARMS
@@ -86,8 +87,8 @@ class ContractLM(TinyLM):
         return SimpleNamespace(sequences=sequences, scores=tuple(scores))
 
 
-@pytest.mark.parametrize('arm', ARMS)
-def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, arm):
+@pytest.mark.parametrize('arm,fail_step', [(arm, None) for arm in ARMS] + [('D3', 1), ('D3', 2)])
+def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplog, arm, fail_step):
     bank = ROOT/'data/rtd/v1_1_alfworld'
     if not (bank/'public/support.json').is_file():
         pytest.skip('real ALFWorld v1.1 bank is not installed')
@@ -110,10 +111,11 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, arm):
         def __init__(self, *, environment_hash):
             self.environment_hash = environment_hash
             self.closed = False
+            self.failed = False
             self.commands = []
             # Every role has one success and one failure; every episode requires
             # a continuation after the batched first action (the broken seam).
-            self.won = len(environments) % 2 == 0
+            self.won = sum(not env.failed for env in environments) % 2 == 0
             environments.append(self)
 
         def reset(self, request):
@@ -129,6 +131,12 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, arm):
             self.commands.append(command)
             index = len(self.commands)
             assert index <= 3
+            if self is environments[0] and index == fail_step:
+                self.failed = True
+                raise EnvironmentUnavailable('stub step RPC failed', diagnostics=dict(
+                    worker_exception='RuntimeError: stub worker crashed', exit_code=17,
+                    stderr_tail='stub worker traceback', rpc_elapsed_seconds=.25,
+                    rpc_operation='step', timeout_seconds=120.))
             return index, Observation(index, f'Canned observation {index}.', ('look',),
                 self.request['world_hash'], done=index == 3, won=index == 3 and self.won)
 
@@ -206,9 +214,31 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, arm):
     roles = {'acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback'}
     feedback = [r for r in events if r['kind'] == 'feedback_rollout']
     assert Counter(r['role'] for r in feedback) == {role: 2 for role in roles}
-    assert len(environments) == 6 and all(env.closed and len(env.commands) == 3 for env in environments)
+    assert len(environments) == 6 + bool(fail_step) and all(env.closed for env in environments)
+    assert all(len(env.commands) == 3 for env in environments if not env.failed)
     episodes = [r for r in events if r['kind'] == 'alfworld_episode']
-    assert len(episodes) == 6 and all(r['failure'] is None and r['from_task_start'] for r in episodes)
+    assert len(episodes) == 6 + bool(fail_step) and all(r['from_task_start'] for r in episodes)
+    complete = [r for r in episodes if r['failure'] is None]
+    assert len(complete) == 6
+    retries = [r for r in events if r['kind'] == 'alfworld_episode_retry']
+    assert len(retries) == bool(fail_step)
+    if fail_step:
+        failed, retried = episodes[:2]
+        assert failed['excluded'] and failed['reward'] is None
+        assert failed['steps'][-1]['observation'] is None
+        assert failed['failure']['exit_code'] == 17
+        assert failed['failure']['rpc_elapsed_seconds'] == .25
+        assert 'stub worker traceback' in failed['failure']['stderr_tail']
+        assert any(r.levelname == 'ERROR' and 'stub worker crashed' in r.message
+                   and 'stub worker traceback' in r.message for r in caplog.records)
+        assert (failed['attempt'], retried['attempt']) == (0, 1)
+        for key in ('task_id', 'rollout_index', 'seed', 'policy_id', 'start_state',
+                    'prefix_package_id', 'prefix_steps'):
+            assert failed[key] == retried[key]
+        assert environments[0].request == environments[1].request
+        assert environments[0].commands == environments[1].commands[:fail_step]
+        assert [s['action'] for s in failed['steps']] == [s['action'] for s in retried['steps'][:fail_step]]
+        assert retries[0]['failure'] == failed['failure']
     for role in roles:
         assert sorted(r['rollout']['reward'] for r in feedback if r['role'] == role) == [0., 1.]
     for row in feedback:

@@ -155,7 +155,8 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
     One seed draw from the experiment's saved generator supplies an independent
     C26-C episode stream. Its derived seed is journaled by C26-C; resume restores
     the pre-phase generator, so an interrupted phase repeats identical draws.
-    Infrastructure errors propagate through as_task_rollout; no zero imputation.
+    RPC failures retry once with that same stream and fresh reset. Exhausted
+    infrastructure errors propagate through as_task_rollout; no zero imputation.
     """
     _privileged()
     if category != 'agent_action' or truth != [] or not isinstance(checker, ALFWorldFeedbackContext):
@@ -170,10 +171,10 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
             manifest['parents'][parent_hash(entry['task_id'])]['selected_task_id'] != entry['task_id']):
         raise ValueError('feedback differs from frozen selected trial')
     import torch
-    from .alfworld_rollout import alfworld_task_rollout
+    from .alfworld_rollout import alfworld_task_rollout_with_retry
     seed = int(torch.randint(0, 2**63 - 1, (), generator=generator, device=generator.device).item())
     with alfworld_action_limit(backend, category):
-        episode = alfworld_task_rollout(task_ref, backend, parameters, env_factory=checker.env_factory,
+        episode = alfworld_task_rollout_with_retry(task_ref, backend, parameters, env_factory=checker.env_factory,
             renderer=checker.renderer, journal=checker.journal, rollout_index=seed, base_seed=0)
     return episode.as_task_rollout()
 

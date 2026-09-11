@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from bfas.behavior.deltas import tensor_state_hash
 from bfas.rtd.benchmarks.alfworld_rollout import (
     IncompleteFeedbackError, alfworld_reinforce_gradient, alfworld_task_rollout,
-    collect_feedback, episode_seed, feedback, parse_action,
+    alfworld_task_rollout_with_retry, collect_feedback, episode_seed, feedback, parse_action,
 )
 from bfas.rtd.benchmarks.alfworld_state import Observation, canonical_hash, replay_commands
 from bfas.rtd.benchmarks.alfworld_support import (
@@ -511,13 +511,57 @@ def test_incomplete_k_block_is_excluded_before_scoring(support, parameters):
     def factory():
         nonlocal count
         count += 1
-        return EnumerableEnv(fault="step" if count == 2 else None)
+        return EnumerableEnv(fault="step" if count in (2, 3) else None)
     with pytest.raises(IncompleteFeedbackError, match="no gradient") as exc:
         feedback(feedback_requests(support), backend, parameters, env_factory=factory, renderer=render,
                  journal=journal, support=support, round_number=1)
-    assert len(exc.value.episodes) == 8 and count == 8 and not backend.scored
+    assert len(exc.value.episodes) == 8 and count == 9 and not backend.scored
     assert sum(e.reward is None for e in exc.value.episodes) == 1
     assert journal.events[-1]["kind"] == "alfworld_feedback_excluded"
+    attempts = [e for e in journal.events if e['kind'] == 'alfworld_episode' and e['failure']]
+    assert [e['attempt'] for e in attempts] == [0, 1]
+    assert attempts[0]['seed'] == attempts[1]['seed']
+
+
+@pytest.mark.parametrize('fault', ['reset', 'step'])
+def test_feedback_rpc_retry_matches_clean_measurement(support, parameters, fault):
+    requests, environments, journal = feedback_requests(support), [], MemoryJournal()
+    def factory():
+        env = EnumerableEnv(fault=fault if not environments else None)
+        environments.append(env)
+        return env
+    clean_backend, retried_backend = TinyBackend(), TinyBackend()
+    clean = collect_feedback(requests, clean_backend, parameters, env_factory=EnumerableEnv,
+        renderer=render, journal=MemoryJournal(), support=support, round_number=1, base_seed=34)
+    retried = collect_feedback(requests, retried_backend, parameters, env_factory=factory,
+        renderer=render, journal=journal, support=support, round_number=1, base_seed=34)
+    assert len(environments) == 9 and all(env.closed for env in environments)
+    assert tuple(replace(e, attempt=0) for e in retried) == clean
+    assert retried[0].attempt == 1 and all(e.attempt == 0 for e in retried[1:])
+    expected = alfworld_reinforce_gradient(clean, clean_backend, parameters, journal=MemoryJournal())
+    actual = alfworld_reinforce_gradient(retried, retried_backend, parameters, journal=journal)
+    assert retried_backend.scored == clean_backend.scored
+    torch.testing.assert_close(actual.gradient['theta'], expected.gradient['theta'], rtol=0, atol=0)
+
+
+def test_retry_does_not_retry_terminal_loss_or_state_contract(request_state, parameters):
+    environments = []
+    def factory():
+        environments.append(EnumerableEnv())
+        return environments[-1]
+    episode = alfworld_task_rollout_with_retry(request_state, TinyBackend([(10, 20, 0)] * 2),
+        parameters, env_factory=factory, renderer=render, journal=MemoryJournal())
+    assert episode.reward == 0 and len(environments) == 1
+    class InvalidReset(EnumerableEnv):
+        def reset(self, request):
+            raise ValueError('wrong world hash')
+    environments.clear()
+    def invalid_factory():
+        environments.append(InvalidReset())
+        return environments[-1]
+    episode = alfworld_task_rollout_with_retry(request_state, TinyBackend(), parameters,
+        env_factory=invalid_factory, renderer=render, journal=MemoryJournal())
+    assert episode.failure['rpc_failure'] is False and len(environments) == 1
 
 
 @pytest.mark.parametrize("fault", ["inner", "duplicate", "changed_request", "one_rollout", "alternate_trial"])
@@ -570,6 +614,28 @@ def test_prefix_worker_failure_counts_only_completed_steps(support, parameters):
     assert episode.failure["stage"] == "prefix_step" and episode.reward is None
     assert episode.prefix_steps == 1 and not episode.actions
     assert journal.events[0]["total_steps"] == 0 and journal.events[0]["sampled_steps"] == 0
+
+
+def test_rpc_retry_replays_owned_prefix_without_scoring_it(support, parameters):
+    prefix, package = owned_prefix(support)
+    environments, journal = [], MemoryJournal()
+    def factory():
+        environments.append(EnumerableEnv(fault='step' if not environments else None))
+        return environments[-1]
+    backend = TinyBackend([(11, 21, 0)])
+    episode = alfworld_task_rollout_with_retry(prefix, backend, parameters,
+        env_factory=factory, renderer=render, journal=journal, prefix_package_id=package.query_id,
+        owned_packages={package.query_id: package}, support=support, round_number=1)
+    assert len(environments) == 2 and all(env.closed for env in environments)
+    assert environments[1].commands == [ADVANCE, ADVANCE]
+    assert episode.start_state == prefix and episode.prefix_package_id == package.query_id
+    assert episode.attempt == 1 and episode.reward == 1 and len(episode.actions) == 1
+    failed = journal.events[0]
+    assert failed['failure']['stage'] == 'prefix_step'
+    assert failed['prefix_steps'] == episode.prefix_steps == 1
+    assert failed['seed'] == episode.seed and not failed['steps']
+    with pytest.raises(ValueError, match='never a teacher prefix'):
+        episode.as_task_rollout()
 
 
 @pytest.mark.parametrize("fault", ["unowned", "wrong_package", "dependency", "fold", "history", "prompt"])

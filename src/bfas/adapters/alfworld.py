@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import math
 import os
+import queue
 import re
+import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+import traceback
 import urllib.request
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
@@ -341,61 +347,158 @@ def _game_ids(split_dir: Path) -> list[str]:
     return sorted(ids)
 
 
+def _rpc_timeout(name: str, value: float | None, default: float) -> float:
+    value = float(os.environ.get(name, default) if value is None else value)
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be positive and finite")
+    return value
+
+
+class ALFWorldRPCError(RuntimeError):
+    """Worker/transport failure with diagnostics captured before cleanup."""
+
+    def __init__(self, message, *, diagnostics=None):
+        super().__init__(message)
+        self.diagnostics = diagnostics or {}
+
+
 class _EnvBridge:
-    def __init__(self, split: str, task_id: str):
+    _rpc_error_type = ALFWorldRPCError
+
+    def _configure_rpc(self, task_id, *, timeout=None, reset_timeout=None, episode_timeout=None):
+        self.task_id = task_id
+        self.timeout = _rpc_timeout("BFAS_ALFWORLD_STEP_TIMEOUT", timeout, 120.)
+        # Explicit legacy timeout applies to both operations unless overridden.
+        self.reset_timeout = _rpc_timeout("BFAS_ALFWORLD_RESET_TIMEOUT",
+            reset_timeout if reset_timeout is not None else timeout, 300.)
+        if episode_timeout is not None and (not math.isfinite(episode_timeout) or episode_timeout <= 0):
+            raise ValueError("positive finite episode timeout required")
+        self.episode_timeout = episode_timeout
+        self.deadline = time.monotonic() + episode_timeout if episode_timeout is not None else math.inf
+        self.process, self._reader = None, None
+        self._queue, self._request_id = queue.Queue(), 0
+        self._begin_rpc("reset", self.reset_timeout)
+
+    def _begin_rpc(self, operation, timeout):
+        self._rpc_operation = operation
+        self._rpc_started = time.monotonic()
+        self._rpc_timeout_seconds = timeout
+
+    def __init__(self, split: str, task_id: str, *, timeout=None, reset_timeout=None):
+        self._configure_rpc(task_id, timeout=timeout, reset_timeout=reset_timeout)
+        self._stderr = tempfile.TemporaryFile()
         env = os.environ.copy()
         env["PYTHONPATH"] = str(ROOT / "src")
-        self.process = subprocess.Popen(
-            [str(ENV_PYTHON), "-u", "-m", "bfas.adapters.alfworld", "--worker",
-             "--split", split, "--task-id", task_id],
-            cwd=ROOT,
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            bufsize=1,
-        )
-        self._request_id = 0
-        ready = self._read()
-        if ready.get("op") != "ready":
-            raise RuntimeError(f"ALFWorld worker did not become ready: {ready}")
+        try:
+            self.process = subprocess.Popen(
+                [str(ENV_PYTHON), "-u", "-m", "bfas.adapters.alfworld", "--worker",
+                 "--split", split, "--task-id", task_id],
+                cwd=ROOT, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=self._stderr, text=True, encoding="utf-8", bufsize=1, start_new_session=True)
+            self._reader = threading.Thread(target=self._read_lines, daemon=True)
+            self._reader.start()
+            ready = self._read()
+            if ready.get("op") != "ready":
+                raise self._rpc_failure(RuntimeError(f"ALFWorld worker did not become ready: {ready}"))
+        except Exception as exc:
+            error = exc if isinstance(exc, ALFWorldRPCError) else self._rpc_failure(exc)
+            self.close()
+            if error is exc:
+                raise
+            raise error from exc
+        except BaseException:
+            self.close()
+            raise
+
+    def _read_lines(self):
+        try:
+            for line in self.process.stdout:
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(value, dict) and value.get("bfas_worker") is True:
+                    self._queue.put(value)
+        except Exception as exc:
+            self._queue.put(exc)
+        finally:
+            self._queue.put(None)
+
+    def _rpc_failure(self, cause, response=None):
+        # pread leaves the child's shared stderr file offset untouched.
+        fd = self._stderr.fileno()
+        tail = os.pread(fd, 8192, max(0, os.fstat(fd).st_size - 8192)).decode("utf-8", errors="replace")
+        diagnostics = dict(rpc_operation=self._rpc_operation,
+            worker_exception=(response or {}).get("worker_exception", f"{type(cause).__name__}: {cause}"),
+            worker_traceback=(response or {}).get("worker_traceback"),
+            exit_code=self.process.poll() if self.process is not None else None,
+            worker_pid=self.process.pid if self.process is not None else None,
+            stderr_tail=tail, rpc_elapsed_seconds=time.monotonic() - self._rpc_started,
+            timeout_seconds=self._rpc_timeout_seconds, episode_timeout_seconds=self.episode_timeout)
+        logging.getLogger(__name__).error("ALFWorld RPC failed task_id=%s request_id=%s %s",
+            self.task_id, self._request_id, json.dumps(diagnostics))
+        return self._rpc_error_type(str(cause), diagnostics=diagnostics)
 
     def _read(self) -> dict[str, Any]:
-        if self.process.stdout is None:
-            raise RuntimeError("ALFWorld worker has no stdout")
-        while True:
-            line = self.process.stdout.readline()
-            if not line:
-                raise RuntimeError(f"ALFWorld worker exited ({self.process.poll()})")
+        wait = min(self._rpc_started + self._rpc_timeout_seconds, self.deadline) - time.monotonic()
+        try:
+            if wait <= 0:
+                raise queue.Empty
+            value = self._queue.get(timeout=wait)
+        except queue.Empty as exc:
+            raise self._rpc_failure(TimeoutError(
+                f"ALFWorld worker timeout ({self._rpc_operation}={self._rpc_timeout_seconds}s, "
+                f"episode_timeout={self.episode_timeout})")) from exc
+        if isinstance(value, Exception):
+            raise self._rpc_failure(value) from value
+        if value is None or value.get("op") == "error":
+            # stdout EOF/error can precede process reaping by a few milliseconds.
             try:
-                value = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(value, dict) and value.get("bfas_worker") is True:
-                return value
+                self.process.wait(timeout=.2)
+            except subprocess.TimeoutExpired:
+                pass
+            raise self._rpc_failure(RuntimeError((value or {}).get("worker_exception",
+                f"ALFWorld worker exited ({self.process.poll()})")), value)
+        return value
 
     def step(self, command: str) -> dict[str, Any]:
-        if self.process.stdin is None:
-            raise RuntimeError("ALFWorld worker has no stdin")
+        self._begin_rpc("step", self.timeout)
         self._request_id += 1
-        self.process.stdin.write(json.dumps({"id": self._request_id, "command": command}) + "\n")
-        self.process.stdin.flush()
+        try:
+            if self.process.stdin is None:
+                raise BrokenPipeError("ALFWorld worker has no stdin")
+            self.process.stdin.write(json.dumps({"id": self._request_id, "command": command}) + "\n")
+            self.process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            raise self._rpc_failure(exc) from exc
         response = self._read()
         if response.get("id") != self._request_id:
-            raise RuntimeError("ALFWorld worker response id mismatch")
+            raise self._rpc_failure(RuntimeError("ALFWorld worker response id mismatch"))
         return response
 
     def close(self) -> None:
-        if self.process.stdin is not None:
-            self.process.stdin.close()
-        if self.process.poll() is None:
-            self.process.terminate()
-        try:
-            self.process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait()
+        if self.process is not None:
+            # TextWorld children can keep stdout open after the worker exits.
+            # Signal only this bridge's newly created process group.
+            try:
+                os.killpg(self.process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(self.process.pid, signal.SIGKILL)
+                self.process.wait()
+            for stream in (self.process.stdin, self.process.stdout):
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except BrokenPipeError:
+                        pass
+            if self._reader is not None:
+                self._reader.join(timeout=1)
+            self.process = None
+        self._stderr.close()
 
 
 class ALFWorldAdapter(BenchmarkAdapter):
@@ -595,7 +698,11 @@ class ALFWorldAdapter(BenchmarkAdapter):
         deployment_turns: list[Turn] = []
         teacher_commands: list[str] = []
         history: list[str] = []
-        state = bridge._read()
+        try:
+            state = bridge._read()
+        except BaseException:
+            bridge.close()
+            raise
         # The goal sentence only appears in the very first observation; with an
         # 8-line history window both the student and the teacher lost it after a
         # few steps and wandered (2026-09-02: gpt-5.4 teacher 0/20). Carry it on
@@ -999,7 +1106,7 @@ def _worker_config(game_dir: Path) -> dict[str, Any]:
     }
 
 
-def _worker(split: str, task_id: str) -> int:
+def _worker_episode(split: str, task_id: str) -> int:
     import alfworld.agents.environment as environment
 
     env_class = environment.get_environment("AlfredTWEnv")
@@ -1038,6 +1145,17 @@ def _worker(split: str, task_id: str) -> int:
             break
     env.close()
     return 0
+
+
+def _worker(split: str, task_id: str) -> int:
+    try:
+        return _worker_episode(split, task_id)
+    except Exception as exc:
+        detail = traceback.format_exc()
+        print(detail, file=sys.stderr, flush=True)
+        print(json.dumps(dict(bfas_worker=True, op="error",
+            worker_exception=f"{type(exc).__name__}: {exc}", worker_traceback=detail)), flush=True)
+        return 1
 
 
 def _parse_worker_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
