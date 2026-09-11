@@ -46,16 +46,21 @@ def test_benchmark_configs_share_budget_exposure_and_student(benchmark):
     'v1_1_alfworld_luna', 'unified_alfworld_gemma4_luna', 'unified_alfworld_gemma4_d0_luna'])
 def test_score_consistency_luna_override_survives_frozen_p1_validation(name):
     from bfas.rtd.scoring import ScoreTolerance
-    config = cli.load_config(f'configs/rtd/{name}.yaml')
-    expected = dict(mean_abs=.08, max_abs=1., max_abs_outlier_tokens=2,
-                    max_abs_hard=8., min_tokens_for_mean=8)
+    filename = f'configs/rtd/{name}.yaml'
+    with open(filename) as stream:
+        declared = yaml.safe_load(stream)['score_consistency_tolerance']
+    config = cli.load_config(filename)
+    # Operational Luna guard values may change independently of the validator.
+    # Test preservation of the actual declaration, not a stale campaign value.
+    expected = vars(ScoreTolerance()) | declared
     assert config['score_consistency_tolerance'] == expected
     assert cli.validate_config(config)['score_consistency_tolerance'] == expected
     # An omitted or partial declaration keeps all other strict defaults.
     config.pop('score_consistency_tolerance')
     assert cli.validate_config(config)['score_consistency_tolerance'] == vars(ScoreTolerance())
     assert cli.validate_config(config | {'score_consistency_tolerance': {'mean_abs': .08}})[
-        'score_consistency_tolerance'] == expected
+        'score_consistency_tolerance'] == dict(mean_abs=.08, max_abs=1., max_abs_outlier_tokens=2,
+                                             max_abs_hard=8., min_tokens_for_mean=8)
     with pytest.raises(ValueError, match='finite and nonnegative'):
         cli.validate_config(config | {'score_consistency_tolerance': {'mean_abs': -1}})
 

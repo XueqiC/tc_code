@@ -7,6 +7,18 @@ import torch
 from .persistence import digest
 
 
+def attention_implementation(model):
+    """Read the text model's effective HF setting, including PEFT/MM wrappers.
+
+    An unknown implementation stays null; a journal must not claim eager just
+    because the production loader normally requests it.
+    """
+    config = getattr(model, 'config', None)
+    if hasattr(config, 'get_text_config'):
+        config = config.get_text_config()
+    return getattr(config, '_attn_implementation', None)
+
+
 @dataclass(frozen=True)
 class ScoreTolerance:
     mean_abs: float = .05

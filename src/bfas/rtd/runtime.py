@@ -10,7 +10,7 @@ from .checkpointing import enable_gradient_checkpointing
 from .return_gradient import ActionTrace, IncompleteRolloutError, TorchPolicyBackend
 from .transport import positive_mixture_loss
 from .persistence import digest
-from .scoring import ScoreTolerance
+from .scoring import ScoreTolerance, attention_implementation
 from .memory import MemoryPolicy, memory_batches
 from .generation_batch import GenerationBatch, HFGenerationBatchMixin, RNG_RULE
 from .forward_batch import HFForwardBatchMixin, forward_enabled, token_row
@@ -47,7 +47,7 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
         kwargs.setdefault('score_tolerance', ScoreTolerance())
         super().__init__(*args, **kwargs)
         self.backend_id = digest(dict(parent=self.backend_id, implementation='hf-generate-kv-v1',
-                                      top_k=0, repetition_penalty=1., attention='eager'))
+                                      top_k=0, repetition_penalty=1., attention=attention_implementation(self.model)))
         self.journal = journal
         self.context = 'unspecified'
         self.memory_policy = memory_policy or MemoryPolicy()
@@ -127,6 +127,7 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
             token_logprobs = tuple(float(scores[0].to(torch.float64 if scores.dtype == torch.float64 else torch.float32)
                                 .log_softmax(-1)[token]) for token, scores in zip(ids, output.scores))
         import transformers
+        cache = getattr(output, 'past_key_values', None)
         return ActionTrace(prompt_ids, ids, eos, self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False),
             sum(token_logprobs), self.backend_id, identity, token_logprobs,
             dict(implementation='hf-generate-kv-categorical-v1', use_cache=True,
@@ -134,7 +135,8 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
                  logprob_dtype='torch.float64' if output.scores[0].dtype == torch.float64 else 'torch.float32',
                  reduction_dtype='python.float', parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                  model_class=type(generation_model).__name__, torch_version=torch.__version__,
-                 transformers_version=transformers.__version__, attention='eager',
+                 transformers_version=transformers.__version__, attention=attention_implementation(self.model),
+                 cache_type=type(cache).__name__ if cache is not None else None,
                  temperature=temperature, top_p=top_p, top_k=0, repetition_penalty=1.,
                  max_action_tokens=self.max_action_tokens, effective_action_limit=settings.max_new_tokens),
             truncated=truncated)

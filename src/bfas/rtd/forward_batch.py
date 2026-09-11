@@ -15,6 +15,7 @@ from torch.nn import functional as F
 from .functional_step import _matching, lora_parameters
 from .generation_batch import length_bucketed_groups
 from .return_gradient import IncompleteRolloutError
+from .scoring import attention_implementation
 from .source_scoring import _HeadInput, sampled_prefix_positions
 
 
@@ -130,7 +131,8 @@ class HFForwardBatchMixin:
                 values = torch.cat(chunks)
                 score = values.sum()  # Same per-action ordered native CE reduction.
                 result.append((score, values, dict(implementation='torch-functional-teacher-forced-native-ce-v1',
-                    use_cache=False, logits_dtype=logits_dtype, logprob_dtype=str(values.dtype),
+                    use_cache=False, cache_type=None, attention=attention_implementation(self.model),
+                    logits_dtype=logits_dtype, logprob_dtype=str(values.dtype),
                     reduction_dtype=str(score.dtype), parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                     model_class=type(self.model).__name__, torch_version=torch.__version__)))
             return result

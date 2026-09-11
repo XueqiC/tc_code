@@ -21,7 +21,7 @@ from ..behavior.deltas import canonical_hash, tensor_state_hash
 from ..cc_pairs import thinking_off
 from .functional_step import FrozenStep, _matching, gradients, lora_parameters, policy_identity, snapshot
 from .transport import Behavior, SourceSample, complete_token_logprobs, positive_mixture_loss, validate_sampled_action
-from .scoring import ScoreTolerance, enforce_score_diagnostic, score_diagnostic
+from .scoring import ScoreTolerance, attention_implementation, enforce_score_diagnostic, score_diagnostic
 from .bfcl_decode import DECODE_ERRORS, guard_rtd_decoding
 
 
@@ -186,7 +186,8 @@ class TorchPolicyBackend:
         score = values.sum()
         if return_details:
             return score, values, dict(implementation='torch-functional-teacher-forced-native-ce-v1',
-                use_cache=False, logits_dtype=str(logits.dtype), logprob_dtype=str(values.dtype),
+                use_cache=False, cache_type=None, attention=attention_implementation(self.model),
+                logits_dtype=str(logits.dtype), logprob_dtype=str(values.dtype),
                 reduction_dtype=str(score.dtype), parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                 model_class=type(self.model).__name__, torch_version=torch.__version__)
         return score

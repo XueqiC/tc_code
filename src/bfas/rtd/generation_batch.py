@@ -209,6 +209,7 @@ class HFGenerationBatchMixin:
         from transformers import GenerationConfig
         import transformers
         from .runtime import installed_parameters
+        from .scoring import attention_implementation
         eos = self.tokenizer.eos_token_id
         from .student import termination_ids
         stops = termination_ids(self)
@@ -254,6 +255,7 @@ class HFGenerationBatchMixin:
             values = torch.stack([s.float().log_softmax(-1).gather(1, tokens[:, t:t+1]).squeeze(1)
                                   for t, s in enumerate(output.scores)], dim=1).cpu().tolist()
             sequences = tokens.cpu().tolist()
+            cache = getattr(output, 'past_key_values', None)
             result = []
             for row, sequence, logps in zip(rows, sequences, values):
                 terminal = next((i for i, t in enumerate(sequence) if t in stops), None)
@@ -269,7 +271,8 @@ class HFGenerationBatchMixin:
                     logprob_dtype='torch.float32', reduction_dtype='python.float',
                     parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                     model_class=type(generation_model).__name__, torch_version=torch.__version__,
-                    transformers_version=transformers.__version__, attention='eager', temperature=1., top_p=1.,
+                    transformers_version=transformers.__version__, attention=attention_implementation(self.model),
+                    cache_type=type(cache).__name__ if cache is not None else None, temperature=1., top_p=1.,
                     top_k=0, repetition_penalty=1., max_action_tokens=row['cap'], effective_action_limit=row['limit'],
                     rng_rule=RNG_RULE, rng_ticket=row['ticket'], batch_seed=seed, batch_rng_after=rng_after,
                     batch_size=size, padded_prompt_tokens=width, padding_side='left')
