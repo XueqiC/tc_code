@@ -144,6 +144,7 @@ def append_episode(
     timestamp: str | None = None,
     ledger_root: Path | None = None,
     source_id: str | None = None,
+    failure_kind: str | None = None,
 ) -> dict[str, Any]:
     if verified and demo is None:
         raise ValueError("a verified ledger episode requires a Demo")
@@ -169,6 +170,8 @@ def append_episode(
         record["demo"] = demo_payload(demo)
     if source_id is not None:
         record["source_id"] = source_id
+    if failure_kind is not None:
+        record["failure_kind"] = failure_kind
     append_record(ledger_path(benchmark, ledger_root=ledger_root), record)
     return record
 
@@ -245,6 +248,14 @@ def read_records(
         ) from exc
 
 
+def _retryable_provider_error(record: Mapping[str, Any]) -> bool:
+    return (
+        record.get("failure_kind") == "provider_error"
+        and record["tokens_spent"] == 0
+        and record["verified"] is False
+    )
+
+
 def compact_records(
     records: Iterable[Mapping[str, Any]], attempts: int | None = None
 ) -> dict[str, dict[str, Any]]:
@@ -265,7 +276,8 @@ def compact_records(
             "tokens_total": 0,
             "infeasible": False,
         })
-        state["attempts_used"] += 1
+        if not _retryable_provider_error(record):
+            state["attempts_used"] += 1
         state["tokens_total"] += record["tokens_spent"]
         if record["verified"] is True:
             state["best_demo"] = _demo_from_payload(
@@ -425,7 +437,7 @@ def acquire_demos(
                     # A benchmark may fail after paid inference (e.g. in its
                     # evaluator). Preserve measured usage carried by that error.
                     tokens_spent = getattr(exc, "tokens_spent", 0)
-                    append_episode(
+                    record = append_episode(
                         benchmark,
                         task_id=task_id,
                         teacher=teacher,
@@ -434,17 +446,20 @@ def acquire_demos(
                         verified=False,
                         tokens_spent=tokens_spent,
                         ledger_root=ledger_root,
+                        failure_kind=getattr(exc, "failure_kind", None),
                     )
                     purchased = True
                     _PURCHASED_LEDGERS.add(path)
-                    state["attempts_used"] += 1
                     state["tokens_total"] += tokens_spent
                     if not isinstance(exc, Exception):
                         raise
                     print(f"[bfas][demo] task={task_id} failed: {exc}", flush=True)
+                    if _retryable_provider_error(record):
+                        break  # Leave the task eligible for a later resume.
+                    state["attempts_used"] += 1
                     continue
 
-                append_episode(
+                record = append_episode(
                     benchmark,
                     task_id=task_id,
                     teacher=teacher,
@@ -454,11 +469,14 @@ def acquire_demos(
                     tokens_spent=tokens_spent,
                     demo=episode.demo,
                     ledger_root=ledger_root,
+                    failure_kind=episode.failure_kind,
                 )
                 purchased = True
                 _PURCHASED_LEDGERS.add(path)
-                state["attempts_used"] += 1
                 state["tokens_total"] += tokens_spent
+                if _retryable_provider_error(record):
+                    break
+                state["attempts_used"] += 1
                 if episode.demo is not None:
                     state["best_demo"] = episode.demo
                     break

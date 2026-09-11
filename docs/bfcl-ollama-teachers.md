@@ -75,6 +75,13 @@ positive temperatures. The handler retains the harness's `temperature`
 attribute so result naming and attempt labels continue to use the configured
 value. `openai/gpt-5.4-FC` retains the usual temperature parameter.
 
+Luna also defaults to `reasoning_effort='none'` so native function tools work
+with Chat Completions. `BFAS_OPENAI_REASONING_EFFORT` overrides this for any
+`openai/` teacher: accepted values are `none`, `low`, `medium`, `high`, and
+`omit` (which drops the parameter). Other OpenAI models omit it by default.
+Invalid values raise before client construction; other providers ignore this
+variable. All overrides preserve Luna's temperature omission.
+
 ```bash
 export OPENAI_API_KEY='your-openai-key'
 export BFAS_BFCL_TEACHER='openai/gpt-5.6-luna-FC'
@@ -123,6 +130,15 @@ usage after an interrupted worker, charge a resumed call separately, and avoid
 double charging when the same artifacts are imported again. Raw batch artifacts
 remain available for auditing. Historical batch rows without provider usage
 stop import with an error instead of silently estimating their cost.
+
+Provider request exceptions, including HTTP 4xx responses, append an `error`
+field to the attempt's usage journal. If the attempt has zero input and output
+tokens, its ledger row carries `failure_kind='provider_error'`. The acquisition
+gateway stops trying that task for the current call and leaves it eligible for
+a later resume without consuming an attempt. Journal recovery preserves this
+classification even if the worker never writes a BFCL result. Attempts with
+recorded token usage and historical ledger rows without `failure_kind` keep
+counting toward the attempt limit.
 
 Response journal rows store `usage.prompt_tokens` as `input_token_count` and
 `usage.completion_tokens` as `output_token_count`. When the provider reports

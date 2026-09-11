@@ -80,13 +80,17 @@ def read_results(result_dir: Path) -> list[dict]:
                 results[row["id"]] = row
     usage_path = result_dir / "bfas_usage.jsonl"
     usage = {}
+    errors = {}
     if usage_path.exists():
         for line in usage_path.read_text().splitlines():
             if line.strip():
                 row = json.loads(line)
-                counts = usage.setdefault((row["id"], row.get("bfas_attempt_id")), [0, 0])
+                key = (row["id"], row.get("bfas_attempt_id"))
+                counts = usage.setdefault(key, [0, 0])
                 counts[0] += row["input_token_count"]
                 counts[1] += _completion_tokens([row])
+                if row.get("error"):
+                    errors[key] = row["error"]
     recovered = []
     for (task_id, attempt_id), (input_tokens, output_tokens) in usage.items():
         row = results.get(task_id)
@@ -101,8 +105,28 @@ def read_results(result_dir: Path) -> list[dict]:
         if _completion_tokens([row]) != output_tokens:
             row["output_token_count"] = output_tokens
         row["input_token_count"] = input_tokens
+        if error := errors.get((task_id, attempt_id)):
+            row["error"] = error
+            # Only request failures before any usage may be retried for free.
+            if input_tokens == output_tokens == 0:
+                row["failure_kind"] = "provider_error"
         recovered.append(row)
     return [*results.values(), *recovered]
+
+
+def provider_failure_kind(results):
+    """Classify an episode, including usage from any prerequisite requests."""
+    from .adapters.bfcl import _completion_tokens
+
+    if (
+        any(row.get("failure_kind") == "provider_error" for row in results)
+        and _completion_tokens(results) == 0
+        and _completion_tokens([
+            {"output_token_count": row.get("input_token_count")} for row in results
+        ]) == 0
+    ):
+        return "provider_error"
+    return None
 
 
 def result_source_id(result_dir, model, result):
@@ -153,5 +177,6 @@ def record_attempt(adapter, result_dir, score_dir, task_ids, model, attempt_inde
                 "bfcl", task_id=task_id, teacher=model, attempt_index=attempt_index,
                 temperature=temperature, verified=demo is not None,
                 tokens_spent=tokens, demo=demo, source_id=source_id,
+                failure_kind=provider_failure_kind([result]),
             )
     return verdicts

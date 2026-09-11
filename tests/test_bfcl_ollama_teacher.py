@@ -11,6 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import httpx
+from openai import APIStatusError
 from openai.types.chat import ChatCompletion
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -68,6 +70,7 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "stub-openai-key")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("BFAS_OPENAI_SERVICE_TIER", raising=False)
+    monkeypatch.delenv("BFAS_OPENAI_REASONING_EFFORT", raising=False)
     stub = SimpleNamespace(requests=[], constructor=None, response=completion(), error=None)
 
     def create(**kwargs):
@@ -115,6 +118,7 @@ def test_native_fc_mapping_and_tool_history(client, prefix, model):
     }
     if prefix == "openai" and model == "gpt-5.6-luna":
         expected.pop("temperature")
+        expected["reasoning_effort"] = "none"
     assert request == expected
     assert task == original
     assert h.decode_ast(result, "Python", False) == [
@@ -242,6 +246,41 @@ def test_openai_luna_omits_temperature_but_keeps_harness_value(client, temperatu
     assert "temperature" not in inference_data["inference_input_log"]
 
 
+@pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
+@pytest.mark.parametrize("effort", [None, "none", "low", "medium", "high", "omit", " high\n"])
+@pytest.mark.parametrize("with_tools", [False, True])
+def test_openai_reasoning_effort_default_and_override(client, monkeypatch, prefix, model, effort, with_tools):
+    if effort is not None:
+        monkeypatch.setenv("BFAS_OPENAI_REASONING_EFFORT", effort)
+    task = entry()
+    if not with_tools:
+        task["function"] = []
+    _, metadata = handler(model, prefix).inference(task, True, True)
+    assert "error" not in metadata
+    request = client.requests[0]
+    expected = (effort.strip() if effort is not None else
+                "none" if model == "gpt-5.6-luna" else "omit")
+    if prefix == "openai" and expected != "omit":
+        assert request["reasoning_effort"] == expected
+    else:
+        assert "reasoning_effort" not in request
+    assert ("tools" in request) == with_tools
+    assert ("temperature" not in request) == (prefix == "openai" and model == "gpt-5.6-luna")
+
+
+@pytest.mark.parametrize(("prefix", "model"), PROVIDER_MODELS)
+@pytest.mark.parametrize("effort", ["", "invalid", "xhigh"])
+def test_invalid_reasoning_effort_fails_only_for_openai(client, monkeypatch, prefix, model, effort):
+    monkeypatch.setenv("BFAS_OPENAI_REASONING_EFFORT", effort)
+    if prefix == "openai":
+        with pytest.raises(ValueError, match="BFAS_OPENAI_REASONING_EFFORT.*none.*low.*medium.*high.*omit"):
+            handler(model, prefix)
+        assert client.constructor is None and not client.requests
+    else:
+        handler(model, prefix).inference(entry(), False, True)
+        assert "reasoning_effort" not in client.requests[0]
+
+
 def test_registration_and_cli_without_credentials():
     code = """
 from bfas.bfcl_ollama import register_ollama_models, OllamaOpenAIHandler
@@ -336,6 +375,7 @@ def test_usage_survives_parser_error_and_is_thread_local(client, monkeypatch, tm
     with ThreadPoolExecutor(max_workers=4) as pool:
         outputs = list(pool.map(lambda i: h.inference(entry(f"parallel_{i}"), False, True), range(8)))
     assert all(meta["output_token_count"] == 80 and meta["error"] == "ValueError" for _, meta in outputs)
+    assert all("failure_kind" not in meta for _, meta in outputs)
     rows = [json.loads(line) for line in usage.read_text().splitlines()]
     assert {row["id"] for row in rows} == {f"parallel_{i}" for i in range(8)}
     assert sum(row["output_token_count"] for row in rows) == 640
@@ -374,6 +414,7 @@ def test_failed_request_has_zero_usage_and_no_hidden_retry(client, prefix, model
     client.error = RuntimeError("stub unavailable")
     _, metadata = handler(model, prefix).inference(entry(), False, True)
     assert metadata["error"] == "RuntimeError"
+    assert metadata["failure_kind"] == "provider_error"
     assert metadata["output_token_count"] == 0
     assert len(client.requests) == 1
 
@@ -392,6 +433,131 @@ def adapter(monkeypatch, tmp_path):
     monkeypatch.setattr(h, "_functions", lambda _: [])
     monkeypatch.setattr(h, "_render", lambda *_: "prompt")
     return h
+
+
+def provider_error(status=400):
+    return APIStatusError(
+        f"stub HTTP {status}: function tools require reasoning_effort='none'",
+        response=httpx.Response(status, request=httpx.Request("POST", "https://stub.invalid/v1/chat/completions")),
+        body=None,
+    )
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 422, 429])
+@pytest.mark.parametrize("write_result", [False, True])
+def test_provider_4xx_journal_and_batch_ledger(client, adapter, monkeypatch, tmp_path, status, write_result):
+    directory = tmp_path / "results"
+    usage = directory / "bfas_usage.jsonl"
+    monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(usage))
+    client.error = provider_error(status)
+    h = handler("gpt-5.6-luna", "openai")
+    result, metadata = h.inference(entry(), False, True)
+    assert metadata["failure_kind"] == "provider_error"
+    rows = [json.loads(line) for line in usage.read_text().splitlines()]
+    assert len(rows) == 2 and len(client.requests) == 1
+    assert "error" not in rows[0]
+    assert f"stub HTTP {status}" in rows[1]["error"]
+    assert all(row["bfas_attempt_id"] == metadata["bfas_attempt_id"] for row in rows)
+    assert all(row["input_token_count"] == row["output_token_count"] == 0 for row in rows)
+    result_path = directory / "BFCL_v4_parallel_result.json"
+    if write_result:
+        result_path.write_text(json.dumps({"id": "parallel_0", "result": result, **metadata}) + "\n")
+    recovered, = bfcl_teacher.read_results(directory)
+    assert f"stub HTTP {status}" in recovered["error"]
+    assert recovered["failure_kind"] == "provider_error"
+    for _ in range(2):
+        bfcl_teacher.record_attempt(adapter, directory, tmp_path / "no-scores", ["parallel_0"], "stub", 0, 0)
+    record, = ledger.read_records("bfcl")
+    assert record["failure_kind"] == "provider_error" and not record["verified"]
+    state = ledger.load_ledger("bfcl", attempts=1)["parallel_0"]
+    assert state["attempts_used"] == state["tokens_total"] == 0
+    assert not state["infeasible"]
+    # Reusing the handler after an error resets its per-attempt error state.
+    client.error = None
+    result, metadata = h.inference(entry(), False, True)
+    assert "failure_kind" not in metadata and "error" not in metadata
+    result_path.write_text(json.dumps({"id": "parallel_0", "result": result, **metadata}) + "\n")
+    bfcl_teacher.record_attempt(adapter, directory, tmp_path / "no-scores", ["parallel_0"], "stub", 0, 0)
+    records = ledger.read_records("bfcl")
+    assert [row["tokens_spent"] for row in records] == [0, 80]
+    assert "failure_kind" not in records[1]
+    assert len({row["source_id"] for row in records}) == 2
+
+
+@pytest.mark.parametrize("failure_path", ["result", "journal", "subprocess"])
+def test_gateway_provider_error_can_resume(client, adapter, monkeypatch, tmp_path, failure_path):
+    monkeypatch.setenv("BFAS_BFCL_TEACHER", "openai/gpt-5.6-luna-FC")
+    monkeypatch.setattr(bfcl, "BFCL_ROOT", tmp_path)
+    monkeypatch.setattr(adapter, "_selective_file", lambda ids: {"parallel": list(ids)})
+    monkeypatch.setattr(adapter, "_run_evaluate", lambda *_: None)
+    monkeypatch.setattr(bfcl, "extract_verdicts", lambda *_: {"parallel_0": True})
+    temperatures = []
+    client.error = provider_error()
+
+    def generate(args, policy=None, *, usage_log):
+        temperatures.append(float(args[args.index("--temperature") + 1]))
+        monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(usage_log))
+        result, metadata = handler("gpt-5.6-luna", "openai").inference(entry(), False, True)
+        if client.error and failure_path == "subprocess":
+            raise subprocess.CalledProcessError(1, "stub generator")
+        if not client.error or failure_path == "result":
+            (usage_log.parent / "BFCL_v4_parallel_result.json").write_text(
+                json.dumps({"id": "parallel_0", "result": result, **metadata}) + "\n")
+        return {}
+
+    monkeypatch.setattr(adapter, "_run_generate", generate)
+    failed = adapter.teacher_demo(["parallel_0"], 3)
+    assert failed == {} and not failed.infeasible
+    assert len(client.requests) == 1  # No immediate retry loop on a broken provider.
+    assert failed.states["parallel_0"]["attempts_used"] == 0
+    assert ledger.read_records("bfcl")[0]["failure_kind"] == "provider_error"
+    client.error = None
+    resumed = adapter.teacher_demo(["parallel_0"], 3)
+    assert set(resumed) == {"parallel_0"}
+    assert resumed.states["parallel_0"]["attempts_used"] == 1
+    assert resumed.states["parallel_0"]["tokens_total"] == 80
+    assert temperatures == [0.0, 0.0]
+    assert [row["attempt_index"] for row in ledger.read_records("bfcl")] == [0, 0]
+
+
+@pytest.mark.parametrize(("prompt_tokens", "completion_tokens"), [(19, 80), (19, 0)])
+def test_provider_failure_after_usage_consumes_attempt(client, adapter, monkeypatch, tmp_path, prompt_tokens, completion_tokens):
+    directory = tmp_path / "results"
+    monkeypatch.setenv("BFAS_BFCL_USAGE_LOG", str(directory / "bfas_usage.jsonl"))
+    client.response.usage.prompt_tokens = prompt_tokens
+    client.response.usage.completion_tokens = completion_tokens
+    h = handler("gpt-5.6-luna", "openai")
+
+    def fail_next_request(_):
+        client.error = provider_error()
+        h.generate_with_backoff(model=h.model_name, messages=[])
+
+    monkeypatch.setattr(h, "_parse_query_response_FC", fail_next_request)
+    _, metadata = h.inference(entry(), False, True)
+    assert metadata["error"] == "APIStatusError" and "failure_kind" not in metadata
+    recovered, = bfcl_teacher.read_results(directory)
+    assert "error" in recovered and "failure_kind" not in recovered
+    bfcl_teacher.record_attempt(adapter, directory, tmp_path / "no-scores", ["parallel_0"], "stub", 0, 0)
+    record, = ledger.read_records("bfcl")
+    assert record["tokens_spent"] == completion_tokens and "failure_kind" not in record
+    assert ledger.load_ledger("bfcl", attempts=1)["parallel_0"]["infeasible"]
+
+
+@pytest.mark.parametrize("kind", [None, "provider_error"])
+@pytest.mark.parametrize("tokens", [0, 5])
+def test_ledger_only_exempts_explicit_zero_token_provider_errors(tmp_path, kind, tokens):
+    path = tmp_path / "bfcl.jsonl"
+    row = ledger.append_episode(
+        path, task_id="parallel_0", teacher="stub", attempt_index=0,
+        temperature=0.0, verified=False, tokens_spent=tokens, failure_kind=kind,
+    )
+    if kind is None:
+        assert "failure_kind" not in row  # Historical rows retain their semantics.
+    state = ledger.load_ledger(path, attempts=1)["parallel_0"]
+    counted = int(kind != "provider_error" or tokens != 0)
+    assert state["attempts_used"] == counted
+    assert state["tokens_total"] == tokens
+    assert state["infeasible"] == bool(counted)
 
 
 @pytest.mark.parametrize(("prefix", "model"), [
@@ -630,6 +796,7 @@ if args[0] == 'generate':
     os.environ['OPENROUTER_API_KEY'] = 'stub-openrouter-key'
     os.environ['OPENAI_API_KEY'] = 'stub-openai-key'
     os.environ.pop('BFAS_OPENAI_SERVICE_TIER', None)
+    os.environ.pop('BFAS_OPENAI_REASONING_EFFORT', None)
     h = bfcl_ollama.OpenAICompatibleHandler(model.split('/', 1)[1].removesuffix('-FC'), float(option('--temperature')), model, True)
     for task_id in selection['parallel']:
         result, metadata = h.inference({'id': task_id, 'function': [{'name': 'lookup', 'description': 'Lookup',

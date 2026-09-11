@@ -22,10 +22,18 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
         self.provider = registry_name.split("/", 1)[0]
         base_url, key = provider_credentials(self.provider)
         self.service_tier = None
+        self.reasoning_effort = None
         if self.provider == "openai":
             self.service_tier = os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None
             if self.service_tier not in {None, "flex", "priority"}:
                 raise ValueError("Invalid BFAS_OPENAI_SERVICE_TIER: expected 'flex' or 'priority'")
+            default_effort = "none" if self.model_name == "gpt-5.6-luna" else "omit"
+            effort = os.environ.get("BFAS_OPENAI_REASONING_EFFORT", default_effort).strip()
+            if effort not in {"none", "low", "medium", "high", "omit"}:
+                raise ValueError(
+                    "Invalid BFAS_OPENAI_REASONING_EFFORT: expected none, low, medium, high, or omit"
+                )
+            self.reasoning_effort = None if effort == "omit" else effort
         self.client = OpenAI(base_url=base_url, api_key=key, max_retries=0)
         # BFCL shares one handler among inference threads.
         self._usage = threading.local()
@@ -35,6 +43,7 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
         self._usage.attempt_id = uuid.uuid4().hex
         self._usage.input_tokens = 0
         self._usage.output_tokens = 0
+        self._usage.provider_error = False
         self._record_usage(0, 0)
         try:
             result, metadata = super().inference(test_entry, include_input_log, exclude_state_log)
@@ -43,16 +52,19 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
         except Exception as exc:
             # The harness's outer exception handler otherwise discards all usage,
             # including successful earlier steps in a failed multi-turn episode.
-            return f"Error during inference: {exc}", {
+            metadata = {
                 "error": type(exc).__name__,
                 "bfas_attempt_id": self._usage.attempt_id,
                 "input_token_count": self._usage.input_tokens,
                 "output_token_count": self._usage.output_tokens,
             }
+            if self._usage.provider_error and self._usage.input_tokens == self._usage.output_tokens == 0:
+                metadata["failure_kind"] = "provider_error"
+            return f"Error during inference: {exc}", metadata
         finally:
             self._usage.task_id = None
 
-    def _record_usage(self, input_tokens, output_tokens, *, cached_tokens=None):
+    def _record_usage(self, input_tokens, output_tokens, *, cached_tokens=None, error=None):
         if path := os.environ.get("BFAS_BFCL_USAGE_LOG"):
             record = {
                 "id": self._usage.task_id,
@@ -62,13 +74,21 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
             }
             if cached_tokens is not None:
                 record["cached_tokens"] = cached_tokens
+            if error is not None:
+                record["error"] = error
             append_record(Path(path), record)
 
     def generate_with_backoff(self, **kwargs):
         # Each BFAS attempt has one owner; disable hidden SDK retries and let
         # collection budget subsequent attempts, including failures.
         start = time.monotonic()
-        response = self.client.chat.completions.create(**kwargs)
+        try:
+            response = self.client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if getattr(self._usage, "task_id", None) is not None:
+                self._usage.provider_error = True
+                self._record_usage(0, 0, error=f"{type(exc).__name__}: {exc}")
+            raise
         if getattr(self._usage, "task_id", None) is not None:
             usage = response.usage
             self._usage.input_tokens += usage.prompt_tokens
@@ -91,6 +111,8 @@ class OpenAICompatibleHandler(OpenAICompletionsHandler):
             request["temperature"] = self.temperature
         if self.service_tier is not None:
             request["service_tier"] = self.service_tier
+        if self.reasoning_effort is not None:
+            request["reasoning_effort"] = self.reasoning_effort
         if inference_data["tools"]:
             request["tools"] = inference_data["tools"]
         inference_data["inference_input_log"] = dict(request)

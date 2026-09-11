@@ -57,6 +57,7 @@ class TeacherEpisode:
     demo: Demo | None
     response_texts: tuple[str, ...] | list[str] = ()
     tokens_spent: int | None = None
+    failure_kind: str | None = None
 
 
 COLLECTION_SCHEMA_VERSION = 1

@@ -23,7 +23,10 @@ from ..adapter import (
     TeacherEpisode,
     Turn,
 )
-from ..bfcl_teacher import PROVIDERS, ollama_credentials, provider_credentials, read_results, teacher_task_ids
+from ..bfcl_teacher import (
+    PROVIDERS, ollama_credentials, provider_credentials, provider_failure_kind,
+    read_results, teacher_task_ids,
+)
 from ..protocol import SupportSplit, make_support_split
 
 
@@ -533,7 +536,9 @@ class BFCLAdapter(BenchmarkAdapter):
             except BaseException as exc:
                 # Keep raw artifacts when a subprocess fails; the gateway must
                 # still charge every response received before that failure.
-                exc.tokens_spent = _completion_tokens(read_results(result_dir)) or 0
+                results = read_results(result_dir)
+                exc.tokens_spent = _completion_tokens(results) or 0
+                exc.failure_kind = provider_failure_kind(results)
                 raise
             return read_results(result_dir), result_dir, score_dir
         finally:
@@ -692,6 +697,10 @@ class BFCLAdapter(BenchmarkAdapter):
             model, [task_id], temperature
         )
         try:
+            if failure_kind := provider_failure_kind(results):
+                return TeacherEpisode(
+                    task_id, False, None, tokens_spent=0, failure_kind=failure_kind,
+                )
             category = self.task_categories()[task_id]
             verdicts = extract_verdicts(score_dir, {task_id: category})
             result = next(
