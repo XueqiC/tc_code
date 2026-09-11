@@ -115,14 +115,20 @@ def schedule_identity(manifest, config, support):
         K=config.get('max_new_packages_per_window', 20))
 
 
-def load_schedule(config, manifest, support, *, smoke=False):
+def load_schedule(config, manifest, support, *, smoke=False, check_initial_parameters=True):
     path = schedule_path(config['replay_schedule'])
     if file_hash(path) != config['replay_schedule_hash']:
         raise ValueError('replay schedule changed')
     data = json.loads(path.read_text())
     if data.get('version') != 'rtd-v11-exposure-v1' or data.get('arm') != 'V0' or not data.get('complete'):
         raise ValueError('V1 requires a completed V0 exposure schedule')
-    if data['identity'] != schedule_identity(manifest, config, support):
+    expected, actual = dict(data['identity']), schedule_identity(manifest, config, support)
+    if not check_initial_parameters:
+        # CPU preflight has no initialized LoRA tensors. Execution always checks
+        # this field with the default above, including on resume.
+        expected.pop('initial_parameter_hash', None)
+        actual.pop('initial_parameter_hash', None)
+    if expected != actual:
         raise ValueError('V0/V1 exposure schedule identity differs')
     if data.get('smoke') != smoke:
         raise ValueError('V0/V1 smoke mode differs')

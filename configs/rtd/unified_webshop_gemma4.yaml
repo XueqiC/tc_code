@@ -88,6 +88,7 @@ source_policy_generation: same_backend_torch_categorical
 feedback_scope: rotating_meta_training
 experiment_scope: exploratory
 support_parent_tasks_m: 200
+# Unified identity is frozen; runtime_config supplies protocol_version 1.1.0 to D12--D16.
 protocol_version: unified-p0-1
 budget_basis: usable_recorded_output_tokens
 student: google/gemma-4-12B-it

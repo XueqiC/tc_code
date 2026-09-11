@@ -29,6 +29,8 @@ def test_cli_rejects_invalid_smoke_deadline(value):
 
 @pytest.mark.parametrize('seconds', [900, 7200])
 def test_smoke_config_journal_alarm_share_deadline(tmp_path, monkeypatch, seconds):
+    from bfas.rtd import preflight
+    monkeypatch.setattr(preflight, 'preflight_config', lambda *a, **kw: None)
     config = cli.load_config(cli.ROOT/'configs/rtd/v1_bfcl_c25.yaml')
     monkeypatch.setattr(cli, 'load_config', lambda path: config)
     monkeypatch.setattr(cli, 'bank_audit', lambda config: {})

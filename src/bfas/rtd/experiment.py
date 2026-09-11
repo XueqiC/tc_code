@@ -151,17 +151,57 @@ def assert_run_invariants(state, ledger, *, complete=False):
                 packages=len(ledger.owned_ids), actual_spend=ledger.spent, authorized_budget=ledger.budget)
 
 
+def executor_config(config, arm):
+    """CPU constructor shared by preflight and the production executor."""
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        from .unified.engine import UnifiedConfig
+        UnifiedConfig.from_config(config)
+        config = runtime_config(config)
+    validate_alpha_d_config(config)
+    validate_arm(config, arm)
+    estimator, mode, _ = validate_source_config(config)
+    gate = config.get('gate_override', 'fixed_half' if arm == 'R0' else config['gate'])
+    if gate == 'linear_sigmoid' and (estimator == 'soft' or
+            (estimator == 'cv' and mode == 'fixed_one_minus_a')):
+        raise ValueError('soft/fixed_one_minus_a requires a fixed/scalar gate; use cv with loo/independent')
+    return config
+
+
+def prepare_support(root, config, manifest):
+    """Build and check support before allocating a production model."""
+    from .benchmarks.registry import get_benchmark
+    support = get_benchmark(config).support_protocol(root, config)
+    try:
+        if alpha_d_enabled(config):
+            from .metrics_v11 import options as metric_options, freeze_tasks, task_rows
+            if metric_options(config)['enabled']:
+                expected = freeze_tasks([dict(parent_hash=h, official_id=t) for h, t in support.parents.items()],
+                                        short_fold=metric_options(config)['short_fold'], states=support.states)
+                if manifest.get('fixed_task_set_v11', expected) != expected:
+                    raise ValueError('fixed task set changed on resume')
+                task_rows(expected, support)
+        return support
+    except Exception:
+        if hasattr(support, 'close'):
+            support.close()
+        raise
+
+
+def prepare_ledger(manifest, support, *, path=None, resume=False):
+    ledger = (Ledger.resume(manifest['budget_ceilings'][0], path) if resume else
+              Ledger(manifest['budget_ceilings'][0], path))
+    broker = SealedReplayBroker(manifest['bank_path'], ledger, inner_parent_hashes=set(support.parents))
+    assert_run_invariants(dict(smoke=manifest.get('smoke', False)), ledger)
+    return ledger, broker
+
+
 class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
+        config = executor_config(config, manifest['arm'])
         self.config, self.manifest = config, manifest
-        validate_alpha_d_config(config)
-        validate_arm(config, manifest['arm'])
         self.alpha_d = alpha_d_enabled(config)
-        estimator, mode, _ = validate_source_config(config)
-        if self.gate == 'linear_sigmoid' and (estimator == 'soft' or
-                (estimator == 'cv' and mode == 'fixed_one_minus_a')):
-            raise ValueError('soft/fixed_one_minus_a requires a fixed/scalar gate; use cv with loo/independent')
         self.v11 = config.get('protocol_version') == '1.1.0'
         self.directory, self.backend, self.support = Path(directory), backend, support
         self.device = next(iter(lora_parameters(backend.model).values())).device
@@ -198,9 +238,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         self.after_save = after_save
         self.checker = checker
         self.ceilings = manifest['budget_ceilings']
-        self.ledger = (Ledger.resume(self.ceilings[0], self.directory / 'teacher.jsonl') if resume else
-                       Ledger(self.ceilings[0], self.directory / 'teacher.jsonl'))
-        self.broker = SealedReplayBroker(manifest['bank_path'], self.ledger, inner_parent_hashes=set(support.parents))
+        self.ledger, self.broker = prepare_ledger(manifest, support,
+            path=self.directory / 'teacher.jsonl', resume=resume)
         if resume and self.store.pointer.exists():
             self.state = self.store.load(self.ledger, device=self.device)
             for n, p in lora_parameters(backend.model).items():

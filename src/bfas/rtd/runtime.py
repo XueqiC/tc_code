@@ -345,10 +345,39 @@ def _estimated_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, 
     return value.detach()
 
 
+def backend_config(config):
+    """Construct the exact CPU-side backend settings before touching CUDA.
+
+    Unified manifests retain their P0/P1 identity; D12--D16 execute with the
+    frozen v1.1 adapter, just like P1Experiment and make_manifest.
+    """
+    from peft import LoraConfig
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        config = runtime_config(config)
+    settings = dict(score_tolerance=ScoreTolerance.from_config(config),
+        max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
+        action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
+            {'single_turn': 512, 'multi_turn': 1024}
+            if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
+        memory_policy=MemoryPolicy.from_config(config), generation_batch=GenerationBatch.from_config(config))
+    if settings['max_context_tokens'] < 2:
+        raise ValueError('backend requires max_context_tokens >= 2')
+    lora = LoraConfig(r=config['lora_rank'], lora_alpha=config['lora_alpha'],
+        lora_dropout=0., bias='none', task_type='CAUSAL_LM', target_modules=config['lora_target_modules'])
+    return config, lora, settings
+
+
+def load_tokenizer(manifest):
+    from transformers import AutoTokenizer
+    return AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True, trust_remote_code=False)
+
+
 def load_backend(config, manifest, journal):
     """Called only by run/smoke/resume, never by CPU audit/report/tests."""
-    from peft import LoraConfig, get_peft_model
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    config, lora, settings = backend_config(config)
+    from peft import get_peft_model
+    from transformers import AutoModelForCausalLM
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise RuntimeError('set CUDA_VISIBLE_DEVICES to exactly one available GPU')
     device = torch.device('cuda:0')  # relative to the verbatim inherited visibility
@@ -356,11 +385,10 @@ def load_backend(config, manifest, journal):
     torch.manual_seed(config['training_seed'])
     torch.cuda.manual_seed_all(config['training_seed'])
     with journal.measure('model_load'):
-        tokenizer = AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True, trust_remote_code=False)
+        tokenizer = load_tokenizer(manifest)
         model = AutoModelForCausalLM.from_pretrained(manifest['model_path'], local_files_only=True,
             trust_remote_code=False, torch_dtype=torch.bfloat16, attn_implementation='eager').to(device)
-        model = get_peft_model(model, LoraConfig(r=config['lora_rank'], lora_alpha=config['lora_alpha'],
-            lora_dropout=0., bias='none', task_type='CAUSAL_LM', target_modules=config['lora_target_modules']))
+        model = get_peft_model(model, lora)
         # Keep update coordinates in FP32; base matmuls remain BF16. Eager
         # attention gives one explicit scoring implementation on both machines.
         for p in lora_parameters(model).values():
@@ -373,12 +401,7 @@ def load_backend(config, manifest, journal):
             trainable_numel=sum(p.numel() for p in lora_parameters(model).values()))
     backend = HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
         harness_hash=manifest['harness_hash'], tokenizer_hash=manifest['tokenizer_hash'], journal=journal,
-        score_tolerance=ScoreTolerance.from_config(config),
-        max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
-        action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
-            {'single_turn': 512, 'multi_turn': 1024}
-            if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
-        memory_policy=MemoryPolicy.from_config(config), generation_batch=GenerationBatch.from_config(config))
+        **settings)
 
     backend.student_config = dict(config)
     if config['benchmark'] != 'bfcl':

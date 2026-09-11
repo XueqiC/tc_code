@@ -219,12 +219,12 @@ def bank_audit(config, *, build=False):
         available_packages=len(usable), m=summary['m'])
 
 
-def make_manifest(config, arm, audit, *, smoke=False):
+def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
     if config.get('method') == 'rtd_unified':
         from .unified.config import runtime_config, manifest_fields
         if arm != config['arm']:
             raise ValueError('manifest arm differs from unified preset')
-        manifest = make_manifest(runtime_config(config), arm, audit, smoke=smoke)
+        manifest = make_manifest(runtime_config(config), arm, audit, smoke=smoke, hardware=hardware)
         manifest.update(config=config, config_hash=digest(config))
         manifest.update(manifest_fields(config, manifest))
         manifest.update(acquisition_protocol='fixed_recorded_pool_and_exposure',
@@ -242,7 +242,7 @@ def make_manifest(config, arm, audit, *, smoke=False):
         # Same local refs/main resolution as cc_three_arms' export. A usable
         # weight snapshot need not contain unrelated Hub README/license files.
         model = _snapshot_for_model(config['student'])
-    hardware = hardware_identity()
+    hardware = hardware_identity() if hardware is None else hardware
     harness = evaluation_harness_identity(ROOT, config)
     manifest = dict(version='rtd-v1.0.1-run', arm=arm, smoke=smoke, config=config, config_hash=digest(config),
         model_path=str(model.resolve()), base_checkpoint_hash=tree_hash(model),
@@ -347,8 +347,28 @@ def make_manifest(config, arm, audit, *, smoke=False):
     return manifest
 
 
+def startup_config(path, arm=None, replay_schedule=None, *, smoke=True,
+                   smoke_deadline_seconds=900, **replay_options):
+    """The same validated launch configuration for preflight, smoke and run."""
+    if arm in {'V0', 'V1', 'V2'} or replay_schedule or replay_options:
+        config = load_config(path, arm=arm, replay_schedule=replay_schedule, **replay_options)
+    else:
+        config = load_config(path)
+    config, arm = arm_config(config, arm, replay_schedule, **replay_options)
+    if config.get('method') == 'rtd_unified' and not smoke and not config.get('replay_schedule'):
+        raise ValueError('P1 run requires --replay-schedule <completed V0 run>; standalone smoke is exempt')
+    if smoke:
+        config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
+                     baseline='action-independent zero', max_seconds=smoke_deadline_seconds))
+        if config.get('method') == 'rtd_unified':
+            config['smoke_override'].update(slots=config['p1']['smoke_slots'],
+                max_new_packages=config['p1']['smoke_packages'],
+                feedback_tasks=config['p1']['smoke_feedback_tasks'], rollouts=config['p1']['smoke_rollouts'])
+    return config, arm
+
+
 def run_command(args):
-    from .experiment import BFCLSupport, RTDExperiment
+    from .experiment import RTDExperiment, executor_config
     from .runtime import load_backend
     from .functional_step import lora_parameters
     from ..behavior.deltas import tensor_state_hash
@@ -369,18 +389,16 @@ def run_command(args):
         args.arm = saved['arm']
     if resume:
         config = resume_config(args.config, saved)
-    elif args.arm in {'V0', 'V1', 'V2'} or getattr(args, 'replay_schedule', None) or replay_options:
-        config = load_config(args.config, arm=args.arm, replay_schedule=getattr(args, 'replay_schedule', None),
-                             **replay_options)
     else:
-        config = load_config(args.config)
+        config, args.arm = startup_config(args.config, args.arm, getattr(args, 'replay_schedule', None),
+            smoke=smoke, smoke_deadline_seconds=getattr(args, 'smoke_deadline_seconds', 900), **replay_options)
+        from .preflight import preflight_config
+        preflight_config(config, args.arm, smoke=smoke)
     if resume:
         if getattr(args, 'replay_schedule', None) or replay_options:
             candidate, _ = arm_config(config, args.arm, getattr(args, 'replay_schedule', None), **replay_options)
             if candidate != config:
                 raise ValueError('resume replay schedule changed')
-    else:
-        config, args.arm = arm_config(config, args.arm, getattr(args, 'replay_schedule', None), **replay_options)
     if config.get('method') == 'rtd_unified':
         from .unified.experiment import P1Experiment
         RTDExperiment = P1Experiment
@@ -389,7 +407,7 @@ def run_command(args):
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     smoke_deadline_seconds = getattr(args, 'smoke_deadline_seconds', 900)
-    if smoke:
+    if smoke and resume:
         config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
                      baseline='action-independent zero', max_seconds=smoke_deadline_seconds))
         if config.get('method') == 'rtd_unified':
@@ -431,8 +449,11 @@ def run_command(args):
             if not saved:
                 manifest['initial_parameter_hash'] = initial_hash
                 atomic_json(directory/'manifest.json', manifest)
-            from .benchmarks.registry import get_benchmark
-            support = get_benchmark(config).support_protocol(ROOT, config)
+            from .experiment import prepare_support
+            from .preflight import prepare_renderer
+            execution_config = executor_config(config, args.arm)
+            support = prepare_support(ROOT, execution_config, manifest)
+            prepare_renderer(execution_config, support, backend.tokenizer, journal)
             atomic_json(directory/'support_access.json', dict(parents=support.parents,
                 runnable_source_feedback_parents=sorted(support.states), unavailable=support.unavailable,
                 labels='official truth accessed only by feedback scorer', calibration_training_access=False))

@@ -200,17 +200,21 @@ def test_streamed_gradients_match_dense_P0_and_D0_source_prefix_KL(normalization
 
 def test_cli_unified_smoke_dispatch_deadline_and_manifest(toy_bank, tmp_path, monkeypatch):
     from types import SimpleNamespace
-    from bfas.rtd import runtime
+    from bfas.rtd import preflight, runtime
     from bfas.rtd.benchmarks import registry
     template = p1_engine(tmp_path/'template', toy_bank)
     template.support.unavailable = {}
     monkeypatch.setattr(runtime, 'load_backend', lambda *args: template.backend)
-    monkeypatch.setattr(cli, 'bank_audit', lambda *args: {})
+    monkeypatch.setattr(runtime, 'load_tokenizer', lambda *args: template.backend.tokenizer)
+    # This dispatch fixture uses BFCL-shaped toy states under an ALF config;
+    # real cached renderer/bank coverage lives in test_rtd_preflight.py.
+    monkeypatch.setattr(preflight, 'prepare_renderer', lambda *args: len(template.support.states))
+    monkeypatch.setattr(cli, 'bank_audit', lambda *args: {'available_packages': len(toy_bank[1])})
     monkeypatch.setattr(registry, 'get_benchmark', lambda config: SimpleNamespace(
         support_protocol=lambda *args: template.support))
     from contextlib import nullcontext
     monkeypatch.setattr(cli, '_checker_context', lambda *args: nullcontext())
-    def manifest(config, arm, audit, smoke=False):
+    def manifest(config, arm, audit, smoke=False, hardware=None):
         return template.manifest | dict(config=config, config_hash=digest(config), arm=arm,
             hardware={'hard': {}, 'metadata': {'uuid': 'test', 'gpu': 'CPU', 'memory': 0}})
     monkeypatch.setattr(cli, 'make_manifest', manifest)

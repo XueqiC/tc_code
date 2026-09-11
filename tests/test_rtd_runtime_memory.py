@@ -74,7 +74,8 @@ print(json.dumps([os.environ['CUDA_DEVICE_ORDER'], os.environ['CUDA_VISIBLE_DEVI
 
 
 def test_worker_refuses_coordinator_gpu_mismatch_before_model_load(tmp_path, monkeypatch):
-    from bfas.rtd import runtime
+    from bfas.rtd import preflight, runtime
+    monkeypatch.setattr(preflight, 'preflight_config', lambda *a, **kw: None)
     config = cli.load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
     monkeypatch.setattr(cli, 'load_config', lambda path: config)
     monkeypatch.setattr(cli, 'bank_audit', lambda config: {})

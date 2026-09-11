@@ -98,7 +98,7 @@ class StreamingSchedule:
                 compute_type='idle', status=status, wall_seconds=time.monotonic()-started, gpu_seconds=0.,
                 peak_allocated_bytes=0, peak_reserved_bytes=0)
 
-    def snapshot(self, key=None):
+    def snapshot(self, key=None, *, wait=True, check_initial_parameters=True):
         while True:
             try:
                 # Parse and hash the SAME bytes/open inode: atomic replacement
@@ -106,14 +106,20 @@ class StreamingSchedule:
                 raw = self.path.read_bytes()
                 data = json.loads(raw)
             except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError) as error:
+                if not wait:
+                    raise
                 self.wait(f'schedule unavailable/torn read: {type(error).__name__}', key)
                 continue
             if not isinstance(data, dict):
                 self.fail('invalid schedule', 'document', 'object', data)
             for field, value in [('version', 'rtd-v11-exposure-v1'), ('arm', 'V0'),
                                  ('identity', self.identity), ('smoke', self.smoke)]:
-                if data.get(field) != value:
-                    self.fail('schedule identity/header changed', field, value, data.get(field))
+                actual = data.get(field)
+                if field == 'identity' and not check_initial_parameters and isinstance(actual, dict):
+                    value = {k: v for k, v in value.items() if k != 'initial_parameter_hash'}
+                    actual = {k: v for k, v in actual.items() if k != 'initial_parameter_hash'}
+                if actual != value:
+                    self.fail('schedule identity/header changed', field, value, actual)
             rows = data.get('steps')
             if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
                 self.fail('invalid steps', 'steps', 'list of step objects', rows)
