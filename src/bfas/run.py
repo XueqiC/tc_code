@@ -38,6 +38,7 @@ DEFAULT_MODELS = {
     "alfworld": "Qwen/Qwen3.5-4B",  # paper protocol: one fixed 4B student (2B base scored 0/134, 2026-09-02)
     "tau2": "Qwen/Qwen3.5-4B",
     "webshop": "google/gemma-4-12B-it",
+    "hotpotqa": "Qwen/Qwen3.5-4B",
 }
 PHASE_CACHE_SCHEMA_VERSION = 1
 
@@ -84,6 +85,10 @@ def make_adapter(name: str, seed: int, port: int) -> BenchmarkAdapter:
         from .adapters.webshop import WebShopAdapter
 
         return WebShopAdapter(seed, port=port)
+    if name == "hotpotqa":
+        from .adapters.hotpotqa import HotpotQAAdapter
+
+        return HotpotQAAdapter(seed, port=port)
     from .adapters.tau2 import Tau2Adapter
 
     return Tau2Adapter(seed, port=port)
@@ -1021,7 +1026,7 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
     )
     if not policy:
         raise RuntimeError(f"no base policy configured for {args.benchmark}")
-    if args.benchmark == "webshop":
+    if args.benchmark in {"webshop", "hotpotqa"}:
         # Retain the bounded deployment transcript during training as well.
         os.environ.setdefault("AW_MAX_PROMPT_TOKENS", "32768")
     if args.benchmark == "tau2":

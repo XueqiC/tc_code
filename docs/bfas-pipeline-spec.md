@@ -104,6 +104,19 @@ appworld_train AW_DISTILL modes), star (self rows, plain), base
   unseen-split evaluation, train games as pool. Teacher-as-agent runs
   through the same chat client (`appworld_teacher.generate_reply`)
   with an ALFWorld prompt loop mirroring `src/alfworld_eval.py`.
+- HotpotQA adapter: the original six-shot ReAct scaffold and HTTPS Wikipedia
+  search/lookup/finish environment, with seven steps and answer EM verification.
+  Student acquisition and evaluation share one OpenAI-compatible episode runner;
+  evaluation reports answer EM/F1 and mean steps on the first 500 distractor dev
+  questions in file order. The explicitly requested fixed support protocol is
+  200 train questions sampled with seed 0, with a fixed 160/40 demand/calibration
+  partition; it overrides the generic support-size/seed constants above.
+  Both inventories are checked in under `configs/hotpotqa_*_split.json`.
+  Wikipedia snapshots live in `envs/hotpotqa/cache`; offline mode fails on an
+  uncached query. Luna teachers use the shared client and exact provider usage;
+  the concurrent standalone pool adds durable request reservations and hard
+  aggregate caps. See [HotpotQA setup](hotpotqa_setup.md) for data installation,
+  protocol differences, accounting, and pool import into BFAS.
 - tau2 adapter: wraps the vendored official `tau2 run` CLI for airline,
   retail, and telecom. The student is addressed through the pipeline-owned
   OpenAI-compatible vLLM endpoint. The rai pair is `google/gemma-4-12B-it`,

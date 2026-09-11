@@ -481,16 +481,27 @@ def generate_reply(
     temperature: float | None = None,
     *,
     usage_callback: Callable[[Mapping[str, Any]], None] | None = None,
+    max_completion_tokens: int | None = None,
+    retries: int | None = None,
+    stop: list[str] | None = None,
 ) -> str:
     global _OLLAMA_KEY_IDX
-    payload = json.dumps(
-        _build_request_body(config, messages, temperature), ensure_ascii=False
-    ).encode("utf-8")
+    body = _build_request_body(config, messages, temperature)
+    if max_completion_tokens is not None:
+        if type(max_completion_tokens) is not int or max_completion_tokens < 1:
+            raise ValueError("max_completion_tokens must be a positive integer")
+        key = "max_completion_tokens" if "max_completion_tokens" in body else "max_tokens"
+        body[key] = max_completion_tokens
+    if retries is not None and (type(retries) is not int or retries < 0):
+        raise ValueError("retries must be a nonnegative integer")
+    if stop:
+        body["stop_sequences" if config.backend == "anthropic" else "stop"] = stop
+    payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     # Direct HTTP has no SDK auto-retries; all attempts are bounded below.
     opener = urllib.request.build_opener()
 
-    total_attempts = CHAT_COMPLETION_RETRIES + 1
-    rate_limit_attempts = RATE_LIMIT_RETRIES + 1
+    total_attempts = (CHAT_COMPLETION_RETRIES if retries is None else retries) + 1
+    rate_limit_attempts = (RATE_LIMIT_RETRIES if retries is None else retries) + 1
     for request_attempt in range(1, max(total_attempts, rate_limit_attempts) + 1):
         request = urllib.request.Request(
             config.endpoint,
