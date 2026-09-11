@@ -5,6 +5,7 @@ from copy import deepcopy
 import importlib.util
 import json
 from pathlib import Path
+import socket
 import sys
 from types import SimpleNamespace
 
@@ -16,8 +17,39 @@ import pytest
 SCRIPT = Path(__file__).resolve().parents[1] / "tools/webshop_eval.py"
 
 
+# Frozen before adding prompt versions: preserve every byte of the v1 prompts.
+SYSTEM_PROMPT_V1_SNAPSHOT = """You are shopping in WebShop. Follow the user's shopping instruction
+and buy the product that best matches all requested attributes, options, and price.
+You can take two forms of action:
+search[<query>] searches for products when a search bar is available.
+click[<button text>] clicks a visible product ID, button, or option. Use the text
+shown on the page. Select the required options before clicking Buy Now.
+Respond with a single search[...] or click[...] action on its own line.
+You may put one short Thought: line before the action. Do not invent observations.
+"""
+
+WORKED_EXAMPLE_V1_SNAPSHOT = """Worked example:
+Observation: WebShop [SEP] Instruction: Find a blue insulated stainless steel water bottle, 24 oz, under $30. [SEP] Search
+Action: search[blue insulated stainless steel water bottle 24 oz]
+Observation: Results [SEP] B0BOTTLE24 [SEP] Trail Bottle, insulated stainless steel, $24.99 [SEP] B09GLASS12 [SEP] Glass bottle, $18.00
+Action: click[B0BOTTLE24]
+Observation: Trail Bottle [SEP] Price: $24.99 [SEP] Color: blue, black [SEP] Size: 18 oz, 24 oz [SEP] Buy Now
+Action: click[blue]
+Observation: Color selected: blue [SEP] Size: 18 oz, 24 oz [SEP] Buy Now
+Action: click[24 oz]
+Observation: Color selected: blue [SEP] Size selected: 24 oz [SEP] Price: $24.99 [SEP] Buy Now
+Action: click[Buy Now]
+"""
+
+
 @pytest.fixture
 def evaluator(monkeypatch):
+    monkeypatch.delenv("WEBSHOP_PROMPT_VERSION", raising=False)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("CPU tests must not make network calls")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
     original_import = builtins.__import__
 
     def guarded_import(name, *args, **kwargs):
@@ -85,6 +117,9 @@ class FakeClient:
     ("```\nclick[24 oz]\n```", "click[24 oz]"),
     ("click[blue]\nclick[unfinished", "click[blue]"),
     ("Thought: maybe click[Buy Now]", None),
+    ("Thought: Action: click[Buy Now]", None),
+    ("Action: click[blue]\nThought: click[Buy Now]", "click[blue]"),
+    ("Action: search[bottle]\nThought: click[Buy Now]\nAction: click[unfinished", "search[bottle]"),
     ("Please search[bottle]", None),
     ("search[bottle] trailing prose", None),
     ("click[blue] search[bottle]", None),
@@ -162,6 +197,7 @@ def test_episode_api_and_full_transcript(evaluator, tuple_reset):
     assert env.actions == ["search[bottle]", "click[Buy Now]"]
     assert record == {
         "session": 7, "reward": 1.0, "success": True, "steps": 2,
+        "prompt_version": "v1",
         "format_failures": 0, "final_action": "click[Buy Now]", "elapsed": record["elapsed"],
         "dropped_history": 0, "error": None,
     }
@@ -299,6 +335,7 @@ def test_cli_defaults(evaluator, tmp_path):
     assert args.max_prompt_chars == 60000
     assert args.num_products is None
     assert args.seed == 0
+    assert args.prompt_version == "v1"
 
 
 @pytest.mark.parametrize("flag", ["--history-obs-chars", "--max-prompt-chars"])
@@ -456,3 +493,131 @@ def test_resume_rejects_corrupt_complete_line(evaluator, tmp_path):
     path.write_text("garbage\n")
     with pytest.raises(ValueError):
         evaluator.load_records(path)
+
+
+@pytest.mark.parametrize("version", [None, "v1"])
+def test_v1_prompt_bytes_unchanged(evaluator, version):
+    assert evaluator.SYSTEM_PROMPT.encode() == SYSTEM_PROMPT_V1_SNAPSHOT.encode()
+    assert evaluator.WORKED_EXAMPLE.encode() == WORKED_EXAMPLE_V1_SNAPSHOT.encode()
+    messages = evaluator.build_messages(
+        [("old observation", "Thought: Check.\nAction: click[blue]")],
+        "current observation", 2500, prompt_version=version,
+    )
+    assert messages == [
+        {"role": "system", "content": SYSTEM_PROMPT_V1_SNAPSHOT},
+        {"role": "user", "content": WORKED_EXAMPLE_V1_SNAPSHOT.rstrip() +
+         "\n\nLive episode:\nObservation: old observation\n"
+         "Action: Thought: Check.\nAction: click[blue]\n"
+         "Observation: current observation\nAction:"},
+    ]
+
+
+def test_v2_rules_and_exact_draft_example(evaluator):
+    messages = evaluator.build_messages([], "live", 6000, prompt_version="v2")
+    system = messages[0]["content"]
+    for rule in (
+        "verify every required attribute, option, and price\nagainst the instruction on the item page",
+        "Select every required option.",
+        "If the item page lacks a required option or the price exceeds the limit,\n"
+        "use click[< Prev] or click[Back to Search] and try another candidate.",
+        "Never buy from the search page",
+        "You may put one short Thought: line before the action.",
+        "Do not invent observations.",
+    ):
+        assert rule in system
+    assert evaluator.WORKED_EXAMPLE_V2 == WORKED_EXAMPLE_V2_SNAPSHOT
+    assert messages[1]["content"] == (
+        WORKED_EXAMPLE_V2_SNAPSHOT.rstrip() + "\n\nLive episode:\nObservation: live\nAction:"
+    )
+    actions = [evaluator.parse_action(line) for line in WORKED_EXAMPLE_V2_SNAPSHOT.splitlines()]
+    assert [action for action in actions if action] == [
+        "search[3 ounce bright citrus deodorant sensitive skin]", "click[B078GWRC1J]",
+        "click[bright citrus]", "click[3 ounce (pack of 1)]", "click[Buy Now]",
+    ]
+
+
+@pytest.mark.parametrize("env,cli,expected", [
+    ("v1", None, "v1"), ("v2", None, "v2"),
+    ("v2", "v1", "v1"), ("v1", "v2", "v2"), ("invalid", "v1", "v1"),
+])
+def test_prompt_version_env_and_cli_precedence(evaluator, tmp_path, monkeypatch, env, cli, expected):
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", env)
+    extra = ["--prompt-version", cli] if cli else []
+    args = cli_args(evaluator, tmp_path, *extra)
+    assert args.prompt_version == expected
+    assert args.obs_chars == (6000 if expected == "v2" else 2500)
+    assert args.max_steps == 15
+    assert cli_args(evaluator, tmp_path, *extra, "--obs-chars", "42").obs_chars == 42
+
+
+@pytest.mark.parametrize("env,cli", [("v3", None), ("", None), ("v1", "v3")])
+def test_invalid_prompt_version_rejected(evaluator, tmp_path, monkeypatch, env, cli):
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", env)
+    with pytest.raises(SystemExit):
+        cli_args(evaluator, tmp_path, *(["--prompt-version", cli] if cli else []))
+    with pytest.raises(ValueError, match="prompt-version"):
+        evaluator.build_messages([], "", 10, prompt_version="v3")
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("n", [0, 1])
+def test_saved_run_metadata_has_prompt_version(evaluator, tmp_path, monkeypatch, capsys, version, n):
+    args = cli_args(evaluator, tmp_path, "--prompt-version", version, "--n", str(n))
+    client = FakeClient(["Thought: All match.\nAction: click[Buy Now]"])
+    monkeypatch.setattr(evaluator, "make_env", lambda num_products: FakeEnv())
+    monkeypatch.setattr(evaluator, "make_client", lambda base_url: client)
+    # Pin the selection at argument parsing, even if the environment later changes.
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", "v1" if version == "v2" else "v2")
+    metrics = evaluator.evaluate(args)
+    assert metrics["config"]["prompt_version"] == version
+    assert json.loads((tmp_path / "metrics.json").read_text())["config"]["prompt_version"] == version
+    records = [json.loads(line) for line in (tmp_path / "records.jsonl").read_text().splitlines()]
+    assert len(records) == n
+    assert all(record["prompt_version"] == version for record in records)
+    assert f"prompt_version={version}" in capsys.readouterr().out
+    if n:
+        assert client.calls[0]["messages"][0]["content"] == evaluator.get_prompts(version)[0]
+
+
+@pytest.mark.parametrize("saved,requested", [(None, "v2"), ("v1", "v2"), ("v2", "v1")])
+@pytest.mark.parametrize("source", ["records", "metrics"])
+def test_resume_rejects_other_prompt_version_before_calls(evaluator, tmp_path, monkeypatch,
+                                                         saved, requested, source):
+    metadata = {"prompt_version": saved} if saved else {}
+    if source == "records":
+        # Outside the requested range, and potentially all that survived an interrupted run.
+        record = dict(metadata, session=99, reward=1.0, steps=1)
+        path = tmp_path / "records.jsonl"
+        path.write_text(json.dumps(record) + "\n")
+    else:
+        path = tmp_path / "metrics.json"
+        path.write_text(json.dumps({"config": metadata}))
+    original = path.read_bytes()
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("version mismatch must be rejected before creating a client or environment")
+
+    monkeypatch.setattr(evaluator, "make_client", forbidden)
+    monkeypatch.setattr(evaluator, "make_env", forbidden)
+    with pytest.raises(ValueError, match="prompt_version mismatch"):
+        evaluator.evaluate(cli_args(evaluator, tmp_path, "--prompt-version", requested, "--n", "1"))
+    assert path.read_bytes() == original
+
+
+# Literal trajectory from the approved main-tree draft.
+WORKED_EXAMPLE_V2_SNAPSHOT = """Worked example:
+Observation: WebShop [SEP] Instruction: i would like a 3 ounce bottle of bright citrus deodorant for sensitive skin, and price lower than 50.00 dollars [SEP] Search
+Thought: I need 3 ounce, bright citrus, for sensitive skin, and under $50.
+Action: search[3 ounce bright citrus deodorant sensitive skin]
+Observation: [Back to Search] [SEP] Page 1 (Total results: 50) [SEP] [Next >] [SEP] B078GWRC1J [SEP] Bright Citrus Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] $10.99 [SEP] B078GTKVXY [SEP] Ginger Fresh Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] $10.99 [SEP] B08KBVJ4XN [SEP] Barrel and Oak - Aluminum-Free Deodorant, Deodorant for Men, Essential Oil-Based Scent, 24-Hour Odor Protection, Cedar & Patchouli Blend, Gentle on Sensitive Skin (Mountain Sage, 2.7 oz, 2-Pack) [SEP] $15.95
+Thought: B078GWRC1J is bright citrus, 3 ounce, sensitive skin, $10.99 < $50. It matches everything; I will check its options.
+Action: click[B078GWRC1J]
+Observation: [Back to Search] [SEP] [< Prev] [SEP] scent [SEP] assorted scents [SEP] bright citrus [SEP] calming lavender [SEP] ginger fresh [SEP] simply non-scents [SEP] size [SEP] travel set (4-pack) [SEP] 3 ounce (pack of 1) [SEP] 3-ounce (2-pack) [SEP] Bright Citrus Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] Price: $10.99 [SEP] Rating: N.A. [SEP] Description [SEP] Features [SEP] Reviews [SEP] Buy Now
+Thought: The instruction needs scent bright citrus and size 3 ounce; both options exist, so I select them before buying.
+Action: click[bright citrus]
+Observation: You have clicked bright citrus.
+Action: click[3 ounce (pack of 1)]
+Observation: You have clicked 3 ounce (pack of 1).
+Thought: Scent, size and price all match the instruction. Buy.
+Action: click[Buy Now]
+"""

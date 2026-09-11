@@ -361,8 +361,12 @@ def _train(
     policy: PolicyRef,
     pool_path: Path,
     checkpoint: Path,
+    *,
+    prompt_version: str | None = None,
 ) -> None:
     tag = f"bfas_{benchmark}_{arm}_s{seed}"
+    if prompt_version is not None:
+        tag += f"_prompt_{prompt_version}"
     env = os.environ.copy()
     for name in (
         "AW_DISTILL",
@@ -747,9 +751,10 @@ def _shared_teacher_demos(
     """Materialize benchmark-wide demos from the authoritative ledger."""
 
     requested = set(task_ids)
+    prompt_version = getattr(adapter, "prompt_version", None)
     with CollectionLock(shared_dir):
         _migrate_legacy_seed_zero_demos(benchmark, shared_dir.parent)
-        states = load_ledger(benchmark, attempts=TEACHER_ATTEMPTS)
+        states = load_ledger(benchmark, attempts=TEACHER_ATTEMPTS, prompt_version=prompt_version)
         needs_purchase = any(
             task_id not in states
             or (
@@ -785,7 +790,7 @@ def _shared_teacher_demos(
                     recovered = False
                 if recovered:
                     continue
-                states = load_ledger(benchmark, attempts=TEACHER_ATTEMPTS)
+                states = load_ledger(benchmark, attempts=TEACHER_ATTEMPTS, prompt_version=prompt_version)
                 demos = {
                     task_id: state["best_demo"]
                     for task_id, state in states.items()
@@ -994,8 +999,6 @@ def _append_log(
 
 
 def run_seed(args: argparse.Namespace, seed: int) -> None:
-    out_dir = RESULTS_ROOT / args.benchmark / f"{args.arm}_s{seed}"
-    out_dir.mkdir(parents=True, exist_ok=True)
     port_base = int(os.environ.get("BFAS_PORT_BASE", "8900"))
     try:
         gpu_offset = int(str(args.gpu).split(",", 1)[0])
@@ -1003,6 +1006,15 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
         gpu_offset = 0
     port = port_base + gpu_offset
     adapter = make_adapter(args.benchmark, seed, port)
+    prompt_version = getattr(adapter, "prompt_version", None)
+    benchmark_dir = RESULTS_ROOT / args.benchmark
+    # Preserve the v1 paths; v2 must not reuse v1 collection/training artifacts.
+    if prompt_version is not None and prompt_version != "v1":
+        benchmark_dir /= f"prompt_{prompt_version}"
+    out_dir = benchmark_dir / f"{args.arm}_s{seed}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if prompt_version is not None:
+        _write_json(out_dir / "prompt_config.json", {"prompt_version": prompt_version})
     policy = os.environ.get(
         f"BFAS_{args.benchmark.upper()}_MODEL",
         DEFAULT_MODELS.get(args.benchmark, ""),
@@ -1045,7 +1057,6 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
             _append_log(args.benchmark, args.arm, seed, metrics, out_dir)
         return
 
-    benchmark_dir = RESULTS_ROOT / args.benchmark
     demos = _shared_teacher_demos(
         args.benchmark,
         adapter,
@@ -1103,7 +1114,8 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
     checkpoint = out_dir / "checkpoint"
     if report.should_train:
         _train(
-            args.benchmark, args.arm, seed, args.gpu, policy, pool_path, checkpoint
+            args.benchmark, args.arm, seed, args.gpu, policy, pool_path, checkpoint,
+            **({"prompt_version": prompt_version} if prompt_version is not None else {}),
         )
     else:
         _copy_base_policy(policy, checkpoint)

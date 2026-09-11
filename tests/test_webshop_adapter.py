@@ -96,6 +96,7 @@ def no_network_or_real_environment(monkeypatch, tmp_path):
     monkeypatch.setattr(ledger, "LEDGER_ROOT", tmp_path / "teacher_ledger")
     monkeypatch.setenv("BFAS_TEACHER_MIN_INTERVAL_S", "0")
     monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    monkeypatch.delenv("WEBSHOP_PROMPT_VERSION", raising=False)
     original_import = builtins.__import__
 
     def guarded_import(name, *args, **kwargs):
@@ -107,11 +108,11 @@ def no_network_or_real_environment(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def harness(monkeypatch):
+def harness(monkeypatch, request):
     bridge = StubBridge()
     client = StubClient()
     monkeypatch.setattr(webshop, "_EnvBridge", lambda: bridge)
-    adapter = WebShopAdapter(seed=19, port=9123)
+    adapter = WebShopAdapter(seed=19, port=9123, prompt_version=getattr(request, "param", None))
     adapter._tokenizer = StubTokenizer()
     adapter._loaded_policy = "stub-policy"
     monkeypatch.setattr(adapter, "_client", lambda: client)
@@ -178,6 +179,7 @@ def test_category_fallback_is_deterministic_index_buckets(harness):
 
 
 @pytest.mark.parametrize("tuple_reset", [True, False])
+@pytest.mark.parametrize("harness", ["v1", "v2"], indirect=True)
 def test_rollout_prompts_and_decoding_equal_validated_evaluator(harness, tuple_reset):
     adapter, bridge, client = harness
     responses = ["invalid"] + ["Thought: Keep shopping.\nAction: search[blue bottle] " + " " * 400] * 13
@@ -187,7 +189,10 @@ def test_rollout_prompts_and_decoding_equal_validated_evaluator(harness, tuple_r
     client.responses = iter(responses)
     reference_env = StubBridge(done_after=14, tuple_reset=tuple_reset)
     reference_client = StubClient(responses)
-    expected = webshop_eval.run_episode(reference_env, reference_client, 500, "bfas-policy", 15, 2500)
+    expected = webshop_eval.run_episode(
+        reference_env, reference_client, 500, "bfas-policy", 15, adapter.obs_chars,
+        prompt_version=adapter.prompt_version,
+    )
     actual = adapter.rollout("stub-policy", ["500"], 0.0)[0]
     assert client.calls == reference_client.calls
     assert actual.verified == expected["success"] is True
@@ -201,7 +206,7 @@ def test_rollout_prompts_and_decoding_equal_validated_evaluator(harness, tuple_r
         assert turn.prompt == adapter.rerender({"_render_context": turn.context})
         assert turn.prompt.endswith(adapter.generation_suffix())
         assert len(turn.context[1]["content"]) <= 60000
-        assert turn.context[0]["content"] == webshop_eval.SYSTEM_PROMPT
+        assert turn.context[0]["content"] == webshop_eval.get_prompts(adapter.prompt_version)[0]
     last_prompt = actual.turns[-1].context[1]["content"]
     assert "i" * 601 not in last_prompt  # first observation now uses the 600 cap
     assert client.closed
@@ -237,6 +242,8 @@ def test_failed_attempts_are_charged_once_and_success_is_cached(harness, teacher
     assert [r["temperature"] for r in records] == [0.0, 0.7, 0.7]
     assert [r["verified"] for r in records] == [False, False, True]
     assert [r["tokens_spent"] for r in records] == [37, 38, 39]
+    assert [r["prompt_version"] for r in records] == ["v1"] * 3
+    assert records[-1]["demo"]["prompt_version"] == demos["500"].raw["prompt_version"] == "v1"
     assert [r["usage"] for r in records] == [
         {"completion_tokens": count, "prompt_tokens": 2000, "cached_tokens": 1024}
         for count in (37, 38, 39)
@@ -348,6 +355,7 @@ def test_guided_collection_keeps_deployment_prompts_for_training(harness):
     assert all(row["_guided"] and row["_mu_ntok"] == 3 for row in rows)
 
 
+@pytest.mark.parametrize("harness", ["v1", "v2"], indirect=True)
 def test_evaluation_always_uses_all_500_test_sessions_and_reward_metrics(harness, tmp_path, monkeypatch):
     adapter, bridge, client = harness
     bridge.rewards = [1.0, 0.5] * 250
@@ -359,8 +367,11 @@ def test_evaluation_always_uses_all_500_test_sessions_and_reward_metrics(harness
     assert metrics["headline"] == metrics["success_rate"] == 0.5
     assert metrics["mean_score"] == metrics["score"] == 75.0
     assert metrics["config"]["max_steps"] == 15
+    assert metrics["config"]["prompt_version"] == adapter.prompt_version
+    assert metrics["config"]["obs_chars"] == adapter.obs_chars
     records = [json.loads(line) for line in (tmp_path / "records.jsonl").read_text().splitlines()]
     assert [r["session"] for r in records] == list(range(500))
+    assert all(r["prompt_version"] == adapter.prompt_version for r in records)
     assert json.loads((tmp_path / "metrics.json").read_text()) == metrics
     assert bridge.closed and client.closed
     assert all(call["temperature"] == 0 and call["max_tokens"] == 128 for call in client.calls)
@@ -407,6 +418,161 @@ def test_teacher_rejects_test_goals_without_api_calls(harness):
     adapter, _, _ = harness
     with pytest.raises(ValueError, match="train goals"):
         adapter.teacher_episode("499", 0, 0.0)
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_adapter_resolves_and_pins_env_or_explicit_version(monkeypatch, version):
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", version)
+    adapter = bfas_run.make_adapter("webshop", 0, 8900)
+    assert adapter.prompt_version == version
+    opposite = "v1" if version == "v2" else "v2"
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", opposite)
+    assert adapter.prompt_version == version
+    assert WebShopAdapter(prompt_version=version).prompt_version == version
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", "v3")
+    with pytest.raises(ValueError, match="prompt-version"):
+        WebShopAdapter()
+
+
+@pytest.mark.parametrize("harness", ["v1", "v2"], indirect=True)
+def test_teacher_student_and_probe_share_versioned_prompt(harness, teacher, monkeypatch):
+    adapter, bridge, client = harness
+    bridge.done_after = 1
+    # Subsequent environment changes cannot relabel or change an adapter's prompt.
+    monkeypatch.setenv("WEBSHOP_PROMPT_VERSION", "v2" if adapter.prompt_version == "v1" else "v1")
+    demo = adapter.teacher_demo(["500"], 1)["500"]
+    rollout = adapter.rollout("stub-policy", ["500"], 0.0)[0]
+    assert teacher.calls[0][1] == client.calls[0]["messages"]
+    expected = webshop_eval.build_messages(
+        [], "Instruction: buy a blue bottle. " + "i" * 5000,
+        adapter.obs_chars, prompt_version=adapter.prompt_version,
+    )
+    assert teacher.calls[0][1] == expected
+    assert demo.raw["prompt_version"] == rollout.raw["prompt_version"] == adapter.prompt_version
+    row, = ledger_records()
+    assert row["prompt_version"] == row["demo"]["prompt_version"] == adapter.prompt_version
+    # Both the ledger reload and the saved collection/demo package retain the version.
+    cached = adapter.teacher_demo(["500"], 1)["500"]
+    assert cached.raw["prompt_version"] == adapter.prompt_version
+    artifacts = CollectionArtifacts((), {}, {}, {"500": cached}, (), {}, {})
+    restored = CollectionArtifacts.from_dict(json.loads(json.dumps(artifacts.as_dict())))
+    assert restored.teacher_demos["500"].raw["prompt_version"] == adapter.prompt_version
+    assert len(teacher.calls) == 1
+    adapter.serving_probe()
+    assert client.calls[-1]["messages"] == webshop_eval.build_messages(
+        [], "WebShop [SEP] Search", adapter.obs_chars, prompt_version=adapter.prompt_version,
+    )
+
+
+def test_ledger_keeps_versions_and_attempt_allowances_separate(harness, teacher):
+    v1, bridge, _ = harness
+    bridge.done_after = 1
+    bridge.rewards = [0.0, 1.0, 1.0]
+    first = v1.teacher_demo(["500"], 2)["500"]
+    v2 = WebShopAdapter(prompt_version="v2")
+    v2._tokenizer = StubTokenizer()
+    try:
+        second = v2.teacher_demo(["500"], 1)["500"]
+        assert first.raw["prompt_version"] == "v1"
+        assert second.raw["prompt_version"] == "v2"
+        records = ledger_records()
+        assert [row["prompt_version"] for row in records] == ["v1", "v1", "v2"]
+        assert [row["attempt_index"] for row in records] == [0, 1, 0]
+        assert [row["temperature"] for row in records] == [0.0, 0.7, 0.0]
+        assert v1.teacher_demo(["500"], 2)["500"].raw["prompt_version"] == "v1"
+        assert v2.teacher_demo(["500"], 1)["500"].raw["prompt_version"] == "v2"
+        assert len(teacher.calls) == 3
+        assert ledger.load_ledger("webshop", prompt_version="v1")["500"]["attempts_used"] == 2
+        assert ledger.load_ledger("webshop", prompt_version="v2")["500"]["attempts_used"] == 1
+        with pytest.raises(ValueError, match="explicit prompt_version"):
+            ledger.load_ledger("webshop")
+        with pytest.raises(ValueError, match="guided demo prompt_version mismatch"):
+            v2._episode("500", 0.0, demo=first)
+    finally:
+        v2.close()
+
+
+def test_legacy_ledger_demo_is_only_reused_for_v1(harness, teacher):
+    adapter, bridge, _ = harness
+    legacy = Demo("500", [Turn("old", "click[Buy Now]")], "legacy")
+    ledger.append_episode("webshop", task_id="500", teacher="old", attempt_index=0,
+                          temperature=0.0, verified=True, tokens_spent=1, demo=legacy)
+    cached = adapter.teacher_demo(["500"], 1)["500"]
+    assert cached.worked_example == "legacy"
+    assert cached.raw["prompt_version"] == "v1"
+    assert teacher.calls == []
+    assert ledger.load_ledger("webshop", prompt_version="v2") == {}
+    # Importing legacy packages explicitly labels them, even alongside v2 rows.
+    ledger.import_demos("webshop", {"501": Demo("501", [], "v2", {"prompt_version": "v2"})})
+    ledger.import_demos("webshop", {"501": Demo("501", [], "legacy v1")})
+    rows = ledger_records()
+    assert [row.get("prompt_version") for row in rows] == [None, "v2", "v1"]
+    assert rows[-1]["demo"]["prompt_version"] == "v1"
+
+
+@pytest.mark.parametrize("harness", ["v1", "v2"], indirect=True)
+@pytest.mark.parametrize("partial", [False, True])
+def test_failed_ledger_rows_carry_prompt_version(harness, teacher, partial):
+    adapter, _, _ = harness
+    teacher.replies = iter((["search[bottle]"] if partial else []) + [RuntimeError("stub failure")])
+    assert adapter.teacher_demo(["500"], 1) == {}
+    row, = ledger_records()
+    assert row["verified"] is False
+    assert row["prompt_version"] == adapter.prompt_version
+    assert row["tokens_spent"] == (37 if partial else 0)
+
+
+@pytest.mark.parametrize("harness", ["v1", "v2"], indirect=True)
+def test_bfas_run_saves_version_and_isolates_collection_paths(harness, tmp_path, monkeypatch):
+    adapter, _, _ = harness
+    monkeypatch.setattr(bfas_run, "RESULTS_ROOT", tmp_path)
+    monkeypatch.setattr(bfas_run, "ROOT", tmp_path)
+    monkeypatch.setattr(bfas_run, "make_adapter", lambda *args: adapter)
+    monkeypatch.setenv("BFAS_WEBSHOP_MODEL", "stub-policy")
+    monkeypatch.setenv("AW_MAX_PROMPT_TOKENS", "32768")
+    paths = {}
+
+    def shared(benchmark, adapter, policy, task_ids, shared_dir):
+        paths["shared"] = shared_dir
+        return {}
+
+    def collect(adapter, policy, task_ids, gpu, port, cache_dir, *, teacher_demos):
+        paths["collection"] = cache_dir
+        return CollectionArtifacts((), {}, {}, {}, (), {}, {})
+
+    monkeypatch.setattr(bfas_run, "_shared_teacher_demos", shared)
+    monkeypatch.setattr(bfas_run, "_cached_collection", collect)
+    bfas_run.run_seed(bfas_run.parse_args(["--benchmark", "webshop", "--arm", "sft", "--dry-run"]), 0)
+    root = tmp_path / "webshop"
+    if adapter.prompt_version == "v2":
+        root /= "prompt_v2"
+    assert paths == {"shared": root / "collect_shared", "collection": root / "collect_s0"}
+    assert json.loads((root / "sft_s0/prompt_config.json").read_text()) == {
+        "prompt_version": adapter.prompt_version,
+    }
+    assert json.loads((root / "sft_s0/collection_cache.json").read_text())["path"] == str(
+        (root / "collect_s0/collection.json").relative_to(tmp_path)
+    )
+
+
+def test_shared_teacher_gateway_uses_selected_version(harness, teacher, tmp_path):
+    v1, bridge, _ = harness
+    bridge.done_after = 1
+    v1.teacher_demo(["500"], 1)
+    v2 = WebShopAdapter(prompt_version="v2")
+    v2._tokenizer = StubTokenizer()
+    v2._loaded_policy = "stub-policy"
+    try:
+        shared = tmp_path / "shared"
+        demos = bfas_run._shared_teacher_demos("webshop", v2, "stub-policy", ["500"], shared)
+        assert demos["500"].raw["prompt_version"] == "v2"
+        assert len(teacher.calls) == 2
+        assert bfas_run._load_demos_phase(shared)[0]["500"].raw["prompt_version"] == "v2"
+        cached = bfas_run._shared_teacher_demos("webshop", v2, "stub-policy", ["500"], shared)
+        assert cached["500"].raw["prompt_version"] == "v2"
+        assert len(teacher.calls) == 2
+    finally:
+        v2.close()
 
 
 def test_teacher_usage_hook_reports_azure_output_tokens(monkeypatch):

@@ -67,7 +67,7 @@ def _json_safe(value: Any) -> Any:
 
 
 def demo_payload(demo: Demo) -> dict[str, Any]:
-    return {
+    payload = {
         "turns": [
             {
                 "prompt": turn.prompt,
@@ -78,6 +78,9 @@ def demo_payload(demo: Demo) -> dict[str, Any]:
         ],
         "worked_example": demo.worked_example,
     }
+    if isinstance(demo.raw, Mapping) and "prompt_version" in demo.raw:
+        payload["prompt_version"] = demo.raw["prompt_version"]
+    return payload
 
 
 def _demo_from_payload(task_id: str, value: Any, record: Mapping[str, Any]) -> Demo:
@@ -104,6 +107,8 @@ def _demo_from_payload(task_id: str, value: Any, record: Mapping[str, Any]) -> D
             "checker_verified": True,
             "teacher": str(record["teacher"]),
             "ledger_timestamp": str(record["timestamp"]),
+            **({"prompt_version": record["prompt_version"]}
+               if "prompt_version" in record else {}),
         },
     )
 
@@ -144,6 +149,7 @@ def append_episode(
     demo: Demo | None = None,
     timestamp: str | None = None,
     ledger_root: Path | None = None,
+    prompt_version: str | None = None,
 ) -> dict[str, Any]:
     """Append an episode with optional reported counters in ``usage``.
 
@@ -173,6 +179,15 @@ def append_episode(
     }
     if demo is not None:
         record["demo"] = demo_payload(demo)
+        demo_version = record["demo"].get("prompt_version")
+        if prompt_version is None:
+            prompt_version = demo_version
+        elif demo_version is not None and demo_version != prompt_version:
+            raise ValueError("teacher demo prompt_version disagrees with ledger episode")
+        if prompt_version is not None:
+            record["demo"]["prompt_version"] = prompt_version
+    if prompt_version is not None:
+        record["prompt_version"] = prompt_version
     if usage:
         record["usage"] = dict(usage)
     append_record(ledger_path(benchmark, ledger_root=ledger_root), record)
@@ -291,12 +306,21 @@ def load_ledger(
     attempts: int | None = None,
     *,
     ledger_root: Path | None = None,
+    prompt_version: str | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Load the append-only file into its task-keyed compact view."""
+    """Load a task-keyed view, isolating versioned attempts and cached demos.
 
-    return compact_records(
-        read_records(benchmark, ledger_root=ledger_root), attempts=attempts
-    )
+    Pre-versioning WebShop rows are v1. Other benchmarks retain their existing
+    unversioned behavior. A mixed ledger requires an explicit version to read.
+    """
+
+    records = read_records(benchmark, ledger_root=ledger_root)
+    if prompt_version is not None:
+        records = [dict(record, prompt_version=prompt_version) for record in records
+                   if record.get("prompt_version", "v1") == prompt_version]
+    elif len({record.get("prompt_version", "v1") for record in records}) > 1:
+        raise ValueError("mixed teacher ledger requires an explicit prompt_version")
+    return compact_records(records, attempts=attempts)
 
 
 @contextmanager
@@ -379,9 +403,10 @@ def acquire_demos(
     requested = list(dict.fromkeys(task_ids))
     interval = _minimum_interval()
     path = ledger_path(benchmark, ledger_root=ledger_root).resolve()
+    prompt_version = getattr(adapter, "prompt_version", None)
     with _purchase_lock(benchmark, ledger_root=ledger_root):
         states = load_ledger(
-            benchmark, attempts=attempts, ledger_root=ledger_root
+            benchmark, attempts=attempts, ledger_root=ledger_root, prompt_version=prompt_version,
         )
         purchased = path in _PURCHASED_LEDGERS
         teacher = _teacher_name(benchmark, adapter)
@@ -429,6 +454,7 @@ def acquire_demos(
                         verified=False,
                         tokens_spent=0,
                         ledger_root=ledger_root,
+                        prompt_version=prompt_version,
                     )
                     purchased = True
                     _PURCHASED_LEDGERS.add(path)
@@ -449,6 +475,7 @@ def acquire_demos(
                     usage=episode.usage,
                     demo=episode.demo,
                     ledger_root=ledger_root,
+                    prompt_version=prompt_version,
                 )
                 purchased = True
                 _PURCHASED_LEDGERS.add(path)
@@ -463,7 +490,7 @@ def acquire_demos(
             )
 
         final_states = load_ledger(
-            benchmark, attempts=attempts, ledger_root=ledger_root
+            benchmark, attempts=attempts, ledger_root=ledger_root, prompt_version=prompt_version,
         )
         requested_states: dict[str, dict[str, Any]] = {}
         for task_id in requested:
@@ -488,8 +515,15 @@ def import_demos(
     """Idempotently seed verified legacy demos into an empty/new ledger."""
 
     with _purchase_lock(benchmark, ledger_root=ledger_root):
-        states = load_ledger(benchmark, ledger_root=ledger_root)
+        states_by_version = {}
         for task_id, demo in demos.items():
+            raw = demo.raw if isinstance(demo.raw, Mapping) else {}
+            version = raw.get("prompt_version", "v1" if str(benchmark) == "webshop" else None)
+            if version not in states_by_version:
+                states_by_version[version] = load_ledger(
+                    benchmark, ledger_root=ledger_root, prompt_version=version,
+                )
+            states = states_by_version[version]
             state = states.get(task_id)
             if state is not None and state["best_demo"] is not None:
                 continue
@@ -504,6 +538,7 @@ def import_demos(
                 tokens_spent=0,
                 demo=demo,
                 ledger_root=ledger_root,
+                prompt_version=version,
             )
             states[task_id] = {
                 "best_demo": demo,
