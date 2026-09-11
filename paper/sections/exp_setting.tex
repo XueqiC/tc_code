@@ -63,7 +63,7 @@ their native zero-teacher protocol.
 
 \paragraph{Implementation details.}
 All main-text experiments use one fixed pair, a metered black-box
-teacher (GPT-5.4 through Azure OpenAI, exposing neither logits nor
+teacher (GPT-5.6 Luna through the OpenAI API, exposing neither logits nor
 hidden states nor gradients, billed per output token including any
 reasoning tokens) and a Gemma-4-12B instruction-tuned student
 \citep{gemma4}. The student is a dense 12B model with native
