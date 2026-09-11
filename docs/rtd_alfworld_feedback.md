@@ -41,24 +41,43 @@ ALFWorld feedback with `generation_batch` enabled now schedules the full
 selected feedback block across parents. Each live episode owns a `RealStepper`
 and its existing bounded CPU environment subprocess. The caller drives the
 episode state machines to their next unsampled prompt, generates the live
-prompts together, then steps each environment. Completed episodes drop out.
+prompts together, then steps the environments in parallel RPC threads.
+Completed episodes drop out. Policy generation, per-episode RNG bookkeeping,
+state validation, rendering and journal writes remain on the caller thread.
 No model threads, teacher collector, API calls or persistent worker pool are
 needed. All workers close on success, retry, contract error or cancellation.
 
-The natural worker count is `meta_tasks_per_feedback * rollouts_per_meta_task`,
-capped by `generation_batch.prompts_per_batch` and the reset-prompt token
-budget. Each later generate call also respects the padded prompt plus action
-token budget; differing effective action limits require separate calls. D12's
-oversized-single-prompt rule remains in force. A legacy same-prompt task-start
-RNG group stays intact even if it has more sequences than the worker cap (D12
-counts distinct prompts); those episodes execute in bounded cohorts.
+Set `BFAS_FEEDBACK_LOCKSTEP_EPISODES=32` to run all 32 episodes of a selected
+feedback block concurrently. This positive integer defaults to
+`meta_tasks_per_feedback * rollouts_per_meta_task` (eight in the current plan).
+It controls the live episode limit K and physical feedback batch size independently
+of task selection and `generation_batch.prompts_per_batch`. At most
+`min(K, selected episode count)` CPU environment subprocesses are live, each
+with its own temporary working directory and the existing CPU thread limits.
+Larger blocks execute in cohorts of up to K episodes; workers and RPC threads
+close when each cohort ends, including retries and failure cleanup.
+
+Within each lockstep round, physical generate calls split the live prompts to
+respect `generation_batch.max_batch_tokens`, including padding and action caps.
+Differing effective action limits also require separate calls. The token budget
+does not reduce the number of live workers. D12's oversized-single-prompt rule
+remains in force. Task-start logical RNG groups still use the original generation
+configuration; a group straddling a K-episode boundary is sampled intact and its
+unused first actions wait for the next cohort.
+
+Continuation sub-batches dispatch their environment steps as soon as generation
+returns, overlapping those RPCs with generation of later sub-batches. After all
+steps and any cached retry replay return, the next lockstep round starts without
+another queue or polling delay. No episode samples its next action before its
+observation is available. Task-start generation precedes worker reset as before.
 
 Set `BFAS_FEEDBACK_LOCKSTEP=0` to select the original serial feedback driver.
 The selector, selected tasks, number of rollouts and LOO estimator are unchanged.
 In particular, legacy `RTDExperiment.choose_feedback_tasks` uses fixed counts
 (ALFWorld: up to eight parents, four rollouts each), whereas the unified selector
-uses config counts. The Luna config's natural concurrency is eight; an already
-selected 32-episode block still executes all 32 episodes.
+uses config counts. The Luna config's default concurrency is eight; an already
+selected 32-episode block still executes all 32 episodes, with the environment
+override allowing all of them to share the same lockstep rounds.
 
 Sampling preserves the existing task-start tickets, their original logical HF
 batches, and the subsequent registry seed draws in parent-major order. Each

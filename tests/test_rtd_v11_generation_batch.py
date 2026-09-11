@@ -261,7 +261,7 @@ def test_real_source_pair_checks_and_durable_midphase_resume(backend, tmp_path):
     e.state = dict(phase='revealed', round=1, step=1, source=p, source_id=backend.identity(p),
         inner={s.parent_hash for s in states}, source_cache={},
         projection_cache={s.state_hash: [] for s in states}, sampling_rng=e.sampling_rng.get_state())
-    store = StateStore(tmp_path/'recovery', {'config': 'd12'})
+    store = StateStore(tmp_path/'recovery', {'config': e.config})
     store.save(e.state, e.ledger)
     records = [ExposureRecord(None, 0, s, None) for s in states]
     sample_state = e.sample_state

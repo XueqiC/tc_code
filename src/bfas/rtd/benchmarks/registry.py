@@ -5,10 +5,12 @@ translate arguments/results only; the sole training state machine remains
 experiment.RTDExperiment and the sole return estimator is reinforce_gradient.
 The old entrypoints do not consult this registry until C26-F.
 """
+from collections import deque
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from importlib import import_module
 import json
+import os
 from pathlib import Path
 from types import MappingProxyType
 
@@ -137,7 +139,6 @@ class ALFWorldExperimentSupport:
         if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
             raise ValueError('ALFWorld feedback needs its bound support/window context')
         import torch
-        from ..generation_batch import feedback_generation_groups
         from .alfworld_rollout import alfworld_task_rollouts_lockstep
         tasks = tuple(tasks)
         for parent, _ in tasks:
@@ -145,44 +146,46 @@ class ALFWorldExperimentSupport:
         # RTD v1.1 can have more selected episodes than the configured natural
         # batch. Preserve all selected tasks while bounding the live workers.
         natural = self.config['meta_tasks_per_feedback'] * self.config['rollouts_per_meta_task']
-        policy = replace(backend.generation_batch,
-                         prompts_per_batch=min(natural, backend.generation_batch.prompts_per_batch))
+        try:
+            limit = int(os.environ.get('BFAS_FEEDBACK_LOCKSTEP_EPISODES', str(natural)))
+        except ValueError:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer') from None
+        if limit < 1:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer')
         entries, groups = [], []
         with alfworld_action_limit(backend, 'agent_action'):
             for parent, count in tasks:
-                offset = len(entries)
                 planned = backend.feedback_start_groups(self.states[parent].prompt, count, generator)
-                for group in planned:
-                    marker = object()
-                    groups.extend(dict(row, episode_index=offset+row['index'], sampling_group=marker)
-                                  for row in group)
+                groups.extend(planned)
                 # Exactly the durable draws made by registry.feedback after the
                 # original parent's batched task starts. Episode continuations
                 # and retry replay never consume this experiment generator.
                 for _ in range(count):
                     seed = int(torch.randint(0, 2**63-1, (), generator=generator, device=generator.device))
                     entries.append((parent, self.states[parent], seed))
-            for cohort in feedback_generation_groups(groups, policy):
-                # A legacy RNG group cannot be split without changing its
-                # multinomial realization. Normal ALFWorld groups contain 2/4
-                # starts, below the configured worker bound.
-                from itertools import groupby
-                logical = [list(rows) for _, rows in groupby(cohort, key=lambda r: id(r['sampling_group']))]
-                starts = backend.generate_feedback_groups(logical, parameters)
-                selected = [entries[row['episode_index']] for row in cohort]
-                # D12 counts distinct prompts, so a legacy same-prompt start
-                # group can exceed prompts_per_batch. Keep its sampling intact
-                # but still enforce the tighter bound on live env workers.
-                for offset in range(0, len(selected), policy.prompts_per_batch):
-                    live = selected[offset:offset+policy.prompts_per_batch]
-                    episodes = alfworld_task_rollouts_lockstep([entry[1] for entry in live], backend,
-                        parameters, env_factory=checker.env_factory, renderer=checker.renderer,
-                        journal=checker.journal, rollout_indices=[entry[2] for entry in live],
-                        first_actions=starts[offset:offset+len(live)])
-                    # Restore parent-major order even when an episode
-                    # terminates before its neighbours.
-                    for (parent, _, _), episode in zip(live, episodes):
-                        yield parent, episode.as_task_rollout()
+            groups, pending = iter(groups), deque()
+            for offset in range(0, len(entries), limit):
+                live = entries[offset:offset+limit]
+                logical, available = [], len(pending)
+                while available < len(live):
+                    group = next(groups)
+                    logical.append(group)
+                    available += len(group)
+                # K bounds workers independently of the padded token budget.
+                # A task-start RNG group straddling cohorts is sampled intact;
+                # retain only its unused actions until the next cohort.
+                if logical:
+                    pending.extend(backend.generate_feedback_groups(logical, parameters,
+                        prompts_per_batch=limit))
+                starts = tuple(pending.popleft() for _ in live)
+                episodes = alfworld_task_rollouts_lockstep([entry[1] for entry in live], backend,
+                    parameters, env_factory=checker.env_factory, renderer=checker.renderer,
+                    journal=checker.journal, rollout_indices=[entry[2] for entry in live],
+                    first_actions=starts)
+                # Restore parent-major order even when an episode
+                # terminates before its neighbours.
+                for (parent, _, _), episode in zip(live, episodes):
+                    yield parent, episode.as_task_rollout()
 
 
 @contextmanager

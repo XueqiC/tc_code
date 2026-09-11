@@ -14,6 +14,7 @@ retries a failed RPC once with a fresh worker and the same sampled trajectory.
 """
 from __future__ import annotations
 
+from concurrent.futures import Future, ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import asdict, dataclass, replace
 import json
@@ -78,6 +79,14 @@ def _env_call(stage, fn, *args):
         return fn(*args)
     except Exception as exc:
         raise _EnvironmentFailure(stage, exc, time.monotonic() - started) from exc
+
+
+def _env_step(executor, stage, env, cursor, command):
+    if executor is None:
+        return _env_call(stage, env.step, cursor, command)
+    # Only the RPC runs on a thread. The caller resumes validation, rendering,
+    # retry/RNG bookkeeping and journaling after receiving this future.
+    return (yield executor.submit(_env_call, stage, env.step, cursor, command))
 
 
 def episode_seed(task_id, rollout_index, *, base_seed=0):
@@ -234,7 +243,7 @@ def _validate_action(action, state, backend, parameters):
 def _alfworld_task_rollout_stream(task_ref, backend: SamplingBackend, parameters, *, env_factory: EnvironmentFactory,
                          renderer, journal, rollout_index=0, base_seed=0,
                          prefix_package_id=None, owned_packages=None, support=None, round_number=None,
-                         attempt=0):
+                         attempt=0, step_executor=None):
     """Run to terminal success/failure or 40 total environment actions.
 
     task_ref is a fixed train request dict, a reset FullState, or an owned
@@ -289,7 +298,7 @@ def _alfworld_task_rollout_stream(task_ref, backend: SamplingBackend, parameters
             if i == prefix_steps:
                 break
             command = target_history[2 * i + 1]["content"]
-            cursor, observation = _env_call("prefix_step", env.step, cursor, command)
+            cursor, observation = yield from _env_step(step_executor, "prefix_step", env, cursor, command)
             observation = _observation(observation, request, i + 1)
             history.extend([dict(role="assistant", index=i + 1, content=command), _observed(observation)])
         start = _state(request, history, renderer)
@@ -303,7 +312,7 @@ def _alfworld_task_rollout_stream(task_ref, backend: SamplingBackend, parameters
             _validate_action(action, state, backend, parameters)
             command, fallback = parse_action(action.text, observation.admissible)
             steps.append(EpisodeStep(state, action, command, fallback))
-            cursor, observation = _env_call("step", env.step, cursor, command)
+            cursor, observation = yield from _env_step(step_executor, "step", env, cursor, command)
             observation = _observation(observation, request, index + 1)
             steps[-1] = replace(steps[-1], observation=observation)
             history.extend([dict(role="assistant", index=index + 1, content=command), _observed(observation)])
@@ -371,9 +380,18 @@ def _alfworld_retry_stream(task_ref, backend, parameters, *, journal, **kwargs):
         stream = _alfworld_task_rollout_stream(task_ref, backend, parameters,
             journal=journal, attempt=attempt, **kwargs)
         try:
-            prompt, generator = next(stream)
+            request = next(stream)
             index = 0
             while True:
+                if isinstance(request, Future):
+                    try:
+                        response = yield request
+                    except BaseException as exc:
+                        request = stream.throw(exc)
+                    else:
+                        request = stream.send(response)
+                    continue
+                prompt, generator = request
                 before = generator.get_state().clone()
                 if index < len(cached):
                     previous_prompt, action, previous_rng, after = cached[index]
@@ -388,7 +406,7 @@ def _alfworld_retry_stream(task_ref, backend, parameters, *, journal, **kwargs):
                         raise
                     cached.append((prompt, action, before, generator.get_state().clone()))
                 index += 1
-                prompt, generator = stream.send(action)
+                request = stream.send(action)
         except StopIteration as completed:
             episode = completed.value
         except BaseException as exc:
@@ -418,45 +436,77 @@ def alfworld_task_rollouts_lockstep(task_refs, backend, parameters, *, env_facto
                                    journal, rollout_indices, first_actions, base_seed=0):
     """Drive one owned environment subprocess per episode at sampling barriers.
 
-    Environment RPCs stay in their existing bounded workers. Only the caller
-    touches the policy, so there are no model threads or process-global proxies.
+    Threads overlap step RPCs to the existing bounded workers. Only the caller
+    touches the policy, RNG streams, renderer and journal. Physical generation
+    sub-batches dispatch their steps immediately, overlapping later generation.
     Retry replay runs to the next unsampled prompt before joining the barrier.
     Results retain input order, even when shorter episodes finish first.
     """
     refs, indices, starts = tuple(task_refs), tuple(rollout_indices), tuple(first_actions)
     if not refs or len(refs) != len(indices) or len(refs) != len(starts):
         raise ValueError('aligned nonempty lockstep episode inputs required')
+    executor = ThreadPoolExecutor(max_workers=len(refs), thread_name_prefix='alfworld-feedback')
     streams = [_alfworld_retry_stream(ref, backend, parameters, env_factory=env_factory,
-        renderer=renderer, journal=journal, rollout_index=index, base_seed=base_seed)
+        renderer=renderer, journal=journal, rollout_index=index, base_seed=base_seed,
+        step_executor=executor)
         for ref, index in zip(refs, indices)]
     results, live = [None] * len(streams), {}
+
+    def advance(i, method, value):
+        try:
+            live[i] = method(value)
+        except StopIteration as completed:
+            results[i] = completed.value
+            live.pop(i, None)
+
+    def settle():
+        # Submit every ready step before waiting. Retries may replay several
+        # cached steps; drain them to the next unsampled prompt at this barrier.
+        while any(isinstance(request, Future) for request in live.values()):
+            for i, request in tuple(live.items()):
+                if isinstance(request, Future):
+                    try:
+                        response = request.result()
+                    except BaseException as exc:
+                        advance(i, streams[i].throw, exc)
+                    else:
+                        advance(i, streams[i].send, response)
+
     try:
-        for i, stream in enumerate(streams):
-            try:
-                live[i] = next(stream)
-            except StopIteration as completed:
-                results[i] = completed.value
-        first = True
-        while live:
-            if first:
-                actions = []
-                for i, (prompt, _) in live.items():
-                    action = starts[i]
-                    if (backend._prompt_ids(prompt) != action.prompt_ids or
-                            backend.identity(parameters) != action.policy_id):
-                        raise AssertionError('batched task-start prompt/policy mismatch')
-                    actions.append(action)
-                first = False
-            else:
-                actions = backend.sample_feedback_actions(tuple(live.values()), parameters)
-            if len(actions) != len(live):
-                raise AssertionError('lockstep backend returned an unaligned action batch')
-            for i, action in zip(tuple(live), actions):
+        # Exit joins every RPC before throwing into/closing suspended streams,
+        # so worker cleanup cannot race a pipe read on error or cancellation.
+        with executor:
+            for i, stream in enumerate(streams):
                 try:
-                    live[i] = streams[i].send(action)
+                    live[i] = next(stream)
                 except StopIteration as completed:
                     results[i] = completed.value
-                    del live[i]
+            settle()
+            first = True
+            while live:
+                order = tuple(live)
+
+                def dispatch(batch_indices, actions):
+                    for index, action in zip(batch_indices, actions):
+                        i = order[index]
+                        advance(i, streams[i].send, action)
+
+                if first:
+                    actions = []
+                    for i, (prompt, _) in live.items():
+                        action = starts[i]
+                        if (backend._prompt_ids(prompt) != action.prompt_ids or
+                                backend.identity(parameters) != action.policy_id):
+                            raise AssertionError('batched task-start prompt/policy mismatch')
+                        actions.append(action)
+                    dispatch(range(len(order)), actions)
+                    first = False
+                else:
+                    actions = backend.sample_feedback_actions(tuple(live.values()), parameters,
+                        prompts_per_batch=len(refs), on_batch=dispatch)
+                if len(actions) != len(order):
+                    raise AssertionError('lockstep backend returned an unaligned action batch')
+                settle()
         return tuple(results)
     except BaseException as exc:
         # Journal policy failures against every suspended episode and close all

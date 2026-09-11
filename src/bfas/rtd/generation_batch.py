@@ -8,7 +8,7 @@ No tickets, generated actions or KV caches survive a sampling scope.
 """
 from collections import deque
 from contextlib import contextmanager, nullcontext
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from itertools import groupby
 import os
 
@@ -262,15 +262,24 @@ class HFGenerationBatchMixin:
         return length_bucketed_groups(rows, prompts_per_batch=self.generation_batch.prompts_per_batch,
                                       budget=self.generation_batch.max_batch_tokens)
 
-    def sample_feedback_actions(self, requests, parameters):
+    def sample_feedback_actions(self, requests, parameters, *, prompts_per_batch=None, on_batch=None):
         """One independent serial-equivalent RNG stream per live continuation."""
         groups = [self._request_rows([(prompt, 1, self.max_action_tokens)], generator)
                   for prompt, generator in requests]
-        return self.generate_feedback_groups(groups, parameters)
+        return self.generate_feedback_groups(groups, parameters,
+            prompts_per_batch=prompts_per_batch, on_batch=on_batch)
 
-    def generate_feedback_groups(self, groups, parameters):
+    def generate_feedback_groups(self, groups, parameters, *, prompts_per_batch=None, on_batch=None):
+        """Keep logical RNG groups fixed while independently sizing physical calls.
+
+        on_batch receives caller indices/actions after each physical call, so
+        environment RPCs can overlap the remaining sub-batches on this thread.
+        """
         if self.model.training:
             raise ValueError('frozen eval policy required')
+        policy = self.generation_batch
+        if prompts_per_batch is not None:
+            policy = replace(policy, prompts_per_batch=prompts_per_batch)
         rows = []
         for group in groups:
             # Sampling layout stays frozen even when several logical batches
@@ -282,9 +291,14 @@ class HFGenerationBatchMixin:
                         for i, row in enumerate(group))
         result = [None] * len(rows)
         # Keep each original RNG group together and preserve its row ordering.
-        for batch in feedback_generation_groups(rows, self.generation_batch):
-            for row, action in zip(batch, self._generate_group(batch, parameters)):
+        for batch in feedback_generation_groups(rows, policy):
+            actions = self._generate_group(batch, parameters)
+            if len(actions) != len(batch):
+                raise AssertionError('feedback backend returned an unaligned action batch')
+            for row, action in zip(batch, actions):
                 result[row['index']] = action
+            if on_batch is not None:
+                on_batch(tuple(row['index'] for row in batch), actions)
         return tuple(result)
 
     @contextmanager
