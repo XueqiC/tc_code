@@ -73,15 +73,12 @@ def test_cap_blocks_before_request_and_within_episode(tmp_path):
     assert json.loads(state_path.read_text())["charged_upper_bound_usd"] <= 0.0006
 
 
-@pytest.mark.parametrize("failure", ["timeout", "missing_usage"])
-def test_unknown_charge_is_reserved_and_never_retried(tmp_path, failure):
+def test_unknown_charge_is_reserved_and_never_retried(tmp_path):
     guard, state_path = budget(tmp_path)
     calls = []
     def completion(**kwargs):
         calls.append(kwargs)
-        if failure == "timeout":
-            raise TimeoutError("simulated")
-        return {}
+        raise TimeoutError("simulated")
     with pytest.raises(BudgetStopped, match="unknown_charge"):
         guard.call(completion, **paid_args())
     with pytest.raises(BudgetStopped):
@@ -90,6 +87,8 @@ def test_unknown_charge_is_reserved_and_never_retried(tmp_path, failure):
     assert len(calls) == 1
     assert state["charged_upper_bound_usd"] > 0
     assert state["estimated_usd"] == 0
+    assert state["events"][0]["error_type"] == "TimeoutError"
+    assert state["events"][0]["error"] == "simulated"
 
 
 def test_judge_is_metered_with_its_own_ledger_purpose(tmp_path):
@@ -332,3 +331,20 @@ def test_failed_student_probe_prevents_tasks(tmp_path, stub_cli, monkeypatch):
     with pytest.raises(RuntimeError, match="tool-choice preflight failed"):
         evaluate(args)
     assert not stub_cli and not args.out_dir.exists()
+
+
+def test_missing_usage_is_counted_as_estimated_in_metrics(tmp_path, stub_cli, monkeypatch):
+    def run(self, **kwargs):
+        RequestBudget(kwargs["budget_config"]).call(lambda **kw: {}, **paid_args())
+        return NativeRun({"simulations": [{"task_id": kwargs["task_ids"][0],
+                                          "termination_reason": "user_stop",
+                                          "reward_info": {"reward": 1}}]}, tmp_path)
+    monkeypatch.setattr(Tau2Adapter, "_run_cli", run)
+    args = parser().parse_args(["--out-dir", str(tmp_path / "estimated"), "--max-tasks", "2"])
+    metrics = evaluate(args)
+    assert metrics["tasks"] == 2 and metrics["pass^1"] == 1
+    assert metrics["estimated_requests"] == 2 and metrics["unknown_charge_requests"] == 0
+    assert metrics["estimated_usd"] == pytest.approx(metrics["charged_upper_bound_usd"])
+    assert metrics["stop_reason"] == "max_tasks"
+    assert all(json.loads(line)["estimated_requests"] == 1
+               for line in (args.out_dir / "tasks.jsonl").read_text().splitlines())

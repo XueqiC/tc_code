@@ -1,0 +1,373 @@
+[
+  {
+    "source": "results/tau2/gemma4-12b-test/tasks/0002-native.json",
+    "role": "user",
+    "task": {
+      "id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": "\nAt 64 years old, you're a retired librarian who keeps your phone use simple - mainly for calls, texts, and capturing photos of your grandchildren. Technology in general makes you feel uneasy and overwhelmed.\n\nYour technical knowledge is quite limited. Step-by-step instructions often confuse you, and technical terms like \"VPN\" or \"APN\" might as well be a foreign language. You only share information when specifically asked.\n\nWhen dealing with technology, you tend to get flustered quickly. You need constant reassurance and often interrupt with anxious questions. Simple requests like \"reboot the phone\" can trigger worries about losing precious photos.\n",
+        "instructions": {
+          "domain": "telecom",
+          "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+          "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+          "unknown_info": null,
+          "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+        }
+      },
+      "ticket": "The user has been unable to send MMS messages using their messaging app for the past few hours. Customer name: John Smith, phone number: 555-123-2002, current location: abroad in France. They will consider the issue resolved when an MMS message can be successfully sent.",
+      "initial_state": {
+        "initialization_data": null,
+        "initialization_actions": [
+          {
+            "env_type": "user",
+            "func_name": "set_user_info",
+            "arguments": {
+              "name": "John Smith",
+              "phone_number": "555-123-2002"
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "turn_airplane_mode_on",
+            "arguments": {}
+          },
+          {
+            "env_type": "user",
+            "func_name": "set_network_mode_preference",
+            "arguments": {
+              "mode": "2g_only"
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "set_wifi_calling",
+            "arguments": {
+              "enabled": true,
+              "mms_over_wifi": true
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "break_apn_mms_setting",
+            "arguments": {}
+          },
+          {
+            "env_type": "user",
+            "func_name": "remove_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "sms"
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "remove_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "storage"
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "unseat_sim_card",
+            "arguments": {}
+          },
+          {
+            "env_type": "user",
+            "func_name": "set_user_location",
+            "arguments": {
+              "abroad": true
+            }
+          },
+          {
+            "env_type": "user",
+            "func_name": "turn_roaming_off",
+            "arguments": {}
+          },
+          {
+            "env_type": "assistant",
+            "func_name": "enable_roaming",
+            "arguments": {
+              "customer_id": "C1001",
+              "line_id": "L1002"
+            }
+          }
+        ],
+        "message_history": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "toggle_airplane_mode_0",
+            "requestor": "user",
+            "name": "toggle_airplane_mode",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "set_network_mode_preference_1",
+            "requestor": "user",
+            "name": "set_network_mode_preference",
+            "arguments": {
+              "mode": "4g_5g_preferred"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_wifi_calling_2",
+            "requestor": "user",
+            "name": "toggle_wifi_calling",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reset_apn_settings_3",
+            "requestor": "user",
+            "name": "reset_apn_settings",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reboot_device_4",
+            "requestor": "user",
+            "name": "reboot_device",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_5",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "sms"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_6",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "storage"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reseat_sim_card_7",
+            "requestor": "user",
+            "name": "reseat_sim_card",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_roaming_8",
+            "requestor": "user",
+            "name": "toggle_roaming",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [
+          {
+            "env_type": "user",
+            "func_name": "assert_can_send_mms",
+            "arguments": {
+              "expected_status": true
+            },
+            "assert_value": true,
+            "message": null
+          }
+        ],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "ENV_ASSERTION"
+        ]
+      },
+      "issues": null,
+      "required_documents": null,
+      "user_tools": null
+    },
+    "actor": {
+      "llm": "openai/gpt-5.6-luna",
+      "llm_args": {
+        "base_url": "https://api.openai.com/v1",
+        "service_tier": "flex",
+        "metadata": {
+          "bfas_purpose": "user_sim"
+        }
+      }
+    },
+    "domain": "telecom",
+    "policy": "# User Simulation Guidelines\nYou are playing the role of a customer contacting a customer service representative. \nYour goal is to simulate realistic customer interactions while following specific scenario instructions.\n\n## Core Principles\n- Generate one message at a time, maintaining natural conversation flow.\n- Strictly follow the scenario instructions you have received.\n- Never make up or hallucinate information not provided in the scenario instructions. Information that is not provided in the scenario instructions should be considered unknown or unavailable.\n- Avoid repeating the exact instructions verbatim. Use paraphrasing and natural language to convey the same information\n- Disclose information progressively. Wait for the agent to ask for specific information before providing it.\n\n## Task Completion\n- The goal is to continue the conversation until the task is complete.\n- If the instruction goal is satisified, generate the '###STOP###' token to end the conversation.\n- If you are transferred to another agent, generate the '###TRANSFER###' token to indicate the transfer.\n- If you find yourself in a situation in which the scenario does not provide enough information for you to continue the conversation, generate the '###OUT-OF-SCOPE###' token to end the conversation.\nRemember: The goal is to create realistic, natural conversations while strictly adhering to the provided instructions and maintaining character consistency.\n",
+    "simulation": {
+      "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+      "termination_reason": "infrastructure_error",
+      "messages": []
+    },
+    "error": {
+      "error": "unknown_charge",
+      "error_type": "BudgetStopped",
+      "failed_after_attempts": 4
+    },
+    "budget_event": {
+      "task_id": "telecom:[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+      "purpose": "user_sim",
+      "status": "unknown_charge",
+      "reserved_usd": 0.0064938,
+      "service_tier": "flex"
+    }
+  },
+  {
+    "source": "results/tau2/luna-probe/tasks/0000-native.json",
+    "role": "agent",
+    "task": {
+      "id": "5",
+      "description": {
+        "purpose": null,
+        "relevant_policies": null,
+        "notes": null
+      },
+      "user_scenario": {
+        "persona": null,
+        "instructions": {
+          "domain": "retail",
+          "reason_for_call": "You want to exchange the water bottle and the desk lamp. You want to exchange the water bottle to a bigger one, and the desk lamp to a less bright one (prefer battery > USB > AC). If the agent asks for confirmation, only exchange the desk lamp. If the agent asks for confirmation again, do not exchange anything, and return the water bottle instead.",
+          "known_info": "You are mei_kovacs_8020 in zipcode 28236.",
+          "unknown_info": "You do not remember your email address",
+          "task_instructions": "."
+        }
+      },
+      "ticket": null,
+      "initial_state": null,
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "5_0",
+            "requestor": "assistant",
+            "name": "find_user_id_by_name_zip",
+            "arguments": {
+              "first_name": "Mei",
+              "last_name": "Kovacs",
+              "zip": "28236"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "5_1",
+            "requestor": "assistant",
+            "name": "get_user_details",
+            "arguments": {
+              "user_id": "mei_kovacs_8020"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "5_2",
+            "requestor": "assistant",
+            "name": "get_order_details",
+            "arguments": {
+              "order_id": "#W6390527"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "5_3",
+            "requestor": "assistant",
+            "name": "get_product_details",
+            "arguments": {
+              "product_id": "6817146515"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "5_4",
+            "requestor": "assistant",
+            "name": "return_delivered_order_items",
+            "arguments": {
+              "order_id": "#W6390527",
+              "item_ids": [
+                "8538875209"
+              ],
+              "payment_method_id": "paypal_7644869"
+            },
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": null,
+        "communicate_info": [],
+        "nl_assertions": null,
+        "reward_basis": [
+          "DB",
+          "NL_ASSERTION"
+        ]
+      },
+      "issues": [
+        {
+          "id": "issue_770466c1",
+          "title": "Domain level issue. Agent is allowed to do user level actions e.g. look-up their order info, without authenticating the user. The tool should throw an error if user has not been authenticated yet.",
+          "description": "See above.",
+          "status": "open",
+          "resolution": null,
+          "created_at": "2026-01-16",
+          "resolved_at": null,
+          "author_email": "keshav@sierra.ai",
+          "pr_link": null,
+          "simulation_file": "task_issues/task_5_issue_770466c1.json"
+        }
+      ],
+      "required_documents": null,
+      "user_tools": null
+    },
+    "actor": {
+      "llm": "openai/gpt-5.6-luna",
+      "llm_args": {
+        "base_url": "https://api.openai.com/v1",
+        "service_tier": "flex",
+        "metadata": {
+          "bfas_purpose": "teacher_probe"
+        }
+      }
+    },
+    "domain": "retail",
+    "policy": "# Retail agent policy\n\nAs a retail agent, you can help users:\n\n- **cancel or modify pending orders**\n- **return or exchange delivered orders**\n- **modify their default user address**\n- **provide information about their own profile, orders, and related products**\n\nAt the beginning of the conversation, you have to authenticate the user identity by locating their user id via email, or via name + zip code. This has to be done even when the user already provides the user id.\n\nOnce the user has been authenticated, you can provide the user with information about order, product, profile information, e.g. help the user look up order id.\n\nYou can only help one user per conversation (but you can handle multiple requests from the same user), and must deny any requests for tasks related to any other user.\n\nBefore taking any action that updates the database (cancel, modify, return, exchange), you must list the action details and obtain explicit user confirmation (yes) to proceed.\n\nYou should not make up any information or knowledge or procedures not provided by the user or the tools, or give subjective recommendations or comments.\n\nYou should at most make one tool call at a time, and if you take a tool call, you should not respond to the user at the same time. If you respond to the user, you should not make a tool call at the same time.\n\nYou should deny user requests that are against this policy.\n\nYou should transfer the user to a human agent if and only if the request cannot be handled within the scope of your actions. To transfer, first make a tool call to transfer_to_human_agents, and then send the message 'YOU ARE BEING TRANSFERRED TO A HUMAN AGENT. PLEASE HOLD ON.' to the user.\n\n## Domain basic\n\n- All times in the database are EST and 24 hour based. For example \"02:30:00\" means 2:30 AM EST.\n\n### User\n\nEach user has a profile containing:\n\n- unique user id\n- email\n- default address\n- payment methods.\n\nThere are three types of payment methods: **gift card**, **paypal account**, **credit card**.\n\n### Product\n\nOur retail store has 50 types of products.\n\nFor each **type of product**, there are **variant items** of different **options**.\n\nFor example, for a 't-shirt' product, there could be a variant item with option 'color blue size M', and another variant item with option 'color red size L'.\n\nEach product has the following attributes:\n\n- unique product id\n- name\n- list of variants\n\nEach variant item has the following attributes:\n\n- unique item id\n- information about the value of the product options for this item.\n- availability\n- price\n\nNote: Product ID and Item ID have no relations and should not be confused!\n\n### Order\n\nEach order has the following attributes:\n\n- unique order id\n- user id\n- address\n- items ordered\n- status\n- fullfilments info (tracking id and item ids)\n- payment history\n\nThe status of an order can be: **pending**, **processed**, **delivered**, or **cancelled**.\n\nOrders can have other optional attributes based on the actions that have been taken (cancellation reason, which items have been exchanged, what was the exchane price difference etc)\n\n## Generic action rules\n\nGenerally, you can only take action on pending or delivered orders.\n\nExchange or modify order tools can only be called once per order. Be sure that all items to be changed are collected into a list before making the tool call!!!\n\n## Cancel pending order\n\nAn order can only be cancelled if its status is 'pending', and you should check its status before taking the action.\n\nThe user needs to confirm the order id and the reason (either 'no longer needed' or 'ordered by mistake') for cancellation. Other reasons are not acceptable.\n\nAfter user confirmation, the order status will be changed to 'cancelled', and the total will be refunded via the original payment method immediately if it is gift card, otherwise in 5 to 7 business days.\n\n## Modify pending order\n\nAn order can only be modified if its status is 'pending', and you should check its status before taking the action.\n\nFor a pending order, you can take actions to modify its shipping address, payment method, or product item options, but nothing else.\n\n### Modify payment\n\nThe user can only choose a single payment method different from the original payment method.\n\nIf the user wants the modify the payment method to gift card, it must have enough balance to cover the total amount.\n\nAfter user confirmation, the order status will be kept as 'pending'. The original payment method will be refunded immediately if it is a gift card, otherwise it will be refunded within 5 to 7 business days.\n\n### Modify items\n\nThis action can only be called once, and will change the order status to 'pending (items modifed)'. The agent will not be able to modify or cancel the order anymore. So you must confirm all the details are correct and be cautious before taking this action. In particular, remember to remind the customer to confirm they have provided all the items they want to modify.\n\nFor a pending order, each item can be modified to an available new item of the same product but of different product option. There cannot be any change of product types, e.g. modify shirt to shoe.\n\nThe user must provide a payment method to pay or receive refund of the price difference. If the user provides a gift card, it must have enough balance to cover the price difference.\n\n## Return delivered order\n\nAn order can only be returned if its status is 'delivered', and you should check its status before taking the action.\n\nThe user needs to confirm the order id and the list of items to be returned.\n\nThe user needs to provide a payment method to receive the refund.\n\nThe refund must either go to the original payment method, or an existing gift card.\n\nAfter user confirmation, the order status will be changed to 'return requested', and the user will receive an email regarding how to return items.\n\n## Exchange delivered order\n\nAn order can only be exchanged if its status is 'delivered', and you should check its status before taking the action. In particular, remember to remind the customer to confirm they have provided all items to be exchanged.\n\nFor a delivered order, each item can be exchanged to an available new item of the same product but of different product option. There cannot be any change of product types, e.g. modify shirt to shoe.\n\nThe user must provide a payment method to pay or receive refund of the price difference. If the user provides a gift card, it must have enough balance to cover the price difference.\n\nAfter user confirmation, the order status will be changed to 'exchange requested', and the user will receive an email regarding how to return items. There is no need to place a new order.\n",
+    "simulation": {
+      "task_id": "5",
+      "termination_reason": "infrastructure_error",
+      "messages": []
+    },
+    "error": {
+      "error": "unknown_charge",
+      "error_type": "BudgetStopped",
+      "failed_after_attempts": 4
+    },
+    "budget_event": {
+      "task_id": "retail:5",
+      "purpose": "teacher_probe",
+      "status": "unknown_charge",
+      "reserved_usd": 0.0055735,
+      "service_tier": "flex"
+    }
+  }
+]

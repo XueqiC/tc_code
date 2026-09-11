@@ -441,3 +441,26 @@ def test_teacher_and_simulator_usage_reaches_ledger(tmp_path, monkeypatch, passe
     assert records[0]["usage"] == {"prompt_tokens": 10, "cached_tokens": 4, "completion_tokens": 8}
     assert records[1]["usage"] == {"prompt_tokens": 20, "cached_tokens": 4, "completion_tokens": 5}
     assert records[1]["verified"] == passed
+
+
+def test_estimated_actor_and_judge_usage_survives_purchase_ledger(tmp_path, monkeypatch):
+    monkeypatch.setenv("BFAS_TAU2_USER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setenv("BFAS_TAU2_TEACHER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setattr(ledger, "LEDGER_ROOT", tmp_path / "ledger")
+    results = _fixture_results()
+    results["simulations"] = results["simulations"][:1]
+    simulation = results["simulations"][0]
+    simulation["reward_info"]["reward"] = 0
+    usage = {"prompt_tokens": 8000, "completion_tokens": 2048, "cached_tokens": 0}
+    for message in simulation["messages"][1:]:
+        message["usage"] = None
+        message["raw_data"] = {"bfas_charge": {"status": "estimated", "usage": usage}}
+    simulation["bfas_judge_usage"] = [{"status": "estimated", "usage": usage}]
+    adapter = Tau2Adapter()
+    adapter._tokenizer = FixtureTokenizer()
+    monkeypatch.setattr(adapter, "_run_cli", lambda **kwargs: NativeRun(results, FIXTURE))
+    ledger.acquire_demos("tau2", adapter, ["airline:2"], 1)
+    records = [json.loads(line) for line in (tmp_path / "ledger/tau2.jsonl").read_text().splitlines()]
+    assert [r["purpose"] for r in records] == ["user_sim", "teacher_judge", "teacher"]
+    assert all(r["usage_status"] == "estimated" and r["usage"] == usage for r in records)
+    assert all(r["tokens_spent"] == 10048 for r in records)

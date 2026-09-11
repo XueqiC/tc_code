@@ -145,17 +145,18 @@ def append_episode(
     verified: bool,
     tokens_spent: int,
     usage: Mapping[str, int] | None = None,
+    usage_status: str | None = None,
     purpose: str = "teacher",
     demo: Demo | None = None,
     timestamp: str | None = None,
     ledger_root: Path | None = None,
     prompt_version: str | None = None,
 ) -> dict[str, Any]:
-    """Append an episode with optional reported counters in ``usage``.
+    """Append an episode with optional counters and their provenance in ``usage``.
 
     ``completion_tokens``, ``prompt_tokens`` and ``cached_tokens`` are sums of
-    API counters; cached input is included in prompt_tokens. Older rows may
-    omit any counter or the entire usage object and remain readable.
+    API counters unless usage_status is ``estimated``; cached input is included
+    in prompt_tokens. Older rows may omit counters/status and remain readable.
     """
     if verified and demo is None:
         raise ValueError("a verified ledger episode requires a Demo")
@@ -190,6 +191,8 @@ def append_episode(
         record["prompt_version"] = prompt_version
     if usage:
         record["usage"] = dict(usage)
+    if usage_status is not None:
+        record["usage_status"] = usage_status
     append_record(ledger_path(benchmark, ledger_root=ledger_root), record)
     return record
 
@@ -473,6 +476,7 @@ def acquire_demos(
                     verified=episode.verified,
                     tokens_spent=tokens_spent,
                     usage=episode.usage,
+                    usage_status=episode.usage_status,
                     demo=episode.demo,
                     ledger_root=ledger_root,
                     prompt_version=prompt_version,

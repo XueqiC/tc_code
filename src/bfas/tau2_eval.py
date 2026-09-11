@@ -170,7 +170,9 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
                    "estimated_usd": state["estimated_usd"],
                    "charged_upper_bound_usd": state["charged_upper_bound_usd"],
                    "rates_usd_per_mtok": price_rates(tier),
-                   "unknown_charge_requests": sum(e["status"] != "settled" for e in state["events"])}
+                   "estimated_requests": sum(e["status"] == "estimated" for e in state["events"]),
+                   "unknown_charge_requests": sum(e["status"] not in {"settled", "estimated"}
+                                                   for e in state["events"])}
         write_json(out / "metrics.json", metrics)
         return metrics
 
@@ -218,6 +220,7 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
                "simulator_usage": _usage(events, "user_sim"),
                "teacher_usage": _usage(events, "teacher_probe", "teacher_judge"),
                "judge_usage": _usage(events, "teacher_judge"),
+               "estimated_requests": sum(e["status"] == "estimated" for e in events),
                "estimated_usd": sum(e.get("estimated_usd", 0) for e in events)}
         rows.append(row)
         with (out / "tasks.jsonl").open("a", encoding="utf-8") as handle:

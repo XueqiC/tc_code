@@ -32,6 +32,7 @@ from ..adapter import (
     TeacherEpisode,
     Turn,
 )
+from ..tau2_budget import MissingUsage, is_luna_model, response_field, response_usage
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -284,6 +285,14 @@ def render_logged_turn(tokenizer: Any, call_log: Mapping[str, Any]) -> Turn:
 
 
 def _message_token_count(message: Mapping[str, Any]) -> int:
+    charge = response_field(message.get("raw_data"), "bfas_charge")
+    if charge:
+        return charge["usage"]["prompt_tokens"] + charge["usage"]["completion_tokens"]
+    try:
+        raw_usage = response_usage(message.get("raw_data"))
+        return raw_usage["prompt_tokens"] + raw_usage["completion_tokens"]
+    except MissingUsage:
+        pass
     usage = message.get("usage")
     if isinstance(usage, Mapping):
         total = usage.get("total_tokens")
@@ -320,10 +329,11 @@ def _side_token_count(simulation: Mapping[str, Any], role: str) -> int:
 
 
 def side_usage(simulation: Mapping[str, Any], role: str) -> dict[str, int]:
-    """Sum provider counters; cached input is a subset of prompt tokens.
+    """Sum metered counters; cached input is a subset of prompt tokens.
 
     Native tau2's summary drops cached counts. The complete provider response
-    in raw_data retains them. Never count both representations of one call.
+    in raw_data retains them, along with conservative estimates for missing
+    usage. Never count both representations of one call.
     """
     totals: dict[str, int] = {}
     for message in simulation.get("messages", []) or []:
@@ -332,17 +342,26 @@ def side_usage(simulation: Mapping[str, Any], role: str) -> dict[str, int]:
         raw = message.get("raw_data")
         if raw is None:
             continue
-        usage = dict(message.get("usage") or {})
-        if isinstance(raw, Mapping) and isinstance(raw.get("usage"), Mapping):
-            usage.update(raw["usage"])
-        details = usage.get("prompt_tokens_details") or {}
-        if isinstance(details, Mapping) and "cached_tokens" in details:
-            usage["cached_tokens"] = details["cached_tokens"]
-        for key in ("prompt_tokens", "completion_tokens", "cached_tokens"):
-            count = usage.get(key)
-            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
-                totals[key] = totals.get(key, 0) + count
+        charge = response_field(raw, "bfas_charge")
+        try:
+            usage = charge["usage"] if charge else response_usage(raw, fallback=message.get("usage"))
+        except MissingUsage:
+            # Legacy artifacts may not have request metadata. New Luna calls
+            # carry conservative estimates in bfas_charge.
+            continue
+        for key, count in usage.items():
+            totals[key] = totals.get(key, 0) + count
     return totals
+
+
+def _side_usage_status(simulation: Mapping[str, Any], role: str) -> str | None:
+    for message in simulation.get("messages", []) or []:
+        if not isinstance(message, Mapping) or message.get("role") != role:
+            continue
+        charge = response_field(message.get("raw_data"), "bfas_charge")
+        if response_field(charge, "status") == "estimated":
+            return "estimated"
+    return None
 
 
 class Tau2Adapter(BenchmarkAdapter):
@@ -471,12 +490,15 @@ class Tau2Adapter(BenchmarkAdapter):
         from ..tau2_budget import service_tier
 
         args: dict[str, Any] = {"base_url": OPENAI_BASE, "service_tier": service_tier()}
-        if model != LUNA_MODEL:
+        if not is_luna_model(model):
             args["temperature"] = float(temperature)
         return args
 
     def _teacher_args(self, temperature: float) -> tuple[str, dict[str, Any]]:
         teacher = self.teacher_name()
+        if is_luna_model(teacher):
+            teacher = "openai/" + teacher.strip().rsplit("/", 1)[-1]
+            return teacher, self._official_openai_args(teacher, temperature)
         if teacher.startswith("azure/"):
             return teacher, {"temperature": float(temperature)}
         if teacher.startswith("openai/"):
@@ -505,6 +527,9 @@ class Tau2Adapter(BenchmarkAdapter):
 
     def _user_args(self, temperature: float) -> tuple[str, dict[str, Any]]:
         user_model = os.environ.get("BFAS_TAU2_USER_MODEL", "gpt-5.4")
+        if is_luna_model(user_model):
+            user_model = "openai/" + user_model.strip().rsplit("/", 1)[-1]
+            return user_model, self._official_openai_args(user_model, temperature)
         if user_model.startswith("azure/"):
             return user_model, {"temperature": float(temperature)}
         if user_model.startswith("openai/"):
@@ -635,7 +660,8 @@ class Tau2Adapter(BenchmarkAdapter):
         env["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
         env["PYTHONDONTWRITEBYTECODE"] = "1"
         judge_usage_path = data_root / "bfas_judge_usage.jsonl"
-        if budget_config is not None or self.teacher_name() == LUNA_MODEL:
+        if budget_config is not None or any(is_luna_model(model) for model in
+                                            (agent_model, user_model, self.teacher_name())):
             # Execute the unchanged vendored CLI under a per-request budget guard.
             command = [str(TAU2_BIN.with_name("python")), str(ROOT / "tools/tau2_guarded_cli.py"), *command]
             env.pop("BFAS_TAU2_BUDGET_CONFIG", None)
@@ -658,7 +684,7 @@ class Tau2Adapter(BenchmarkAdapter):
                 judges = [json.loads(line) for line in judge_usage_path.read_text().splitlines()]
                 for simulation in self._simulations(results):
                     simulation["bfas_judge_usage"] = [
-                        row["usage"] for row in judges if row["simulation_id"] == simulation.get("id")
+                        row for row in judges if row["simulation_id"] == simulation.get("id")
                     ]
             return NativeRun(
                 results=results,
@@ -815,15 +841,17 @@ class Tau2Adapter(BenchmarkAdapter):
                 verified=False,
                 tokens_spent=_side_token_count(simulation, "user"),
                 usage=side_usage(simulation, "user"),
+                usage_status=_side_usage_status(simulation, "user"),
                 purpose="user_sim",
             )
-            for usage in simulation.get("bfas_judge_usage", []):
+            for entry in simulation.get("bfas_judge_usage", []):
+                usage = entry.get("usage", entry)
                 append_episode(
                     self.name, task_id=encode_task_id(domain, str(native_id)),
-                    teacher=self.teacher_name(), attempt_index=self._run_serial,
+                    teacher=LUNA_MODEL, attempt_index=self._run_serial,
                     temperature=0.0, verified=False, purpose="teacher_judge",
                     tokens_spent=usage["prompt_tokens"] + usage["completion_tokens"],
-                    usage=usage,
+                    usage=usage, usage_status=entry.get("status"),
                 )
 
     def _rollouts_from_run(
@@ -991,7 +1019,7 @@ class Tau2Adapter(BenchmarkAdapter):
             )
             verified = simulation is not None and extract_verdict(simulation)
             turns: list[Turn] = []
-            # Failed teacher episodes still return exact provider usage so the
+            # Failed teacher episodes still return metered usage so the
             # purchase gateway charges them. Rendering is only needed for a
             # verified trajectory that can become a demo.
             if simulation is not None and verified:
@@ -1021,6 +1049,7 @@ class Tau2Adapter(BenchmarkAdapter):
                     else 0
                 ),
                 usage=side_usage(simulation, "assistant") if simulation is not None else {},
+                usage_status=_side_usage_status(simulation, "assistant") if simulation is not None else None,
             )
         finally:
             native_run.cleanup()
