@@ -314,7 +314,11 @@ def feedback_rollouts(support, parent, count, backend, parameters, generator, ch
         actions = backend.sample_actions(support.states[parent].prompt, count, parameters, generator)
     for action in actions:
         proxy = FirstActionBackend(backend, action)
-        rollout = support.feedback(parent, proxy, parameters, generator, checker)
+        # A rollout provider can set the cap on the proxy itself. Continuation
+        # sampling delegates to the real backend, so it needs the same category
+        # scope as the batched task starts. Restore it before yielding/scoring.
+        with backend.action_limit(category):
+            rollout = support.feedback(parent, proxy, parameters, generator, checker)
         if not proxy.used:
             raise AssertionError('feedback did not consume its task-start action')
         yield rollout
