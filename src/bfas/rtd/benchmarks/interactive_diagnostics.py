@@ -15,12 +15,7 @@ def alfworld_greedy(state, backend, parameters, generator, context):
                            backend, parameters)
 
 
-def alfworld_greedy_batch(states, backend, parameters, generator, context):
-    """Same diagnostic episodes, bounded cohorts and parallel environment RPCs.
-
-    Diagnostics keep their original exception behavior (no feedback retries or
-    fold guards) and do not consume RNG tickets or registry episode seeds.
-    """
+def diagnostic_episode_limit():
     name = ('BFAS_DIAGNOSTIC_LOCKSTEP_EPISODES' if 'BFAS_DIAGNOSTIC_LOCKSTEP_EPISODES' in os.environ
             else 'BFAS_FEEDBACK_LOCKSTEP_EPISODES')
     try:
@@ -29,6 +24,16 @@ def alfworld_greedy_batch(states, backend, parameters, generator, context):
         raise ValueError(f'{name} must be a positive integer') from None
     if limit < 1:
         raise ValueError(f'{name} must be a positive integer')
+    return limit
+
+
+def alfworld_greedy_batch(states, backend, parameters, generator, context):
+    """Same diagnostic episodes, bounded cohorts and parallel environment RPCs.
+
+    Diagnostics keep their original exception behavior (no feedback retries or
+    fold guards) and do not consume RNG tickets or registry episode seeds.
+    """
+    limit = diagnostic_episode_limit()
     states = tuple(states)
     for offset in range(0, len(states), limit):
         cohort = states[offset:offset+limit]

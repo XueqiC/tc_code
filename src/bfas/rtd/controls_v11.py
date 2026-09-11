@@ -1,4 +1,5 @@
 """Embedded paired interventions using D8 BatchReference and D9 validation."""
+from contextlib import nullcontext
 from dataclasses import asdict, replace
 import json
 import os
@@ -184,6 +185,19 @@ def sampler(payload, backend, support, *, identity):
             action = backend.sample_action(record.state.prompt, source, rng, temperature=1., top_p=1.)
         return SourceSample(Behavior(record.state, action.text), backend.identity(source), action.action_ids,
             action.eos_token_id, action.generation_logprob, truncated=action.truncated)
+
+    def prefetch(records, count):
+        if getattr(backend, 'generation_batch', None) is None:
+            return nullcontext()
+        from .generation_batch import action_cap
+        requests = [(record.state.prompt, count,
+            action_cap(backend, support.categories[support.parents[record.state.parent_hash]]))
+            for record in records]
+        return backend.prefetch_actions(requests, source, rng)
+
+    # The estimator owns the scope; its existing draw calls consume D12 tickets
+    # in repeat/state/draw order. Nothing is retained across resamples.
+    draw.prefetch = prefetch
     return draw
 
 

@@ -148,6 +148,35 @@ context caps, parallel reset/step RPCs and failure cleanup. Production bf16
 batch-shape drift has the same qualification as D12; these CPU checks do not
 claim bitwise GPU equivalence or measured production speedup.
 
+BFCL training-support greedy diagnostics also use bounded lockstep cohorts.
+`BFCLSupport.diagnostic_batch` runs the original `bfcl_task_rollout` harness in
+one Python thread per episode, pausing its synchronous query callback at a
+caller-thread generation barrier. Tool execution, malformed-response handling,
+terminal checking and unique simulator namespaces remain in the original
+rollout. Category caps and D12 token budgets split the physical generate calls;
+`BFAS_DIAGNOSTIC_LOCKSTEP_EPISODES` (or the feedback override) bounds live
+episodes. Cancellation releases pending queries before joining the workers.
+
+The same BFCL driver accepts independent stochastic episode generators and
+prefetched task starts. CPU fake-policy/stub-executor tests compare serial and
+lockstep tokens, likelihoods, rewards, malformed flags, RNG states, task copies
+and cleanup for Qwen and Gemma formatting. Production BFCL stochastic feedback
+still shares one generator across variable-length continuations in episode-major
+order, unlike ALFWorld's independent episode streams. Its provider therefore
+retains the original serial path: enabling stochastic lockstep requires an
+explicit decision about changing that RNG contract. The low-level driver
+rejects shared stochastic generators rather than silently reassigning tickets.
+
+Round-end variance and offline source-estimator diagnostics now prefetch eight
+draws per exposure across each resample using D12. Requests retain category caps,
+duplicate exposure slots and state/draw order. The diagnostic generator consumes
+one original ticket per draw, and the queue closes before gradient scoring or
+nested diagnostics. Teacher mass, hard2/soft/hard8/filter estimators and repeat
+identities are unchanged. CPU tests compare the serial and prefetched results
+with a policy whose per-ticket samples are independent of batch shape, including
+the next RNG draw and cleanup/replay after failures. Real HF batch-layout sample
+changes retain D12's existing qualification.
+
 ## Generation-stage audit
 
 Audited direct `sample_action`, `sample_actions`, `prefetch_actions`, HF
@@ -158,19 +187,21 @@ live episode can also produce a legitimate singleton physical call.
 
 | Stage / producer | Current execution | Converted here? |
 | --- | --- | --- |
-| D16 window before/full/control greedy success (`metrics_v11.greedy_success`) | Shared lockstep episode driver and batched argmax, default K=32 | Yes, for ALFWorld with generation batching |
-| Offline controls calling the same greedy-success helper (`controls_v11.run_controls`) | Uses the same ALFWorld diagnostic dispatch when available | Yes, through the shared helper |
+| D16 window before/full/control greedy success (`metrics_v11.greedy_success`) | Bounded lockstep episode drivers and batched argmax, default K=32 | Yes, for ALFWorld and BFCL with generation batching |
+| Offline controls calling the same greedy-success helper (`controls_v11.run_controls`) | Uses the same ALFWorld/BFCL diagnostic dispatch when available | Yes, through the shared helper |
 | `alpha_d` virtual-reference, same-batch-reference, post-commit feedback (`AlphaDExperimentMixin.alpha_feedback`, `RTDExperiment.feedback`) | Already uses `feedback_rollout_tasks` and ALFWorld lockstep; each virtual checkpoint remains a separate policy evaluation | Already batched; scheduler extracted for reuse |
 | Paired validation and z-direction/acquisition validation probes (`alpha_validation_return`) | Already uses ALFWorld lockstep feedback on its isolated stream | Already batched; scheduler extracted for reuse |
 | Commit and virtual-reference source pairs (`alpha_draw_pairs`) | Already prefetches two draws per state across requests through D12 batches | No change |
 | Source/feature acquisition pool and pending-purchase states (`RTDExperiment.pool`, `sample_state`) | Iterates states; draws for one state batch together, normally two, with no cross-state prefetch at this entry point | No change |
 | Acquisition candidate values (`joint_surrogate.marginal_values`) | Uses existing gradients/statistics; no per-candidate generation or environment probe | No conversion needed |
 | Round-end parse battery (`metrics_v11.parse_battery`) | Already prefetches four draws per fixed state across requests | No change |
-| Round-end variance and offline source-estimator diagnostics (`controls_v11.sampler`, `metrics_v11.estimator_batches`) | Calls `sample_action` once per draw: singleton HF batches, eight draws per state per resample | Remains serial |
+| Round-end variance and offline source-estimator diagnostics (`controls_v11.sampler`, `metrics_v11.estimator_batches`) | D12 prefetch across each resample, eight draws per exposure; ordered consumption | Yes, with generation batching |
 | Legacy baseline source collection (`baselines/runner.py`) | Two separate `sample_action` calls per state | Remains serial |
 | Round-end official ALFWorld v1.1/unified evaluation (`registry.alfworld_evaluate` → `webshop_evaluation.evaluate_adapter`) | Separate adapter campaign, concurrent episode threads making individual requests to the vLLM serving lane; outside in-process HF generation | No change |
 | Legacy ALFWorld official evaluation (`alfworld_evaluation.official_episode` / `HFBackend.generate`) | Separate campaign with singleton local HF generation | Remains serial |
-| BFCL/WebShop continuation and diagnostic providers; explicit serial fallback (`return_gradient.bfcl_task_rollout`, `webshop_rollout`, `GreedyBackend.sample_action`) | Individual continuation/diagnostic actions; BFCL feedback starts can already batch | No change |
+| BFCL greedy diagnostic provider (`BFCLSupport.diagnostic_batch`) | Lockstep queries through the original `return_gradient.bfcl_task_rollout`, bounded K and token-budget sub-batches | Yes |
+| BFCL stochastic continuation provider | Starts already batch; continuations retain their shared episode-major RNG stream | Remains serial pending RNG-contract decision; independent-stream lockstep driver tested |
+| WebShop continuation/diagnostic providers and explicit serial fallback (`webshop_rollout`, `GreedyBackend.sample_action`) | Individual continuation/diagnostic actions | No change |
 
 This change requires a newly started process to use the edited modules. Existing
 ALFWorld V0/D3 and BFCL V0 processes were not restarted or modified; production

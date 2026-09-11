@@ -78,12 +78,12 @@ class BFCLSupport:
             self.states[h] = FullState.create(task, observed['question'][0], prompt, h)
         self._truth = {}
 
-    def feedback(self, parent, backend, parameters, generator, checker):
+    def _feedback_request(self, parent):
         from bfcl_eval.utils import load_ground_truth_entry
         tid = self.parents[parent]
         category = self.categories[tid]
         if 'relevance' in category:
-            return bfcl_task_rollout(self.entries[tid], category, [], backend, parameters, generator, checker=checker)
+            return self.entries[tid], category, []
         if category not in self._truth:
             # Only feedback uses official labels; no checker-derived selector features.
             self._truth[category] = {r['id']: r for r in load_ground_truth_entry(category)}
@@ -93,7 +93,23 @@ class BFCLSupport:
         truth = [] if row is None else row.get('ground_truth', row.get('possible_answer'))
         if truth is None:
             raise ValueError(f'official feedback truth malformed: {tid}')
-        return bfcl_task_rollout(self.entries[tid], category, truth, backend, parameters, generator, checker=checker)
+        return self.entries[tid], category, truth
+
+    def feedback(self, parent, backend, parameters, generator, checker):
+        return bfcl_task_rollout(*self._feedback_request(parent), backend, parameters, generator, checker=checker)
+
+    def diagnostic_batch(self, parents, backend, parameters, generator, checker):
+        from .benchmarks.bfcl_rollout import bfcl_task_rollouts_lockstep
+        from .benchmarks.interactive_diagnostics import diagnostic_episode_limit
+        if not getattr(backend, 'diagnostic_only', False):
+            raise PermissionError('diagnostic greedy backend required')
+        limit = diagnostic_episode_limit()
+        parents = tuple(parents)
+        for offset in range(0, len(parents), limit):
+            cohort = parents[offset:offset+limit]
+            episodes = bfcl_task_rollouts_lockstep([self._feedback_request(p) for p in cohort],
+                backend, parameters, [generator] * len(cohort), checker=checker)
+            yield from zip(cohort, episodes, strict=True)
 
 
 def assert_run_invariants(state, ledger, *, complete=False):

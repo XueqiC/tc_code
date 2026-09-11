@@ -305,16 +305,30 @@ def window_metrics(steps):
     return rows
 
 
+def _estimator_draws(records, sample, repeat):
+    scope = sample.prefetch(records, 8) if hasattr(sample, 'prefetch') else nullcontext()
+    with scope:
+        for i, record in enumerate(records):
+            yield i, record, [sample(record, repeat, i, j) for j in range(8)]
+
+
 def estimator_batches(records, weights, alpha, backend, start, source, step, checker, sample, *, repeat):
     """Shared 8 draws/state; diagnostics fix d=0 and teacher mass for all baselines.
 
     Syntax filtering retains valid hard sources; all-invalid falls back to soft.
     This is explicitly biased. It never drops teacher targets or exposure units.
     """
+    w, a = torch.as_tensor(weights).double().cpu(), torch.as_tensor(alpha).double().cpu()
+    if not records or len(w) != len(records) or len(a) != len(records) or not torch.isfinite(w).all() or (w < 0).any() or abs(float(w.sum())-1) > 1e-7:
+        raise ValueError('aligned frozen weights/alpha required')
+    if any(r.teacher is None and ai != 0 for r, ai in zip(records, a)):
+        raise ValueError('teacher-free diagnostic state requires alpha=0')
     baseline = {name: [] for name in ESTIMATORS}
     pairs, rejected = [], 0
-    for i, (record, a) in enumerate(zip(records, alpha)):
-        draws = [sample(record, repeat, i, j) for j in range(8)]
+    # Finish consuming the prefetch scope before scoring: failures or nested
+    # diagnostic generation cannot leave an outstanding source draw queue.
+    draws_by_record = tuple(_estimator_draws(records, sample, repeat))
+    for i, record, draws in draws_by_record:
         pairs.append(SourcePair(record, tuple(draws[:2]), (f'{repeat}:{i}:0', f'{repeat}:{i}:1')))
         hs, ss = [], []
         for src in draws:
@@ -329,12 +343,7 @@ def estimator_batches(records, weights, alpha, backend, start, source, step, che
             hard8={n: sum(h[n] for h in hs)/8 for n in start},
             syntax_filtered_hard2={n: sum(hs[j][n] for j in valid)/len(valid) for n in start} if valid else soft)
         for name in ESTIMATORS:
-            baseline[name].append(cpu_detached(estimate(sources[name], teacher, hs[0], hs[1], a, 0.)))
-    w, a = torch.as_tensor(weights).double().cpu(), torch.as_tensor(alpha).double().cpu()
-    if not records or len(w) != len(records) or len(a) != len(records) or not torch.isfinite(w).all() or (w < 0).any() or abs(float(w.sum())-1) > 1e-7:
-        raise ValueError('aligned frozen weights/alpha required')
-    if any(r.teacher is None and ai != 0 for r, ai in zip(records, a)):
-        raise ValueError('teacher-free diagnostic state requires alpha=0')
+            baseline[name].append(cpu_detached(estimate(sources[name], teacher, hs[0], hs[1], alpha[i], 0.)))
     zeros = tuple({n: torch.zeros_like(p).cpu() for n, p in start.items()} for _ in records)
     batches = {name: BatchReference(tensor_state_hash(start), snapshot(start), zeros, w.clone(), a.clone(), tuple(gs))
                for name, gs in baseline.items()}
