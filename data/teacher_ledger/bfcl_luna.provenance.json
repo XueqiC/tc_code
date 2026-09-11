@@ -1,0 +1,263 @@
+{
+  "version": "bfcl-gateway-ledger-v1",
+  "teacher": "openai/gpt-5.6-luna-FC",
+  "source_ledger": {
+    "path": "/home/xueqi/hq/projects/tc-alignment-g4/data/teacher_ledger/bfcl.jsonl",
+    "sha256": "389abead6e3eed7b58127ae77c338271d6e067fe724e971a744472b46348b377",
+    "timestamp": "2026-09-11T05:10:04.688463+00:00"
+  },
+  "source_lines": [
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215,
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248
+  ],
+  "split": {
+    "path": "/home/xueqi/hq/projects/tc-alignment-uni/configs/bfcl_support_split.json",
+    "sha256": "69fb6957da0dadc1ea773d8fbe1793aaf0fa6db71737e2e8821457b38bdefed2",
+    "timestamp": "2026-09-10T17:07:27.339433+00:00"
+  },
+  "pool_cost_status": "exact-gateway-ledger",
+  "historical_cost_status": "recorded-gateway-ledger; raw-harness-retention-partial",
+  "recorded_output_tokens": 228545,
+  "missing_usage_attempts": [],
+  "adapter_rerun": {
+    "extra_calls": 0,
+    "exact_output_tokens": 0,
+    "reason": "offline snapshot uses original gateway demo payloads; no target substitutions"
+  },
+  "attempt_count": 74,
+  "verified_attempts": 23,
+  "verified_without_training_turns": [
+    "memory_rec_sum_99-student-19",
+    "multi_turn_long_context_78",
+    "multi_turn_miss_param_1"
+  ],
+  "retained_harness_evidence": [
+    {
+      "task_id": "web_search_80",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_1e5d1b3bfc6e4695ae789eedacd10388/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "1ba9d0112629800296056c135f3645c00cf2d0ca321ff312450cb073dafb34d3",
+        "timestamp": "2026-09-11T05:09:44.464473+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_1e5d1b3bfc6e4695ae789eedacd10388/bfas_usage.jsonl",
+        "sha256": "1dc9e20881969933ba864d487e0e0c539a776141716ba8bd83ab2624cf32da98",
+        "timestamp": "2026-09-11T05:09:44.460473+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 111,
+      "journal_output_tokens": 111,
+      "ledger_candidate_rows": [
+        72
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "web_search_80",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_216115ecc06c4009b8fb893783789a00/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "ec7b3bd67c8cd6db0f87ec4eff08dbd5c554fa5e8002676398a81c5516fb3d48",
+        "timestamp": "2026-09-11T05:09:30.184480+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_216115ecc06c4009b8fb893783789a00/bfas_usage.jsonl",
+        "sha256": "f138f1f27c10cdd8e06a93f33c8635789b7cc62faa37ca783cc02c3eef26d54b",
+        "timestamp": "2026-09-11T05:09:30.180480+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 115,
+      "journal_output_tokens": 115,
+      "ledger_candidate_rows": [
+        71
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "web_search_4",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_4feb7b72add04389b4c9605406dbf4ca/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "8affc12f5fa5748aa7caae08325dd1a1b9a26ae7487b0c2c31eda37c11afe726",
+        "timestamp": "2026-09-11T05:08:43.796502+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_4feb7b72add04389b4c9605406dbf4ca/bfas_usage.jsonl",
+        "sha256": "8450e92131050c49d16852dfc8a1b68783849a43f4f4d47d71638354fba968b2",
+        "timestamp": "2026-09-11T05:08:43.792502+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 166,
+      "journal_output_tokens": 166,
+      "ledger_candidate_rows": [
+        68
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "live_irrelevance_686-223-1",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_a7ec9847278841b582ffc14555c8157b/openai_gpt-5.6-luna-FC/live/BFCL_v4_live_irrelevance_result.json",
+        "sha256": "8b06eaae27bf575b5678551eeefb99b5fe34d1112419abb2336a699bfb0fda7f",
+        "timestamp": "2026-09-11T02:23:54.235898+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_a7ec9847278841b582ffc14555c8157b/bfas_usage.jsonl",
+        "sha256": "0cad030718ff474a11b9151aa71f0a31c07a1373ef37eb1677ab223950811318",
+        "timestamp": "2026-09-11T02:23:53.483899+00:00"
+      },
+      "usage_records": 1,
+      "output_tokens": 0,
+      "journal_output_tokens": 0,
+      "ledger_candidate_rows": [],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "web_search_4",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_c68ee056f5804c19bb1d89a7adf892c6/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "bba4b5f52a78e01a179f4b97b690975b9b8d9f70f5f49f46a0a102b0fd82609c",
+        "timestamp": "2026-09-11T05:09:16.092487+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_c68ee056f5804c19bb1d89a7adf892c6/bfas_usage.jsonl",
+        "sha256": "72f0f3339cf55eb20537d5d5efddff4861b177b80dfefa7dbc6b970201825ecc",
+        "timestamp": "2026-09-11T05:09:16.088487+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 202,
+      "journal_output_tokens": 202,
+      "ledger_candidate_rows": [
+        70
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "web_search_80",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_cbb3ed64d65044b2a8f7d9ac096aa758/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "22bf17a28664caaf04824ddf873c5c89f2cba054c27ac6e047e08df2d018e95b",
+        "timestamp": "2026-09-11T05:10:00.336465+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_cbb3ed64d65044b2a8f7d9ac096aa758/bfas_usage.jsonl",
+        "sha256": "5b196040bcbe4851345db7d21b1b67b6d53cddd1f64f68ef941bf7f9770dff22",
+        "timestamp": "2026-09-11T05:10:00.268465+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 168,
+      "journal_output_tokens": 168,
+      "ledger_candidate_rows": [
+        73
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    },
+    {
+      "task_id": "web_search_4",
+      "result_file": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_f3d41a9509a44985a6c3cb5ef7697270/openai_gpt-5.6-luna-FC/agentic/BFCL_v4_web_search_result.json",
+        "sha256": "d8cc9f2772fd8109aee85946179ad6a43d1f41709a4cb3b13502ac1499016014",
+        "timestamp": "2026-09-11T05:08:58.348495+00:00"
+      },
+      "result_line": 1,
+      "usage_journal": {
+        "path": "/home/xueqi/hq/projects/tc-alignment-g4/envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_bfas_f3d41a9509a44985a6c3cb5ef7697270/bfas_usage.jsonl",
+        "sha256": "f6b3c34b09df32296f594afa9ecf6da7243f73a466fda06a0bebd06a7c2c20df",
+        "timestamp": "2026-09-11T05:08:58.340495+00:00"
+      },
+      "usage_records": 4,
+      "output_tokens": 130,
+      "journal_output_tokens": 130,
+      "ledger_candidate_rows": [
+        69
+      ],
+      "attribution": "task_and_cost_match_only; UUID is absent from gateway ledger",
+      "score_files": []
+    }
+  ],
+  "verification_basis": "gateway verified flag and serialized demo; no verdict inferred from missing scores",
+  "cost_basis": "gateway tokens_spent unchanged, including failures and generated prerequisites; no duplicate raw-result charges",
+  "ledger_sha256": "4cd86bb17bc2ae9aabcfef4467b63653a1de581f5a3b8cc7f22828a30ff59c91"
+}

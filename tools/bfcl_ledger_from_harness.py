@@ -187,15 +187,97 @@ def write_jsonl(path, rows):
     path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
 
 
+def copy_gateway_ledger(source, split, teacher, harness):
+    """Snapshot paid gateway rows without re-buying or substituting their demos.
+
+    Gateway tokens_spent already includes failed calls and memory prerequisites.
+    Retained UUID results are corroborating evidence, never additional charges.
+    Missing raw files do not turn an exact gateway count into a text estimate.
+    """
+    from bfas.ledger import read_records
+    from bfas.rtd.bank_build import ledger_cost
+
+    validated = read_records(Path(source))
+    demand = json.loads(Path(split).read_text())["demand"]
+    rows = [r for r in validated if r["teacher"] == teacher]
+    if not rows or len(demand) != len(set(demand)):
+        raise ValueError("nonempty teacher ledger and unique demand split required")
+    keys, verified, selected = set(), set(), []
+    for number, line in enumerate(Path(source).read_text().splitlines(), 1):
+        if line.strip() and json.loads(line)["teacher"] == teacher:
+            selected.append(number)
+    for row in rows:
+        ledger_cost(row, default_confidence="exact")
+        key = (row["task_id"], row["attempt_index"])
+        if row["task_id"] not in demand or key in keys:
+            raise ValueError("duplicate attempt or gateway task outside demand split")
+        keys.add(key)
+        if row["verified"]:
+            if row["task_id"] in verified:
+                raise ValueError("ambiguous successful ledger attempt")
+            verified.add(row["task_id"])
+
+    evidence = []
+    model_dir = teacher.replace("/", "_")
+    for directory in sorted(Path(harness).glob("result_bfas_*")):
+        model = directory/model_dir
+        if not model.is_dir():
+            continue
+        results = read_results(model)
+        usage_path = directory/"bfas_usage.jsonl"
+        usage = ([json.loads(s) for s in usage_path.read_text().splitlines() if s.strip()]
+                 if usage_path.exists() else [])
+        scores = Path(harness)/directory.name.replace("result_", "score_", 1)
+        for tid, (result, path, number) in results.items():
+            total = _completion_tokens([result])
+            counts = [u for u in usage if u["id"] == tid]
+            journal_total = _completion_tokens(counts) if counts else None
+            if total is not None and journal_total is not None and total != journal_total:
+                raise ValueError(f"retained result/journal usage differs: {path}:{tid}")
+            candidates = [i for i, r in enumerate(rows)
+                          if r["task_id"] == tid and r["tokens_spent"] == total]
+            evidence.append(dict(task_id=tid, result_file=source_info(path), result_line=number,
+                usage_journal=source_info(usage_path) if usage_path.exists() else None,
+                usage_records=len(counts), output_tokens=total, journal_output_tokens=journal_total,
+                ledger_candidate_rows=candidates,
+                attribution="task_and_cost_match_only; UUID is absent from gateway ledger",
+                score_files=[source_info(p) for p in sorted(scores.rglob("*_score.json"))]))
+    estimated = [dict(task_id=r["task_id"], attempt_index=r["attempt_index"])
+                 for r in rows if r.get("cost_confidence", "exact") != "exact"]
+    return rows, dict(version="bfcl-gateway-ledger-v1", teacher=teacher,
+        source_ledger=source_info(source), source_lines=selected, split=source_info(split),
+        pool_cost_status="exact-gateway-ledger" if not estimated else "mixed-gateway-ledger",
+        historical_cost_status="recorded-gateway-ledger; raw-harness-retention-partial",
+        recorded_output_tokens=sum(r["tokens_spent"] for r in rows),
+        missing_usage_attempts=estimated,
+        adapter_rerun=dict(extra_calls=0, exact_output_tokens=0,
+            reason="offline snapshot uses original gateway demo payloads; no target substitutions"),
+        attempt_count=len(rows), verified_attempts=len(verified),
+        verified_without_training_turns=[r["task_id"] for r in rows
+            if r["verified"] and not r["demo"]["turns"]],
+        retained_harness_evidence=evidence,
+        verification_basis="gateway verified flag and serialized demo; no verdict inferred from missing scores",
+        cost_basis="gateway tokens_spent unchanged, including failures and generated prerequisites; no duplicate raw-result charges")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--harness", type=Path, default=BFCL_ROOT)
     p.add_argument("--split", type=Path, default=ROOT/"configs/bfcl_support_split.json")
     p.add_argument("--adapter-demos", type=Path, default=ROOT/"data/bfcl_sft/demos_gpt54_adapter.json")
     p.add_argument("--adapter-log", type=Path)
+    p.add_argument("--source-ledger", type=Path, help="copy existing gateway purchases instead of reconstructing batch attempts")
+    p.add_argument("--teacher", help="exact teacher filter, required with --source-ledger")
     p.add_argument("--out", type=Path, default=ROOT/"data/teacher_ledger/bfcl_gpt54.jsonl")
     args = p.parse_args(argv)
-    rows, sidecar = build_ledger(args.harness, args.split, args.adapter_demos, adapter_log=args.adapter_log)
+    if args.source_ledger:
+        if not args.teacher:
+            p.error("--source-ledger requires --teacher")
+        rows, sidecar = copy_gateway_ledger(args.source_ledger, args.split, args.teacher, args.harness)
+    else:
+        if args.teacher:
+            p.error("--teacher requires --source-ledger")
+        rows, sidecar = build_ledger(args.harness, args.split, args.adapter_demos, adapter_log=args.adapter_log)
     write_jsonl(args.out, rows)
     sidecar["ledger_sha256"] = file_hash(args.out)
     args.out.with_suffix(".provenance.json").write_text(json.dumps(sidecar, indent=2) + "\n")

@@ -1,4 +1,4 @@
-"""GPT-5.4 ledger/pool ingestion using the native student row converter."""
+"""Paid BFCL ledger/pool ingestion using the native student row converter."""
 from collections import defaultdict
 from dataclasses import asdict
 import json
@@ -41,10 +41,13 @@ def build_bfcl_pool_bank(root, directory, *, pool, ledger, config, entries=None,
             adapter_rerun_extra_calls=provenance['adapter_rerun']['extra_calls'],
             adapter_rerun_exact_output_tokens=provenance['adapter_rerun']['exact_output_tokens'])
     rows = read_pool(ledger)
+    teachers = {str(r.get('teacher', '')) for r in rows}
+    if len(teachers) != 1 or any(
+            t.removeprefix('azure/').removesuffix('-FC') != 'gpt-5.4'
+            and t != 'openai/gpt-5.6-luna-FC' for t in teachers):
+        raise ValueError('BFCL pool requires one GPT-5.4 or luna teacher ledger')
     historical = 0
     for i, paid in enumerate(rows):
-        if str(paid.get('teacher', '')).removeprefix('azure/').removesuffix('-FC') != 'gpt-5.4':
-            raise ValueError('BFCL pool requires GPT-5.4 ledger')
         tid = str(paid['task_id'])
         total, confidence = ledger_cost(paid, default_confidence='exact')
         historical += total

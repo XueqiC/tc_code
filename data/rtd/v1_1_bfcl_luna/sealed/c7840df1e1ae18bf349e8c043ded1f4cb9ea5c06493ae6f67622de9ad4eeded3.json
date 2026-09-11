@@ -1,0 +1,78 @@
+{
+  "cost": 33,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 33
+  },
+  "provenance": {
+    "task_id": "simple_python_156",
+    "ledger_row": 66,
+    "verified": true,
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "simple_python_156",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 33,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T05:08:21.253971Z",
+    "demo": {
+      "turns": [
+        {
+          "prompt": "<|im_start|>system\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"name\": \"crime_record.get_record\", \"description\": \"Retrieve detailed felony crime records using a specific case number and location.\", \"parameters\": {\"type\": \"dict\", \"properties\": {\"case_number\": {\"type\": \"string\", \"description\": \"The case number related to the crime.\"}, \"county\": {\"type\": \"string\", \"description\": \"The county in which the crime occurred.\"}, \"details\": {\"type\": \"boolean\", \"description\": \"To get a detailed report, set as true. Defaults to false.\"}}, \"required\": [\"case_number\", \"county\"]}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call><|im_end|>\n<|im_start|>user\nLook up details of a felony crime record for case number CA123456 in San Diego County<|im_end|>\n<|im_start|>assistant\n",
+          "target": "[{\"crime_record_get_record\":\"{\\\"case_number\\\":\\\"CA123456\\\",\\\"county\\\":\\\"San Diego County\\\",\\\"details\\\":true}\"}]",
+          "context": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Look up details of a felony crime record for case number CA123456 in San Diego County"
+              }
+            ],
+            "functions": [
+              {
+                "name": "crime_record.get_record",
+                "description": "Retrieve detailed felony crime records using a specific case number and location.",
+                "parameters": {
+                  "type": "dict",
+                  "properties": {
+                    "case_number": {
+                      "type": "string",
+                      "description": "The case number related to the crime."
+                    },
+                    "county": {
+                      "type": "string",
+                      "description": "The county in which the crime occurred."
+                    },
+                    "details": {
+                      "type": "boolean",
+                      "description": "To get a detailed report, set as true. Defaults to false."
+                    }
+                  },
+                  "required": [
+                    "case_number",
+                    "county"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "worked_example": "[{\"crime_record_get_record\":\"{\\\"case_number\\\":\\\"CA123456\\\",\\\"county\\\":\\\"San Diego County\\\",\\\"details\\\":true}\"}]"
+    }
+  },
+  "behaviors": [
+    {
+      "state": {
+        "task_json": "{\"function\": [{\"description\": \"Retrieve detailed felony crime records using a specific case number and location.\", \"name\": \"crime_record.get_record\", \"parameters\": {\"properties\": {\"case_number\": {\"description\": \"The case number related to the crime.\", \"type\": \"string\"}, \"county\": {\"description\": \"The county in which the crime occurred.\", \"type\": \"string\"}, \"details\": {\"description\": \"To get a detailed report, set as true. Defaults to false.\", \"type\": \"boolean\"}}, \"required\": [\"case_number\", \"county\"], \"type\": \"dict\"}}], \"question\": [{\"content\": \"Look up details of a felony crime record for case number CA123456 in San Diego County\", \"role\": \"user\"}]}",
+        "history_json": "[{\"content\": \"Look up details of a felony crime record for case number CA123456 in San Diego County\", \"role\": \"user\"}]",
+        "prompt": "<bos><|turn>system\n<|tool>declaration:crime_record.get_record{description:<|\"|>Retrieve detailed felony crime records using a specific case number and location.<|\"|>,parameters:{properties:{case_number:{description:<|\"|>The case number related to the crime.<|\"|>,type:<|\"|>STRING<|\"|>},county:{description:<|\"|>The county in which the crime occurred.<|\"|>,type:<|\"|>STRING<|\"|>},details:{description:<|\"|>To get a detailed report, set as true. Defaults to false.<|\"|>,type:<|\"|>BOOLEAN<|\"|>}},required:[<|\"|>case_number<|\"|>,<|\"|>county<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n<|turn>user\nLook up details of a felony crime record for case number CA123456 in San Diego County<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "12938679499ff0a4ba33c02bf532042b2c39e9d7fad47d6aae9fe5acd3e02bf2"
+      },
+      "text": "<|tool_call>call:crime_record.get_record{case_number:<|\"|>CA123456<|\"|>,county:<|\"|>San Diego County<|\"|>,details:true}<tool_call|><|tool_response>"
+    }
+  ]
+}

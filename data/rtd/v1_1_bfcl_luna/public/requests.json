@@ -1,0 +1,1334 @@
+[
+  {
+    "dependencies": [],
+    "parent_hash": "fdfbe76ec2577c4737496747fb266b28739e0978a78501e80d187b123b917b5f",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "404762b26128ad880855b515cae44d9d6f9fed81f2c7bfa3ed1723696bcb3d6d",
+      "state_hash": "ae6a84e82cda0677e2536ce2ca971f8f0637bd6e39173166b2c84fc4764073fa"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "57ab3ca03bff4a5e7efe71e858a3f8e417ad9c45fdfc778a2a58d6a42a5b13b0",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1cd03eb6f6b46dacc8f49739c74d7a41ec2db20fe008c82550603307b123b06e",
+      "state_hash": "91a263f5e28a1a2199f9b2187ac7d86bfaa35c5706beebbebaa6caad282926c9"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "f2b70f584f0579c6f340875d41d9f5c51297ab4a460ff891f8047dbcf1604c1d",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "d6c2ca26bb484ae2ae028f2c30f4b5b61840f830d7983abfb8b78931c1d87f73",
+      "state_hash": "3e72c9de220ef67d3ed3b59051b5ed7ee5641f50954d97656b371d168639969b"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "2f6d5712e34e2c9a47488162e7cc52bb13d799de1d97fdd96658a59e9ea966fe",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "05d926ff0ee3873e45ee32d2546d98c694e08fedbf343bbfc37e898c6d046fbf",
+      "state_hash": "bf7a32fa0c3e7b6770989c418f56590f6063559e5e8949488b451435edd3767d"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "228db8e32c972531ec4bf0dfba59a1e6951429bb3a0a2066e41a6f107efcc894",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "71aada7507e14a28418287368e6d63800d1eff080790099bd9ad4e8c79f0b7a9",
+      "state_hash": "407eb2e23dd474f4fe06d687ca2f9ff1a33171f0cea0a63beeb178b41967accd"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "e22799a5f6c5303287d0a8896c0a8610d3caba08791d08bcbedc04e3f19cf5de",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "cb30b40ddc90b6e6b69d346128b5fe17c70616ce605af3b3fba99d21be4ae8eb",
+      "state_hash": "72477b682e2b3309097b13388f65aa9622182b3fc22fcea721cb9d9fff9cfc01"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "e22799a5f6c5303287d0a8896c0a8610d3caba08791d08bcbedc04e3f19cf5de",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "44eeccf069bb4852a42d6fa71e0d86a7d1a7069d08673ecab744f23f2d7eca41",
+      "state_hash": "6bd2c7768888d0582e6fb3505f8976885a1e6a7e13ef5cd9bb58ebe0e903ee81"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "e22799a5f6c5303287d0a8896c0a8610d3caba08791d08bcbedc04e3f19cf5de",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "85ff12fb8ad20a5efa10f20bfc6d21770c96f046f8d9c2fbc84593798fc2a9ba",
+      "state_hash": "8a7385ff49e04aedd290a1d15eef049b32da30209bad2cd77440c8cefbae42d1"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "90526be7704c51cdba2e6c2100b9384d4f9cabe28e54ded3d08518680936dc3e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "a1ee16e9c1d3779b57df9958badaf6344fd02d69058b5026adfab90430701629",
+      "state_hash": "1a7acd6b605e5042c8803f65f17dfe06c3b6936465fbbe03557c892f007075b0"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "37a495bf990befd5f84e0f3cc87c24e6cadf3c4fcb6c3a120209b21a4efdb740",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 66,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1a3c72defd5eba79ec70925c06bca5649df5274c2bc7470335f0e6a284938f34",
+      "state_hash": "5537da48aaaeecabdb04bf0dbe25f999afb9248e2f8340dccac1405b46d9eb80"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "37a495bf990befd5f84e0f3cc87c24e6cadf3c4fcb6c3a120209b21a4efdb740",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 66,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "c0cd1f1b5717b2be0d552e7440a40bcb1577c4847e039bb4fe1e6dc92a0ca869",
+      "state_hash": "3433283de01b5300e275ae75e84af11fbaf470b626c1310d728c78fa0aebf006"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "37a495bf990befd5f84e0f3cc87c24e6cadf3c4fcb6c3a120209b21a4efdb740",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 66,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "cc7d70a28b766de5555a69a1fa43e724e6a111eb21a2230ef15e83bacce7965a",
+      "state_hash": "00b28fec8639b8497b1e4c1a6f93544992a7ac31c00ba686fc77a5bc50bf0e4a"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "cd71fb35d29db50ba9dc456631adb23c8dc1648a449399e48176788fc5773b76",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "d972482448ff9114a2e47315aef95e613cf82e11ff934f745583a826a9825a0f",
+      "state_hash": "396934810c60ca79ffe4d91072aba66552594a2c8a8344f633422dfa740239b8"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "8418b335ebd8ef14a788953ef5190b05fd44b711ebbac447e8d377b68601558b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 32,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "2d64cb98ec4c2c55cc61fcf8b9a62688930c6f9a8a5692508115ebec22f45f49",
+      "state_hash": "86aabedcc1f32980d44d17bc606be9f5f653b2b49ec2be3c079a884c192ee8ab"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "8418b335ebd8ef14a788953ef5190b05fd44b711ebbac447e8d377b68601558b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 32,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "435117aac98e36618ab8cb4a2327dddf4f21673d94f1e4021b95be2a118fa08d",
+      "state_hash": "45d0d8ac10f25c1d49470b4ab7edd1b47683ed6c16d80beafd60290010b60bca"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "8418b335ebd8ef14a788953ef5190b05fd44b711ebbac447e8d377b68601558b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 32,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "09dbff5f521a7c1afc4c5ab9de5a0010e4db920e8451d04d7136a8e77ad5b633",
+      "state_hash": "768297c208668ed31eae8c20ee8c431db7ff80ef4393dad6b6bf1431ec06291c"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "4107b612f3ee8746a46c700b09c301e73532df39e7e50a878f2b8fc775145e6d",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "c062ec8011082c0a5018faa4958fa529ed8ca56fe8e0fad5847f86ef3fe19581",
+      "state_hash": "3d0dfec61b64ba94d404a12a7abb55beda5eb3ec566cae236ccfe903a9af5d42"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "83a37e45e1e65b95dc969392d959fab89a019f33e5d9c88cec93de48cb9972a5",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1d25f1853f51bf726d443d18c51e334499507250771ebf25c6ad03d29450317b",
+      "state_hash": "45604b3e2f4318e832b05bd5979c5bc66588ceaa963479f4d84727c2538604b2"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "201bf38583812ee61e7c144163e9bf78ae1a38f8581f10305881d4cc3a17956e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 30,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "c64c54fb2c256b8b918b484634c5ec16ae1eefb460999ead9a4f7df375872e24",
+      "state_hash": "f1fe60c4423e96170b63b94d55a2127bd7427a6bd220cae5a0df855b5815b60e"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "201bf38583812ee61e7c144163e9bf78ae1a38f8581f10305881d4cc3a17956e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 33,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "a2c5ab7f85a2b6f44e68f2eec2669ea2c0a1cc493417c5fdb2b2e38df73c94ca",
+      "state_hash": "4ec35c0eef3252b9a929532e9ed54d3320b032c3acd4242a911da0b7ec7116a6"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "201bf38583812ee61e7c144163e9bf78ae1a38f8581f10305881d4cc3a17956e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 50,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "73eb6f42f029eed1e2a7ae669634d28283ba7dd421cb178e4c7490c156950be9",
+      "state_hash": "3f630f75ad917ea5c94c0f6a2a017b3f5436f7ad659a579ddb910bce8efbd951"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "cef6d45857c7a119737bfcfd29237fbaf611eba5a77189df69461ae8c908cd00",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "f39b24e8aa658ccc2f96646ba2fee950cd1f2a27ab74a35d0dabaf598a7a7ad8",
+      "state_hash": "9bb2946bc94100305eda9ba7b13987e9e52d4b39e273ebfae10f7ffa5165b451"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "2b6ca7a4d5a8b2b63be4e47f819263ae9dab56e17431592d0342ed4b26e1b04a",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "12fed36023ec706e574804972fb00f70dea56406b87b15d80c6fdf2d6821c648",
+      "state_hash": "941dc1133521e213af5224fb4229e7943bb5a4fcc18f134753243db04c192002"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "b61a3830904c44060f75dae7ab5e37790e3d1f97ddf43e8a1d7f7d10aa40fd49",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 38,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "94014000b04c7429440071c395b0cf183601e1609f2d57cd3b82ed904765533d",
+      "state_hash": "7277191a6c52b681567341da0ce016470d59938a2b55c525e4569f7ef594c26e"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "b61a3830904c44060f75dae7ab5e37790e3d1f97ddf43e8a1d7f7d10aa40fd49",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 38,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "8f799273a09eb2830f03756d33ff28559a23ad44b9b1928bdf330fcd0e128aa5",
+      "state_hash": "3a0c9aea58faadfa8a5a96575540a2f6da2cf6327589d94b2015a0a0ae8cc5ec"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "b61a3830904c44060f75dae7ab5e37790e3d1f97ddf43e8a1d7f7d10aa40fd49",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 38,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "42afa7a3aafe3f8ac5cf24a4d6d0c4ee571672fedc460703d211eb0f18d429a5",
+      "state_hash": "df4dbcfdf4dfc61bd44ad661cd6ffa2b6c7084fe2594427a3bddc4227c52a978"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 4203,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "fe06ac934974c1b0b47fd5296f1e77d111df1cf3a3dd5f77d1db3c17cff244fa",
+      "state_hash": "a3488fa682a480cb9afeeabf053eb70e33b684de5d62381b646068ad5e1b3579"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 4325,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "9eeddc93e990c7e6abf2a5b49c93781d2a0b927f77f95a7cbe62b7bbf44b4860",
+      "state_hash": "df251e8142807b535ec8a2c32081cbf1b1b12eddce7fd50f1ef7b5a190b4be8c"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 3942,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "0d60e835ddfd7b46dabc9f07e22b22587d48fe04ef2da87c3fdd3fc761562c44",
+      "state_hash": "fd3e02346aa295931b37ca8a54d36517d54d19c386144d457401c4e45701cad0"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "5eeac407cb2da76686819be849f5924ae0394e5203fd2f47f8b470b8e622f2d6",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 7718,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "af7de147593de44435839e152495811b59bb51ac59ac1814eb18f564ca322618",
+      "state_hash": "1380b85399b510012572ef1b85de425c449cdf39afc7af264c5f5053bb03e688"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "5eeac407cb2da76686819be849f5924ae0394e5203fd2f47f8b470b8e622f2d6",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 7578,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "42c57af88bc5bfdff10228bfd895fb223fe13ce9e2916274059ce057800bf2c9",
+      "state_hash": "b10ecff52f7d0d81fb24465710a5a6ec6e159892108a7ee511e02e37b330de1f"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "5eeac407cb2da76686819be849f5924ae0394e5203fd2f47f8b470b8e622f2d6",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 10337,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "cccb73ce6000975b8c380f6e815fe16150a54fec975586836a84f0d4d19f4217",
+      "state_hash": "d3900ad4e84b926497c31a95e67cbe471fb447f087fcd4546e70a4ac355db6b8"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "7ac30b5c77cffbc5fa09e97cf29201f46ffb9cbbbdd7a129c6be5d181d5210c7",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 25826,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "6e38d74e8edf15f9d84f7da1267bc798dabfcd713e67bc893b578556c232f554",
+      "state_hash": "549be0928213dac8c5fe57af080f4755ba78906e81ff9fa6d7ab1df69a8bea4b"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "1fb480470de98f834e63dc09424637e6f9efa8c10ec7ea2302c55de23aa5d907",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 25091,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "bdcb3b62642993b8dad512032ac622e221be26225e017a7e4e0343974e6f18d6",
+      "state_hash": "815d764fcf3306f23364a4b34b539753119b8d144dba701bd31ebeb888f61ac7"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "1fb480470de98f834e63dc09424637e6f9efa8c10ec7ea2302c55de23aa5d907",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26773,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "22ba3e923c87d1145f2da0c779781b77e18c5182c3db20df7b8f0c6f558038a4",
+      "state_hash": "8db9fd50a91312d2139d093b0f3a3fd8d8afa148f01c5afdd78fa7a1046e7cd0"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "1fb480470de98f834e63dc09424637e6f9efa8c10ec7ea2302c55de23aa5d907",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 24461,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "115d7577332add5d2403cd519810804927656f920337f70db834e9b1897e489f",
+      "state_hash": "5d6359150d9b7361c52870466905d447ef5091df928e74c2b2a7f7899eb13287"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "f2db27658c623405eaa3e1c9b59a995bc201fa7e09bc2b8147e1beec8aa01c8e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26757,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "f1c6cd6b90790984910226df3b23f78159ee26fbd1556d4a264c93fbf6d4eaf0",
+      "state_hash": "42d5727bfddbbd3359e4fbd1c4e9715a982aa986a178d2c567233d5b1c6ca2e3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "f2db27658c623405eaa3e1c9b59a995bc201fa7e09bc2b8147e1beec8aa01c8e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 26698,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "70570207fd0499d3bb5622fcf4216a4342f5abd7041a838768117b8dd27ef9b6",
+      "state_hash": "29999f38ad285a8ca933ea832af7c7991af44647178488be38679be3e22ffddd"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "f2db27658c623405eaa3e1c9b59a995bc201fa7e09bc2b8147e1beec8aa01c8e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 27423,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "9707253453da5727f9a0b39cf70011e520ee06d08c120732c51da0ff47f6aef9",
+      "state_hash": "0cb64fc5547ef371cbccbb1dc00d77bbd4e04cbf7da8873dfcdeeaf733901a2f"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "6d15727664e56155d09f010c8d12aa27fb5fd2d1541d5b2ae1b3a33eee8ed508",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 380,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "85c251929b3fb1832ae4999d924ecc0895fd8b926f58b87654853f43970a31bb",
+      "state_hash": "241b410e2f2f32f8a3b2d7ae7929cf181216844d12ab60b1478caa8f47c7c767"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "6d15727664e56155d09f010c8d12aa27fb5fd2d1541d5b2ae1b3a33eee8ed508",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 455,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "372d0f476953d02f1888b43fa2524ccac2a950c8af11c68e85a56fc0ea5cda89",
+      "state_hash": "4a09a6dff4513dd760dc9bc1e25ad877608ae855799650566377594f2e603ff7"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "6d15727664e56155d09f010c8d12aa27fb5fd2d1541d5b2ae1b3a33eee8ed508",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 456,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "43125c2b386af2041f27435fafd2a8f90b6aa444be4e1e78fa3d081f0f1c16dc",
+      "state_hash": "d76e442d595ecc00534359c07cca71e5e80db39c94a97535b95f3c2865c05cc3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "90fa47cbba3bc559e5e5127b70a4c48ad6742f50eaeb021be34b266fd43fdbdf",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 202,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "cb068df1c6ec4e6d08a9ef6586744e4d798744631e05b599bed19495e9b20c5c",
+      "state_hash": "24fa3b7825efffd3f9965634ca1cbc8851835105bfdec9d693c0cd5b830463f6"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "18a12b5049a90ed218484bdea60d020478a59d1db7e5a45edafa71dd67b6d3e2",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 322,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "972466c241eac04ccf1b4bbf6b705786b83af719861191149d09d83148406e40",
+      "state_hash": "e5ad089f812d931a99d90e501bfcaa989cd3a5856f5b0e1f48e5a0088744f4f0"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "18a12b5049a90ed218484bdea60d020478a59d1db7e5a45edafa71dd67b6d3e2",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 298,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "be089c3825c2c453c64b674b7316685eb05e3b11e45faa428a8d0d366b2f4dd7",
+      "state_hash": "d48a84644c5043c242ad94100cadf5dcc0acbe8f8d4ef997eb9264b4a38bcff3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "18a12b5049a90ed218484bdea60d020478a59d1db7e5a45edafa71dd67b6d3e2",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 253,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "fffe8d28d46938f1f50225d21527aa8d553a2e42de576e3010237def03e47885",
+      "state_hash": "4e44f181be1132da517843d7cc2ce0bc467bf05b8e4a02db3108478343a7fc5a"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "4f7e63b1d95de0ade8780ee6dd98e975954c1c2ba9becc3d66b8ca71ccf753ac",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 226,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "70e2c6b71549d32aed5606d79282ef2cf2821bf7502cb898aa1eebc6fd0a901d",
+      "state_hash": "1b66a0a1997f3901dd19485d929bbc14df2ab2a6662f6765402618586d71fe42"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "4f7e63b1d95de0ade8780ee6dd98e975954c1c2ba9becc3d66b8ca71ccf753ac",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 368,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "dfe2359f5f3eba7f819b4374d8993e3e6b8a628035974601da4ba6b6b56583db",
+      "state_hash": "31afd7ca187d05a9b286ade22662a9403abe6f6c9da05a6412f4c709bf5be5db"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "4f7e63b1d95de0ade8780ee6dd98e975954c1c2ba9becc3d66b8ca71ccf753ac",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 298,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "6e81bfd6fa30ee0e3fc491ce79f71f80f21509b58499c20bd54a5aebf934ec10",
+      "state_hash": "d816ff07e5532f7eb83b22e77261bb428781d171e4b5aaa63f881d17a1d130d9"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "181629ea53cf662bb97e3dd172604ed1171d4f8ffd93878c0ebf8565f48cab5e",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 382,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1862d2ffcc3783b97110e5222cc8a756a38c2b8a2b08e8b00ed046de477d1d6d",
+      "state_hash": "c03ac6adefa135a9cc4d98bec217f097752d2dfbcb6894e08cc3ae63a5d7e190"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "44a99deabb82b8b1e19f94539dc70ac7367582d6ad783d5ac9d5ac01053aa2b0",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "400ed965ff27980c716fcfe80d3884ecb206bd93920ca61e76aaf31461b1fa19",
+      "state_hash": "fbca923ea4ec8d55b8291f419d1d65c5f415e64e2979330cfdeca9dc71ea3b5b"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "be67c3770bd19db790bf3cced364a3d6a4e1157b161f6c1d8079cf54ace1c1a5",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "003d1d22c2d3f80af0460820476d58d6e85ddab0edc768dadd307c71bf5da65b",
+      "state_hash": "220a0a3b40707041900fce84880864bd0135814535945bb2cd206e7633da6583"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "b67f184cd7f9cfaeb1e8f7b5e558ed7088b75543a6bb7a8bb23fa6d4f7ef4cd3",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "5307c29d75c294986a6de37da5e0c1f5c27e5301813cbcca33e9668f905249ec",
+      "state_hash": "62fa41853d159d9d00f8df862ebbd0f0c4b5df964016e8acec7c7b9017859d4f"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "476b24923ac4902aa4f11106735eb776eff9b0dca20db7d9d58d7a204f909b13",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "8ce0c793cfd8599f0442533aa313c308ec0d4aab682afcd926dfe2695a2e6686",
+      "state_hash": "35bc9dd1b783e45d55bc806303fe4f1544501b7470148a159fb2cbe87f7ad9de"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "c60ac21b6b103fde566d6bc625097921fb6e41b4530d1c707138c005c3eef4f1",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "d8916d37d9b9ae276f847f8f8a8c24277e8070998ed8764aef69ed90a4184519",
+      "state_hash": "10643a5f15312b420a5f362492614987feb0c20c19d3062a8011110c21ce9ccc"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "3e9bbd1200817af003a63c03c04d0d3135be4c408fdd1f3a2385d03e7988d939",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 128,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "cef90c39cabe5f2381fa7438bf24b47a57cdc86058eb2b1aab61e893a248a2af",
+      "state_hash": "10d98dcee2987057fb2ec619e249a93e16f20b3ced06cce45bd5a42c628c5eb0"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "3e9bbd1200817af003a63c03c04d0d3135be4c408fdd1f3a2385d03e7988d939",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 128,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "ecfe7fd916cbbe49f3cfbc6e5bd10540f717c15a2e3e62969447673c86f50b01",
+      "state_hash": "ed1489cc8fe55c0b904d364c8213229a59ac4a510526a97286d32b33635f7fb3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "3e9bbd1200817af003a63c03c04d0d3135be4c408fdd1f3a2385d03e7988d939",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 128,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "3a932cced9212d554342e8196ca90154f290660095d83f2608d3e743b672fd6e",
+      "state_hash": "8ea4aa68469ff748213a28aa0823609d73894b80cfe0fdf61bf83cd616698449"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "dc6665459258e9c0227be50432ef319ecc2a533ad32b95946de4cc6582940835",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 44,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "2dec9794a89fbbd217b5079f700f0ee48dd698b3341605fa9d2ffd8aa67c1cdf",
+      "state_hash": "c74a76d06a038b526e8fb2d80cf36dbbc1b00277564d488e30f109a23e5230b3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "dc6665459258e9c0227be50432ef319ecc2a533ad32b95946de4cc6582940835",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 44,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "991a14083f5197bf17d35d9821d65f55549ac99df737a7bcad7c6ed1f6cb0647",
+      "state_hash": "40c5be1c10db5d8ca3e94e6f86feb726b83fcfee36b8a7b51102f223076e7fb3"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "dc6665459258e9c0227be50432ef319ecc2a533ad32b95946de4cc6582940835",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 46,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "e5ddb003e2f70f6c4da3ef24f4429f91c314124d82b62018d17cdb2f61b20baf",
+      "state_hash": "a334081512a7d57f9a7ef6fc7e7a42740c184019c29f7668144c6f8d3464692e"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "7b1d3828c7d8dbbd4d29dd2903cf65200e16a5adebf1ec8c087dff83af47fc74",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1ff26e50fd6e10d88f79f927bca8eba405cb49634112a37a80e62a0774393da6",
+      "state_hash": "5ecf299c1373af9ba55c7574b84aafbcea9cfadb5fea1a14e7fac5b18440a127"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "95d802a8419a067cc8be258d4b179bea9d8d42eb798081992f2d174514c9292b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 20,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "807f7bf0a8a6117b846c7c6137e3b1267f5d4be4bdaf9614259264a9302a6c13",
+      "state_hash": "f8d839d2087f7fe048840fbe89a1c505e6b9c17e18ee6a8c4168c003eebf2ab1"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "95d802a8419a067cc8be258d4b179bea9d8d42eb798081992f2d174514c9292b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 108,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "65616826e63e325144006a515e01c5e0b907c9c8d7671adcf3b3b2186c2a69d7",
+      "state_hash": "c863773a6d5afe3dc5687d4f7ec801aee78bc397cb630991481201b8923e35f7"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "95d802a8419a067cc8be258d4b179bea9d8d42eb798081992f2d174514c9292b",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 218,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "11d6709d3964ab6054df82a0e0a8f35e8e208944a31f072a03f2c7631baa0654",
+      "state_hash": "e032a7372b66f13bf5bb3c37791ab01f8e4f9aea5bd574414691a2a6d1a07ef7"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "c1cf12e70abfaba2c1fc8e7a9ad7c629137010325ad5d971ff4c00481fe2075d",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "1b954fe26396a38ff385b7d39fea962733bcc1b962056489c312c4aa07da3124",
+      "state_hash": "cf4dd2ed27809bd88c5c137261867a6049b47cdf1fe7441ed732917e95528564"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "12938679499ff0a4ba33c02bf532042b2c39e9d7fad47d6aae9fe5acd3e02bf2",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "c7840df1e1ae18bf349e8c043ded1f4cb9ea5c06493ae6f67622de9ad4eeded3",
+      "state_hash": "1aa5f9b1848bdd3071a321e4ebd4370a52635f42059803f0aab395b1f50844fc"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "af48b0cd189788b5aa6dca5834821babc7b00ba25f68c5bc6db29507515940bc",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 256,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "a41f4950991687248e006a5d5ea61a742841b6caabc959005f8595b5d8f416b4",
+      "state_hash": "caf0b57a255aacd045c3dbb8791fe9f97efb04da5d009045b55c0dfc8c49426a"
+    },
+    "unavailable_reason": null
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "99f772fe82015fc73776a6dab276ea0449707a20351e5dc93bad32f2d50b6fa0",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 166,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "5ac98a8b0477473f9571bbf3cdcaad08653199d7675060309b14c73e42a7340c",
+      "state_hash": "fac9f52a4030aeea68514bdc81e4574acc9bc7875dfa12204c7f486d43b288eb"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "99f772fe82015fc73776a6dab276ea0449707a20351e5dc93bad32f2d50b6fa0",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 130,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "749a4e9aa3d5eaa2bbbd0135f67a8d33043a12904ee28110696d8b1de96f586e",
+      "state_hash": "c0d58271a2d12a7b8ab5d1a229372cebffafa014382ac9e8bde30fff2d2ea2c6"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "99f772fe82015fc73776a6dab276ea0449707a20351e5dc93bad32f2d50b6fa0",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 202,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "b19ca67f499eaac55efb76e1ea8c570583026213dbb2f4e2b8127c5947cc0227",
+      "state_hash": "a09ec852e35c187d1952e8fc9c759e125bdcc202cbf039a4fd5af3e395d07069"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "a257c46a5cfb98cbdb62af30fcbe3325a1f00f25c221dcbbe16e9b109cc396c5",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 115,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "9c72c134e4694ef3275f146b6631fe1097f82b0eacc8e3b139c35d34dc6daf3a",
+      "state_hash": "bde65d7f421c06a49452adfdde24ab1694ab70f66dd3707b731166aca47ac8ab"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "a257c46a5cfb98cbdb62af30fcbe3325a1f00f25c221dcbbe16e9b109cc396c5",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 111,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "2b711e1cb1f334d587a29b50ee6b5d3dab306a0b868672dcc9449d82725996cb",
+      "state_hash": "e396888d2d0f64b8e9abf016642e711562738b61c5ba051f59fa43c7bd7c443f"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  },
+  {
+    "dependencies": [],
+    "parent_hash": "a257c46a5cfb98cbdb62af30fcbe3325a1f00f25c221dcbbe16e9b109cc396c5",
+    "spec": {
+      "L": 1,
+      "cap_provenance": "{\"request_class\": \"demo_attempt\"}",
+      "cost_confidence": "exact",
+      "cost_upper_bound": 168,
+      "features": {
+        "projection": null,
+        "source_length": null,
+        "source_logprob": null
+      },
+      "query_id": "737279cfb0aea32cad0f8b5cbeca863f01772f84d570de9cf44633a80b546f87",
+      "state_hash": "890c3f15c64992aece666d6471be073d37ea9e51bafd4044fc67e3d35b06901d"
+    },
+    "unavailable_reason": "failed or absent/protected demo"
+  }
+]

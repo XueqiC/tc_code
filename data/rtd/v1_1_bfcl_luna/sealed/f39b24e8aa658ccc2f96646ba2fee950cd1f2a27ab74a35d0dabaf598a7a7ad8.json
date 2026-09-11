@@ -1,0 +1,74 @@
+{
+  "cost": 28,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 28
+  },
+  "provenance": {
+    "task_id": "live_simple_20-4-0",
+    "ledger_row": 21,
+    "verified": true,
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "live_simple_20-4-0",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 28,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T02:41:21.876909Z",
+    "demo": {
+      "turns": [
+        {
+          "prompt": "<|im_start|>system\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"name\": \"change_food\", \"description\": \"Modifies the food item based on the customer's request, such as changing ingredients or preparation methods.\", \"parameters\": {\"type\": \"dict\", \"required\": [\"food_item\", \"modification_request\"], \"properties\": {\"food_item\": {\"type\": \"string\", \"description\": \"The name of the food item to be modified.\"}, \"modification_request\": {\"type\": \"string\", \"description\": \"Specific request detailing the changes to be made to the food item, such as 'no peanuts' or 'extra spicy'. If there are multiple requests, separate using comma with no space between comma\"}}}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call><|im_end|>\n<|im_start|>user\nI would like to order a burger with the following modification verbatim: no onions, extra cheese<|im_end|>\n<|im_start|>assistant\n",
+          "target": "[{\"change_food\":\"{\\\"food_item\\\":\\\"burger\\\",\\\"modification_request\\\":\\\"no onions,extra cheese\\\"}\"}]",
+          "context": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "I would like to order a burger with the following modification verbatim: no onions, extra cheese"
+              }
+            ],
+            "functions": [
+              {
+                "name": "change_food",
+                "description": "Modifies the food item based on the customer's request, such as changing ingredients or preparation methods.",
+                "parameters": {
+                  "type": "dict",
+                  "required": [
+                    "food_item",
+                    "modification_request"
+                  ],
+                  "properties": {
+                    "food_item": {
+                      "type": "string",
+                      "description": "The name of the food item to be modified."
+                    },
+                    "modification_request": {
+                      "type": "string",
+                      "description": "Specific request detailing the changes to be made to the food item, such as 'no peanuts' or 'extra spicy'. If there are multiple requests, separate using comma with no space between comma"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "worked_example": "[{\"change_food\":\"{\\\"food_item\\\":\\\"burger\\\",\\\"modification_request\\\":\\\"no onions,extra cheese\\\"}\"}]"
+    }
+  },
+  "behaviors": [
+    {
+      "state": {
+        "task_json": "{\"function\": [{\"description\": \"Modifies the food item based on the customer's request, such as changing ingredients or preparation methods.\", \"name\": \"change_food\", \"parameters\": {\"properties\": {\"food_item\": {\"description\": \"The name of the food item to be modified.\", \"type\": \"string\"}, \"modification_request\": {\"description\": \"Specific request detailing the changes to be made to the food item, such as 'no peanuts' or 'extra spicy'. If there are multiple requests, separate using comma with no space between comma\", \"type\": \"string\"}}, \"required\": [\"food_item\", \"modification_request\"], \"type\": \"dict\"}}], \"question\": [{\"content\": \"I would like to order a burger with the following modification verbatim: no onions, extra cheese\", \"role\": \"user\"}]}",
+        "history_json": "[{\"content\": \"I would like to order a burger with the following modification verbatim: no onions, extra cheese\", \"role\": \"user\"}]",
+        "prompt": "<bos><|turn>system\n<|tool>declaration:change_food{description:<|\"|>Modifies the food item based on the customer's request, such as changing ingredients or preparation methods.<|\"|>,parameters:{properties:{food_item:{description:<|\"|>The name of the food item to be modified.<|\"|>,type:<|\"|>STRING<|\"|>},modification_request:{description:<|\"|>Specific request detailing the changes to be made to the food item, such as 'no peanuts' or 'extra spicy'. If there are multiple requests, separate using comma with no space between comma<|\"|>,type:<|\"|>STRING<|\"|>}},required:[<|\"|>food_item<|\"|>,<|\"|>modification_request<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n<|turn>user\nI would like to order a burger with the following modification verbatim: no onions, extra cheese<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "cef6d45857c7a119737bfcfd29237fbaf611eba5a77189df69461ae8c908cd00"
+      },
+      "text": "<|tool_call>call:change_food{food_item:<|\"|>burger<|\"|>,modification_request:<|\"|>no onions,extra cheese<|\"|>}<tool_call|><|tool_response>"
+    }
+  ]
+}

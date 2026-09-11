@@ -1,0 +1,26 @@
+{
+  "available_cost_by_confidence": {
+    "exact": 1418
+  },
+  "available_packages": 20,
+  "bank_public_cap_sum": 5120,
+  "budget_basis": "usable_recorded_output_tokens",
+  "budget_ceilings": [
+    142,
+    355
+  ],
+  "budget_denominator": 1418,
+  "cap_certificate_sha256": "8581088aafc6aafa354a561cced19aa1f7fa4040d6dc2665c777be1aa53810cc",
+  "cost_scope": "cached-content cost; not the full teacher bill",
+  "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+  "recorded_bank_usage": 1418,
+  "teacher_accounting": {
+    "adapter_rerun_exact_output_tokens": 0,
+    "adapter_rerun_extra_calls": 0,
+    "historical_cost_status": "recorded-gateway-ledger; raw-harness-retention-partial",
+    "pool_cost_status": "exact-gateway-ledger",
+    "recorded_output_tokens": 228545,
+    "unknown_usage_attempts": 0
+  },
+  "version": "rtd-v1.1.0-state-bank"
+}

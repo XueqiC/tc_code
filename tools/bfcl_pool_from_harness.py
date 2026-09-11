@@ -75,12 +75,43 @@ def main(argv=None):
     p.add_argument("--ledger", type=Path, default=ROOT/"data/teacher_ledger/bfcl_gpt54.jsonl")
     p.add_argument("--adapter-demos", type=Path, default=ROOT/"data/bfcl_sft/demos_gpt54_adapter.json")
     p.add_argument("--out", type=Path, default=ROOT/"data/bfcl_sft/pool_gpt54_sft.jsonl")
+    p.add_argument("--from-ledger", action="store_true", help="use original verified gateway demo payloads")
     args = p.parse_args(argv)
-    rows, provenance = build_pool(args.merged, args.ledger, args.adapter_demos)
+    if args.from_ledger:
+        rows, provenance = pool_from_gateway_ledger(args.ledger)
+    else:
+        rows, provenance = build_pool(args.merged, args.ledger, args.adapter_demos)
     write_jsonl(args.out, rows)
     provenance["pool_sha256"] = file_hash(args.out)
     args.out.with_suffix(".provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
     print(json.dumps({k: provenance[k] for k in ("verified_tasks", "pool_rows", "pool_tasks", "excluded")}, indent=2))
+
+
+def pool_from_gateway_ledger(ledger):
+    from bfas.ledger import read_records
+
+    rows, sources, excluded, verified = [], [], [], set()
+    for number, paid in enumerate(read_records(Path(ledger))):
+        if not paid["verified"]:
+            continue
+        tid = paid["task_id"]
+        if tid in verified:
+            raise ValueError("ambiguous successful ledger attempt")
+        verified.add(tid)
+        turns = paid["demo"]["turns"]
+        sources.append(dict(task_id=tid, ledger_row=number, attempt_index=paid["attempt_index"]))
+        if not turns:
+            excluded.append(dict(task_id=tid, reason="adapter has no per-state training turns"))
+        for index, turn in enumerate(turns):
+            context = turn.get("context")
+            if not isinstance(context, dict) or not {"messages", "functions"} <= context.keys():
+                raise ValueError(f"missing actual per-state context: {tid}:{index}")
+            rows.append(dict(task_id=tid, prompt=turn["prompt"], response=turn["target"],
+                _render_context=copy.deepcopy(context),
+                provenance=dict(demo_source=str(ledger), ledger_row=number, step_index=index)))
+    return rows, dict(version="bfcl-gateway-pool-v1", ledger=source_info(ledger),
+        demo_sources=sources, verified_tasks=len(verified), pool_rows=len(rows),
+        pool_tasks=len({r["task_id"] for r in rows}), excluded=excluded)
 
 
 if __name__ == "__main__":

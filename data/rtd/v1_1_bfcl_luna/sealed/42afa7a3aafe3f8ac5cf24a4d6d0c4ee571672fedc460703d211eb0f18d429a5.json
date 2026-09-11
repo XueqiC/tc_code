@@ -1,0 +1,22 @@
+{
+  "cost": 38,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 38
+  },
+  "provenance": {
+    "task_id": "live_simple_26-6-0",
+    "ledger_row": 25
+  },
+  "historical_response": {
+    "task_id": "live_simple_26-6-0",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 2,
+    "temperature": 0.7,
+    "verified": false,
+    "tokens_spent": 38,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T02:42:00.079515Z"
+  },
+  "behaviors": []
+}

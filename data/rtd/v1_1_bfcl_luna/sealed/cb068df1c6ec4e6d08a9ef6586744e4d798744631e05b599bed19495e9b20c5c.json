@@ -1,0 +1,26 @@
+{
+  "cost": 202,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 202
+  },
+  "provenance": {
+    "task_id": "multi_turn_long_context_78",
+    "ledger_row": 42
+  },
+  "historical_response": {
+    "task_id": "multi_turn_long_context_78",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 202,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T05:02:07.921177Z",
+    "demo": {
+      "turns": [],
+      "worked_example": "[[[{\"check_tire_pressure\":\"{}\"}],[{\"find_nearest_tire_shop\":\"{}\"}],\"Your tire pressures are below 37.5 PSI:\\n\\n- Front left: 35 PSI\\n- Front right: 35 PSI\\n- Rear left: 33 PSI\\n- Rear right: 33 PSI\\n\\nThe nearest tire shop is **456 Oakwood Avenue, Rivermist, 83214**. Consider having the tires inspected and inflated before your trip.\"],[[{\"posting_get_login_status\":\"{}\"}],[{\"post_tweet\":\"{\\\"content\\\":\\\"Ensuring my wheels are well-maintained. Maintenance is key to success!\\\",\\\"tags\\\":[\\\"#BusinessOnTheMove\\\"]}\"}],\"Posted successfully from **@businesspro**:\\n\\n“Ensuring my wheels are well-maintained. Maintenance is key to success!”  \\n**#BusinessOnTheMove**\"]]"
+    }
+  },
+  "behaviors": []
+}

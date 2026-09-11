@@ -6,8 +6,8 @@ import pytest
 
 from bfas.adapters.bfcl import BFCLAdapter, BFCLScoreError
 from bfas.ledger import demo_payload, read_records
-from tools.bfcl_ledger_from_harness import STEM, build_ledger, write_jsonl
-from tools.bfcl_pool_from_harness import build_pool
+from tools.bfcl_ledger_from_harness import STEM, build_ledger, copy_gateway_ledger, write_jsonl
+from tools.bfcl_pool_from_harness import build_pool, pool_from_gateway_ledger
 
 
 @pytest.fixture
@@ -159,3 +159,48 @@ def test_missing_web_score_is_not_inferred_from_merged_membership(archive):
     pool, manifest = build_pool(merged, ledger, cache, adapter=adapter)
     assert len(pool) == 2
     assert all('positive reconciled score' in item['reason'] for item in manifest['excluded'])
+
+
+def test_gateway_snapshot_keeps_failed_costs_and_original_demos(archive):
+    root, adapter, split, cache, merged = archive
+    original, _, _ = convert(archive)
+    teacher = 'openai/gpt-5.6-luna-FC'
+    original = [dict(r, teacher=teacher) for r in original]
+    source = root/'gateway.jsonl'
+    write_jsonl(source, [dict(original[0], teacher='other'), *original])
+    directory = root/'result_bfas_retained'
+    write_jsonl(directory/teacher.replace('/', '_')/'BFCL_v4_simple_python_result.json',
+                [dict(id='simple_python_0', output_token_count=17, result='answer')])
+    journal = directory/'bfas_usage.jsonl'
+    write_jsonl(journal, [dict(id='simple_python_0', output_token_count=17)])
+    rows, provenance = copy_gateway_ledger(source, split, teacher, root)
+    assert rows == original
+    assert provenance['source_lines'] == list(range(2, 14))
+    assert provenance['recorded_output_tokens'] == 186
+    assert provenance['pool_cost_status'] == 'exact-gateway-ledger'
+    assert sum(r['tokens_spent'] for r in rows if not r['verified']) == 124
+    evidence = provenance['retained_harness_evidence'][0]
+    assert evidence['journal_output_tokens'] == 17 and evidence['score_files'] == []
+    assert evidence['ledger_candidate_rows'] == [0, 4, 8]  # no invented UUID attribution
+    ledger = root/'snapshot.jsonl'
+    write_jsonl(ledger, rows)
+    pool, manifest = pool_from_gateway_ledger(ledger)
+    assert len(pool) == 2 and manifest['verified_tasks'] == 4
+    assert len(manifest['excluded']) == 2
+    assert pool[0]['response'] == original[0]['demo']['turns'][0]['target']
+    write_jsonl(journal, [dict(id='simple_python_0', output_token_count=18)])
+    with pytest.raises(ValueError, match='result/journal usage differs'):
+        copy_gateway_ledger(source, split, teacher, root)
+
+
+def test_gateway_snapshot_rejects_duplicate_attempts_and_invented_context(archive):
+    root, adapter, split, cache, merged = archive
+    rows, _, _ = convert(archive)
+    source = root/'gateway.jsonl'
+    write_jsonl(source, [*rows, rows[0]])
+    with pytest.raises(ValueError, match='duplicate attempt'):
+        copy_gateway_ledger(source, split, rows[0]['teacher'], root)
+    rows[0]['demo']['turns'][0]['context'] = None
+    write_jsonl(source, rows)
+    with pytest.raises(ValueError, match='actual per-state context'):
+        pool_from_gateway_ledger(source)

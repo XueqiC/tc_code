@@ -84,23 +84,32 @@ def test_blackwell_class_preserves_machine_and_gpu_constraints():
     assert host_class('rai', 'NVIDIA A100', {}) == 'rai'
 
 
-def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context):
+@pytest.mark.parametrize('teacher', ['azure/gpt-5.4-FC', 'openai/gpt-5.6-luna-FC'])
+def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context, teacher):
     from bfas.rtd.benchmarks.bfcl_bank_v11 import build_bfcl_pool_bank
     from bfas.rtd.bank_build import validate_state_certificate
     from bfas.rtd.bank import parent_hash
     tid = 'simple_python_0'
     entry = dict(id=tid, question=[context['messages']], function=context['functions'])
     row = dict(row_for(context, [{'places.find': {'query': 'Zürich'}}]), task_id=tid)
-    paid = dict(task_id=tid, teacher='azure/gpt-5.4-FC', tokens_spent=33, attempt_index=0, verified=True,
+    paid = dict(task_id=tid, teacher=teacher, tokens_spent=33, attempt_index=0, verified=True,
         demo=dict(turns=[dict(prompt='legacy', target=row['response'], context=context)], worked_example=''))
     pool, ledger, support = (tmp_path/n for n in ('pool.jsonl','ledger.jsonl','support.json'))
-    pool.write_text(json.dumps(row)+'\n'); ledger.write_text(json.dumps(paid)+'\n')
+    failed = dict(task_id=tid, teacher=teacher, tokens_spent=1000, attempt_index=1, verified=False)
+    pool.write_text(json.dumps(row)+'\n')
+    ledger.write_text(json.dumps(paid)+'\n'+json.dumps(failed)+'\n')
     support.write_text(json.dumps(dict(parents=[dict(official_id=tid, parent_hash=parent_hash(entry), fold=0)])))
     config = CONFIG | dict(support_manifest=str(support))
     out = tmp_path/'bank'
     result = build_bfcl_pool_bank(tmp_path, out, pool=pool, ledger=ledger, config=config,
                                  entries={tid: entry}, tokenizer=tokenizer)
     assert result['budget_denominator'] == 33
+    audit = json.loads((out/'sealed/audit.json').read_text())
+    assert audit['historical_attempts'] == 2 and audit['historical_output_tokens'] == 1033
+    requests = json.loads((out/'public/requests.json').read_text())
+    assert requests[1]['unavailable_reason']
+    failed_q = requests[1]['spec']['query_id']
+    assert json.loads((out/f'sealed/{failed_q}.json').read_text())['cost'] == 1000
     cert = validate_state_certificate(out, benchmark='bfcl', student=config['student'])
     assert cert['core']['class_caps'] == {'demo_attempt': 64}
     assert json.loads((out/'public/support.json').read_text()) == json.loads(support.read_text())
@@ -110,7 +119,7 @@ def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context):
     assert b['state']['prompt'] == rendered['prompt'] and b['text'] == rendered['response']
     # Bind unknown collection spend without relabeling the usable denominator.
     provenance = dict(ledger_sha256=file_hash(ledger), pool_cost_status='exact-plus-unknown-rerun',
-        historical_cost_status='recorded-lower-bound-plus-unknown', recorded_output_tokens=33,
+        historical_cost_status='recorded-lower-bound-plus-unknown', recorded_output_tokens=1033,
         missing_usage_attempts=[], adapter_rerun=dict(extra_calls='unknown', exact_output_tokens=None))
     sidecar = ledger.with_suffix('.provenance.json')
     sidecar.write_text(json.dumps(provenance))
@@ -126,6 +135,10 @@ def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context):
         build_bfcl_pool_bank(tmp_path, tmp_path/'mismatch', pool=pool, ledger=ledger,
                             config=config, entries={tid: entry}, tokenizer=tokenizer)
     sidecar.unlink()
+    ledger.write_text(json.dumps(paid)+'\n'+json.dumps(dict(failed, teacher='other'))+'\n')
+    with pytest.raises(ValueError, match='one GPT-5.4 or luna teacher'):
+        build_bfcl_pool_bank(tmp_path, tmp_path/'mixed', pool=pool, ledger=ledger, config=config,
+                            entries={tid: entry}, tokenizer=tokenizer)
     paid['tokens_spent'] = -1
     ledger.write_text(json.dumps(paid)+'\n')
     with pytest.raises(ValueError, match='spend'):

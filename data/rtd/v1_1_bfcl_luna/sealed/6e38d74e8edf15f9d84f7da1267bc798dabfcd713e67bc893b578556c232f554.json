@@ -1,0 +1,26 @@
+{
+  "cost": 25826,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 25826
+  },
+  "provenance": {
+    "task_id": "memory_rec_sum_99-student-19",
+    "ledger_row": 32
+  },
+  "historical_response": {
+    "task_id": "memory_rec_sum_99-student-19",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 25826,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:14:59.932867Z",
+    "demo": {
+      "turns": [],
+      "worked_example": "[[\"{'answer':'The university’s e-sports team was officially recognized recently.','context':'The campus added an e-sports arena and began treating competitions such as League of Legends and Overwatch as an official part of campus life.'}\"]]"
+    }
+  },
+  "behaviors": []
+}
