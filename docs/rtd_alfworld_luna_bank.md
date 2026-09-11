@@ -30,6 +30,12 @@ Those are the defaults. `BFAS_TEACHER` selects the teacher; the command sets
 Luna Flex price assumptions are dollars per million tokens. If selecting a
 different teacher, supply that teacher's rates; the command does not fetch prices.
 
+Add `--workers N` to run up to N episodes concurrently (default: `1`). Workers
+pull tasks from a shared queue and each owns a separate adapter and ALFWorld
+environment subprocess, with its own working directory and `TMPDIR`. Token and
+USD caps apply to the entire collection, regardless of worker count. Worker count
+can change on resume; it does not change the pool layout or collection identity.
+
 The source's `sealed/manifest.json` and artifact hashes are audited before any
 purchase. Task IDs must agree across `public/support.json`,
 `public/reset_requests.json`, `public/requests.json`, and the sealed payloads.
@@ -38,8 +44,9 @@ including tasks without a successful source demonstration. The existing training
 folds and protected parent exclusions are preserved; availability does not select
 the task set. Protected attempts remain unavailable for training.
 
-Purchases go through `bfas.ledger.acquire_demos` with **attempts=3**: attempt 0
-uses the gateway's greedy setting, and attempts 1–2 use its sampled setting.
+The collector uses the BFAS ledger format and purchase locks with **attempts=3**:
+attempt 0 uses the gateway's greedy setting, and attempts 1–2 use its sampled
+setting. `BFAS_TEACHER_MIN_INTERVAL_S` spaces episode starts across all workers.
 The shared client applies provider-specific sampling restrictions. A verified
 attempt ends acquisition for that task. No quota probes or automatic HTTP retries
 are issued by this collector. Each failed network call consumes one episode
@@ -65,6 +72,11 @@ text-token envelope. If a provider violates that envelope, the command records
 its reported usage and stops; it cannot undo a provider charge. Unknown usage,
 malformed responses, timeouts, and interrupted requests retain their full
 reservation, including uncached input. The summary identifies uncertain calls.
+Reservation and settlement each reload the request journal under its file lock.
+Workers wait when an active request may release enough headroom; uncertain
+reservations from ended or crashed requests remain charged. Interrupting the
+collector stops new requests, waits for in-flight calls and environment cleanup,
+then exports the partial pool.
 
 ## 2. Resume and inspect
 
@@ -86,10 +98,14 @@ data/rtd/v1_alfworld_luna.collection/
 
 The sibling directory contains the BFAS episode ledger and fsynced request
 reservations. A process lock serializes collection/export for the same output.
+Within a collection, short file locks serialize request accounting and episode
+appends; no purchase lock is held during teacher or environment calls. Export
+runs after all workers finish, under the collection and episode-ledger locks.
 The ledger deduplicates task/attempt purchases. If a process dies after reserving
 a call but before recording its episode, resume conservatively records that
-attempt as failed and charged instead of buying it again. Missing or inconsistent
-accounting fails closed. Keep the same source, teacher, prices, and collector
+attempt as failed and charged instead of buying it again, even when the cap is
+already exhausted. Missing or inconsistent accounting fails closed. Keep the
+same source, teacher, prices, and collector
 code for a resume; a changed identity requires a new output directory.
 
 The printed JSON and `summary.json` report task count, attempted tasks, verified

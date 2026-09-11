@@ -8,6 +8,7 @@ GPU is loaded. The sibling <out>.collection directory holds durable accounting;
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import asdict, dataclass
@@ -16,9 +17,12 @@ import fcntl
 import json
 import os
 from pathlib import Path
+from queue import Empty, Queue
 import shutil
 import sys
 import tempfile
+import threading
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
@@ -26,7 +30,8 @@ sys.path.insert(0, str(ROOT / 'src'))
 import appworld_teacher
 from bfas.adapter import Demo, TeacherEpisode, Turn
 from bfas.adapters.alfworld import ALFWorldAdapter
-from bfas.ledger import AcquisitionStopped, acquire_demos, append_record, read_records
+from bfas.ledger import AcquisitionStopped, _minimum_interval, _purchase_lock, append_episode, append_record, read_records
+from bfas.protocol import SAMPLING_TEMPERATURE
 from bfas.rtd.benchmarks import alfworld_bank as bank
 from bfas.rtd.benchmarks.alfworld_state import _observed, canonical_hash, parent_hash
 from bfas.rtd.benchmarks.alfworld_support import (
@@ -92,56 +97,106 @@ class Budget:
 
     def __init__(self, path, limits):
         self.path, self.limits = Path(path), limits
-        self.calls = {}
+        self._condition = threading.Condition()
+        self._pending = {}
+        self._calls = {}
         self.stopped = None
-        if self.path.exists():
-            for line in self.path.read_text().splitlines():
-                record = json.loads(line)
-                self.calls[record['id']] = record
 
-    def usage(self, task_id=None, attempt_index=None):
+    @contextmanager
+    def _locked(self):
+        # Separate opens of the existing ledger lock also serialize threads.
+        # Reload under flock so another Budget instance cannot admit stale spend.
+        with self._condition, _purchase_lock(self.path):
+            self._calls = {}
+            if self.path.exists():
+                for line in self.path.read_text().splitlines():
+                    record = json.loads(line)
+                    self._calls[record['id']] = record
+            yield
+
+    @property
+    def calls(self):
+        with self._locked():
+            return dict(self._calls)
+
+    def _usage(self, task_id=None, attempt_index=None):
         result = dict(prompt_tokens=0, cached_tokens=0, completion_tokens=0)
-        for call in self.calls.values():
+        for call in self._calls.values():
             if task_id is not None and (call['task_id'], call['attempt_index']) != (task_id, attempt_index):
                 continue
             for key in result:
                 result[key] += call['usage'][key]
         return result
 
+    def usage(self, task_id=None, attempt_index=None):
+        with self._locked():
+            return self._usage(task_id, attempt_index)
+
     def has_calls(self, task_id, attempt_index):
         return any((c['task_id'], c['attempt_index']) == (task_id, attempt_index) for c in self.calls.values())
 
+    def cancel(self, reason):
+        with self._condition:
+            self.stopped = self.stopped or reason
+            self._condition.notify_all()
+
     def stop(self, reason):
-        self.stopped = reason
-        raise AcquisitionStopped(reason)
+        self.cancel(reason)
+        raise AcquisitionStopped(self.stopped)
 
     def ensure_available(self):
-        usage = self.usage()
-        if self.stopped:
-            raise AcquisitionStopped(self.stopped)
-        if usage['prompt_tokens'] + usage['completion_tokens'] >= self.limits.max_tokens:
-            self.stop('max-tokens reached')
-        if self.limits.cost(usage) >= self.limits.max_usd:
-            self.stop('max-usd reached')
+        self._admit()
 
-    def reserve(self, task_id, attempt_index, messages):
-        self.ensure_available()
-        used, prompt = self.usage(), prompt_bound(messages)
-        remaining = self.limits.max_tokens - used['prompt_tokens'] - used['completion_tokens']
+    def _envelope(self, messages):
+        usage = self._usage()
+        if usage['prompt_tokens'] + usage['completion_tokens'] >= self.limits.max_tokens:
+            return None, 'max-tokens reached'
+        if self.limits.cost(usage) >= self.limits.max_usd:
+            return None, 'max-usd reached'
+        if messages is None:
+            return None, None
+        prompt = prompt_bound(messages)
+        remaining = self.limits.max_tokens - usage['prompt_tokens'] - usage['completion_tokens']
         output = min(appworld_teacher.MAX_COMPLETION_TOKENS, remaining - prompt)
-        money = self.limits.max_usd - self.limits.cost(used) - self.limits.usd_in * prompt / Decimal(1000000)
+        money = self.limits.max_usd - self.limits.cost(usage) - self.limits.usd_in * prompt / Decimal(1000000)
         if money < 0:
-            self.stop('max-usd cannot cover next prompt')
+            return None, 'max-usd cannot cover next prompt'
         if self.limits.usd_out:
             output = min(output, int((money * Decimal(1000000) / self.limits.usd_out).to_integral_value(rounding=ROUND_FLOOR)))
         if output < 1:
-            self.stop('budget cannot reserve next prompt and completion')
-        call = dict(id=len(self.calls), task_id=task_id, attempt_index=attempt_index,
-                    status='reserved', usage=dict(prompt_tokens=prompt, cached_tokens=0, completion_tokens=output))
-        # fsync happens before the external request; crashes cannot erase spend.
-        append_record(self.path, call)
-        self.calls[call['id']] = call
-        return call
+            return None, 'budget cannot reserve next prompt and completion'
+        return dict(prompt_tokens=prompt, cached_tokens=0, completion_tokens=output), None
+
+    def _admit(self, task_id=None, attempt_index=None, messages=None):
+        with self._condition:
+            while True:
+                with self._locked():
+                    if self.stopped:
+                        raise AcquisitionStopped(self.stopped)
+                    usage, reason = self._envelope(messages)
+                    if reason is None:
+                        if messages is None:
+                            return
+                        call = dict(id=max(self._calls, default=-1) + 1, task_id=task_id,
+                                    attempt_index=attempt_index, status='reserved', usage=usage)
+                        # fsync precedes the external call, while admission is locked.
+                        append_record(self.path, call)
+                        self._pending[call['id']] = threading.get_ident()
+                        return call
+                    if not any(owner != threading.get_ident() for owner in self._pending.values()):
+                        self.stop(reason)
+                # Live requests may release headroom. Uncertain calls left by a
+                # crash are charged but never waited on. No file lock spans I/O.
+                self._condition.wait()
+
+    def reserve(self, task_id, attempt_index, messages):
+        return self._admit(task_id, attempt_index, messages)
+
+    def finish(self, call):
+        """A request ended, possibly without usage; retain any uncertain bill."""
+        with self._condition:
+            self._pending.pop(call['id'], None)
+            self._condition.notify_all()
 
     def settle(self, call, reported):
         def count(key):
@@ -155,11 +210,17 @@ class Budget:
         if prompt is None or output is None:
             return  # retain reservation for absent/incomplete usage
         usage = dict(prompt_tokens=prompt, cached_tokens=min(prompt, cached), completion_tokens=output)
-        value = dict(call, status='reported', usage=usage)
-        append_record(self.path, value)
-        self.calls[call['id']] = value
-        if prompt > call['usage']['prompt_tokens'] or output > call['usage']['completion_tokens']:
-            self.stop('provider usage exceeded the reserved request envelope')
+        with self._locked():
+            current = self._calls[call['id']]
+            value = dict(call, status='reported', usage=usage)
+            if current['status'] == 'reported':
+                if current != value:
+                    raise ValueError('conflicting usage for an already settled request')
+                return
+            append_record(self.path, value)
+            self.finish(call)
+            if prompt > call['usage']['prompt_tokens'] or output > call['usage']['completion_tokens']:
+                self.stop('provider usage exceeded the reserved request envelope')
 
 
 def real_stepper(request):
@@ -193,8 +254,9 @@ class PoolAdapter:
             except (RuntimeError, ValueError, KeyError) as exc:
                 raise AcquisitionStopped(f'teacher configuration unavailable: {exc}') from exc
             request = self.support['tasks'][task_id]['request']
-            stepper = self.stepper_factory(request)
+            stepper = None
             try:
+                stepper = self.stepper_factory(request)
                 cursor, observation = stepper.reset(request)
                 history = [_observed(observation)]
                 for _ in range(request['max_episode_steps']):
@@ -203,11 +265,14 @@ class PoolAdapter:
                         break
                     messages = prompt_messages(request, history)
                     call = self.budget.reserve(task_id, attempt_index, messages)
-                    reply = self.generate_reply(
-                        config, messages, temperature=temperature, retries=0,
-                        max_completion_tokens=call['usage']['completion_tokens'],
-                        usage_callback=lambda usage: self.budget.settle(call, usage),
-                    )
+                    try:
+                        reply = self.generate_reply(
+                            config, messages, temperature=temperature, retries=0,
+                            max_completion_tokens=call['usage']['completion_tokens'],
+                            usage_callback=lambda usage: self.budget.settle(call, usage),
+                        )
+                    finally:
+                        self.budget.finish(call)
                     responses.append(reply)
                     command = ALFWorldAdapter._teacher_command(appworld_teacher.strip_think(reply), observation.admissible)
                     context = prompt_messages(request, history, react=False)
@@ -221,13 +286,14 @@ class PoolAdapter:
                 if not self.budget.has_calls(task_id, attempt_index):
                     raise  # no attempted purchase, so do not consume an attempt
             except KeyboardInterrupt:
-                self.budget.stopped = 'interrupted; resume with the same --out'
+                self.budget.cancel('interrupted; resume with the same --out')
                 if not self.budget.has_calls(task_id, attempt_index):
                     raise AcquisitionStopped(self.budget.stopped) from None
             except Exception as exc:
                 print(f'[alfworld-pool] task={task_id} attempt={attempt_index} failed: {type(exc).__name__}', flush=True)
             finally:
-                stepper.close()
+                if stepper is not None:
+                    stepper.close()
         usage = self.budget.usage(task_id, attempt_index)
         demo = Demo(task_id, tuple(turns), '\n'.join(t.target for t in turns)[-4000:]) if won and turns else None
         return TeacherEpisode(task_id, demo is not None, demo, tuple(responses),
@@ -335,7 +401,99 @@ def collection_lock(directory):
         yield
 
 
-def collect(source, out, *, limits=None, stepper_factory=real_stepper, adapter_factory=PoolAdapter):
+def recover_attempts(ledger, budget, teacher):
+    """Reconcile orphan reservations only while no episode workers are running."""
+    with _purchase_lock(ledger):
+        seen = {(r['task_id'], r['attempt_index']) for r in read_records(ledger)}
+        attempts = dict.fromkeys((c['task_id'], c['attempt_index']) for c in budget.calls.values())
+        for task_id, attempt_index in attempts:
+            if (task_id, attempt_index) in seen:
+                continue
+            usage = budget.usage(task_id, attempt_index)
+            append_episode(ledger, task_id=task_id, teacher=teacher, attempt_index=attempt_index,
+                           temperature=0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE,
+                           verified=False, tokens_spent=usage['completion_tokens'], usage=usage)
+
+
+def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, stepper_factory):
+    # The collection lock excludes other collectors, including the old sequential
+    # command. Queue ownership excludes duplicate tasks within this collector.
+    # Only accounting holds the ledger lock; each worker owns its adapter/stepper.
+    tasks = Queue()
+    interval = _minimum_interval()
+    start_gate, next_start = threading.Lock(), 0.0
+
+    def pace():
+        nonlocal next_start
+        if interval:
+            with start_gate, budget._condition:
+                while not budget.stopped:
+                    delay = next_start - time.monotonic()
+                    if delay <= 0:
+                        next_start = time.monotonic() + interval
+                        return
+                    budget._condition.wait(delay)
+                raise AcquisitionStopped(budget.stopped)
+
+    with _purchase_lock(ledger):
+        rows = read_records(ledger)
+    for task_id in support['historical_task_ids']:
+        previous = [r for r in rows if r['task_id'] == task_id]
+        if len(previous) < ATTEMPTS and not any(r['verified'] for r in previous):
+            tasks.put((task_id, len(previous)))
+
+    def work():
+        try:
+            adapter = adapter_factory(support, budget, teacher, stepper_factory=stepper_factory)
+            while True:
+                try:
+                    task_id, first_attempt = tasks.get_nowait()
+                except Empty:
+                    return
+                try:
+                    for attempt_index in range(first_attempt, ATTEMPTS):
+                        pace()
+                        temperature = 0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE
+                        episode = adapter.teacher_episode(task_id, attempt_index, temperature)
+                        if (not isinstance(episode, TeacherEpisode) or episode.task_id != task_id
+                                or bool(episode.verified) != (episode.demo is not None)):
+                            raise ValueError('invalid teacher episode')
+                        # The request journal is authoritative, even if a worker
+                        # fails between its final response and this ledger append.
+                        usage = budget.usage(task_id, attempt_index)
+                        with _purchase_lock(ledger):
+                            append_episode(ledger, task_id=task_id, teacher=teacher,
+                                           attempt_index=attempt_index, temperature=temperature,
+                                           verified=episode.verified, demo=episode.demo,
+                                           tokens_spent=usage['completion_tokens'], usage=usage)
+                        if episode.verified:
+                            break
+                finally:
+                    tasks.task_done()
+        except AcquisitionStopped as exc:
+            budget.cancel(str(exc))
+        except BaseException as exc:
+            budget.cancel('interrupted; resume with the same --out' if isinstance(exc, KeyboardInterrupt)
+                          else 'worker failed; resume with the same --out')
+            raise
+
+    executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix='alfworld-pool')
+    try:
+        futures = [executor.submit(work) for _ in range(workers)]
+        for future in as_completed(futures):
+            future.result()
+    except BaseException:
+        budget.cancel('interrupted; resume with the same --out')
+        raise
+    finally:
+        # In-flight requests must settle and workers must close their environments
+        # before recovery/export can take a stable accounting snapshot.
+        executor.shutdown(wait=True, cancel_futures=True)
+
+
+def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper, adapter_factory=PoolAdapter):
+    if type(workers) is not int or workers < 1:
+        raise ValueError('workers must be a positive integer')
     source, out = Path(source).resolve(), Path(out).resolve()
     if source == out or source in out.parents or out in source.parents:
         raise ValueError('source and output must be separate directories')
@@ -359,7 +517,8 @@ def collect(source, out, *, limits=None, stepper_factory=real_stepper, adapter_f
             write_json(identity_path, identity)
         ledger = directory / 'teacher_ledger.jsonl'
         ledger.touch(exist_ok=True)
-        rows = read_records(ledger)
+        with _purchase_lock(ledger):
+            rows = read_records(ledger)
         seen = set()
         for row in rows:
             key = row['task_id'], row['attempt_index']
@@ -368,20 +527,26 @@ def collect(source, out, *, limits=None, stepper_factory=real_stepper, adapter_f
                 raise ValueError('ledger contains duplicate/outside task attempts or a different teacher')
             seen.add(key)
         budget = Budget(directory / 'usage.jsonl', limits)
+        for call in budget.calls.values():
+            if call['task_id'] not in support['historical_task_ids'] or not 0 <= call['attempt_index'] < ATTEMPTS:
+                raise ValueError('request accounting contains an outside task attempt')
         for row in rows:
             usage = budget.usage(row['task_id'], row['attempt_index'])
             if row['tokens_spent'] != usage['completion_tokens'] or row.get('usage', {}) != usage:
                 raise ValueError('ledger and durable request accounting disagree')
-        adapter = adapter_factory(support, budget, teacher, stepper_factory=stepper_factory)
         reason = 'complete'
+        recover_attempts(ledger, budget, teacher)
         try:
-            acquire_demos(ledger, adapter, support['historical_task_ids'], attempts=ATTEMPTS)
+            acquire_pool(ledger, support, budget, teacher, workers=workers,
+                         adapter_factory=adapter_factory, stepper_factory=stepper_factory)
         except AcquisitionStopped as exc:
             reason = str(exc)
         except KeyboardInterrupt:
             reason = 'interrupted; resume with the same --out'
         finally:
-            verified = export_pool(source, out, ledger, support, stepper_factory=stepper_factory)
+            recover_attempts(ledger, budget, teacher)
+            with _purchase_lock(ledger):
+                verified = export_pool(source, out, ledger, support, stepper_factory=stepper_factory)
         usage = budget.usage()
         summary = dict(tasks=len(support['historical_task_ids']),
                        tasks_attempted=len({r['task_id'] for r in read_records(ledger)}),
@@ -400,17 +565,21 @@ def main(argv=None):
     parser.add_argument('--source', type=Path, default=ROOT / 'data/rtd/v1_alfworld_c26')
     parser.add_argument('--out', type=Path, default=ROOT / 'data/rtd/v1_alfworld_luna')
     parser.add_argument('--max-tokens', type=int, default=400000)
+    parser.add_argument('--workers', type=int, default=1,
+                        help='concurrent episodes, each with its own environment process (default: 1)')
     parser.add_argument('--max-usd', type=Decimal, default=Decimal('5.0'))
     parser.add_argument('--usd-per-mtok-in', type=Decimal, default=Decimal('0.10'))
     parser.add_argument('--usd-per-mtok-out', type=Decimal, default=Decimal('0.60'))
     parser.add_argument('--usd-per-mtok-cached', type=Decimal, default=Decimal('0.01'))
     args = parser.parse_args(argv)
     try:
+        if args.workers < 1:
+            raise ValueError('workers must be a positive integer')
         limits = Limits(args.max_tokens, args.max_usd, args.usd_per_mtok_in,
                         args.usd_per_mtok_out, args.usd_per_mtok_cached)
     except ValueError as exc:
         parser.error(str(exc))
-    collect(args.source, args.out, limits=limits)
+    collect(args.source, args.out, limits=limits, workers=args.workers)
 
 
 if __name__ == '__main__':

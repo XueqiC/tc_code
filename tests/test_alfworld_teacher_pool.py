@@ -1,10 +1,14 @@
 """CPU-only collection, hard reservation, crash recovery, and bank conversion."""
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from decimal import Decimal
+import fcntl
 import json
+import multiprocessing
 from pathlib import Path
 import sys
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +16,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import alfworld_teacher_pool as pool
 from bfas import ledger as gateway
-from bfas.rtd.benchmarks.alfworld_support import freeze_support, seal_verified_bank, verify_package
+from bfas.rtd.benchmarks.alfworld_support import adapter as env_adapter, freeze_support, seal_verified_bank, verify_package
 from test_rtd_alfworld_state import FakeStepper, make_payload, render
 from test_rtd_alfworld_support import write_json
 from test_webshop_adapter import StubTokenizer
@@ -29,9 +33,9 @@ def no_network(monkeypatch):
 
 
 @pytest.fixture
-def source(tmp_path):
+def source(tmp_path, request):
     root = tmp_path / 'archive'
-    tids = [f'pick_and_place_simple-Apple-None-Table-{i}/trial-1' for i in range(3)]
+    tids = [f'pick_and_place_simple-Apple-None-Table-{i}/trial-1' for i in range(getattr(request, 'param', 3))]
     write_json(root / pool.bank.SUPPORT, dict(demand=tids, calibration=[]))
     write_json(root / pool.bank.PROBE, [], lines=True)
     write_json(root / pool.bank.LEDGER, [dict(task_id=t) for t in tids], lines=True)
@@ -86,9 +90,10 @@ def collect(source, out, teacher, **kwargs):
     return pool.collect(source, out, adapter_factory=factory(teacher), stepper_factory=FakeStepper, **kwargs)
 
 
-def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeypatch):
+@pytest.mark.parametrize('workers', [1, 3])
+def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeypatch, workers):
     teacher, out = Teacher(), tmp_path / 'luna'
-    summary = collect(source, out, teacher)
+    summary = collect(source, out, teacher, workers=workers)
     assert summary['tasks'] == summary['tasks_attempted'] == summary['verified'] == 3
     assert summary['teacher'] == 'openai/gpt-5.6-luna'
     assert summary['service_tier'] == 'flex'
@@ -246,3 +251,362 @@ def test_teacher_pool_missing_configuration_does_not_consume_attempt(tmp_path):
     with pytest.raises(gateway.AcquisitionStopped, match='configuration'):
         gateway.acquire_demos(ledger, adapter, ['task/trial'], attempts=3)
     assert gateway.read_records(ledger) == []
+
+
+def assert_accounting(summary, limits=pool.Limits()):
+    ledger = Path(summary['ledger'])
+    rows = gateway.read_records(ledger)
+    journal = [json.loads(line) for line in (ledger.parent/'usage.jsonl').read_text().splitlines()]
+    calls, reservations = {}, []
+    # Audit every durable prefix, including simultaneously outstanding envelopes.
+    for record in journal:
+        if record['status'] == 'reserved':
+            reservations.append(record['id'])
+            assert record['id'] not in calls
+        else:
+            assert record['id'] in calls
+            assert calls[record['id']]['status'] == 'reserved'
+        calls[record['id']] = record
+        usage = {key: sum(c['usage'][key] for c in calls.values())
+                 for key in ('prompt_tokens', 'cached_tokens', 'completion_tokens')}
+        assert usage['prompt_tokens'] + usage['completion_tokens'] <= limits.max_tokens
+        assert limits.cost(usage) <= limits.max_usd
+    assert len(reservations) == len(set(reservations))
+    assert len(rows) == len({(r['task_id'], r['attempt_index']) for r in rows})
+    assert {(c['task_id'], c['attempt_index']) for c in calls.values()} == {
+        (r['task_id'], r['attempt_index']) for r in rows}
+    for row in rows:
+        purchases = [c for c in calls.values()
+                     if (c['task_id'], c['attempt_index']) == (row['task_id'], row['attempt_index'])]
+        assert row['usage'] == {key: sum(c['usage'][key] for c in purchases) for key in row['usage']}
+        assert row['tokens_spent'] == row['usage']['completion_tokens']
+    for key in ('prompt_tokens', 'cached_tokens', 'completion_tokens'):
+        assert summary[key] == sum(r['usage'][key] for r in rows)
+    assert summary['estimated_usd'] == pytest.approx(float(limits.cost(summary)))
+    return rows
+
+
+class ConcurrentTeacher(Teacher):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.barrier = threading.Barrier(3, timeout=10)
+        self.threads = set()
+        self.lock = threading.Lock()
+
+    def __call__(self, config, messages, **kwargs):
+        with self.lock:
+            first = threading.get_ident() not in self.threads
+            self.threads.add(threading.get_ident())
+        if first:
+            self.barrier.wait()  # Fails if episodes or API calls are serialized.
+        return super().__call__(config, messages, **kwargs)
+
+
+def test_alfworld_teacher_pool_workers_three_cli_and_locks(source, tmp_path, monkeypatch):
+    teacher, adapters, steppers = ConcurrentTeacher(), [], []
+
+    def adapter_factory(*args, **kwargs):
+        adapter = factory(teacher)(*args, **kwargs)
+        adapters.append(adapter)
+        return adapter
+
+    def stepper_factory(request):
+        stepper = FakeStepper(request)
+        steppers.append(stepper)
+        return stepper
+
+    def assert_locked(path):
+        with Path(path).open('a+') as handle:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    append = gateway.append_record
+    def locked_append(path, record):
+        assert_locked(path.with_suffix(path.suffix + '.lock'))
+        append(path, record)
+
+    seal = pool.seal_verified_bank
+    def locked_seal(*args, **kwargs):
+        directory = tmp_path/'parallel.collection'
+        assert_locked(directory/'collection.lock')
+        assert_locked(directory/'teacher_ledger.jsonl.lock')
+        return seal(*args, **kwargs)
+
+    monkeypatch.setattr(pool, 'append_record', locked_append)
+    monkeypatch.setattr(gateway, 'append_record', locked_append)
+    monkeypatch.setattr(pool, 'seal_verified_bank', locked_seal)
+    real_collect = pool.collect
+    summaries = []
+    def stub_collect(*args, **kwargs):
+        summaries.append(real_collect(*args, **kwargs, adapter_factory=adapter_factory,
+                                      stepper_factory=stepper_factory))
+    monkeypatch.setattr(pool, 'collect', stub_collect)
+    out = tmp_path/'parallel'
+    pool.main(['--source', str(source), '--out', str(out), '--workers', '3'])
+    summary = summaries[0]
+    assert summary['verified'] == 3 and summary['tokens'] == 720
+    assert len(teacher.calls) == 6 and len(teacher.threads) == len(adapters) == 3
+    assert len({id(a) for a in adapters}) == 3
+    assert len(steppers) == 6 and all(s.closed for s in steppers)
+    assert len(assert_accounting(summary)) == 3
+    assert {p.name for p in out.iterdir()} == {'public', 'sealed'}
+
+
+def initial_prompt_bound(source):
+    support = pool.load_source(source)
+    request = support['tasks'][support['historical_task_ids'][0]]['request']
+    _, observation = FakeStepper(request).reset(request)
+    return pool.prompt_bound(pool.prompt_messages(request, [pool._observed(observation)]))
+
+
+@pytest.mark.parametrize('cap', ['tokens', 'usd'])
+def test_alfworld_teacher_pool_workers_three_global_caps(source, tmp_path, cap):
+    prompt = initial_prompt_bound(source)
+    usage = dict(prompt_tokens=3*prompt, cached_tokens=0,
+                 completion_tokens=3*pool.appworld_teacher.MAX_COMPLETION_TOKENS)
+    limits = (pool.Limits(max_tokens=usage['prompt_tokens'] + usage['completion_tokens']) if cap == 'tokens'
+              else pool.Limits(max_usd=pool.Limits().cost(usage)))
+    teacher, out = ConcurrentTeacher(usage=False), tmp_path/'capped'
+    summary = collect(source, out, teacher, workers=3, limits=limits)
+    assert len(teacher.calls) == summary['uncertain_calls'] == summary['tasks_attempted'] == 3
+    assert summary['verified'] == 0
+    assert {r['attempt_index'] for r in assert_accounting(summary, limits)} == {0}
+    if cap == 'tokens':
+        assert summary['tokens'] == limits.max_tokens
+    else:
+        assert pool.Limits().cost(summary) == limits.max_usd
+    before = Path(summary['ledger']).read_bytes()
+    collect(source, out, teacher, workers=3, limits=limits)
+    assert len(teacher.calls) == 3 and Path(summary['ledger']).read_bytes() == before
+    resumed = collect(source, out, Teacher(), workers=3)
+    assert resumed['verified'] == 3
+    rows = assert_accounting(resumed)
+    assert len(rows) == 6
+    assert all([r['attempt_index'] for r in rows if r['task_id'] == tid] == [0, 1]
+               for tid in {r['task_id'] for r in rows})
+
+
+def test_alfworld_teacher_pool_workers_wait_for_reported_headroom(source, tmp_path, monkeypatch):
+    waiting, lock, all_waiting = set(), threading.Lock(), threading.Event()
+    envelope = pool.Budget._envelope
+    def observed_envelope(self, messages):
+        result = envelope(self, messages)
+        if result[1]:
+            with lock:
+                waiting.add(threading.get_ident())
+                if len(waiting) == 2:
+                    all_waiting.set()
+        return result
+    monkeypatch.setattr(pool.Budget, '_envelope', observed_envelope)
+    teacher = Teacher()
+    def reply(*args, **kwargs):
+        assert all_waiting.wait(10), 'other workers never waited for the active reservation'
+        return teacher(*args, **kwargs)
+    limits = pool.Limits(max_tokens=initial_prompt_bound(source) + pool.appworld_teacher.MAX_COMPLETION_TOKENS)
+    summary = collect(source, tmp_path/'refunds', reply, workers=3, limits=limits)
+    assert summary['verified'] == 3 and summary['stop_reason'] == 'complete'
+    assert len(teacher.calls) == 6
+    assert_accounting(summary, limits)
+
+
+def test_alfworld_teacher_pool_workers_interrupt_and_resume(source, tmp_path, monkeypatch):
+    barrier, stopped = threading.Barrier(3, timeout=10), threading.Event()
+    cancel = pool.Budget.cancel
+    def observed_cancel(self, reason):
+        cancel(self, reason)
+        stopped.set()
+    monkeypatch.setattr(pool.Budget, 'cancel', observed_cancel)
+    teacher = Teacher()
+    def interrupt(config, messages, **kwargs):
+        index = barrier.wait()
+        if index == 0:
+            raise KeyboardInterrupt()
+        assert stopped.wait(10)
+        return teacher(config, messages, **kwargs)
+    out = tmp_path/'interrupted'
+    summary = collect(source, out, interrupt, workers=3)
+    assert summary['stop_reason'].startswith('interrupted')
+    assert summary['uncertain_calls'] == 1 and summary['verified'] == 0
+    rows = assert_accounting(summary)
+    assert len(rows) == 3 and {r['attempt_index'] for r in rows} == {0}
+    resumed = collect(source, out, Teacher(), workers=3)
+    assert resumed['verified'] == 3 and len(assert_accounting(resumed)) == 6
+    before = Path(resumed['ledger']).read_bytes()
+    no_calls = Teacher()
+    assert collect(source, out, no_calls, workers=1) == resumed
+    assert not no_calls.calls and Path(resumed['ledger']).read_bytes() == before
+
+
+def test_alfworld_teacher_pool_budget_instances_share_file_lock(tmp_path):
+    messages = [dict(role='user', content='hi')]
+    tokens = pool.prompt_bound(messages) + pool.appworld_teacher.MAX_COMPLETION_TOKENS
+    limits = pool.Limits(max_tokens=3*tokens)
+    path = tmp_path/'usage.jsonl'
+    budgets = [pool.Budget(path, limits) for _ in range(3)]
+    barrier = threading.Barrier(3, timeout=10)
+    def reserve(index):
+        barrier.wait()
+        return budgets[index].reserve(f'task-{index}/trial', 0, messages)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        calls = list(executor.map(reserve, range(3)))
+    assert {c['id'] for c in calls} == {0, 1, 2}
+    resumed = pool.Budget(path, limits)
+    with pytest.raises(gateway.AcquisitionStopped):
+        resumed.reserve('task-4/trial', 0, messages)
+    assert resumed.usage()['prompt_tokens'] + resumed.usage()['completion_tokens'] == limits.max_tokens
+
+
+@pytest.mark.parametrize('workers', [0, -1])
+def test_alfworld_teacher_pool_invalid_workers(workers, monkeypatch):
+    monkeypatch.setattr(pool, 'collect', lambda *a, **k: pytest.fail('invalid workers started collection'))
+    with pytest.raises(SystemExit) as exc:
+        pool.main(['--workers', str(workers)])
+    assert exc.value.code == 2
+
+
+def interrupted_fixture_run(source, out, limits, ready, release, report_usage):
+    # Spawn does not run pytest's autouse fixture, so deny network explicitly.
+    import socket
+    def forbidden(*args, **kwargs):
+        raise AssertionError('CPU fixture attempted network access')
+    socket.socket.connect = forbidden
+    barrier = threading.Barrier(3, timeout=10)
+    def reply(config, messages, **kwargs):
+        if report_usage:
+            kwargs['usage_callback'](dict(prompt_tokens=100, completion_tokens=20))
+        if barrier.wait() == 0:
+            ready.set()
+        release.wait(30)
+        raise AssertionError('fixture should have been killed before returning')
+    collect(source, out, reply, workers=3, limits=limits)
+
+
+@pytest.mark.parametrize('report_usage', [False, True])
+def test_alfworld_teacher_pool_workers_killed_before_ledger_resume(source, tmp_path, report_usage):
+    # Kill only this fixture process, with stubbed teacher/environment and tmp
+    # output. All three paid calls precede any episode append or export.
+    context = multiprocessing.get_context('spawn')
+    ready, release = context.Event(), context.Event()
+    out = tmp_path/'killed'
+    bound = initial_prompt_bound(source)
+    limits = pool.Limits(max_tokens=3*(bound + pool.appworld_teacher.MAX_COMPLETION_TOKENS))
+
+    process = context.Process(target=interrupted_fixture_run,
+                              args=(source, out, limits, ready, release, report_usage))
+    process.start()
+    try:
+        assert ready.wait(15), 'fixture did not reserve three concurrent calls'
+        process.kill()
+        process.join(10)
+        assert not process.is_alive() and process.exitcode < 0
+    finally:
+        if process.is_alive():
+            process.kill()
+            process.join(10)
+    directory = tmp_path/'killed.collection'
+    assert gateway.read_records(directory/'teacher_ledger.jsonl') == []
+    journal = (directory/'usage.jsonl').read_bytes()
+    charged = pool.Budget(directory/'usage.jsonl', limits).usage()
+    # Even a fully exhausted/lowered cap must reconcile *all* orphan attempts.
+    no_calls = Teacher()
+    capped = pool.Limits(max_tokens=charged['prompt_tokens'] + charged['completion_tokens'])
+    recovered = collect(source, out, no_calls, workers=3, limits=capped)
+    assert no_calls.calls == [] and recovered['verified'] == 0
+    assert len(assert_accounting(recovered, limits)) == 3
+    assert (directory/'usage.jsonl').read_bytes() == journal
+    teacher = Teacher()
+    resumed = collect(source, out, teacher, workers=3)
+    assert resumed['verified'] == 3 and len(teacher.calls) == 6
+    assert len(assert_accounting(resumed)) == 6
+    for row in gateway.read_records(directory/'teacher_ledger.jsonl'):
+        assert row['attempt_index'] == int(row['verified'])
+
+
+def test_alfworld_teacher_pool_workers_own_environment_processes(source, tmp_path, monkeypatch):
+    # Exercise the real bridge's subprocess/session/tempdir lifecycle using a
+    # tiny protocol server. No ALFWorld installation or teacher API is involved.
+    script = tmp_path/'stub-environment'
+    script.write_text(f'''#!{sys.executable}
+import json, os, sys
+from pathlib import Path
+Path('environment.json').write_text(json.dumps(dict(pid=os.getpid(), cwd=os.getcwd(), tmp=os.environ['TMPDIR'])))
+def emit(value):
+    print(json.dumps(dict(bfas_worker=True, **value)), flush=True)
+def state(index, request_id=None):
+    text = ['Your task is to: put apple on table.\\n' + 'x'*2100, 'Full observation ' + 'y'*500, 'Task complete.'][index]
+    commands = [['go to table 1'], ['put apple 1 on table 1'], []][index]
+    emit(dict(op='state', id=request_id, observation=text, admissible=commands, done=index==2, won=index==2))
+emit(dict(op='ready'))
+state(0)
+for index, line in enumerate(sys.stdin, 1):
+    state(index, json.loads(line)['id'])
+''')
+    script.chmod(0o700)
+    monkeypatch.setattr(env_adapter, 'ENV_PYTHON', script)
+    monkeypatch.setattr(env_adapter, 'DATA', tmp_path/'archive/envs/alfworld/data/json_2.1.1')
+    sessions = []
+    class Stepper(pool.RealStepper):
+        def reset(self, request):
+            result = super().reset(request)
+            directory = Path(self.bridge._tmp.name)
+            metadata = json.loads((directory/'environment.json').read_text())
+            assert self.bridge.process.poll() is None
+            sessions.append((self.bridge.process, directory, metadata))
+            return result
+    def stepper_factory(request):
+        return Stepper(environment_hash=request['environment_hash'])
+    teacher = ConcurrentTeacher()
+    summary = pool.collect(source, tmp_path/'processes', workers=3,
+                           adapter_factory=factory(teacher), stepper_factory=stepper_factory)
+    assert summary['verified'] == 3 and len(teacher.threads) == 3
+    assert len(sessions) == len({p.pid for p, _, _ in sessions}) == len({d for _, d, _ in sessions}) == 6
+    for process, directory, metadata in sessions:
+        assert metadata == dict(pid=process.pid, cwd=str(directory), tmp=str(directory))
+        assert process.poll() is not None and not directory.exists()
+    assert_accounting(summary)
+
+
+def test_alfworld_teacher_pool_worker_dies_after_paid_episode(source, tmp_path):
+    barrier, out = threading.Barrier(3, timeout=10), tmp_path/'worker-crash'
+    teacher = Teacher()
+    class CrashingAdapter(pool.PoolAdapter):
+        def teacher_episode(self, *args):
+            episode = super().teacher_episode(*args)
+            if barrier.wait() == 0:
+                raise SystemExit('stub worker died before ledger append')
+            return episode
+    def adapter_factory(*args, **kwargs):
+        return CrashingAdapter(*args, **kwargs, generate_reply=teacher,
+                               config_loader=lambda name: SimpleNamespace(name=name))
+    with pytest.raises(SystemExit, match='stub worker died'):
+        pool.collect(source, out, workers=3, adapter_factory=adapter_factory,
+                     stepper_factory=FakeStepper)
+    assert len(teacher.calls) == 6
+    assert pool.audit_verified_bank(out)['usable_packages'] == 2
+    no_calls = Teacher()
+    summary = collect(source, out, no_calls, workers=3, limits=pool.Limits(max_tokens=720))
+    assert summary['verified'] == 2 and not no_calls.calls
+    rows = assert_accounting(summary)
+    assert len(rows) == 3 and {r['tokens_spent'] for r in rows} == {40}
+    retry = Teacher()
+    resumed = collect(source, out, retry, workers=3)
+    assert resumed['verified'] == 3 and len(retry.calls) == 2
+    assert len(assert_accounting(resumed)) == 4
+
+
+@pytest.mark.parametrize('source', [7], indirect=True)
+def test_alfworld_teacher_pool_workers_drain_queue_and_exhaust_attempts(source, tmp_path):
+    teacher = ConcurrentTeacher(error=TimeoutError('uncertain bill'))
+    summary = collect(source, tmp_path/'queue', teacher, workers=3)
+    assert summary['tasks_attempted'] == 7 and summary['verified'] == 0
+    assert len(teacher.calls) == summary['uncertain_calls'] == 21
+    assert len(teacher.threads) == 3
+    rows = assert_accounting(summary)
+    assert len(rows) == 21
+    for task_id in {r['task_id'] for r in rows}:
+        attempts = [r for r in rows if r['task_id'] == task_id]
+        assert [r['attempt_index'] for r in attempts] == [0, 1, 2]
+        assert [r['temperature'] for r in attempts] == [0.0, pool.SAMPLING_TEMPERATURE, pool.SAMPLING_TEMPERATURE]
+    no_calls = Teacher()
+    assert collect(source, tmp_path/'queue', no_calls, workers=3) == summary
+    assert not no_calls.calls
