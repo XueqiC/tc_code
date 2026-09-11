@@ -14,30 +14,64 @@ From the repository root:
 scripts/setup_hotpotqa.sh
 ```
 
-The script uses `.venv/bin/python -B` and downloads the official
+The script uses `.venv/bin/python -B` and first reuses valid JSON already in
+`envs/hotpotqa/data`. For missing JSON it uses local HuggingFace parquet shards
+when present; otherwise it tries the official
 [training JSON](https://curtis.ml.cmu.edu/datasets/hotpot/hotpot_train_v1.1.json)
 (90,447 questions) and
 [distractor dev JSON](https://curtis.ml.cmu.edu/datasets/hotpot/hotpot_dev_distractor_v1.json)
 (7,405 questions), linked by the [HotpotQA site](https://hotpotqa.github.io/).
-All downloads, temporary files and the local data checksum manifest stay under
-`envs/hotpotqa/data`. It validates counts, unique IDs and the full source ID
-order before accepting a file. Downloads use HTTPS, a 60-second socket timeout,
-three attempts, and an atomic rename after validation. Re-running setup reuses
-valid files. A malformed existing file fails validation instead of being
+If the official download fails, setup falls back to the
+[`hotpotqa/hotpot_qa` HuggingFace mirror](https://huggingface.co/datasets/hotpotqa/hotpot_qa),
+config `distractor`. To skip the official host, place these shards directly in
+`envs/hotpotqa/data` with these basenames before running setup:
+
+- `train-00000-of-00002.parquet`
+- `train-00001-of-00002.parquet`
+- `validation-00000-of-00001.parquet`
+
+If any shard for a split is present, setup uses the mirror for that split and
+downloads only its missing shards from
+`https://huggingface.co/datasets/hotpotqa/hotpot_qa/resolve/main/distractor/<basename>`.
+Finish local downloads before running setup. Conversion preserves shard, row,
+title and sentence order, renames `id` to `_id`, and reconstructs the official
+`supporting_facts` (`[[title, sentence_index], ...]`) and `context`
+(`[[title, [sentence, ...]], ...]`) arrays. The resulting JSON records also
+retain `question`, `answer`, `type` and `level`.
+
+All downloads, temporary files and checksum manifests stay under
+`envs/hotpotqa/data`. Before publishing JSON, setup validates the record format,
+counts, unique IDs, full source ID order and resolution of every frozen support,
+demand, calibration and eval ID. Downloads use HTTPS, a 60-second socket timeout,
+three attempts per URL, and an atomic rename after validation. Re-running setup
+reuses valid files. A malformed existing file fails validation instead of being
 silently overwritten. The dataset is distributed under CC BY-SA 4.0.
+
+`SOURCE.json` records each split's actual source, output count and SHA-256; mirror
+entries include the dataset/config and each input shard's URL, checksum and
+whether it was local or downloaded. Setup preserves that provenance on reruns;
+JSON without matching provenance is labeled `existing_json`. `manifest.json`
+also contains this inventory after both splits succeed.
 
 Runtime dependencies are already in this workspace's `.venv`: `requests`,
 `beautifulsoup4`, `openai`; BFAS rendering also uses its existing `transformers`
-installation. Setup itself uses only Python's standard library. No environment
-installation or external cache directories are required by setup.
+installation. Mirror conversion uses `pyarrow`, already present in `.venv`.
+If it is absent in another checkout, install only into that environment:
+
+```bash
+uv pip install --python .venv/bin/python pyarrow
+```
+
+Official JSON setup needs only Python's standard library. Setup does not install
+packages or use external dataset cache directories.
 
 The first execution in this development sandbox failed DNS resolution for
 `curtis.ml.cmu.edu`; no official JSON was downloaded. The checked-in ID manifests
 were extracted from the existing local `hotpotqa/hotpot_qa` distractor cache at
 revision `1908d6afbbead072334abe2965f91bd2709910ab`, preserving its full source
 order. Setup checks the official downloads against those complete ID-order
-hashes before the adapter will use them. Run the command above in a shell with
-network access to finish data installation.
+hashes before the adapter will use them. Run the command above after the parquet
+downloads finish, or in a shell with network access to download missing data.
 
 ## Frozen protocol
 
@@ -216,4 +250,5 @@ their totals together.
 Tests stub model clients, teacher requests and Wikipedia. They cover prompt
 integrity, action parsing and fallback, EM/F1, seven-step limits, deployment
 rendering, deterministic concurrent caching, offline failure, split identity,
-atomic/idempotent setup, exact ledger usage, hard caps and pool resume/import.
+atomic/idempotent setup, synthetic parquet conversion and mirror fallback,
+exact ledger usage, hard caps and pool resume/import.

@@ -417,10 +417,11 @@ def test_setup_download_atomic_idempotent_and_order_validation(tmp_path, monkeyp
     root = tmp_path / "repo"
     data = root / "envs/hotpotqa/data"
     (root / "configs").mkdir(parents=True)
-    rows = [dict(Q, context=[], supporting_facts=[])]
+    rows = [dict(Q, level="easy", context=[], supporting_facts=[])]
     ids = [Q["_id"]]
     digest = hashlib.sha256(json.dumps(ids, separators=(",", ":")).encode()).hexdigest()
-    (root / "configs/hotpotqa_support_split.json").write_text(json.dumps({"source_ids_sha256": digest}))
+    (root / "configs/hotpotqa_support_split.json").write_text(json.dumps(
+        {"source_ids_sha256": digest, "source_count": 1, "ids": ids}))
     monkeypatch.setattr(setup, "ROOT", root)
     monkeypatch.setattr(setup, "DATA", data)
     monkeypatch.setattr(setup, "SOURCES", {"train": ("hotpot_train_v1.1.json", 1)})
