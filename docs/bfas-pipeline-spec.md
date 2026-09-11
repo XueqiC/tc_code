@@ -106,9 +106,16 @@ appworld_train AW_DISTILL modes), star (self rows, plain), base
   with an ALFWorld prompt loop mirroring `src/alfworld_eval.py`.
 - tau2 adapter: wraps the vendored official `tau2 run` CLI for airline,
   retail, and telecom. The student is addressed through the pipeline-owned
-  OpenAI-compatible vLLM endpoint; both teacher-agent and user-simulator use
-  the metered DeepSeek endpoint. Native verbose request logs are rendered by
-  the student tokenizer, and native episode rewards provide verdicts.
+  OpenAI-compatible vLLM endpoint. The rai pair is `google/gemma-4-12B-it`,
+  served as `gemma4-12b-base` at `http://localhost:8950/v1`, with
+  `BFAS_TAU2_USER_MODEL=openai/gpt-5.6-luna` and
+  `BFAS_TAU2_TEACHER_MODEL=openai/gpt-5.6-luna`. The explicit `openai/`
+  channel uses the official endpoint and `OPENAI_API_KEY`, with
+  `service_tier=flex` and no temperature parameter for Luna. Legacy Azure
+  and Ollama channels remain supported. Native verbose request logs are
+  rendered by the student tokenizer, and native episode rewards provide
+  verdicts. See [tau2 setup](tau2_setup.md) for the pinned installation and
+  standalone evaluation/probe commands, which use an existing endpoint.
 
 ## CLI (`bfas/run.py`)
 
@@ -206,3 +213,20 @@ Teacher tokens are the scarce resource; no task may be purchased twice.
 6. For two-sided benchmarks such as tau2, user-simulator usage is stored in
    the same ledger with `purpose="user_sim"`; those records count toward
    spend but do not consume teacher-agent attempts or qualify as demos.
+   Both simulator and teacher records retain provider `prompt_tokens`,
+   `cached_tokens`, and `completion_tokens` in `usage`; cached input is
+   already included in prompt tokens. Tau2's full `raw_data.usage` retains
+   cached counts omitted by its summary. The pinned retail data also
+   requires an LLM judge for some tasks: Luna runs the unchanged native
+   assertion evaluator, recorded as `purpose="teacher_judge"`.
+7. `tools/tau2_eval.py` and `tools/tau2_teacher_probe.py` use the official
+   `test` split (40 retail, 20 airline, 40 telecom), one trial per task,
+   and `--max-steps 30`. This requested held-out protocol differs from the
+   upstream leaderboard's `base` split. The student uses temperature 0.
+   Tools record every attempted task, including infrastructure failures as
+   non-passes, and mark capped runs incomplete. Per-request reservations
+   enforce `--max-usd` (default 3), including simulator, teacher-agent, and
+   judge usage, at the requested USD/Mtok rates 0.10 input, 0.01 cached
+   input, 0.60 output. Unknown charges retain their reservation and stop
+   further requests. Each output directory owns its ledger; probe calls
+   use `purpose="teacher_probe"` and never become demo purchases.

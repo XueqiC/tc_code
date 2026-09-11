@@ -36,11 +36,13 @@ from ..adapter import (
 
 ROOT = Path(__file__).resolve().parents[3]
 TAU2_ROOT = ROOT / "envs/tau2/repo"
-TAU2_BIN = TAU2_ROOT / ".venv/bin/tau2"
+TAU2_BIN = ROOT / "envs/tau2/.venv/bin/tau2"
 TAU2_DATA = TAU2_ROOT / "data/tau2"
 CORE_DOMAINS = ("airline", "retail", "telecom")
 SERVED_MODEL_NAME = "bfas-policy"
 DEFAULT_STUDENT = "Qwen/Qwen3.5-2B"
+OPENAI_BASE = "https://api.openai.com/v1"
+LUNA_MODEL = "openai/gpt-5.6-luna"
 GUIDE_HEADER = (
     "Worked example from a verified expert episode on this exact task. "
     "Use it as a strategy reference, then solve the current interaction "
@@ -317,6 +319,32 @@ def _side_token_count(simulation: Mapping[str, Any], role: str) -> int:
     return total
 
 
+def side_usage(simulation: Mapping[str, Any], role: str) -> dict[str, int]:
+    """Sum provider counters; cached input is a subset of prompt tokens.
+
+    Native tau2's summary drops cached counts. The complete provider response
+    in raw_data retains them. Never count both representations of one call.
+    """
+    totals: dict[str, int] = {}
+    for message in simulation.get("messages", []) or []:
+        if not isinstance(message, Mapping) or message.get("role") != role:
+            continue
+        raw = message.get("raw_data")
+        if raw is None:
+            continue
+        usage = dict(message.get("usage") or {})
+        if isinstance(raw, Mapping) and isinstance(raw.get("usage"), Mapping):
+            usage.update(raw["usage"])
+        details = usage.get("prompt_tokens_details") or {}
+        if isinstance(details, Mapping) and "cached_tokens" in details:
+            usage["cached_tokens"] = details["cached_tokens"]
+        for key in ("prompt_tokens", "completion_tokens", "cached_tokens"):
+            count = usage.get(key)
+            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
+                totals[key] = totals.get(key, 0) + count
+    return totals
+
+
 class Tau2Adapter(BenchmarkAdapter):
     """BFAS adapter backed by the official tau2 text harness."""
 
@@ -328,10 +356,12 @@ class Tau2Adapter(BenchmarkAdapter):
         seed: int = 0,
         port: int = 8900,
         served_model_name: str = SERVED_MODEL_NAME,
+        base_url: str | None = None,
     ) -> None:
         self.seed = seed
         self.port = port
         self.served_model_name = served_model_name
+        self.base_url = (base_url or f"http://localhost:{port}/v1").rstrip("/")
         self._tokenizer: Any = None
         self._loaded_policy: str | None = None
         self._suffix = os.environ.get(
@@ -405,8 +435,8 @@ class Tau2Adapter(BenchmarkAdapter):
 
     def teacher_name(self) -> str:
         return os.environ.get(
-            "BFAS_TAU2_TEACHER",
-            os.environ.get("BFAS_TEACHER", "gpt-5.4"),
+            "BFAS_TAU2_TEACHER_MODEL",
+            os.environ.get("BFAS_TAU2_TEACHER", os.environ.get("BFAS_TEACHER", "gpt-5.4")),
         )
 
     @staticmethod
@@ -432,13 +462,23 @@ class Tau2Adapter(BenchmarkAdapter):
     def _student_args(self, temperature: float) -> tuple[str, dict[str, Any]]:
         return self._openai_model(self.served_model_name), {
             "temperature": float(temperature),
-            "base_url": f"http://localhost:{self.port}/v1",
+            "base_url": self.base_url,
+            "api_key": "EMPTY",
         }
+
+    @staticmethod
+    def _official_openai_args(model: str, temperature: float) -> dict[str, Any]:
+        args: dict[str, Any] = {"base_url": OPENAI_BASE, "service_tier": "flex"}
+        if model != LUNA_MODEL:
+            args["temperature"] = float(temperature)
+        return args
 
     def _teacher_args(self, temperature: float) -> tuple[str, dict[str, Any]]:
         teacher = self.teacher_name()
         if teacher.startswith("azure/"):
             return teacher, {"temperature": float(temperature)}
+        if teacher.startswith("openai/"):
+            return teacher, self._official_openai_args(teacher, temperature)
         base_url, _ = self._teacher_endpoint()
         return self._openai_model(teacher), {
             "temperature": float(temperature),
@@ -465,6 +505,8 @@ class Tau2Adapter(BenchmarkAdapter):
         user_model = os.environ.get("BFAS_TAU2_USER_MODEL", "gpt-5.4")
         if user_model.startswith("azure/"):
             return user_model, {"temperature": float(temperature)}
+        if user_model.startswith("openai/"):
+            return user_model, self._official_openai_args(user_model, temperature)
         base_url, _ = self._teacher_endpoint()
         return self._openai_model(user_model), {
             "temperature": float(temperature),
@@ -521,14 +563,18 @@ class Tau2Adapter(BenchmarkAdapter):
         agent_args: Mapping[str, Any],
         num_trials: int = 1,
         guidance: Demo | None = None,
+        max_steps: int | None = None,
+        budget_config: Path | None = None,
     ) -> NativeRun:
         if not TAU2_BIN.is_file():
             raise FileNotFoundError(f"vendored tau2 CLI is unavailable: {TAU2_BIN}")
         guidance_block = self._guidance_block(guidance)
-        temporary, data_root = self._make_data_root(domain, guidance_block)
         user_model, user_args = self._user_args(
             float(os.environ.get("BFAS_TAU2_USER_TEMPERATURE", "0"))
         )
+        temporary, data_root = self._make_data_root(domain, guidance_block)
+        if budget_config is not None:
+            user_args["metadata"] = {"bfas_purpose": "user_sim"}
         self._run_serial += 1
         run_seed = self.seed + self._run_serial * 10_000
         command = [
@@ -555,9 +601,9 @@ class Tau2Adapter(BenchmarkAdapter):
             "--num-trials",
             str(num_trials),
             "--max-concurrency",
-            os.environ.get("BFAS_TAU2_MAX_CONCURRENCY", "1"),
+            "1" if budget_config else os.environ.get("BFAS_TAU2_MAX_CONCURRENCY", "1"),
             "--max-steps",
-            os.environ.get("BFAS_TAU2_MAX_STEPS", "200"),
+            str(max_steps) if max_steps is not None else os.environ.get("BFAS_TAU2_MAX_STEPS", "200"),
             "--seed",
             str(run_seed),
             "--save-to",
@@ -571,11 +617,29 @@ class Tau2Adapter(BenchmarkAdapter):
         ]
         env = os.environ.copy()
         env["TAU2_DATA_DIR"] = str(data_root)
-        # Both participants use LiteLLM's OpenAI provider.  The local vLLM
-        # server accepts any bearer token, so one process-level key can safely
-        # authenticate the metered user/teacher calls without putting the
-        # secret in CLI arguments or tau2 result metadata.
-        env["OPENAI_API_KEY"] = os.environ.get("OLLAMA_API_KEY", "EMPTY")
+        official = any(args.get("base_url") == OPENAI_BASE for args in (agent_args, user_args))
+        if official and not env.get("OPENAI_API_KEY"):
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise RuntimeError("OPENAI_API_KEY is required for the official OpenAI channel")
+        if official and any(
+            name.startswith("openai/") and args.get("base_url") != OPENAI_BASE
+            and "api_key" not in args
+            for name, args in ((agent_model, agent_args), (user_model, user_args))
+        ):
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise RuntimeError("mixed OpenAI/Ollama channels require separate per-request credentials")
+        if not official:
+            env["OPENAI_API_KEY"] = os.environ.get("OLLAMA_API_KEY", "EMPTY")
+        env["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        judge_usage_path = data_root / "bfas_judge_usage.jsonl"
+        if budget_config is not None or self.teacher_name() == LUNA_MODEL:
+            # Execute the unchanged vendored CLI under a per-request budget guard.
+            command = [str(TAU2_BIN.with_name("python")), str(ROOT / "tools/tau2_guarded_cli.py"), *command]
+            env.pop("BFAS_TAU2_BUDGET_CONFIG", None)
+            env["BFAS_TAU2_JUDGE_USAGE_PATH"] = str(judge_usage_path)
+            if budget_config is not None:
+                env["BFAS_TAU2_BUDGET_CONFIG"] = str(budget_config)
         if any(
             name.startswith("azure/")
             for name in (agent_model, user_model, self.teacher_name())
@@ -588,6 +652,12 @@ class Tau2Adapter(BenchmarkAdapter):
             results = json.loads(results_path.read_text(encoding="utf-8"))
             if not isinstance(results, dict):
                 raise ValueError(f"tau2 produced invalid results at {results_path}")
+            if judge_usage_path.exists():
+                judges = [json.loads(line) for line in judge_usage_path.read_text().splitlines()]
+                for simulation in self._simulations(results):
+                    simulation["bfas_judge_usage"] = [
+                        row["usage"] for row in judges if row["simulation_id"] == simulation.get("id")
+                    ]
             return NativeRun(
                 results=results,
                 run_dir=run_dir,
@@ -742,8 +812,17 @@ class Tau2Adapter(BenchmarkAdapter):
                 temperature=temperature,
                 verified=False,
                 tokens_spent=_side_token_count(simulation, "user"),
+                usage=side_usage(simulation, "user"),
                 purpose="user_sim",
             )
+            for usage in simulation.get("bfas_judge_usage", []):
+                append_episode(
+                    self.name, task_id=encode_task_id(domain, str(native_id)),
+                    teacher=self.teacher_name(), attempt_index=self._run_serial,
+                    temperature=0.0, verified=False, purpose="teacher_judge",
+                    tokens_spent=usage["prompt_tokens"] + usage["completion_tokens"],
+                    usage=usage,
+                )
 
     def _rollouts_from_run(
         self,
@@ -939,6 +1018,7 @@ class Tau2Adapter(BenchmarkAdapter):
                     if simulation is not None
                     else 0
                 ),
+                usage=side_usage(simulation, "assistant") if simulation is not None else {},
             )
         finally:
             native_run.cleanup()

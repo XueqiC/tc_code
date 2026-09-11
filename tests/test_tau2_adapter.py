@@ -25,6 +25,28 @@ from bfas import run as bfas_run  # noqa: E402
 FIXTURE = ROOT / "tests/fixtures/tau2_cli"
 
 
+@pytest.fixture(autouse=True)
+def isolated_tau2_data(tmp_path, monkeypatch):
+    """Unit tests need neither an installation nor ambient model credentials."""
+    for name in tuple(tau2.os.environ):
+        if name.startswith("BFAS_TAU2_"):
+            monkeypatch.delenv(name)
+    data = tmp_path / "tau2"
+    (data / "user_simulator").mkdir(parents=True)
+    for domain, count in (("airline", 30), ("retail", 74), ("telecom", 74)):
+        directory = data / "domains" / domain
+        directory.mkdir(parents=True)
+        train = [str(n) for n in range(count)]
+        test = [str(n) for n in range(count, count + 20)]
+        (directory / "split_tasks.json").write_text(json.dumps({"train": train, "test": test}))
+        (directory / "tasks.json").write_text(json.dumps([{"id": n} for n in train + test]))
+        (directory / Tau2Adapter._policy_filename(domain)).write_text("native policy")
+    binary = tmp_path / "tau2-cli-stub"
+    binary.touch()
+    monkeypatch.setattr(tau2, "TAU2_DATA", data)
+    monkeypatch.setattr(tau2, "TAU2_BIN", binary)
+
+
 class FixtureTokenizer:
     """Small deterministic chat renderer used instead of a model download."""
 
@@ -337,3 +359,84 @@ def test_tau2_azure_user_simulator_uses_litellm_azure_with_env_only_credentials(
     teacher_model, teacher_args = adapter._teacher_args(0.7)
     assert teacher_model == "openai/gpt-5.4"
     assert teacher_args["base_url"] == "https://teacher.example/v1"
+
+
+def test_official_luna_cli_credentials_and_parameters(monkeypatch):
+    monkeypatch.setenv("BFAS_TAU2_USER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setenv("BFAS_TAU2_TEACHER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setenv("BFAS_TAU2_TEACHER", "azure/obsolete")
+    monkeypatch.setenv("OPENAI_API_KEY", "official-secret")
+    monkeypatch.setenv("OLLAMA_API_KEY", "wrong-secret")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://wrong.example/v1")
+    adapter = Tau2Adapter(port=8950, served_model_name="gemma4-12b-base")
+    expected = {"base_url": tau2.OPENAI_BASE, "service_tier": "flex"}
+    assert adapter.teacher_name() == tau2.LUNA_MODEL
+    assert adapter._teacher_args(0.7) == (tau2.LUNA_MODEL, expected)
+    assert adapter._user_args(0.7) == (tau2.LUNA_MODEL, expected)
+
+    def run(command, **kwargs):
+        assert kwargs["env"]["OPENAI_API_KEY"] == "official-secret"
+        assert "official-secret" not in str(command)
+        assert "wrong-secret" not in str(command)
+        agent = json.loads(command[command.index("--agent-llm-args") + 1])
+        user = json.loads(command[command.index("--user-llm-args") + 1])
+        assert user == expected
+        assert agent["temperature"] == 0 and agent["api_key"] == "EMPTY"
+        assert agent["base_url"] == "http://localhost:8950/v1"
+        output = Path(kwargs["env"]["TAU2_DATA_DIR"]) / "simulations/bfas_native/results.json"
+        output.parent.mkdir(parents=True)
+        output.write_text(json.dumps(_fixture_results()))
+
+    monkeypatch.setattr(tau2.subprocess, "run", run)
+    model, args = adapter._student_args(0)
+    result = adapter._run_cli(domain="airline", task_ids=["2"], split="test",
+                              agent_model=model, agent_args=args)
+    result.cleanup()
+
+
+def test_official_channel_requires_official_key(monkeypatch):
+    monkeypatch.setenv("BFAS_TAU2_USER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("OLLAMA_API_KEY", "cannot-substitute")
+    monkeypatch.setattr(tau2.subprocess, "run", lambda *a, **k: pytest.fail("no CLI call"))
+    adapter = Tau2Adapter()
+    model, args = adapter._student_args(0)
+    with pytest.raises(RuntimeError, match="OPENAI_API_KEY"):
+        adapter._run_cli(domain="airline", task_ids=["2"], split="test", agent_model=model, agent_args=args)
+
+
+def test_native_judge_usage_is_separate_from_demo_purchases(monkeypatch):
+    records = []
+    monkeypatch.setenv("BFAS_TAU2_TEACHER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setattr(ledger, "append_episode", lambda benchmark, **row: records.append(row))
+    simulation = _fixture_results()["simulations"][0]
+    simulation["bfas_judge_usage"] = [{"prompt_tokens": 40, "completion_tokens": 2, "cached_tokens": 20}]
+    Tau2Adapter()._record_user_sim_usage("airline", [simulation])
+    assert [r["purpose"] for r in records] == ["user_sim", "teacher_judge"]
+    assert records[1]["tokens_spent"] == 42
+    assert records[1]["usage"]["cached_tokens"] == 20
+
+
+@pytest.mark.parametrize("passed", [True, False])
+def test_teacher_and_simulator_usage_reaches_ledger(tmp_path, monkeypatch, passed):
+    monkeypatch.setenv("BFAS_TAU2_USER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setenv("BFAS_TAU2_TEACHER_MODEL", tau2.LUNA_MODEL)
+    monkeypatch.setattr(ledger, "LEDGER_ROOT", tmp_path / "ledger")
+    adapter = Tau2Adapter()
+    adapter._tokenizer = FixtureTokenizer()
+    results = _fixture_results()
+    results["simulations"] = results["simulations"][:1]
+    simulation = results["simulations"][0]
+    simulation["reward_info"]["reward"] = int(passed)
+    for message in simulation["messages"][1:]:
+        message["raw_data"]["usage"] = {**message["usage"], "prompt_tokens_details": {"cached_tokens": 4}}
+    monkeypatch.setattr(adapter, "_run_cli", lambda **kwargs: NativeRun(results, FIXTURE))
+    episode = adapter.teacher_episode("airline:2", 0, 0.7)
+    ledger.append_episode("tau2", task_id=episode.task_id, teacher=adapter.teacher_name(),
+                          attempt_index=0, temperature=0.7, verified=episode.verified,
+                          demo=episode.demo, tokens_spent=episode.tokens_spent, usage=episode.usage)
+    records = [json.loads(line) for line in (tmp_path / "ledger/tau2.jsonl").read_text().splitlines()]
+    assert [r["purpose"] for r in records] == ["user_sim", "teacher"]
+    assert records[0]["usage"] == {"prompt_tokens": 10, "cached_tokens": 4, "completion_tokens": 8}
+    assert records[1]["usage"] == {"prompt_tokens": 20, "cached_tokens": 4, "completion_tokens": 5}
+    assert records[1]["verified"] == passed
