@@ -14,15 +14,24 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
+def manifest_identity(manifest):
+    """Observed diagnostics are a journal projection, not a run identity knob."""
+    return {k: v for k, v in manifest.items() if k != 'score_consistency_observed'}
+
+
+def manifest_digest(manifest):
+    return digest(manifest_identity(manifest))
+
+
 def manifest_hash(manifest):
     """Streaming V1 binds immutable identity; its journal binds replay progress.
 
-    Every historical/complete/V0/V2 binding remains the full manifest digest.
+    Historical manifests without observations retain their original digest.
     """
     if manifest.get('arm') == 'V1' and manifest.get('replay_mode') == 'streaming':
         manifest = {k: v for k, v in manifest.items()
                     if k not in {'replay_consumed_steps', 'replay_schedule_hash'}}
-    return digest(manifest)
+    return manifest_digest(manifest)
 
 
 def file_hash(path):
@@ -135,6 +144,8 @@ class ComputeJournal:
         self.cuda, self.deadline = cuda, deadline
         self.deadline_seconds = deadline_seconds
         self.events = []
+        self._score_manifest = None
+        self._score_summary = None
         self._measure_stack = []
         self._step_peaks = None
         self._phase_peaks = []
@@ -155,6 +166,21 @@ class ComputeJournal:
                     raise ValueError('compute journal hash mismatch')
                 self.events.append(e)
 
+    def bind_score_manifest(self, manifest, path):
+        """Rebuild from the verified journal, repairing a stale/crash-lagged summary."""
+        from .scoring import ScoreConsistencySummary
+        self._score_manifest = (manifest, Path(path))
+        self._score_summary = ScoreConsistencySummary()
+        for event in self.events:
+            if event['kind'] == 'score_consistency':
+                self._score_summary.add(event)
+        self._publish_score_summary()
+
+    def _publish_score_summary(self):
+        manifest, path = self._score_manifest
+        manifest['score_consistency_observed'] = self._score_summary.record()
+        atomic_json(path, manifest)
+
     def append(self, kind, **values):
         event = dict(sequence=len(self.events), kind=kind, timestamp=datetime.now(timezone.utc).isoformat(),
                      previous_hash=self.events[-1]['hash'] if self.events else None, **values)
@@ -162,6 +188,9 @@ class ComputeJournal:
         with self.path.open('a') as stream:
             stream.write(json.dumps(event, allow_nan=False) + '\n'); stream.flush(); os.fsync(stream.fileno())
         self.events.append(event)
+        if kind == 'score_consistency' and self._score_manifest is not None:
+            self._score_summary.add(event)
+            self._publish_score_summary()  # Durable before enforce_score_diagnostic raises.
         return event['sequence']
 
     def gpu_memory(self):

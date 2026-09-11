@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from . import identity as ids
-from .persistence import atomic_json, digest, file_hash, tree_hash
+from .persistence import manifest_digest, atomic_json, digest, file_hash, tree_hash
 from .scoring_scope import PYTHON_SCOPES, SHELL, scoring_hash
 
 
@@ -92,7 +92,7 @@ def update_identity(root, directory):
         raise ValueError('identity update requires a valid saved config and harness hash')
     if ('evaluation_harness' in manifest) != ('rtd_source' in manifest):
         raise ValueError('incomplete split identity in manifest')
-    manifest_hash = digest(manifest)
+    manifest_hash = manifest_digest(manifest)
     path = root/'configs/rtd/legacy_identities'/f'{manifest_hash}.json'
     previous_bytes = path.read_bytes() if path.exists() else None
     if previous_bytes is not None or 'evaluation_harness' in manifest:

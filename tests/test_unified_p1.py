@@ -42,6 +42,24 @@ def test_benchmark_configs_share_budget_exposure_and_student(benchmark):
             cli.validate_config(config | {key: value})
 
 
+@pytest.mark.parametrize('name', [
+    'v1_1_alfworld_luna', 'unified_alfworld_gemma4_luna', 'unified_alfworld_gemma4_d0_luna'])
+def test_score_consistency_luna_override_survives_frozen_p1_validation(name):
+    from bfas.rtd.scoring import ScoreTolerance
+    config = cli.load_config(f'configs/rtd/{name}.yaml')
+    expected = dict(mean_abs=.08, max_abs=1., max_abs_outlier_tokens=2,
+                    max_abs_hard=8., min_tokens_for_mean=8)
+    assert config['score_consistency_tolerance'] == expected
+    assert cli.validate_config(config)['score_consistency_tolerance'] == expected
+    # An omitted or partial declaration keeps all other strict defaults.
+    config.pop('score_consistency_tolerance')
+    assert cli.validate_config(config)['score_consistency_tolerance'] == vars(ScoreTolerance())
+    assert cli.validate_config(config | {'score_consistency_tolerance': {'mean_abs': .08}})[
+        'score_consistency_tolerance'] == expected
+    with pytest.raises(ValueError, match='finite and nonnegative'):
+        cli.validate_config(config | {'score_consistency_tolerance': {'mean_abs': -1}})
+
+
 def test_D2_matches_full_D3_with_tied_coefficients_and_scalar_grid():
     p = from_directions([[1., .8], [0., .6]], h=[.7, -.3], epsilon=[.03, .01])
     d2, a, _ = solve_arm(p, 'D2')
@@ -133,6 +151,11 @@ def test_all_arms_tiny_smoke_one_commit_and_three_matched_feedback_roles(toy_ban
     assert len(roles) == 6
     assert set(roles) == {'acquisition_reference_feedback', 'same_batch_reference_feedback', 'post_commit_feedback'}
     assert len(e.ledger.owned_ids) == 1 and not e.state['posterior'].observations
+    observed = json.loads((e.directory/'manifest.json').read_text())['score_consistency_observed']
+    diagnostics = [ev for ev in e.journal.events if ev['kind'] == 'score_consistency']
+    assert observed['checks'] == len(diagnostics) > 0
+    assert observed['compared_tokens'] == sum(ev['n_tokens'] for ev in diagnostics)
+    assert observed['max_abs_difference'] == max(ev['max_abs_difference'] for ev in diagnostics)
     output = capsys.readouterr().out
     assert all(f'stage={stage} ' in output for stage in STAGES)
     before = deepcopy(e.state['steps'])

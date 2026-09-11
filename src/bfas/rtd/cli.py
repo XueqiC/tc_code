@@ -18,7 +18,7 @@ from .config_v11 import v11_config, V11_DEFAULTS
 from .alpha_d import ALPHA_D_DEFAULTS, enabled as alpha_d_enabled, validate_config as validate_alpha_d_config, validate_arm
 from .ledger import Ledger
 from .persistence import ComputeJournal, atomic_json, digest, exclusive_run, file_hash, tree_hash
-from .scoring import ScoreTolerance
+from .scoring import ScoreTolerance, tolerance_override
 from .memory import MemoryPolicy
 from .generation_batch import GenerationBatch
 from .source_estimator import validate_source_config
@@ -275,6 +275,9 @@ def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
             replay_semantics='unfilled slots use old data; no fixed empty prior',
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
+    override = tolerance_override(config)
+    if override is not None:
+        manifest['score_consistency_tolerance_override'] = override
     if config['benchmark'] != 'bfcl' or config.get('student_call_format') == 'gemma4':
         manifest['resources'].pop('historical_demo_output_exact', None)
         manifest['resources'].pop('historical_generator_output_estimated', None)

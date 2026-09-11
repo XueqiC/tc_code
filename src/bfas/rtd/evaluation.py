@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
+from .persistence import manifest_digest, ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
 from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
 from .identity import (audited_harness_hashes, evaluation_harness_metadata, guard_harness,
                        record_code_drift, verified_checkpoint)
@@ -188,7 +188,7 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                 result.update(hardware_class=hardware_binding['hard'], hardware_class_hash=class_hash)
                 atomic_json(completed, result)
             if stored_hash != current_hash:
-                supplement = root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+                supplement = root/'configs/rtd/legacy_identities'/f'{manifest_digest(manifest)}.json'
                 journal.append('evaluation_reuse_via_audited_identity', round=round_number, tag=tag,
                                stored_harness_hash=stored_hash, current_harness_hash=current_hash,
                                supplement_path=str(supplement), gpu_seconds=0., gpu_reserved_seconds=0.)

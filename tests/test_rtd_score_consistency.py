@@ -83,6 +83,21 @@ def test_short_action_mean_threshold_override(minimum, passed):
     assert diagnostic['mean_criterion'] == ('short_action_max_abs' if passed else 'mean_abs')
 
 
+@pytest.mark.parametrize('deltas,passed', [
+    ([.06]*43, True),
+    ([.081]*43, False),
+    ([1.1]*2+[0.]*254, True),
+    ([1.1]*3+[0.]*253, False),
+    ([8.01]+[0.]*255, False),
+    ([1.01, 0.], False),
+])
+def test_d15_luna_mean_override_keeps_max_outlier_and_short_action_rules(deltas, passed):
+    diagnostic = diagnostic_for_deltas(deltas, ScoreTolerance(mean_abs=.08))
+    assert diagnostic['passed'] is passed
+    if deltas == [.06]*43:
+        assert not diagnostic_for_deltas(deltas)['passed']  # Default remains .05.
+
+
 def test_short_action_preserves_hard_max_sequence_and_structural_checks():
     assert not diagnostic_for_deltas([.16, .48], ScoreTolerance(max_abs_hard=.4))['passed']
     assert not diagnostic_for_deltas([.16, .48], score_atol=.1)['passed']

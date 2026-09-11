@@ -171,6 +171,106 @@ not receive an extra EOS. Streamed source gradients apply Gemma's native logit
 softcap before probabilities and differentiate through the same transform.
 Production forward batching remains disabled as in the existing BFCL config.
 
+## D15 follow-up: ALFWorld Luna bf16 score consistency (2026-09-11)
+
+Production V0 failed in `round_start` source scoring, before a student update.
+The saved `logs/uni_p1_alf_V0.log` and
+`results/rtd_unified/p1_alfworld_luna/V0/compute.jsonl` give the following
+observations (nats/token, including sampled termination):
+
+| Scope | Checks | Tokens | Token-weighted mean absolute delta | Largest action mean | Largest token delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Failed V0 attempt, including its failed check | 39 | 2,136 | 0.02507123649 | 0.05232027349 | 0.70945930481 |
+| Failed action (journal sequence 366) | 1 | 43 | 0.05232027349 | 0.05232027349 | 0.54536819458 |
+
+The failed action has zero outliers above 1.0 and no structural errors. It used
+`Gemma4UnifiedForConditionalGeneration`, Torch 2.13.0+cu130, Transformers 5.14.1,
+bf16 base/logits and FP32 LoRA parameters on an A100 80 GB. Its generation batch
+contained two copies of the same 629-token prompt: padded width equals prompt
+length, so **there was no padding in the failing row**. Passing a D3 smoke does
+not bound the larger V0 source pool's numerical discrepancies.
+
+Local source inspection compared these paths:
+
+| Property | `generation_batch._generate_group` | `return_gradient.score_tokens` / `transport.complete_token_logprobs` |
+| --- | --- | --- |
+| Model and weights | Temporarily installs the frozen FP32 LoRA snapshot in the same eval-mode PEFT model | Functional call with that same snapshot, eval mode |
+| Forward shape for the failed action | Prefill `[2, 629]`, then cached `[2, 1]` decode steps | Unpadded `[1, 672]`, `use_cache=False`; forward batching disabled |
+| Attention | Eager attention; causal full/sliding masks, cached K/V | Same eager implementation and causal full/sliding semantics, full prefill |
+| Positions | HF derives positions from the attention mask; genuine left padding is masked | Unpadded positions start at zero; logit positions 628–670 predict labels 629–671 |
+| Probability computation | HF copies last-position bf16 logits to FP32; temperature 1, top-p 1, top-k 0, no repetition penalty | Native CE casts selected bf16 logits to FP32; no temperature or policy warp |
+| Recorded likelihood | `output.scores[t]` is the same `next_token_scores` passed to softmax/multinomial; gather the sampled ID at step t | Negative CE at the preceding logit position; includes exactly the sampled termination or cap |
+| Gemma wrapper | Text-only: no image/audio features or multimodal token types; native softcap before HF sampling | Same text-only wrapper and native softcap before CE |
+
+The installed Gemma 4 eager attention computes its softmax in FP32 and casts
+back to the query dtype. BF16 projection/head and attention matmuls nevertheless
+have different batch/sequence dimensions during generation and rescoring. The
+first token already differs by 0.06170934439 nats, before cached decoding begins;
+the likely cause includes prefill/head batch-shape rounding as well as
+decode-versus-prefill drift. HF's MoE decode kernel switch does not apply to this
+dense Gemma 4 Unified model. There is no evidence of a token-position, temperature,
+softcap, mask, or sampled-logit bookkeeping inconsistency to fix. We retain the
+sampling law and differentiable teacher-forced CE. This is a diagnosis supported
+by saved diagnostics and local code, **not a GPU kernel trace or a reproduced
+12B/A100 experiment**.
+
+`tests/test_rtd_gemma4_scoring.py` runs a randomly initialized tiny Gemma 4 Unified
+multimodal wrapper entirely on CPU in FP32 and bf16, with nonzero FP32 LoRA
+updates, mixed prompt lengths, shared K/V, sliding attention and softcapping.
+It compares raw forward logits with HF's returned scores and the actual
+multinomial probabilities, checks padded positions and cached input shapes,
+and independently rescores the sampled IDs. FP32 max delta must be below 2e-5;
+bf16 must pass the unchanged default guard. This tests structural consistency,
+not the production model's drift distribution.
+
+Only `v1_1_alfworld_luna.yaml`, `unified_alfworld_gemma4_luna.yaml`, and
+`unified_alfworld_gemma4_d0_luna.yaml` raise `score_consistency_tolerance.mean_abs`
+from 0.05 to **0.08**, for bf16 12B decode/prefill drift. `max_abs: 1.0`,
+`max_abs_outlier_tokens: 2`, `max_abs_hard: 8.0`, and D15's
+`min_tokens_for_mean: 8` remain unchanged. Short actions still allow no outlier
+above 1.0. The library, non-Luna ALFWorld and BFCL defaults remain 0.05. The P1
+validator retains the **validated explicit override**, including normalization
+of omitted keys, while enforcing the other frozen protocol fields. Use the same
+declaration across compared Luna arms; this is an operational tolerance change,
+not evidence of improved benchmark performance.
+
+The manifest's `score_consistency.tolerance` records the declared guard;
+`score_consistency_tolerance_override` additionally records the complete effective
+guard whenever it differs from `ScoreTolerance()` (including stricter overrides).
+Each source/feedback `score_consistency` journal append updates
+`manifest.json: score_consistency_observed` **before enforcement can raise**:
+
+- `mean_abs_difference`: token-weighted mean over comparable journaled checks;
+  `max_abs_difference`: largest token delta; `max_mean_abs_difference`: largest
+  per-action mean, the statistic relevant to the mean guard.
+- `checks`, `failed_checks`, `comparable_checks`, `compared_tokens`, and
+  `outlier_token_count` identify the coverage. Failed and repeated attempts count;
+  checks lacking a finite, aligned comparison never contribute a fabricated zero.
+- `last_score_sequence` and `last_score_hash` bind the summary to the durable
+  `compute.jsonl` prefix. Resume rebuilds it from the verified journal, repairing
+  a crash between journal persistence and manifest publication without counting
+  old records twice. No observations means null means/maxima and zero counts.
+
+Only this derived observation block is excluded from manifest identity digests,
+checkpoint bindings and resume configuration comparisons. Tolerances, explicit
+overrides, backend identity, config hashes and the other frozen fields remain
+bound. Historical manifests without observations retain their old digest; the
+existing streaming-replay identity rules remain intact. Changing the configured
+tolerance requires a fresh run, rather than silently relaxing a saved run during
+resume. For paper reporting, include the effective guard and all three delta
+statistics with their check/token counts and failed/repeated-attempt scope.
+
+The requested regression command passed **156 tests** (2,832 deselected) in
+37.82 seconds, using the shared venv, CPU-only visibility and offline Hub mode:
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+BFCL_PROJECT_ROOT=/tmp/rtd-score-consistency-final-bfcl PYTHONPATH=src:. \
+/home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest -q tests/ \
+  -k 'scoring or score_consistency or unified_p1 or d15'
+```
+
 ## CPU validation
 
 The merged, untouched pre-D16 HEAD reproduced a stale historical manifest oracle

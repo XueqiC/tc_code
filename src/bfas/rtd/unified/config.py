@@ -84,8 +84,11 @@ def validate_config(config, *, arm=None, replay_schedule=None, **options):
     # Persist every inherited executor knob. Resume must not consult today's
     # benchmark YAML for missing alpha/d/acquisition defaults.
     config = checked | config | dict(p1_runtime_defaults_frozen=True)
-    for key in ('score_consistency_tolerance', 'generation_batch'):
-        config[key] = checked[key]
+    # checked contains the validated explicit tolerance override (with omitted
+    # fields filled by ScoreTolerance), not the benchmark YAML's frozen guard.
+    # Keep normalization here; copying raw user values would bypass validation.
+    config['score_consistency_tolerance'] = checked['score_consistency_tolerance']
+    config['generation_batch'] = checked['generation_batch']
     return config
 
 

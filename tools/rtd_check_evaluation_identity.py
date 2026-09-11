@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
 
 from bfas.rtd.identity import audited_harness_hashes, saved_identities
-from bfas.rtd.persistence import digest
+from bfas.rtd.persistence import manifest_digest, digest
 
 
 def check(root, directory, round_number=1):
@@ -19,7 +19,7 @@ def check(root, directory, round_number=1):
     identities = saved_identities(root, directory, manifest)
     chain = audited_harness_hashes(manifest, identities)
     stored = result['identity']['evaluation_harness_hash']
-    supplement = root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+    supplement = root/'configs/rtd/legacy_identities'/f'{manifest_digest(manifest)}.json'
     return dict(run=str(directory), round=round_number, stored_harness_hash=stored,
                 current_harness_hash=identities['harness_hash'], audited_harness_hashes=chain,
                 in_audited_chain=stored in chain,

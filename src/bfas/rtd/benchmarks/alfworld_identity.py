@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ..hardware import checked_hardware
 from ..identity import verified_checkpoint
-from ..persistence import digest, file_hash, tree_hash
+from ..persistence import manifest_digest, digest, file_hash, tree_hash
 from ..scoring_scope import _ScientificAST
 
 
@@ -265,7 +265,7 @@ def audited_harness_hashes(manifest, current, supplement=None):
             raise ValueError("harness changed without an audited ALFWorld supplement")
         return [digest(current)]
     if (supplement.get("version") != SUPPLEMENT_VERSION or
-            supplement.get("manifest_hash") != digest(manifest) or
+            supplement.get("manifest_hash") != manifest_digest(manifest) or
             supplement.get("legacy_harness_hash") != digest(original)):
         raise ValueError("ALFWorld supplement binding mismatch")
     prior, hashes = original, [digest(original)]
@@ -274,7 +274,7 @@ def audited_harness_hashes(manifest, current, supplement=None):
         raise ValueError("empty audited identity chain")
     for note in updates:
         new = note.get("new_identity", {})
-        if (note.get("manifest_hash") != digest(manifest) or
+        if (note.get("manifest_hash") != manifest_digest(manifest) or
                 note.get("previous_identity") != dict(harness_hash=digest(prior), evaluation_harness=prior) or
                 new.get("harness_hash") != digest(new.get("evaluation_harness")) or
                 not note.get("audit", {}).get("method") or not note.get("audit", {}).get("evidence")):

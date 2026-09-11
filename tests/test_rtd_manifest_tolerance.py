@@ -102,3 +102,80 @@ def test_saved_score_backend_change_still_refuses_resume(manifest_inputs, field)
     with pytest.raises(ValueError, match='resume config/data/base metadata changed'):
         identity.validate_resume(c.root, c.root, saved, current, acknowledge=True)
     assert not (c.root/'code_drift.jsonl').exists()
+
+
+@pytest.mark.parametrize('mean', [.08, .001, .05])
+def test_score_consistency_override_manifest_and_resume_binding(manifest_inputs, mean):
+    from bfas.rtd.persistence import manifest_digest, manifest_hash
+    from test_rtd_score_consistency import diagnostic_for_deltas
+    c = manifest_inputs
+    config = dict(c.config, score_consistency_tolerance=vars(ScoreTolerance(mean_abs=mean)))
+    manifest = cli.make_manifest(config, 'R1', c.audit)
+    if mean == .05:
+        assert 'score_consistency_tolerance_override' not in manifest
+    else:
+        assert manifest['score_consistency_tolerance_override'] == config['score_consistency_tolerance']
+    binding = manifest_hash(manifest)
+    journal = ComputeJournal(c.root/'compute.jsonl')
+    journal.bind_score_manifest(manifest, c.root/'manifest.json')
+    journal.append('score_consistency', **diagnostic_for_deltas([.06]*8, ScoreTolerance(mean_abs=mean)))
+    saved = json.loads((c.root/'manifest.json').read_text())
+    assert saved['score_consistency_observed']['mean_abs_difference'] == pytest.approx(.06)
+    assert saved['score_consistency_observed']['max_abs_difference'] == pytest.approx(.06)
+    assert saved['score_consistency_observed']['failed_checks'] == (mean < .06)
+    assert manifest_hash(saved) == manifest_digest(saved) == binding
+    current = cli.make_manifest(config, 'R1', c.audit)
+    identity.validate_resume(c.root, c.root, saved, current)
+    changed = cli.make_manifest(dict(config, score_consistency_tolerance=vars(ScoreTolerance(mean_abs=.07))), 'R1', c.audit)
+    assert manifest_hash(changed) != binding
+    with pytest.raises(ValueError, match='resume config/data/base metadata changed'):
+        identity.validate_resume(c.root, c.root, saved, changed)
+
+
+def test_score_consistency_manifest_summary_recovers_failed_and_repeated_attempts(tmp_path):
+    from bfas.rtd.persistence import StateStore, atomic_json, manifest_hash
+    from bfas.rtd.ledger import Ledger
+    from bfas.rtd.scoring import enforce_score_diagnostic
+    from test_rtd_score_consistency import diagnostic_for_deltas
+    manifest = dict(config={'score_consistency_tolerance': vars(ScoreTolerance())}, arm='V0')
+    path = tmp_path/'manifest.json'
+    atomic_json(path, manifest)
+    binding = manifest_hash(manifest)
+    journal = ComputeJournal(tmp_path/'compute.jsonl')
+    journal.bind_score_manifest(manifest, path)
+    store, ledger = StateStore(tmp_path/'recovery', manifest), Ledger(100)
+    store.save({'phase': 'round_start'}, ledger)
+    for deltas in ([.01]*8, [.06]*16):
+        diagnostic = diagnostic_for_deltas(deltas)
+        journal.append('score_consistency', **diagnostic)
+    with pytest.raises(ValueError, match='likelihood differs'):
+        enforce_score_diagnostic(diagnostic)
+    saved = json.loads(path.read_text())
+    stats = saved['score_consistency_observed']
+    assert stats['checks'] == stats['comparable_checks'] == 2 and stats['failed_checks'] == 1
+    assert stats['compared_tokens'] == 24
+    assert stats['mean_abs_difference'] == pytest.approx((8*.01+16*.06)/24)
+    assert stats['max_abs_difference'] == stats['max_mean_abs_difference'] == pytest.approx(.06)
+    assert stats['last_score_hash'] == journal.events[-1]['hash']
+    assert manifest_hash(saved) == binding
+    assert StateStore(tmp_path/'recovery', saved).load(ledger) == {'phase': 'round_start'}
+    # Simulate death between journal fsync and publishing the manifest projection.
+    saved['score_consistency_observed'] = {'checks': -1}
+    atomic_json(path, saved)
+    resumed = ComputeJournal(journal.path)
+    resumed.bind_score_manifest(saved, path)
+    assert json.loads(path.read_text())['score_consistency_observed'] == stats
+    resumed.append('score_consistency', **diagnostic)
+    invalid = dict(diagnostic, passed=False, mean_abs_difference=None, max_abs_difference=None,
+                   structural_errors=['nonfinite token score'])
+    resumed.append('score_consistency', **invalid)
+    stats = json.loads(path.read_text())['score_consistency_observed']
+    assert stats['checks'] == 4 and stats['failed_checks'] == 3
+    assert stats['comparable_checks'] == 3 and stats['compared_tokens'] == 40
+    assert stats['mean_abs_difference'] == pytest.approx((8*.01+32*.06)/40)
+    # Equal-length generated/rescored vectors can both fail action-ID coverage.
+    resumed.append('score_consistency', **dict(diagnostic, passed=False,
+        structural_errors=['per-token score coverage mismatch']))
+    stats = json.loads(path.read_text())['score_consistency_observed']
+    assert stats['checks'] == 5 and stats['failed_checks'] == 4
+    assert stats['comparable_checks'] == 3 and stats['compared_tokens'] == 40

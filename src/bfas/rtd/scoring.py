@@ -29,6 +29,49 @@ class ScoreTolerance:
         return cls(**config.get('score_consistency_tolerance', {}))
 
 
+def tolerance_override(config):
+    """Audit a non-default guard without changing the frozen sampling protocol."""
+    effective = ScoreTolerance.from_config(config)
+    return asdict(effective) if effective != ScoreTolerance() else None
+
+
+@dataclass
+class ScoreConsistencySummary:
+    """All journaled attempts, including failures and work repeated on resume."""
+    checks: int = 0
+    failed_checks: int = 0
+    comparable_checks: int = 0
+    compared_tokens: int = 0
+    sum_abs_difference: float = 0.
+    max_mean_abs_difference: float | None = None
+    max_abs_difference: float | None = None
+    outlier_token_count: int = 0
+    last_score_sequence: int | None = None
+    last_score_hash: str | None = None
+
+    def add(self, event):
+        self.checks += 1
+        self.failed_checks += not event['passed']
+        self.last_score_sequence, self.last_score_hash = event['sequence'], event['hash']
+        mean, maximum = event['mean_abs_difference'], event['max_abs_difference']
+        if (mean is None or maximum is None or
+                'per-token score coverage mismatch' in event.get('structural_errors', ())):
+            return  # Coverage/nonfinite failures are counted, never averaged as zero.
+        self.comparable_checks += 1
+        self.compared_tokens += event['n_tokens']
+        self.sum_abs_difference += mean * event['n_tokens']
+        self.max_mean_abs_difference = max(self.max_mean_abs_difference or 0., mean)
+        self.max_abs_difference = max(self.max_abs_difference or 0., maximum)
+        self.outlier_token_count += event['outlier_token_count']
+
+    def record(self):
+        return asdict(self) | dict(
+            mean_abs_difference=(self.sum_abs_difference / self.compared_tokens if self.compared_tokens else None),
+            units='nats/token including sampled EOS',
+            aggregation='token-weighted mean; all journaled checks including failed/repeated attempts',
+            records='compute.jsonl: score_consistency')
+
+
 def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance, *,
                      expected_prompt_ids=None, score_atol=None, score_rtol=None):
     """Build a JSON-safe record before enforcing either structural or numeric checks.

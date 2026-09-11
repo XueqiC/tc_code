@@ -266,7 +266,11 @@ def test_complete_mode_keeps_whole_file_binding_and_legacy_schedule(toy_bank, tm
     v1 = engine(tmp_path/'V1', toy_bank, arm='V1', replay_schedule=str(v0.directory)); v1.run()
     assert v1.config['replay_schedule_hash'] == file_hash(v0.directory/'exposure_schedule.json')
     assert 'replay_mode' not in v1.config
-    assert v1.store.binding == digest(v1.manifest)
+    # Only journal-derived observations are mutable; the complete replay
+    # schedule hash and every configuration field still bind the checkpoint.
+    immutable = {k: v for k, v in v1.manifest.items() if k != 'score_consistency_observed'}
+    assert v1.store.binding == digest(immutable)
+    assert manifest_hash(v1.manifest) == digest(immutable)
     data['complete'] = False; publish(v0, data)
     with pytest.raises(ValueError, match='replay schedule changed'):
         arm_config(v1.config, 'V1')

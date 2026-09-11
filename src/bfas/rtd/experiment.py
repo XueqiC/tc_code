@@ -222,6 +222,7 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         streaming = streaming_enabled(config)
         if streaming:
             prepare_manifest(self)
+        self.journal.bind_score_manifest(manifest, self.directory/'manifest.json')
         self.store = StateStore(self.directory / 'recovery', manifest)
         self.rng = np.random.default_rng(config['training_seed'])
         self.sampling_rng = torch.Generator(device=self.device).manual_seed(config['training_seed'])

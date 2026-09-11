@@ -21,7 +21,7 @@ import threading
 from ...adapters import alfworld as adapter
 from ..evaluation_lock import evaluation_lock
 from ..hardware import checked_hardware
-from ..persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from ..persistence import manifest_digest, ComputeJournal, atomic_json, digest, file_hash, tree_hash
 from .alfworld_identity import (
     campaign_identity, checked_expectations, guard_manifest,
 )
@@ -362,21 +362,21 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
                 aggregate=dict(verdicts={tid: False for tid in expected["task_ids"]})))
         if (directory / "campaign.json").exists():
             result = validate_evaluation(directory, identity, expected, audited_hashes=hashes,
-                                         manifest_hash=digest(manifest))
+                                         manifest_hash=manifest_digest(manifest))
             if base is not None:
                 comparison = compare_base(base, result)
                 if result.get("repairs_damage") != comparison:
                     raise ValueError("completed campaign base comparison differs")
             journal.append("evaluation_reuse_via_audited_identity" if
                 result["identity"]["evaluation_harness_hash"] != identity["evaluation_harness_hash"] else "evaluation_reused",
-                manifest_hash=digest(manifest), tag=tag,
+                manifest_hash=manifest_digest(manifest), tag=tag,
                 stored_harness_hash=result["identity"]["evaluation_harness_hash"],
                 current_harness_hash=identity["evaluation_harness_hash"],
                 supplement_hash=digest(supplement) if supplement else None,
                 gpu_seconds=0., gpu_reserved_seconds=0.)
             return result  # retain the scored identity and immutable completion bytes
         artifacts = directory / "artifacts"
-        binding = dict(identity=identity, expected=expected, manifest_hash=digest(manifest))
+        binding = dict(identity=identity, expected=expected, manifest_hash=manifest_digest(manifest))
         binding_path = artifacts / "binding.json"
         if binding_path.exists():
             if json.loads(binding_path.read_text()) != binding:
@@ -418,7 +418,7 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
         if aggregate_path.exists() and json.loads(aggregate_path.read_text()) != aggregate:
             raise ValueError("corrupted existing aggregate")
         atomic_json(aggregate_path, aggregate)
-        result = dict(identity=identity, expected=expected, manifest_hash=digest(manifest), hardware_class=hardware["hard"],
+        result = dict(identity=identity, expected=expected, manifest_hash=manifest_digest(manifest), hardware_class=hardware["hard"],
             hardware_class_hash=digest(hardware["hard"]), aggregate=aggregate,
             artifacts_hash=tree_hash(artifacts))
         if base is not None:
