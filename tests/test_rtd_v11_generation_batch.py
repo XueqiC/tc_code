@@ -378,3 +378,48 @@ def test_generation_failure_restores_parameters_global_rng_and_hooks(backend, mo
     assert torch.equal(global_rng, torch.get_rng_state())
     for n, p in lora_parameters(backend.model).items():
         assert torch.equal(original[n], p)
+
+
+def test_feedback_generation_batch_matches_serial_hf_streams(backend, monkeypatch):
+    """Real CPU HF multinomial, including EOS, padding and continuation tickets."""
+    p = snapshot(lora_parameters(backend.model))
+    prompts = ['0 1', '2 1 0', '1 0 2 1', '1']
+    serial_rngs = [rng(i) for i in range(len(prompts))]
+    batched_rngs = [rng(i) for i in range(len(prompts))]
+    serial = [backend.sample_action(prompt, p, g) for prompt, g in zip(prompts, serial_rngs)]
+    calls, generate = [], backend.model.generate
+    def spy(**kwargs):
+        calls.append(kwargs['input_ids'].shape[0])
+        return generate(**kwargs)
+    monkeypatch.setattr(backend.model, 'generate', spy)
+    before = torch.get_rng_state().clone()
+    batched = backend.sample_feedback_actions(list(zip(prompts, batched_rngs)), p)
+    assert calls == [4]
+    assert torch.equal(before, torch.get_rng_state())
+    for a, b, sg, bg in zip(serial, batched, serial_rngs, batched_rngs):
+        assert a.action_ids == b.action_ids and a.prompt_ids == b.prompt_ids
+        assert torch.equal(sg.get_state(), bg.get_state())
+        for key in ('rng_ticket', 'batch_seed', 'batch_rng_after'):
+            assert a.generation_metadata[key] == b.generation_metadata[key]
+        assert b.generation_token_logprobs == pytest.approx(a.generation_token_logprobs, abs=1e-6)
+        checked(backend, b, p)
+
+
+def test_feedback_generation_batch_fuses_original_start_rng_groups(backend, monkeypatch):
+    p = snapshot(lora_parameters(backend.model))
+    serial = [*backend.sample_actions('0 1', 2, p, rng(1)),
+              *backend.sample_actions('2 0 1', 3, p, rng(2))]
+    groups = [*backend.feedback_start_groups('0 1', 2, rng(1)),
+              *backend.feedback_start_groups('2 0 1', 3, rng(2))]
+    calls, generate = [], backend.model.generate
+    def spy(**kwargs):
+        calls.append(kwargs['input_ids'].shape[0])
+        return generate(**kwargs)
+    monkeypatch.setattr(backend.model, 'generate', spy)
+    batched = backend.generate_feedback_groups(groups, p)
+    assert calls == [5]
+    for a, b in zip(serial, batched):
+        assert a.action_ids == b.action_ids
+        for key in ('rng_ticket', 'batch_seed', 'batch_rng_after'):
+            assert a.generation_metadata[key] == b.generation_metadata[key]
+        checked(backend, b, p)

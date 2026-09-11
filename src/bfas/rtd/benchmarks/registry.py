@@ -6,7 +6,7 @@ experiment.RTDExperiment and the sole return estimator is reinforce_gradient.
 The old entrypoints do not consult this registry until C26-F.
 """
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import import_module
 import json
 from pathlib import Path
@@ -131,6 +131,59 @@ class ALFWorldExperimentSupport:
         return alfworld_feedback_rollout(self.states[parent], self.categories[tid], [],
             backend, parameters, generator, checker=checker)
 
+    def feedback_batch(self, tasks, backend, parameters, generator, checker):
+        """Keep serial task/ticket/seed order; co-schedule bounded episode cohorts."""
+        _privileged()
+        if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
+            raise ValueError('ALFWorld feedback needs its bound support/window context')
+        import torch
+        from ..generation_batch import feedback_generation_groups
+        from .alfworld_rollout import alfworld_task_rollouts_lockstep
+        tasks = tuple(tasks)
+        for parent, _ in tasks:
+            _alfworld_feedback_request(self.states[parent], checker)
+        # RTD v1.1 can have more selected episodes than the configured natural
+        # batch. Preserve all selected tasks while bounding the live workers.
+        natural = self.config['meta_tasks_per_feedback'] * self.config['rollouts_per_meta_task']
+        policy = replace(backend.generation_batch,
+                         prompts_per_batch=min(natural, backend.generation_batch.prompts_per_batch))
+        entries, groups = [], []
+        with alfworld_action_limit(backend, 'agent_action'):
+            for parent, count in tasks:
+                offset = len(entries)
+                planned = backend.feedback_start_groups(self.states[parent].prompt, count, generator)
+                for group in planned:
+                    marker = object()
+                    groups.extend(dict(row, episode_index=offset+row['index'], sampling_group=marker)
+                                  for row in group)
+                # Exactly the durable draws made by registry.feedback after the
+                # original parent's batched task starts. Episode continuations
+                # and retry replay never consume this experiment generator.
+                for _ in range(count):
+                    seed = int(torch.randint(0, 2**63-1, (), generator=generator, device=generator.device))
+                    entries.append((parent, self.states[parent], seed))
+            for cohort in feedback_generation_groups(groups, policy):
+                # A legacy RNG group cannot be split without changing its
+                # multinomial realization. Normal ALFWorld groups contain 2/4
+                # starts, below the configured worker bound.
+                from itertools import groupby
+                logical = [list(rows) for _, rows in groupby(cohort, key=lambda r: id(r['sampling_group']))]
+                starts = backend.generate_feedback_groups(logical, parameters)
+                selected = [entries[row['episode_index']] for row in cohort]
+                # D12 counts distinct prompts, so a legacy same-prompt start
+                # group can exceed prompts_per_batch. Keep its sampling intact
+                # but still enforce the tighter bound on live env workers.
+                for offset in range(0, len(selected), policy.prompts_per_batch):
+                    live = selected[offset:offset+policy.prompts_per_batch]
+                    episodes = alfworld_task_rollouts_lockstep([entry[1] for entry in live], backend,
+                        parameters, env_factory=checker.env_factory, renderer=checker.renderer,
+                        journal=checker.journal, rollout_indices=[entry[2] for entry in live],
+                        first_actions=starts[offset:offset+len(live)])
+                    # Restore parent-major order even when an episode
+                    # terminates before its neighbours.
+                    for (parent, _, _), episode in zip(live, episodes):
+                        yield parent, episode.as_task_rollout()
+
 
 @contextmanager
 def alfworld_action_limit(self, category):
@@ -161,15 +214,8 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
     _privileged()
     if category != 'agent_action' or truth != [] or not isinstance(checker, ALFWorldFeedbackContext):
         raise ValueError('ALFWorld feedback requires agent_action, no truth labels, and bound context')
-    from ..transport import FullState
     task_ref = entry
-    entry = json.loads(entry.task_json) if isinstance(entry, FullState) else entry
-    checker.support.guard_tasks([entry['task_id']], checker.round_number, use='feedback')
-    manifest = checker.support.manifest
-    from .alfworld_state import parent_hash
-    if (entry != manifest['tasks'][entry['task_id']]['request'] or
-            manifest['parents'][parent_hash(entry['task_id'])]['selected_task_id'] != entry['task_id']):
-        raise ValueError('feedback differs from frozen selected trial')
+    _alfworld_feedback_request(entry, checker)
     import torch
     from .alfworld_rollout import alfworld_task_rollout_with_retry
     seed = int(torch.randint(0, 2**63 - 1, (), generator=generator, device=generator.device).item())
@@ -177,6 +223,17 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
         episode = alfworld_task_rollout_with_retry(task_ref, backend, parameters, env_factory=checker.env_factory,
             renderer=checker.renderer, journal=checker.journal, rollout_index=seed, base_seed=0)
     return episode.as_task_rollout()
+
+
+def _alfworld_feedback_request(entry, checker):
+    from ..transport import FullState
+    entry = json.loads(entry.task_json) if isinstance(entry, FullState) else entry
+    checker.support.guard_tasks([entry['task_id']], checker.round_number, use='feedback')
+    manifest = checker.support.manifest
+    from .alfworld_state import parent_hash
+    if (entry != manifest['tasks'][entry['task_id']]['request'] or
+            manifest['parents'][parent_hash(entry['task_id'])]['selected_task_id'] != entry['task_id']):
+        raise ValueError('feedback differs from frozen selected trial')
 
 
 def alfworld_cap_policy(request_class, *, limits=None, evidence=()):

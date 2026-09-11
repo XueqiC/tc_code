@@ -93,7 +93,7 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
     if not (bank/'public/support.json').is_file():
         pytest.skip('real ALFWorld v1.1 bank is not installed')
     resets = json.loads((bank/'public/reset_states.json').read_text())
-    environments, runs = [], []
+    environments, runs, retry_workers = [], [], []
     tokenizer = ContractTokenizer()
 
     def forbidden(*args, **kwargs):
@@ -115,7 +115,11 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
             self.commands = []
             # Every role has one success and one failure; every episode requires
             # a continuation after the batched first action (the broken seam).
-            self.won = sum(not env.failed for env in environments) % 2 == 0
+            # Retry ownership must not depend on how many sibling episodes
+            # started before a worker failed in the lockstep scheduler.
+            self.retry_of = retry_workers.pop(0) if retry_workers else None
+            self.won = (self.retry_of.won if self.retry_of is not None else
+                        sum(env.retry_of is None for env in environments) % 2 == 0)
             environments.append(self)
 
         def reset(self, request):
@@ -133,6 +137,7 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
             assert index <= 3
             if self is environments[0] and index == fail_step:
                 self.failed = True
+                retry_workers.append(self)
                 raise EnvironmentUnavailable('stub step RPC failed', diagnostics=dict(
                     worker_exception='RuntimeError: stub worker crashed', exit_code=17,
                     stderr_tail='stub worker traceback', rpc_elapsed_seconds=.25,
@@ -223,7 +228,8 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
     retries = [r for r in events if r['kind'] == 'alfworld_episode_retry']
     assert len(retries) == bool(fail_step)
     if fail_step:
-        failed, retried = episodes[:2]
+        failed, = [episode for episode in episodes if episode['failure']]
+        retried, = [episode for episode in episodes if episode['attempt'] == 1]
         assert failed['excluded'] and failed['reward'] is None
         assert failed['steps'][-1]['observation'] is None
         assert failed['failure']['exit_code'] == 17
@@ -235,8 +241,9 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
         for key in ('task_id', 'rollout_index', 'seed', 'policy_id', 'start_state',
                     'prefix_package_id', 'prefix_steps'):
             assert failed[key] == retried[key]
-        assert environments[0].request == environments[1].request
-        assert environments[0].commands == environments[1].commands[:fail_step]
+        retry_env, = [env for env in environments if env.retry_of is environments[0]]
+        assert environments[0].request == retry_env.request
+        assert environments[0].commands == retry_env.commands[:fail_step]
         assert [s['action'] for s in failed['steps']] == [s['action'] for s in retried['steps'][:fail_step]]
         assert retries[0]['failure'] == failed['failure']
     for role in roles:
@@ -245,7 +252,7 @@ def test_unified_real_alfworld_complete_first_round(tmp_path, monkeypatch, caplo
         assert row['parent_hash'] in e.state['feedback'] and row['parent_hash'] not in e.state['inner']
         actions = row['rollout']['actions']
         assert len(actions) == 3
-        assert [a['generation_metadata']['batch_size'] for a in actions] == [2, 1, 1]
+        assert [a['generation_metadata']['batch_size'] for a in actions] == [2, 2, 2]
         for a in actions:
             m = a['generation_metadata']
             assert (m['temperature'], m['top_p'], m['top_k'], m['max_action_tokens']) == (1., 1., 0, 256)

@@ -10,6 +10,9 @@ from collections import deque
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from itertools import groupby
+import os
+
+from torch.overrides import TorchFunctionMode
 
 import torch
 
@@ -115,6 +118,72 @@ def action_cap(backend, category):
         return backend.max_action_tokens
 
 
+def feedback_generation_groups(rows, policy):
+    """Cap physical feedback batches without splitting a legacy RNG group.
+
+    A single oversized prompt (or pre-existing task-start RNG group) runs
+    alone, as in D12. Effective action limits must agree within a generate call.
+    """
+    batches, batch = [], []
+    for _, members in groupby(rows, key=lambda row: id(row['sampling_group'])):
+        members = list(members)
+        candidate = batch + members
+        width = max(len(row['ids']) for row in candidate)
+        if batch and (len(candidate) > policy.prompts_per_batch or
+                len(candidate) * (width + members[0]['limit']) > policy.max_batch_tokens or
+                batch[0]['limit'] != members[0]['limit']):
+            batches.append(batch)
+            batch = []
+        batch.extend(members)
+    if batch:
+        batches.append(batch)
+    return batches
+
+
+class _FeedbackMultinomial(TorchFunctionMode):
+    """Route HF's categorical draws to the original logical-batch generators.
+
+    This thread-local dispatch mode changes only torch.multinomial inside the
+    generate call; logits, scores, stopping and model code remain HF's own.
+    Singleton continuation streams match serial D12 generation. Task starts
+    retain D12's original multi-row draws, including sampling finished rows.
+    """
+    def __init__(self, rows, device):
+        self.rows, self.groups, self.after = rows, [], {}
+        for _, members in groupby(enumerate(rows), key=lambda item: id(item[1]['sampling_group'])):
+            members = list(members)
+            spec = members[0][1]['sampling_group']
+            self.groups.append((slice(members[0][0], members[-1][0]+1), spec,
+                                torch.Generator(device=device).manual_seed(spec['seed']), []))
+
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs or {}
+        if func is not torch.multinomial:
+            return func(*args, **kwargs)
+        probabilities = args[0]
+        if (probabilities.ndim != 2 or probabilities.shape[0] != len(self.rows) or
+                kwargs.get('generator') is not None):
+            raise ValueError('unexpected HF feedback categorical sampling call')
+        samples = []
+        for indices, _, generator, states in self.groups:
+            samples.append(func(probabilities[indices], *args[1:], **(kwargs | dict(generator=generator))))
+            states.append(generator.get_state())
+        return torch.cat(samples, dim=0)
+
+    def finish(self, sequences, stops):
+        for indices, spec, _, states in self.groups:
+            length = max(next((i+1 for i, token in enumerate(sequence) if token in stops), len(sequence))
+                         for sequence in sequences[indices])
+            if len(states) != len(sequences[0]):
+                raise ValueError('HF did not use the feedback categorical RNG on every decode step')
+            # A shorter logical group would have returned at this decode step.
+            # Later physical-batch padding draws must not enter its RNG record.
+            self.after[id(spec)] = digest(states[length-1].tolist())
+
+    def rng_after(self, row):
+        return self.after[id(row['sampling_group'])]
+
+
 class HFGenerationBatchMixin:
     def _prompt_ids(self, prompt):
         ids = tuple(self.tokenizer.encode(prompt, add_special_tokens=False)) if isinstance(prompt, str) else tuple(prompt)
@@ -165,6 +234,15 @@ class HFGenerationBatchMixin:
         budget = policy.max_batch_tokens if max_batch_tokens is None else max_batch_tokens
         if type(budget) is not int or budget < 1:
             raise ValueError('positive max_batch_tokens required')
+        rows = self._request_rows(requests, generator)
+        groups = length_bucketed_groups(rows, prompts_per_batch=policy.prompts_per_batch, budget=budget)
+        result = [None]*len(rows)
+        for group in groups:
+            for row, action in zip(group, self._generate_group(group, parameters)):
+                result[row['index']] = action
+        return tuple(result)
+
+    def _request_rows(self, requests, generator):
         rows = []
         # Validate everything before advancing the caller's RNG.
         for prompt_index, (prompt, n, cap) in enumerate(requests):
@@ -176,10 +254,36 @@ class HFGenerationBatchMixin:
                                  limit=min(cap, self.max_context_tokens-len(ids))))
         for row in rows:
             row['ticket'] = ticket(generator)
-        groups = length_bucketed_groups(rows, prompts_per_batch=policy.prompts_per_batch, budget=budget)
-        result = [None]*len(rows)
+        return rows
+
+    def feedback_start_groups(self, prompt, count, generator):
+        """Freeze exactly the task-start tickets and logical batches used by D12."""
+        rows = self._request_rows([(prompt, count, self.max_action_tokens)], generator)
+        return length_bucketed_groups(rows, prompts_per_batch=self.generation_batch.prompts_per_batch,
+                                      budget=self.generation_batch.max_batch_tokens)
+
+    def sample_feedback_actions(self, requests, parameters):
+        """One independent serial-equivalent RNG stream per live continuation."""
+        groups = [self._request_rows([(prompt, 1, self.max_action_tokens)], generator)
+                  for prompt, generator in requests]
+        return self.generate_feedback_groups(groups, parameters)
+
+    def generate_feedback_groups(self, groups, parameters):
+        if self.model.training:
+            raise ValueError('frozen eval policy required')
+        rows = []
         for group in groups:
-            for row, action in zip(group, self._generate_group(group, parameters)):
+            # Sampling layout stays frozen even when several logical batches
+            # share a physical generate call. Continuations are singleton groups.
+            sampling = dict(seed=int(digest([RNG_RULE, [r['ticket'] for r in group]])[:15], 16),
+                            size=len(group), width=max(len(r['ids']) for r in group))
+            offset = len(rows)
+            rows.extend(dict(row, index=offset+i, sampling_group=sampling)
+                        for i, row in enumerate(group))
+        result = [None] * len(rows)
+        # Keep each original RNG group together and preserve its row ordering.
+        for batch in feedback_generation_groups(rows, self.generation_batch):
+            for row, action in zip(batch, self._generate_group(batch, parameters)):
                 result[row['index']] = action
         return tuple(result)
 
@@ -228,6 +332,7 @@ class HFGenerationBatchMixin:
             bos_token_id=self.tokenizer.bos_token_id, use_cache=True,
             return_dict_in_generate=True, output_scores=True)
         seed = int(digest([RNG_RULE, [r['ticket'] for r in rows]])[:15], 16)
+        independent = _FeedbackMultinomial(rows, device) if 'sampling_group' in rows[0] else None
         devices = [device.index or 0] if device.type == 'cuda' else []
         identity = self.identity(parameters)
         generation_model = self.model.get_base_model() if hasattr(self.model, 'get_base_model') else self.model
@@ -244,7 +349,8 @@ class HFGenerationBatchMixin:
                 torch.set_rng_state(batch_rng.get_state())
             hook = generation_model.register_forward_hook(observe)
             try:
-                output = self.model.generate(input_ids=ids, attention_mask=mask, generation_config=settings)
+                with independent if independent is not None else nullcontext():
+                    output = self.model.generate(input_ids=ids, attention_mask=mask, generation_config=settings)
             finally:
                 hook.remove()
             rng_after = digest((torch.cuda.get_rng_state(device) if devices else torch.get_rng_state()).tolist())
@@ -255,6 +361,8 @@ class HFGenerationBatchMixin:
             values = torch.stack([s.float().log_softmax(-1).gather(1, tokens[:, t:t+1]).squeeze(1)
                                   for t, s in enumerate(output.scores)], dim=1).cpu().tolist()
             sequences = tokens.cpu().tolist()
+            if independent is not None:
+                independent.finish(sequences, stops)
             cache = getattr(output, 'past_key_values', None)
             result = []
             for row, sequence, logps in zip(rows, sequences, values):
@@ -266,6 +374,8 @@ class HFGenerationBatchMixin:
                 action_eos = eos if truncated else sequence[-1]
                 if truncated and len(sequence) != row['limit']:
                     raise ValueError('malformed generation: expected first EOS or action limit')
+                action_seed = row['sampling_group']['seed'] if independent is not None else seed
+                action_rng_after = independent.rng_after(row) if independent is not None else rng_after
                 metadata = dict(implementation='hf-generate-kv-batched-categorical-v1', use_cache=True,
                     logits_dtypes=sorted(dtypes), scores_dtypes=sorted({str(s.dtype) for s in output.scores}),
                     logprob_dtype='torch.float32', reduction_dtype='python.float',
@@ -274,8 +384,11 @@ class HFGenerationBatchMixin:
                     transformers_version=transformers.__version__, attention=attention_implementation(self.model),
                     cache_type=type(cache).__name__ if cache is not None else None, temperature=1., top_p=1.,
                     top_k=0, repetition_penalty=1., max_action_tokens=row['cap'], effective_action_limit=row['limit'],
-                    rng_rule=RNG_RULE, rng_ticket=row['ticket'], batch_seed=seed, batch_rng_after=rng_after,
+                    rng_rule=RNG_RULE, rng_ticket=row['ticket'], batch_seed=action_seed, batch_rng_after=action_rng_after,
                     batch_size=size, padded_prompt_tokens=width, padding_side='left')
+                if independent is not None:
+                    metadata.update(sampling_batch_size=row['sampling_group']['size'],
+                                    sampling_prompt_width=row['sampling_group']['width'])
                 action = ActionTrace(row['ids'], tuple(sequence), action_eos,
                     self.tokenizer.decode(sequence if truncated else sequence[:-1], skip_special_tokens=False),
                     sum(logps), self.backend_id, identity, tuple(logps), metadata, truncated=truncated)
@@ -284,7 +397,7 @@ class HFGenerationBatchMixin:
                     self.journal.append('generated_tokens', context=self.context, action_tokens=len(sequence),
                         complete=not truncated, truncated=truncated, policy_id=identity,
                         action_hash=digest(action.action_ids), sample_hash=digest(asdict(action)),
-                        **row['ticket'], rng_rule=RNG_RULE, batch_seed=seed, batch_rng_after=rng_after)
+                        **row['ticket'], rng_rule=RNG_RULE, batch_seed=action_seed, batch_rng_after=action_rng_after)
         return tuple(result)
 
 
@@ -325,3 +438,15 @@ def feedback_rollouts(support, parent, count, backend, parameters, generator, ch
         if not proxy.used:
             raise AssertionError('feedback did not consume its task-start action')
         yield rollout
+
+
+def feedback_rollout_tasks(support, tasks, backend, parameters, generator, checker):
+    """Collect across parents so the natural feedback block shares each decode."""
+    if (os.environ.get('BFAS_FEEDBACK_LOCKSTEP', '1') != '0' and
+            getattr(backend, 'generation_batch', None) is not None and
+            not getattr(backend, 'diagnostic_only', False) and hasattr(support, 'feedback_batch')):
+        yield from support.feedback_batch(tasks, backend, parameters, generator, checker)
+    else:
+        for parent, count in tasks:
+            for rollout in feedback_rollouts(support, parent, count, backend, parameters, generator, checker):
+                yield parent, rollout

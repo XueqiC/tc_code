@@ -32,7 +32,7 @@ from .return_gradient import ActionTrace, GateController, bfcl_task_rollout, rei
 from .runtime import streamed_gate_vjp, streamed_gradient
 from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
-from .generation_batch import sample_actions, feedback_rollouts
+from .generation_batch import sample_actions, feedback_rollout_tasks
 from .forward_batch import source_score_scope
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
@@ -496,12 +496,13 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         if hasattr(self.support, 'feedback_context'):
             self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
         with self.scope(label):
-            for parent, count in s['feedback_tasks']:
-                for rollout in feedback_rollouts(self.support, parent, count, self.backend,
-                                                 parameters, self.sampling_rng, self.checker):
-                    rollouts.append(rollout)
-                    self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
-                                        parent_hash=parent, rollout=asdict(rollout))
+            self.journal.append('feedback_plan', round=s['round'], step=s['step'], role=label,
+                                tasks=s['feedback_tasks'], episodes=sum(n for _, n in s['feedback_tasks']))
+            for parent, rollout in feedback_rollout_tasks(self.support, s['feedback_tasks'], self.backend,
+                                                          parameters, self.sampling_rng, self.checker):
+                rollouts.append(rollout)
+                self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
+                                    parent_hash=parent, rollout=asdict(rollout))
             result = reinforce_gradient(rollouts, self.backend, parameters,
                 diagnostic_record=lambda rollout, index, diagnostic: self.journal.append('score_consistency',
                     **(diagnostic | dict(round=s['round'], step=s['step'], role=label,

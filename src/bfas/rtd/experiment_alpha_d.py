@@ -23,7 +23,7 @@ from .persistence import digest
 from .return_gradient import ActionTrace
 from .conventions import exposure_step, record_identity, repetition_counts
 from .joint_surrogate import control, execute_update, marginal_values, replacement_batch, validate_pair
-from .generation_batch import action_cap, feedback_rollouts
+from .generation_batch import action_cap, feedback_rollout_tasks
 from .forward_batch import forward_enabled
 
 
@@ -455,17 +455,18 @@ class AlphaDExperimentMixin:
         batch_id = digest([s['window_id'], role, seed])
         rewards, tasks = [], []
         with self.scope(role):
-            for parent, count in s['feedback_tasks']:
-                if hasattr(self.support, 'feedback_context'):
-                    self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
-                for rollout in feedback_rollouts(self.support, parent, count, self.backend,
-                                                 parameters, generator, self.checker):
-                    if rollout.policy_id != self.backend.identity(parameters) or not rollout.from_task_start:
-                        raise ValueError('paired validation requires executed full tasks at the selected student')
-                    rewards.append(rollout.reward); tasks.append(rollout.task_id)
-                    self.journal.append('validation_rollout', round=s['round'], step=s['step'], role=role,
-                        feedback_batch_id=batch_id, parent_hash=parent, rollout=asdict(rollout),
-                        used_for_control_or_posterior=False)
+            if hasattr(self.support, 'feedback_context'):
+                self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
+            self.journal.append('feedback_plan', round=s['round'], step=s['step'], role=role,
+                                tasks=s['feedback_tasks'], episodes=sum(n for _, n in s['feedback_tasks']))
+            for parent, rollout in feedback_rollout_tasks(self.support, s['feedback_tasks'], self.backend,
+                                                          parameters, generator, self.checker):
+                if rollout.policy_id != self.backend.identity(parameters) or not rollout.from_task_start:
+                    raise ValueError('paired validation requires executed full tasks at the selected student')
+                rewards.append(rollout.reward); tasks.append(rollout.task_id)
+                self.journal.append('validation_rollout', round=s['round'], step=s['step'], role=role,
+                    feedback_batch_id=batch_id, parent_hash=parent, rollout=asdict(rollout),
+                    used_for_control_or_posterior=False)
         return dict(mean_return=float(np.mean(rewards)), rewards=rewards, task_ids=tasks,
                     parameter_hash=tensor_state_hash(parameters), batch_id=batch_id, role=role)
 

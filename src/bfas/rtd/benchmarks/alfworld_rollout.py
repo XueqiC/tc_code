@@ -231,7 +231,7 @@ def _validate_action(action, state, backend, parameters):
         raise ValueError("action text differs from the sampled token IDs")
 
 
-def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env_factory: EnvironmentFactory,
+def _alfworld_task_rollout_stream(task_ref, backend: SamplingBackend, parameters, *, env_factory: EnvironmentFactory,
                          renderer, journal, rollout_index=0, base_seed=0,
                          prefix_package_id=None, owned_packages=None, support=None, round_number=None,
                          attempt=0):
@@ -299,7 +299,7 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
             raise ValueError("task reset/prefix unexpectedly terminal")
         for index in range(prefix_steps, MAX_EPISODE_STEPS):
             state = start if index == prefix_steps else _state(request, history, renderer)
-            action = backend.sample_action(state.prompt, parameters, generator, temperature=1., top_p=1.)
+            action = yield (state.prompt, generator)
             _validate_action(action, state, backend, parameters)
             command, fallback = parse_action(action.text, observation.admissible)
             steps.append(EpisodeStep(state, action, command, fallback))
@@ -336,49 +336,140 @@ def alfworld_task_rollout(task_ref, backend: SamplingBackend, parameters, *, env
     return episode
 
 
-class _RetryBackend:
-    """Replay sampled traces and RNG transitions without new policy draws.
+def _run_serial(stream, backend, parameters):
+    """Drive the same episode state machine one sampling request at a time."""
+    try:
+        request = next(stream)
+        while True:
+            prompt, generator = request
+            try:
+                action = backend.sample_action(prompt, parameters, generator, temperature=1., top_p=1.)
+            except BaseException as exc:
+                stream.throw(exc)  # retain the failed episode before propagating
+                raise
+            request = stream.send(action)
+    except StopIteration as completed:
+        return completed.value
+    finally:
+        stream.close()
 
-    This also preserves a batched task-start action whose backend proxy has
-    already consumed it. Only the completed attempt reaches gradient scoring.
+
+def alfworld_task_rollout(task_ref, backend, parameters, **kwargs):
+    """Serial driver of the full-task/prefix episode state machine."""
+    return _run_serial(_alfworld_task_rollout_stream(task_ref, backend, parameters, **kwargs),
+                       backend, parameters)
+
+
+def _alfworld_retry_stream(task_ref, backend, parameters, *, journal, **kwargs):
+    """Cache actions and RNG transitions across one fresh-worker RPC retry.
+
+    Cached requests never reach the scheduler or consume a second RNG ticket.
+    A batched first action leaves the episode generator untouched, as before.
     """
-    def __init__(self, backend):
-        self.backend, self.cached, self.index = backend, [], 0
-
-    def __getattr__(self, name):
-        return getattr(self.backend, name)
-
-    def sample_action(self, prompt, parameters, generator, **settings):
-        before = generator.get_state().clone()
-        if self.index < len(self.cached):
-            previous_prompt, action, previous_rng, after = self.cached[self.index]
-            if prompt != previous_prompt or not torch.equal(before, previous_rng):
-                raise ValueError("RPC retry differs from original prompt/sampling stream")
-            generator.set_state(after)
-        else:
-            action = self.backend.sample_action(prompt, parameters, generator, **settings)
-            self.cached.append((prompt, action, before, generator.get_state().clone()))
-        self.index += 1
-        return action
-
-
-def alfworld_task_rollout_with_retry(task_ref, backend, parameters, *, journal, **kwargs):
-    """One fresh-worker retry of an RPC failure; identical seed/reset/prefix.
-
-    Keep both attempts in the journal, but return just the final measurement.
-    Ordinary terminal losses and policy/state/ownership errors never retry.
-    """
-    backend = _RetryBackend(backend)
-    episode = alfworld_task_rollout(task_ref, backend, parameters, journal=journal, **kwargs)
-    if (episode.failure and episode.failure.get("rpc_failure") and
-            episode.failure["stage"] in {"factory", "reset", "prefix_step", "step"}):
+    cached = []
+    for attempt in range(2):
+        stream = _alfworld_task_rollout_stream(task_ref, backend, parameters,
+            journal=journal, attempt=attempt, **kwargs)
+        try:
+            prompt, generator = next(stream)
+            index = 0
+            while True:
+                before = generator.get_state().clone()
+                if index < len(cached):
+                    previous_prompt, action, previous_rng, after = cached[index]
+                    if prompt != previous_prompt or not torch.equal(before, previous_rng):
+                        raise ValueError("RPC retry differs from original prompt/sampling stream")
+                    generator.set_state(after)
+                else:
+                    try:
+                        action = yield (prompt, generator)
+                    except BaseException as exc:
+                        stream.throw(exc)
+                        raise
+                    cached.append((prompt, action, before, generator.get_state().clone()))
+                index += 1
+                prompt, generator = stream.send(action)
+        except StopIteration as completed:
+            episode = completed.value
+        except BaseException as exc:
+            try:
+                stream.throw(exc)
+            except BaseException:
+                pass
+            raise
+        finally:
+            stream.close()
+        if (attempt or not episode.failure or not episode.failure.get("rpc_failure") or
+                episode.failure["stage"] not in {"factory", "reset", "prefix_step", "step"}):
+            return episode
         journal.append("alfworld_episode_retry", task_id=episode.task_id,
             rollout_index=episode.rollout_index, seed=episode.seed, attempt=1,
             prefix_package_id=episode.prefix_package_id, prefix_steps=episode.prefix_steps,
             failure=episode.failure)
-        backend.index = 0
-        episode = alfworld_task_rollout(task_ref, backend, parameters, journal=journal, attempt=1, **kwargs)
-    return episode
+
+
+def alfworld_task_rollout_with_retry(task_ref, backend, parameters, *, journal, **kwargs):
+    """Serial execution, with identical reset, traces and RNG on an RPC retry."""
+    return _run_serial(_alfworld_retry_stream(task_ref, backend, parameters,
+        journal=journal, **kwargs), backend, parameters)
+
+
+def alfworld_task_rollouts_lockstep(task_refs, backend, parameters, *, env_factory, renderer,
+                                   journal, rollout_indices, first_actions, base_seed=0):
+    """Drive one owned environment subprocess per episode at sampling barriers.
+
+    Environment RPCs stay in their existing bounded workers. Only the caller
+    touches the policy, so there are no model threads or process-global proxies.
+    Retry replay runs to the next unsampled prompt before joining the barrier.
+    Results retain input order, even when shorter episodes finish first.
+    """
+    refs, indices, starts = tuple(task_refs), tuple(rollout_indices), tuple(first_actions)
+    if not refs or len(refs) != len(indices) or len(refs) != len(starts):
+        raise ValueError('aligned nonempty lockstep episode inputs required')
+    streams = [_alfworld_retry_stream(ref, backend, parameters, env_factory=env_factory,
+        renderer=renderer, journal=journal, rollout_index=index, base_seed=base_seed)
+        for ref, index in zip(refs, indices)]
+    results, live = [None] * len(streams), {}
+    try:
+        for i, stream in enumerate(streams):
+            try:
+                live[i] = next(stream)
+            except StopIteration as completed:
+                results[i] = completed.value
+        first = True
+        while live:
+            if first:
+                actions = []
+                for i, (prompt, _) in live.items():
+                    action = starts[i]
+                    if (backend._prompt_ids(prompt) != action.prompt_ids or
+                            backend.identity(parameters) != action.policy_id):
+                        raise AssertionError('batched task-start prompt/policy mismatch')
+                    actions.append(action)
+                first = False
+            else:
+                actions = backend.sample_feedback_actions(tuple(live.values()), parameters)
+            if len(actions) != len(live):
+                raise AssertionError('lockstep backend returned an unaligned action batch')
+            for i, action in zip(tuple(live), actions):
+                try:
+                    live[i] = streams[i].send(action)
+                except StopIteration as completed:
+                    results[i] = completed.value
+                    del live[i]
+        return tuple(results)
+    except BaseException as exc:
+        # Journal policy failures against every suspended episode and close all
+        # owned workers even if one worker/renderer/validator aborts the batch.
+        for i in tuple(live):
+            try:
+                streams[i].throw(exc)
+            except BaseException:
+                pass
+        raise
+    finally:
+        for stream in streams:
+            stream.close()
 
 
 def collect_feedback(task_refs, backend, parameters, *, env_factory, renderer, journal,
