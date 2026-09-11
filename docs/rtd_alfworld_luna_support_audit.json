@@ -1,0 +1,264 @@
+{
+  "bank_audit": {
+    "available_cost_by_confidence": {
+      "estimated": 118792
+    },
+    "available_packages": 104,
+    "bank_public_cap_sum": 1703936,
+    "budget_basis": "usable_recorded_output_tokens",
+    "budget_ceilings": [
+      11879,
+      29698
+    ],
+    "budget_denominator": 118792,
+    "cap_certificate_sha256": "f58013c424462212924089d4c64a939d98aa824de87e409e44965f8bdc22909f",
+    "cost_scope": "cached-content cost; not the full teacher bill",
+    "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+    "recorded_bank_usage": 118792,
+    "version": "rtd-v1.1.0-state-bank"
+  },
+  "changed_request_identities": 142,
+  "comparison_function": "src/bfas/rtd/benchmarks/config.py:data_identity",
+  "config_differences": {
+    "unified_alfworld_gemma4_d0_luna.yaml": [
+      "replay_bank_path"
+    ],
+    "unified_alfworld_gemma4_luna.yaml": [
+      "replay_bank_path"
+    ],
+    "v1_1_alfworld_luna.yaml": [
+      "replay_bank_path"
+    ]
+  },
+  "date": "2026-09-11",
+  "differing_task_fields_before": [
+    "request.environment_hash",
+    "request_hash"
+  ],
+  "differing_top_level_fields_before": [
+    "environment",
+    "manifest_hash",
+    "tasks"
+  ],
+  "frozen_support_path": "data/rtd/v1_1_alfworld/public/support.json",
+  "gpu_used": false,
+  "hashes": {
+    "frozen_environment_hash": "1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c",
+    "frozen_manifest_hash": "c9e94738a072548a1b61333ef67b324005c995dd713d870dda035651067ab0f6",
+    "frozen_support_sha256": "d6f3dbf6fddca162472982b14ab55888e3b55862fa64c4abc1e5d753290c161b",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "new_certificate_sha256": "f58013c424462212924089d4c64a939d98aa824de87e409e44965f8bdc22909f",
+    "new_luna_support_sha256": "d6f3dbf6fddca162472982b14ab55888e3b55862fa64c4abc1e5d753290c161b",
+    "old_certificate_sha256": "45e36bff891c16151ae113d1394091a0941351e881b33fcb27aa469a64ad44a6",
+    "old_luna_environment_hash": "e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f",
+    "old_luna_manifest_hash": "38f4fa7f7a4a31d37244cfa43fe717a40b9613c1e647db87b6ed2c5a17983c5c",
+    "old_luna_support_sha256": "eaf31f81faccada7f30c20288d94d2692e0fbfdaa8525e9b073d5b147116ba71",
+    "source_manifest_sha256": "e66aa1c37385709ce5a383be1c1b5d3fa61b27053a42533055348fe4993b699b"
+  },
+  "inventory": {
+    "calibration_tasks": 35,
+    "excluded_historical_tasks": [
+      "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+      "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+      "pick_clean_then_place_in_recep-Cloth-None-Drawer-423/trial_T20190908_140626_609969",
+      "pick_cool_then_place_in_recep-Bowl-None-Microwave-7/trial_T20190908_231310_981246"
+    ],
+    "fold_parent_counts": {
+      "0": 79,
+      "1": 56
+    },
+    "fold_task_counts": {
+      "0": 81,
+      "1": 57
+    },
+    "frozen_only_tasks": [],
+    "historical_parents": 139,
+    "historical_tasks": 142,
+    "parent_hashes_folds_and_trials_equal": true,
+    "parent_order_equal": true,
+    "probe_tasks": 4,
+    "protected_and_round_assignments_equal": true,
+    "protected_parents": 36,
+    "source_only_tasks": [],
+    "task_order_equal": true,
+    "training_parents": 135,
+    "training_tasks": 138
+  },
+  "new_teacher_calls": 0,
+  "original_replay_evidence_and_costs_unchanged": true,
+  "packages": {
+    "attempted_tasks": 142,
+    "attempts": 233,
+    "behavior_states_checked": 1535,
+    "dropped": 0,
+    "missing_frozen_tasks": [],
+    "reset_file_byte_identical_to_gpt": true,
+    "reset_states_checked": 142,
+    "reset_states_identical_to_gpt": 142,
+    "training_tasks_without_usable_package": [
+      "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+      "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+      "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+      "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+      "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+      "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+      "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+      "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+      "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+      "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+      "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+      "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+      "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+      "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+      "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+      "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+      "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+      "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+      "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+      "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+      "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+      "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+      "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+      "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+      "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+      "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+      "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+      "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+      "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+      "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+      "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+      "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+      "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+      "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172"
+    ],
+    "unavailable": 129,
+    "usable": 104,
+    "usable_by_fold": {
+      "0": 62,
+      "1": 42
+    }
+  },
+  "preflights": [
+    {
+      "config": "configs/rtd/v1_1_alfworld_luna.yaml",
+      "log": "logs/alfworld_luna_frozen_support_preflight_V0.log",
+      "mode": "run",
+      "summary": {
+        "arm": "V0",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "1.1.0",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      }
+    },
+    {
+      "config": "configs/rtd/v1_1_alfworld_luna.yaml",
+      "log": "logs/alfworld_luna_frozen_support_preflight_V2.log",
+      "mode": "run",
+      "summary": {
+        "arm": "V2",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "1.1.0",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      }
+    },
+    {
+      "config": "configs/rtd/unified_alfworld_gemma4_luna.yaml",
+      "log": "logs/alfworld_luna_frozen_support_preflight_D3_smoke.log",
+      "mode": "smoke",
+      "summary": {
+        "arm": "D3",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "unified-p0-1",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      }
+    },
+    {
+      "config": "configs/rtd/unified_alfworld_gemma4_d0_luna.yaml",
+      "log": "logs/alfworld_luna_frozen_support_preflight_D0_smoke.log",
+      "mode": "smoke",
+      "summary": {
+        "arm": "D0",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "unified-p0-1",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      }
+    }
+  ],
+  "production_schedule_status": "D3/D0 production preflight requires a V0 replay schedule; none exists because V0 failed before launch. Standalone smoke preflights passed; the chain remains stopped.",
+  "regression_tests": {
+    "files": [
+      "tests/test_rtd_v11_alfworld_conversion.py",
+      "tests/test_alfworld_teacher_pool.py",
+      "tests/test_rtd_preflight.py"
+    ],
+    "log": "logs/alfworld_luna_frozen_support_tests.log",
+    "passed": 67
+  },
+  "source_pool": "data/rtd/v1_alfworld_luna2",
+  "source_pool_and_ledger_unchanged": true,
+  "support_byte_identical_to_gpt": true
+}

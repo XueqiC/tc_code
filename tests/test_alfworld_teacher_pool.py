@@ -121,13 +121,14 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     from bfas.rtd.bank_build import validate_state_certificate
     from bfas.rtd.cli import load_config
     config = load_config(pool.ROOT / 'configs/rtd/v1_1_alfworld.yaml')
+    config['support_manifest'] = str(source/'public/support.json')
     built = tmp_path/'v1_1_alfworld_luna'
     converted = convert_alfworld_bank(out, built, config=config, tokenizer=StubTokenizer(), ledger=ledger)
     assert converted['available_packages'] == 3
     assert converted['recorded_bank_usage'] == 120
     assert validate_state_certificate(built)['core']['benchmark'] == 'alfworld'
     converted_support = json.loads((built/'public/support.json').read_text())
-    assert converted_support == support
+    assert converted_support == pool.load_source(source)
     assert converted_support['parents'] == pool.load_source(source)['parents']
     assert all(p['fold'] == int(h, 16) % 2 for h, p in converted_support['parents'].items())
     monkeypatch.setenv('BFAS_TEACHER', 'openai/different')
