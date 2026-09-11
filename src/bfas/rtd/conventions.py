@@ -146,17 +146,45 @@ def export_schedule(engine):
         complete=len(rows) == (1 if s['smoke'] else 12*s['rounds']), steps=rows))
 
 
-def fold_roles(parents):
-    """Use BFCL record folds; hash-keyed ALFWorld parents retain parity folds."""
-    groups = {'0': [], '1': []}
+PARENT_FOLD_RULE = 'int(parent_hash, 16) % 2'
+
+
+def resolve_parent_folds(parents):
+    """Normalize support parents, preserving explicit folds and auditing fallback.
+
+    BFCL/WebShop use record lists; ALFWorld keys records by parent hash. Older
+    callers may supply bare hashes or records without folds. All builders use
+    hash parity by default, after excluding protected calibration/probe parents.
+    """
+    if isinstance(parents, dict):
+        parents = [dict(p, parent_hash=h) if isinstance(p, dict)
+                   else dict(parent_hash=h, official_id=p) for h, p in parents.items()]
+    records, derived = [], []
     for parent in parents:
         if isinstance(parent, str):
-            parent_hash, fold = parent, int(parent, 16) % 2
+            parent = dict(parent_hash=parent)
+        if 'selected_task_id' in parent:
+            parent = dict(parent, official_id=parent['selected_task_id'])
+        parent_hash = parent['parent_hash']
+        if not isinstance(parent_hash, str):
+            raise ValueError('parent record requires a hash string')
+        if 'fold' not in parent:
+            fold = int(parent_hash, 16) % 2
+            derived.append(parent_hash)
         else:
-            parent_hash, fold = parent['parent_hash'], parent['fold']
-            if not isinstance(parent_hash, str) or type(fold) is not int or fold not in (0, 1):
-                raise ValueError('parent record requires a hash string and explicit fold 0 or 1')
-        groups[str(fold)].append(parent_hash)
+            fold = parent['fold']
+            if type(fold) is not int or fold not in (0, 1):
+                raise ValueError('parent record requires explicit fold 0 or 1')
+        records.append(dict(parent, fold=fold))
+    return records, sorted(derived)
+
+
+def fold_roles(parents):
+    """Rotating training/feedback groups, with hash parity for missing folds."""
+    records, _ = resolve_parent_folds(parents)
+    groups = {'0': [], '1': []}
+    for parent in records:
+        groups[str(parent['fold'])].append(parent['parent_hash'])
     groups = {f: sorted(hashes) for f, hashes in groups.items()}
     return {str(f): dict(inner_parent_groups=groups[str(f)], feedback_parent_groups=groups[str(1-f)]) for f in (0, 1)}
 

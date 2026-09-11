@@ -121,6 +121,10 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     assert converted['available_packages'] == 3
     assert converted['recorded_bank_usage'] == 120
     assert validate_state_certificate(built)['core']['benchmark'] == 'alfworld'
+    converted_support = json.loads((built/'public/support.json').read_text())
+    assert converted_support == support
+    assert converted_support['parents'] == pool.load_source(source)['parents']
+    assert all(p['fold'] == int(h, 16) % 2 for h, p in converted_support['parents'].items())
     monkeypatch.setenv('BFAS_TEACHER', 'openai/different')
     with pytest.raises(ValueError, match='resume'):
         collect(source, out, teacher)

@@ -95,6 +95,32 @@ next-power-of-two class caps. The broker reserves those certified public caps.
 The original C25 certificate validator and converter remain available for old
 banks; old payloads are never rewritten.
 
+### Parent fold contract
+
+`fold` is an integer 0/1 on each **support parent** in `public/support.json`.
+BFCL and WebShop store parent record lists; ALFWorld stores a mapping keyed by
+parent hash, with `selected_task_id` identifying the representative trial.
+Paid `public/requests.json` packages carry `parent_hash`; they do not duplicate
+the support fold. Both current ALFWorld and BFCL GPT-5.4 banks already contain
+all support folds. The D3 `KeyError: 'fold'` came from the manifest adapter
+discarding this field while reconstructing ALFWorld parent records.
+
+The builders assign `int(parent_hash, 16) % 2` and preserve frozen explicit
+assignments during conversion. For ALFWorld the hash is SHA256 of canonical JSON
+`{benchmark: alfworld, split: train, parent_game: first task_id segment}`; related
+trials stay together. These are rotating inner-training/feedback folds, with
+calibration/probe parents excluded separately, not calibration/confirmation
+assignments. Explicit folds remain authoritative, including BFCL assignments
+that differ from parity; malformed explicit values are rejected.
+
+Manifest creation now reads these support records directly. For legacy parent
+records without `fold`, `fold_roles` uses the same hash parity. The run manifest
+records the rule and sorted affected hashes in `parent_group_fold_derivation`
+only when derivation was needed. Existing signed support files, certificates,
+and packages are not rewritten. Both ALFWorld builder entrypoints already copy
+the complete audited support, including folds, into the new certificate-bound
+bank; this also covers the Luna collector's C26-format output.
+
 ## Run each benchmark
 
 Select one physical GPU; the same hardware class remains mandatory for all arms
@@ -173,3 +199,20 @@ write access to that directory.
 Full CPU suite result: **2,360 passed, 4 skipped, 6 warnings** in 913.24 seconds.
 GPU visibility was disabled and Hub access forced offline. The final WebShop
 certificate-affordability check also passed in the focused nine-test suite.
+
+The 2026-09-10 fold regression check used the main tree's venv, empty
+`CUDA_VISIBLE_DEVICES`, offline Hub settings, and a `/tmp` BFCL runtime:
+
+```bash
+PYTHONPATH=src:. .venv/bin/python -m pytest -q tests/ -k 'unified or bank or conventions or manifest'
+```
+
+Result: **214 passed, 1 failed**. The failure is the pre-existing historical hash
+oracle in `test_hard2_config_manifest_and_reference_gradient_are_byte_identical`;
+an untouched `git archive HEAD` reproduced the identical `4d286905…` actual hash
+against its expected `e251f010…`. The fold/converter regressions passed, including
+both ALFWorld command entrypoints and the fake-teacher Luna pipeline. A CPU-only
+`make_manifest` call with arm D3 and the real `data/rtd/v1_1_alfworld` bank passed
+with 135 parents split 79/56. Only the mandatory training-GPU identity probe was
+replaced with a CPU fixture; local checkpoint/tokenizer/harness/data identities
+and the bank audit ran normally. No GPU computation or teacher API call ran.

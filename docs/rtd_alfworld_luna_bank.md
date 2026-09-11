@@ -139,6 +139,15 @@ render stored states with the configured student tokenizer, and write the v1.1
 bank and public cost certificate. Finish collection before conversion: adding
 ledger rows changes the pool's sealed identity and requires a fresh conversion.
 
+Both entrypoints preserve the source's complete `public/support.json`, including
+each parent and task's integer `fold`. Folds use `int(parent_hash, 16) % 2`, where
+the parent hash groups all trials of the same game; protected calibration/probe
+parents remain excluded. Request packages refer to the parent hash without
+duplicating its fold. The experiment manifest preserves explicit support folds
+and records any legacy fallback in `parent_group_fold_derivation`; see the
+[D16 fold contract](rtd_v1_1_d16.md#parent-fold-contract). No pool recollection or
+bank rewrite is needed for the manifest fix.
+
 ## 4. Point the experiment configs at the bank
 
 Set these keys in **both** `configs/rtd/unified_alfworld_gemma4.yaml` and

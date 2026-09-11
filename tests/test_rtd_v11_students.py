@@ -103,6 +103,7 @@ def test_paid_bfcl_bank_reuses_rendered_rows(tmp_path, tokenizer, context):
     assert result['budget_denominator'] == 33
     cert = validate_state_certificate(out, benchmark='bfcl', student=config['student'])
     assert cert['core']['class_caps'] == {'demo_attempt': 64}
+    assert json.loads((out/'public/support.json').read_text()) == json.loads(support.read_text())
     q = json.loads((out/'public/requests.json').read_text())[0]['spec']['query_id']
     b = json.loads((out/f'sealed/{q}.json').read_text())['behaviors'][0]
     rendered = bfcl_row(config, row, tokenizer)

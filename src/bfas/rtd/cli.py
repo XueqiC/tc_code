@@ -26,7 +26,7 @@ from .identity import (audit_legacy, evaluation_harness_identity, evaluation_har
                        source_identity, validate_resume, verified_checkpoint)
 from .hardware import hardware_identity, instance, device_class, comparison_hash
 from .conventions import (arm_config, BASE_CHECKPOINT, ADAPTIVE_EFFECT, CORE_CONTROL,
-                          DEVELOPMENT, CERTIFICATION, fold_roles)
+                          DEVELOPMENT, CERTIFICATION, fold_roles, resolve_parent_folds, PARENT_FOLD_RULE)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -328,15 +328,14 @@ def make_manifest(config, arm, audit, *, smoke=False):
         if support_path.is_file():
             from .benchmarks.registry import get_benchmark
             from .metrics_v11 import options as metric_options, freeze_tasks
-            support = None
-            if config['benchmark'] == 'bfcl':
-                parents = json.loads(support_path.read_text())['parents']
-            else:
-                support = get_benchmark(config).support_protocol(ROOT, config)
-                parents = [dict(parent_hash=h, official_id=t) for h, t in support.parents.items()]
+            # Folds belong to frozen support parents, not paid request packages.
+            # Preserve the ALFWorld/WebShop metadata lost by the hash -> task view.
+            parents, derived = resolve_parent_folds(json.loads(support_path.read_text())['parents'])
             manifest['parent_group_roles_by_fold'] = fold_roles(parents)
+            if derived:
+                manifest['parent_group_fold_derivation'] = dict(rule=PARENT_FOLD_RULE, parent_groups=derived)
             if metric_options(config)['enabled']:
-                support = support or get_benchmark(config).support_protocol(ROOT, config)
+                support = get_benchmark(config).support_protocol(ROOT, config)
                 manifest['fixed_task_set_v11'] = freeze_tasks(parents,
                     short_fold=metric_options(config)['short_fold'], states=support.states)
     if config['benchmark'] != 'bfcl' or config.get('student_call_format') == 'gemma4':

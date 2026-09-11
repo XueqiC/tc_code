@@ -8,6 +8,8 @@
 
 ALFWorld 现有 bank 的 CPU 审计：107 个包，135 个父任务，36,294 estimated recorded output tokens 分母，整数累计 cap 3,629 / 9,074。它们是已有内容访问预算，不是新增 API 授权。新 bank 由 `tools/rtd_bank_build.py` 生成，启动会核验 certificate/student/support/harness；不得把 Qwen 渲染的旧 bank 当 Gemma bank。
 
+D3 manifest 的 `KeyError: 'fold'` 已修复：现有 ALFWorld/BFCL bank 的 `public/support.json` 已有父任务 fold，原 manifest 适配层在重建 ALFWorld 父任务记录时丢失了该字段。现在直接保留 support fold；旧记录缺失时按 `int(parent_hash, 16) % 2` 补出，并在 `parent_group_fold_derivation` 记录规则和父任务 hash。两折用于训练/反馈轮换，calibration/probe 父任务另行排除。包只引用 `parent_hash`，无需重建 bank 或新增 teacher 调用；Luna 转换同样保留原 support。详见 [D16 fold contract](rtd_v1_1_d16.md#parent-fold-contract)。
+
 | --arm | 实际控制/训练语义 |
 |---|---|
 | D0 | appworld_train 的 SFT + 冻结 round snapshot 的 source-prefix forward soft KL |
