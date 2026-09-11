@@ -117,9 +117,9 @@ generation_batch:
   forward_prompts_per_batch: 0
 # D15: Gemma 4 12B bf16 decode/prefill drift; see docs/rtd_v1_1_d16.md.
 score_consistency_tolerance:
-  mean_abs: 0.08
-  max_abs: 1.0
-  max_abs_outlier_tokens: 2
+  mean_abs: 0.15
+  max_abs: 2.0
+  max_abs_outlier_tokens: 4
   max_abs_hard: 8.0
 lora_rank: 16
 lora_alpha: 32
