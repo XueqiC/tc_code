@@ -3,13 +3,22 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from bfas.adapters.tau2 import LUNA_MODEL, NativeRun, Tau2Adapter
-from bfas.tau2_budget import BudgetStopped, RequestBudget, cost_usd, write_json
+from bfas.tau2_budget import (
+    BudgetStopped, RequestBudget, cost_usd, price_rates, register_luna_price,
+    response_usage, service_tier, write_json,
+)
 from bfas.tau2_eval import evaluate, parser
+
+
+@pytest.fixture(autouse=True)
+def flex_experiment(monkeypatch):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "flex")
 
 
 def budget(tmp_path, max_usd=3, task_id="retail:1"):
@@ -103,7 +112,15 @@ def test_student_request_does_not_receive_official_key(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def stub_cli(monkeypatch, tmp_path):
+def student_probe(monkeypatch):
+    calls = []
+    monkeypatch.setattr("bfas.tau2_eval.probe_student_tool_choice",
+                        lambda *args: calls.append(args))
+    return calls
+
+
+@pytest.fixture
+def stub_cli(monkeypatch, tmp_path, student_probe):
     calls = []
     monkeypatch.setenv("OPENAI_API_KEY", "stub-key")
     monkeypatch.setattr(Tau2Adapter, "_splits", lambda self, domain: {"test": ["1", "2", "3"]})
@@ -129,9 +146,10 @@ def stub_cli(monkeypatch, tmp_path):
     return calls
 
 
-def test_student_eval_weighted_metrics_and_task_cap(tmp_path, stub_cli):
+def test_student_eval_weighted_metrics_and_task_cap(tmp_path, stub_cli, student_probe):
     args = parser().parse_args(["--out-dir", str(tmp_path / "eval"), "--max-tasks", "4"])
     metrics = evaluate(args)
+    assert student_probe == [(args.base_url, args.model)]
     assert len(stub_cli) == 4
     assert [c["domain"] for c in stub_cli] == ["retail", "airline", "telecom", "retail"]
     assert all(c["agent_model"] == "openai/gemma4-12b-base" for c in stub_cli)
@@ -146,10 +164,11 @@ def test_student_eval_weighted_metrics_and_task_cap(tmp_path, stub_cli):
     assert len((args.out_dir / "ledger/tau2.jsonl").read_text().splitlines()) == 4
 
 
-def test_teacher_probe_counts_both_sides(tmp_path, stub_cli):
+def test_teacher_probe_counts_both_sides(tmp_path, stub_cli, student_probe):
     args = parser(True).parse_args(["--out-dir", str(tmp_path / "probe"), "--n", "2"])
     assert parser(True).parse_args(["--out-dir", "unused"]).tasks_per_domain == 5
     metrics = evaluate(args, teacher=True)
+    assert not student_probe
     assert len(stub_cli) == 6
     assert all(c["agent_model"] == LUNA_MODEL for c in stub_cli)
     assert all("temperature" not in c["agent_args"] for c in stub_cli)
@@ -161,9 +180,10 @@ def test_teacher_probe_counts_both_sides(tmp_path, stub_cli):
 
 
 @pytest.mark.parametrize("limit", [["--max-tasks", "0"], ["--max-usd", "0"]])
-def test_zero_caps_make_no_cli_calls(tmp_path, stub_cli, limit):
+def test_zero_caps_make_no_cli_calls(tmp_path, stub_cli, student_probe, limit):
     metrics = evaluate(parser().parse_args(["--out-dir", str(tmp_path / "zero"), *limit]))
     assert not stub_cli and metrics["tasks"] == 0
+    assert not student_probe
     assert metrics["pass^1"] is None and metrics["estimated_usd"] == 0
 
 
@@ -197,3 +217,118 @@ def test_cli_failure_retains_usage_and_counts_failure(tmp_path, stub_cli, monkey
 def test_invalid_cost_caps(value):
     with pytest.raises(SystemExit):
         parser().parse_args(["--out-dir", "unused", "--max-usd", value])
+
+
+@pytest.mark.parametrize("tier, expected", [(None, "default"), ("", "default"),
+                                           ("standard", "default"), ("default", "default"),
+                                           ("flex", "flex")])
+def test_price_table_selected_by_environment(monkeypatch, tier, expected):
+    if tier is None:
+        monkeypatch.delenv("BFAS_OPENAI_SERVICE_TIER")
+    else:
+        monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    assert service_tier() == expected
+    multiplier = 1 if expected == "flex" else 2
+    assert price_rates() == {"prompt_tokens": 0.10 * multiplier,
+                             "cached_tokens": 0.01 * multiplier,
+                             "completion_tokens": 0.60 * multiplier}
+    assert cost_usd(response_usage(reply())) == pytest.approx(0.0000364 * multiplier)
+
+
+@pytest.mark.parametrize("tier", ["auto", "priority", "typo"])
+def test_unpriced_tier_fails_before_requests(tmp_path, monkeypatch, tier):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    with pytest.raises(ValueError, match="BFAS_OPENAI_SERVICE_TIER"):
+        budget(tmp_path)
+
+
+@pytest.mark.parametrize("tier", ["default", "flex"])
+def test_registers_request_and_response_model_prices(monkeypatch, tier):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    registered = {}
+    register_luna_price(SimpleNamespace(register_model=registered.update))
+    assert set(registered) == {"gpt-5.6-luna", LUNA_MODEL}
+    for entry in registered.values():
+        assert entry["litellm_provider"] == "openai" and entry["mode"] == "chat"
+        assert entry["input_cost_per_token"] == price_rates()["prompt_tokens"] / 1_000_000
+        assert entry["output_cost_per_token"] == price_rates()["completion_tokens"] / 1_000_000
+        assert entry["cache_read_input_token_cost"] == price_rates()["cached_tokens"] / 1_000_000
+        assert entry["input_cost_per_token_flex"] == 0.10 / 1_000_000
+        assert entry["output_cost_per_token_flex"] == 0.60 / 1_000_000
+        assert entry["cache_read_input_token_cost_flex"] == 0.01 / 1_000_000
+
+
+@pytest.mark.parametrize("tier, expected", [("default", 0.0000728), ("flex", 0.0000364)])
+@pytest.mark.parametrize("purpose", ["user_sim", "teacher_probe", "teacher_judge"])
+def test_paid_roles_charge_usage_with_frozen_tier(tmp_path, monkeypatch, tier, expected, purpose):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    guard, state_path = budget(tmp_path)
+    # Later ambient changes and LiteLLM's reported cost cannot change accounting.
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "priority")
+    def completion(**kwargs):
+        assert kwargs["service_tier"] == tier
+        response = reply()
+        response["_hidden_params"] = {"response_cost": 999}
+        return response
+    guard.call(completion, **paid_args(purpose))
+    state = json.loads(state_path.read_text())
+    assert state["stop_reason"] is None
+    assert state["estimated_usd"] == pytest.approx(expected)
+    assert state["charged_upper_bound_usd"] == pytest.approx(expected)
+    assert state["events"][0]["status"] == "settled"
+    assert state["events"][0]["service_tier"] == tier
+    ledger = json.loads((tmp_path / "ledger/tau2.jsonl").read_text())
+    assert ledger["usage"] == response_usage(reply()) and ledger["purpose"] == purpose
+
+
+def test_standard_rate_reservation_blocks_before_request(tmp_path, monkeypatch):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "default")
+    guard, state_path = budget(tmp_path, max_usd=0.0006)
+    with pytest.raises(BudgetStopped, match="max_usd"):
+        guard.call(lambda **kw: pytest.fail("standard price exceeds cap"), **paid_args())
+    assert json.loads(state_path.read_text())["events"] == []
+
+
+@pytest.mark.parametrize("usage", [
+    {"prompt_tokens": 100, "completion_tokens": -1},
+    {"prompt_tokens": 100, "completion_tokens": 101},
+    {"prompt_tokens": 300_000, "completion_tokens": 1},
+    {"prompt_tokens": 100, "completion_tokens": 1,
+     "prompt_tokens_details": {"cached_tokens": 101}},
+])
+def test_invalid_or_excess_usage_keeps_reservation(tmp_path, usage):
+    guard, state_path = budget(tmp_path)
+    with pytest.raises(BudgetStopped, match="unknown_charge"):
+        guard.call(lambda **kw: {"usage": usage}, **paid_args())
+    state = json.loads(state_path.read_text())
+    assert state["estimated_usd"] == 0
+    assert 0 < state["charged_upper_bound_usd"] <= state["max_usd"]
+
+
+def test_uncached_usage_and_fully_cached_usage():
+    assert cost_usd(response_usage({"usage": {"prompt_tokens": 100, "completion_tokens": 0}})) == 0.00001
+    assert cost_usd({"prompt_tokens": 100, "cached_tokens": 100, "completion_tokens": 0}) == 0.000001
+
+
+def test_standard_tier_metrics_and_config(tmp_path, stub_cli, monkeypatch):
+    monkeypatch.delenv("BFAS_OPENAI_SERVICE_TIER")
+    args = parser().parse_args(["--out-dir", str(tmp_path / "standard"), "--max-tasks", "1"])
+    metrics = evaluate(args)
+    assert metrics["service_tier"] == "default"
+    assert metrics["rates_usd_per_mtok"] == price_rates("default")
+    assert metrics["estimated_usd"] == pytest.approx(0.0000728)
+    config = json.loads((args.out_dir / "request-config.json").read_text())
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "flex")
+    assert config["service_tier"] == "default"
+    assert RequestBudget(args.out_dir / "request-config.json").service_tier == "default"
+
+
+def test_failed_student_probe_prevents_tasks(tmp_path, stub_cli, monkeypatch):
+    def fail(*args):
+        assert not stub_cli
+        raise RuntimeError("tool-choice preflight failed: --enable-auto-tool-choice")
+    monkeypatch.setattr("bfas.tau2_eval.probe_student_tool_choice", fail)
+    args = parser().parse_args(["--out-dir", str(tmp_path / "failed")])
+    with pytest.raises(RuntimeError, match="tool-choice preflight failed"):
+        evaluate(args)
+    assert not stub_cli and not args.out_dir.exists()

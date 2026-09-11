@@ -6,14 +6,57 @@ import json
 import math
 import os
 import subprocess
+import urllib.error
+import urllib.request
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
 from .adapters.tau2 import LUNA_MODEL, Tau2Adapter, encode_task_id, extract_verdict
-from .tau2_budget import FIELDS, RATES, write_json
+from .tau2_budget import FIELDS, price_rates, service_tier, write_json
 
 DOMAINS = ("retail", "airline", "telecom")
+
+
+def probe_student_tool_choice(base_url: str, model: str) -> None:
+    """Check tools + auto acceptance once, before buying any simulator calls.
+
+    One output token suffices for server-side validation; this is not a test of
+    the model's ability to produce a complete tool call. Never execute a tool.
+    """
+    payload = {
+        "model": model.removeprefix("openai/"),
+        "messages": [{"role": "user", "content": "Call bfas_tool_probe."}],
+        "tools": [{"type": "function", "function": {
+            "name": "bfas_tool_probe", "description": "Check tool support.",
+            "parameters": {"type": "object", "properties": {}},
+        }}],
+        "tool_choice": "auto", "max_tokens": 1, "temperature": 0, "stream": False,
+    }
+    request = urllib.request.Request(
+        base_url.rstrip("/") + "/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json",
+                 "Authorization": "Bearer " + os.environ.get("BFAS_STUDENT_API_KEY", "EMPTY")},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = json.load(response)
+        if not isinstance(body, dict) or body.get("error") or not body.get("choices"):
+            raise ValueError("endpoint did not return a Chat Completions response")
+    except (OSError, ValueError) as exc:
+        detail = str(exc)
+        if isinstance(exc, urllib.error.HTTPError):
+            detail += ": " + exc.read(4096).decode("utf-8", errors="replace")
+            exc.close()
+        raise RuntimeError(
+            f"Student tool-choice preflight failed at {base_url}: {detail}. "
+            "The endpoint must accept tools with tool_choice='auto'. "
+            "For Gemma 4 on vLLM 0.27.1, start the student server with "
+            "--enable-auto-tool-choice --tool-call-parser gemma4 "
+            "(see docs/tau2_setup.md). No tau2 tasks or paid calls were started."
+        ) from exc
 
 
 def nonnegative_int(value: str) -> int:
@@ -63,6 +106,7 @@ def _score(rows: list[dict]) -> dict[str, Any]:
 def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, Any]:
     if not 1 <= args.max_completion_tokens <= 128_000:
         raise ValueError("--max-completion-tokens must be in [1, 128000]")
+    tier = service_tier()
     # These tools define one fixed pair. Ambient Azure/Ollama settings cannot
     # silently change either participant or the cost model.
     os.environ["BFAS_TAU2_USER_MODEL"] = LUNA_MODEL
@@ -90,11 +134,16 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
     if plan and args.max_usd > 0 and not os.environ.get("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required")
     out = args.out_dir.resolve()
+    if out.exists():
+        raise FileExistsError(f"output directory already exists: {out}")
+    if not teacher and plan and args.max_usd > 0:
+        probe_student_tool_choice(adapter.base_url, args.model)
     out.mkdir(parents=True, exist_ok=False)
     (out / "tasks").mkdir()
     (out / "tasks.jsonl").touch()
     state_path = out / "budget.json"
     state = {"max_usd": args.max_usd, "estimated_usd": 0.0,
+             "service_tier": tier, "rates_usd_per_mtok": price_rates(tier),
              "charged_upper_bound_usd": 0.0, "events": [],
              "stop_reason": "max_usd" if args.max_usd == 0 else None}
     write_json(state_path, state)
@@ -106,7 +155,7 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
                    "agent": LUNA_MODEL if teacher else args.model,
                    "student_checkpoint": None if teacher else "google/gemma-4-12B-it",
                    "base_url": None if teacher else args.base_url,
-                   "user_simulator": LUNA_MODEL, "service_tier": "flex",
+                   "user_simulator": LUNA_MODEL, "service_tier": tier,
                    "nl_assertion_judge": LUNA_MODEL,
                    "max_usd": args.max_usd, "max_tasks": args.max_tasks,
                    "max_completion_tokens": args.max_completion_tokens,
@@ -120,7 +169,7 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
                    "judge_usage": _usage(state["events"], "teacher_judge"),
                    "estimated_usd": state["estimated_usd"],
                    "charged_upper_bound_usd": state["charged_upper_bound_usd"],
-                   "rates_usd_per_mtok": RATES,
+                   "rates_usd_per_mtok": price_rates(tier),
                    "unknown_charge_requests": sum(e["status"] != "settled" for e in state["events"])}
         write_json(out / "metrics.json", metrics)
         return metrics
@@ -132,6 +181,7 @@ def evaluate(args: argparse.Namespace, *, teacher: bool = False) -> dict[str, An
         task_id = encode_task_id(domain, native_id)
         config_path = out / "request-config.json"
         write_json(config_path, {"state_path": str(state_path), "task_id": task_id,
+                                "service_tier": tier,
                                 "ledger_path": str(out / "ledger/tau2.jsonl"),
                                 "max_completion_tokens": args.max_completion_tokens})
         model, model_args = adapter._teacher_args(0) if teacher else adapter._student_args(0)

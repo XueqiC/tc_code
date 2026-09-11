@@ -12,12 +12,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 
 def main() -> None:
-    from bfas.tau2_budget import RequestBudget, response_usage
-    from tau2.evaluator import evaluator_nl_assertions
-    from tau2.utils import llm_utils
+    from bfas.tau2_budget import RequestBudget, register_luna_price, response_usage, service_tier
 
     config = os.environ.get("BFAS_TAU2_BUDGET_CONFIG")
     budget = RequestBudget(Path(config)) if config else None
+    tier = budget.service_tier if budget else service_tier()
+    os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    import litellm
+
+    register_luna_price(litellm, tier)
+    from tau2.evaluator import evaluator_nl_assertions
+    from tau2.utils import llm_utils
+
     original = llm_utils.completion
 
     def completion(**kwargs):
@@ -37,7 +43,7 @@ def main() -> None:
     # the rubric and evaluator, price its Luna calls alongside the two actors.
     evaluator_nl_assertions.DEFAULT_LLM_NL_ASSERTIONS = "openai/gpt-5.6-luna"
     evaluator_nl_assertions.DEFAULT_LLM_NL_ASSERTIONS_ARGS = {
-        "base_url": "https://api.openai.com/v1", "service_tier": "flex",
+        "base_url": "https://api.openai.com/v1", "service_tier": tier,
         "metadata": {"bfas_purpose": "teacher_judge"},
     }
     # tau2 imports this module's generate function; its globals now use the guard.

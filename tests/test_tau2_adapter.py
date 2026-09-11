@@ -362,6 +362,7 @@ def test_tau2_azure_user_simulator_uses_litellm_azure_with_env_only_credentials(
 
 
 def test_official_luna_cli_credentials_and_parameters(monkeypatch):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "flex")
     monkeypatch.setenv("BFAS_TAU2_USER_MODEL", tau2.LUNA_MODEL)
     monkeypatch.setenv("BFAS_TAU2_TEACHER_MODEL", tau2.LUNA_MODEL)
     monkeypatch.setenv("BFAS_TAU2_TEACHER", "azure/obsolete")

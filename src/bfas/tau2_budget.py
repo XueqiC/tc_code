@@ -11,15 +11,58 @@ from typing import Any
 from .ledger import append_episode
 
 FIELDS = ("prompt_tokens", "cached_tokens", "completion_tokens")
-RATES = {"prompt_tokens": 0.10, "cached_tokens": 0.01, "completion_tokens": 0.60}
+LUNA_PRICE_TABLE = {
+    "default": {"prompt_tokens": 0.20, "cached_tokens": 0.02, "completion_tokens": 1.20},
+    "flex": {"prompt_tokens": 0.10, "cached_tokens": 0.01, "completion_tokens": 0.60},
+}
 
 
-def cost_usd(usage: dict[str, int]) -> float:
-    """Cached input is already included in prompt_tokens."""
+def service_tier(value: str | None = None) -> str:
+    """Resolve the experiment's priced tiers to OpenAI's wire names."""
+    if value is None:
+        value = os.environ.get("BFAS_OPENAI_SERVICE_TIER", "")
+    value = value.strip().lower()
+    if value in {"", "standard", "default"}:
+        return "default"
+    if value == "flex":
+        return value
+    raise ValueError("BFAS_OPENAI_SERVICE_TIER must be flex, default/standard, or unset; "
+                     "other tiers have no budget price")
+
+
+def price_rates(tier: str | None = None) -> dict[str, float]:
+    return dict(LUNA_PRICE_TABLE[service_tier(tier)])
+
+
+def register_luna_price(litellm: Any, tier: str | None = None) -> None:
+    """Seed LiteLLM before tau2 starts; our ledger never uses its cost lookup.
+
+    Register both the request and returned model names. Base rates use the
+    selected tier even when a response omits service_tier; explicit flex keys
+    also cover LiteLLM versions that select tier-specific cost fields.
+    """
+    rates = price_rates(tier)
+    flex = price_rates("flex")
+    entry = {
+        "litellm_provider": "openai", "mode": "chat",
+        "input_cost_per_token": rates["prompt_tokens"] / 1_000_000,
+        "cache_read_input_token_cost": rates["cached_tokens"] / 1_000_000,
+        "output_cost_per_token": rates["completion_tokens"] / 1_000_000,
+        "input_cost_per_token_flex": flex["prompt_tokens"] / 1_000_000,
+        "cache_read_input_token_cost_flex": flex["cached_tokens"] / 1_000_000,
+        "output_cost_per_token_flex": flex["completion_tokens"] / 1_000_000,
+    }
+    litellm.register_model({name: dict(entry) for name in
+                            ("gpt-5.6-luna", "openai/gpt-5.6-luna")})
+
+
+def cost_usd(usage: dict[str, int], tier: str | None = None) -> float:
+    """Charge returned usage at our rates; cached input is part of prompt_tokens."""
+    rates = price_rates(tier)
     prompt = usage.get("prompt_tokens", 0)
     cached = min(prompt, usage.get("cached_tokens", 0))
-    return ((prompt - cached) * 0.10 + cached * 0.01
-            + usage.get("completion_tokens", 0) * 0.60) / 1_000_000
+    return ((prompt - cached) * rates["prompt_tokens"] + cached * rates["cached_tokens"]
+            + usage.get("completion_tokens", 0) * rates["completion_tokens"]) / 1_000_000
 
 
 def response_usage(response: Any) -> dict[str, int]:
@@ -63,6 +106,8 @@ class RequestBudget:
 
     def __init__(self, config_path: Path):
         self.config = json.loads(config_path.read_text())
+        # Freeze the selected tier for every reservation and settlement in this run.
+        self.service_tier = service_tier(self.config.get("service_tier"))
         self.path = Path(self.config["state_path"])
         self.lock = threading.Lock()
 
@@ -86,7 +131,7 @@ class RequestBudget:
                 self._stop(state, "unpriced_model")
             kwargs.pop("temperature", None)
             kwargs.pop("max_tokens", None)
-            kwargs.update(service_tier="flex", base_url="https://api.openai.com/v1",
+            kwargs.update(service_tier=self.service_tier, base_url="https://api.openai.com/v1",
                           max_completion_tokens=self.config["max_completion_tokens"],
                           num_retries=0, max_retries=0, caching=False)
             payload = {key: kwargs.get(key) for key in ("messages", "tools", "tool_choice")}
@@ -99,11 +144,13 @@ class RequestBudget:
             if input_bound > 272_000:
                 self._stop(state, "input_bound_exceeded")
             reserve = cost_usd({"prompt_tokens": input_bound,
-                                "completion_tokens": self.config["max_completion_tokens"]})
+                                "completion_tokens": self.config["max_completion_tokens"]},
+                               self.service_tier)
             if state["charged_upper_bound_usd"] + reserve > state["max_usd"]:
                 self._stop(state, "max_usd")
             event = {"task_id": self.config["task_id"], "purpose": purpose,
-                     "status": "reserved", "reserved_usd": reserve}
+                     "status": "reserved", "reserved_usd": reserve,
+                     "service_tier": self.service_tier}
             state["events"].append(event)
             state["charged_upper_bound_usd"] += reserve
             write_json(self.path, state)  # persisted before the network request
@@ -116,7 +163,7 @@ class RequestBudget:
                 # A timeout can hide a billable completion. Do not release or retry.
                 event["status"] = "unknown_charge"
                 self._stop(state, "unknown_charge")
-            actual = cost_usd(usage)
+            actual = cost_usd(usage, self.service_tier)
             event.update(status="settled", usage=usage, estimated_usd=actual)
             state["charged_upper_bound_usd"] += actual - reserve
             state["estimated_usd"] += actual

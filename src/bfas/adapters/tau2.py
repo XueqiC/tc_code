@@ -468,7 +468,9 @@ class Tau2Adapter(BenchmarkAdapter):
 
     @staticmethod
     def _official_openai_args(model: str, temperature: float) -> dict[str, Any]:
-        args: dict[str, Any] = {"base_url": OPENAI_BASE, "service_tier": "flex"}
+        from ..tau2_budget import service_tier
+
+        args: dict[str, Any] = {"base_url": OPENAI_BASE, "service_tier": service_tier()}
         if model != LUNA_MODEL:
             args["temperature"] = float(temperature)
         return args

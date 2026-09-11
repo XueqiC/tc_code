@@ -97,6 +97,7 @@ No GPU workload or real API completion was run during setup.
 ```bash
 source configs/tau2_rai.env
 # OPENAI_API_KEY must already be exported by the caller.
+# This config defaults BFAS_OPENAI_SERVICE_TIER to flex; a preset value is kept.
 ```
 
 | Role | Model / endpoint | Decoding |
@@ -119,7 +120,50 @@ Official OpenAI documentation describes
 [Luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) and
 [Flex processing](https://developers.openai.com/api/docs/guides/flex-processing).
 The rates below are the requested experiment estimates, not dynamically fetched
-prices. Successful live access and benchmark quality remain untested.
+prices. The first live run encountered an unmapped LiteLLM Luna price and a
+student server missing automatic tool-choice support. The fixes below are
+validated offline; no live evaluation was repeated to validate them.
+
+## Student server: native Gemma 4 tool calls
+
+The installed vLLM **0.27.1** in
+`/home/xueqi/hq/projects/tc-alignment/envs/vllm-serve/.venv` provides the parser
+name **`gemma4`**. Inspection of `vllm/tool_parsers/__init__.py` shows that it
+registers `Gemma4EngineToolParser` from `gemma4_engine_tool_parser.py`; that
+adapter delegates to `vllm/parser/gemma4.py`. This parser recognizes the native
+format also parsed by the gorilla checkout's
+`bfcl_eval/model_handler/local_inference/gemma4_fc.py`:
+
+```text
+<|tool_call>call:lookup{key:<|"|>value<|"|>}<tool_call|>
+```
+
+It supports the native string delimiters and nested objects/arrays. Use the
+built-in `gemma4` parser; no `--tool-parser-plugin` file is needed for this
+installation. Add **both** flags to the existing student launch command:
+
+```bash
+--enable-auto-tool-choice --tool-call-parser gemma4
+```
+
+For example (launch only when ready for GPU serving; retain the site's other
+model, memory, and parallelism settings):
+
+```bash
+envs/vllm-serve/.venv/bin/vllm serve google/gemma-4-12B-it \
+  --served-model-name gemma4-12b-base --port 8950 \
+  --enable-auto-tool-choice --tool-call-parser gemma4
+```
+
+`tools/tau2_eval.py` checks the student once before starting tasks or paid
+simulator/judge calls: a Chat Completions request with a tiny function schema,
+`tool_choice="auto"`, `max_tokens=1`, no streaming, a 30-second timeout, and no
+retries. It uses `BFAS_STUDENT_API_KEY` or `EMPTY`. Rejection (including the
+missing-flags HTTP 400) stops the command immediately with the server error and
+the required flags. Acceptance verifies endpoint capability, not successful
+generation of a complete tool call. Nothing executes the probe's tool. Either
+zero cap skips this check and all model calls; the teacher-only probe also skips
+the student check. The evaluation tools never launch or restart vLLM.
 
 ## Evaluation commands (prepared, not executed)
 
@@ -175,13 +219,37 @@ or silently resumed. It contains:
   incomplete/unknown charges. `request-config.json` holds no credentials.
 
 Usage contains `prompt_tokens`, `cached_tokens`, and `completion_tokens`.
-Cached input is a subset of total prompt input. Estimated USD is:
+`cached_tokens` comes from the returned
+`usage.prompt_tokens_details.cached_tokens` (zero when absent); prompt and
+completion counters come directly from returned usage. Cached input is a
+subset of total prompt input. `BFAS_OPENAI_SERVICE_TIER` selects this local
+Luna price table, in USD per million tokens:
+
+| Tier | Uncached input | Cached input | Output |
+| --- | ---: | ---: | ---: |
+| Unset, `default`, or `standard` (sent as `default`) | 0.20 | 0.02 | 1.20 |
+| `flex` | 0.10 | 0.01 | 0.60 |
+
+`configs/tau2_rai.env` selects flex unless a tier was already set. Override it
+with `export BFAS_OPENAI_SERVICE_TIER=default` for standard service. Other
+values (including `auto` and `priority`) fail before requests because they have
+no price in this experiment. The chosen tier is recorded in `budget.json`,
+`request-config.json`, and `metrics.json` and applied to every paid role.
+Estimated USD is:
 
 ```text
-((prompt_tokens - cached_tokens) * 0.10
- + cached_tokens * 0.01
- + completion_tokens * 0.60) / 1_000_000
+((prompt_tokens - cached_tokens) * input_rate
+ + cached_tokens * cached_input_rate
+ + completion_tokens * output_rate) / 1_000_000
 ```
+
+At guarded CLI startup, the same table registers `openai/gpt-5.6-luna` and the
+bare response name `gpt-5.6-luna` with `litellm.register_model`. This prevents
+LiteLLM's missing built-in mapping from aborting Luna calls or breaking native
+tau2 cost reporting. Budget reservations, settlements, and the BFAS usage
+ledger use our table and returned counters independently of LiteLLM's cost map
+or response-cost metadata. A missing LiteLLM price is not an unknown charge;
+missing/invalid provider usage and transport failures still retain reservations.
 
 `teacher_usage` includes teacher-agent and judge calls; `judge_usage` is its
 separately reported subset. Total cost includes all paid roles, including
