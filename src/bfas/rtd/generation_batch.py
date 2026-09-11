@@ -109,8 +109,10 @@ def sample_actions(backend, prompt, n, parameters, generator, **settings):
 
 
 def action_cap(backend, category):
-    return backend.action_caps.get('multi_turn' if category.startswith('multi_turn') else 'single_turn',
-                                   backend.max_action_tokens)
+    # Plan with the same registered benchmark policy used when consuming draws.
+    # Interactive agent_action caps differ from BFCL's single/multi-turn caps.
+    with backend.action_limit(category):
+        return backend.max_action_tokens
 
 
 class HFGenerationBatchMixin:
