@@ -19,12 +19,14 @@ import subprocess
 import sys
 import threading
 import time
-from typing import TextIO
+from typing import Callable, TextIO
 
 
 LOG = logging.getLogger("gpu_hold")
 SCRIPT = Path(__file__).resolve()
 DEFAULT_STATE_DIR = SCRIPT.parents[1] / ".gpu_hold"
+MIB = 1024 ** 2
+GB_MB = 1024  # GB settings use GiB, matching nvidia-smi's MiB counters.
 
 
 @dataclass(frozen=True)
@@ -89,9 +91,77 @@ def process_uid(pid: int, proc_root: Path = Path("/proc")) -> int | None:
     return None
 
 
+@dataclass(frozen=True)
+class MemoryUsage:
+    guard_mb: int
+    job_mb: int
+    others_mb: int
+    job_alive: bool
+    foreign: bool
+    known: bool
+
+
+def memory_usage(snapshot: Snapshot, uid: int, held_pid: int | None = None) -> MemoryUsage:
+    guard = job = others = 0
+    job_alive = foreign = False
+    known = True
+    for app in snapshot.apps:
+        known &= app.used_mb is not None
+        memory = app.used_mb or 0
+        if app.pid == held_pid:
+            guard += memory
+        elif process_uid(app.pid) == uid:
+            job_alive = True
+            job += memory
+        else:
+            foreign = True  # Unknown owners also block new guard allocations.
+            others += memory
+    others += max(0, snapshot.used_mb - guard - job - others)
+    return MemoryUsage(guard, job, others, job_alive, foreign, known)
+
+
+def read_reserve_mb(release: Path) -> int:
+    """A numeric release file takes precedence over the environment default."""
+    for value in (release.read_text().strip(), os.environ.get("GPU_HOLD_RESERVE_GB", "66"), "66"):
+        try:
+            number = float(value) * GB_MB
+            if math.isfinite(number) and number > 0:
+                return int(number)
+        except ValueError:
+            pass
+    raise AssertionError("the built-in reserve is valid")
+
+
+def guard_headroom_mb(usage: MemoryUsage, reserve_mb: int) -> int:
+    # Preserve the remaining job budget, with room to exceed it without fighting
+    # the guard at the allocation-pressure boundary.
+    return max(2 * GB_MB, reserve_mb - usage.job_mb)
+
+
+def guard_target_mb(snapshot: Snapshot, usage: MemoryUsage, current_mb: int,
+                    reserve_mb: int) -> int:
+    free_mb = snapshot.total_mb - snapshot.used_mb
+    if not usage.job_alive or not usage.known or free_mb < GB_MB:
+        return 0
+    if usage.foreign:
+        # Do not compete with an existing foreign process. Pressure still yields
+        # our allocation, including when the foreign process caused the pressure.
+        return 0 if free_mb < 2 * GB_MB else current_mb
+    headroom = guard_headroom_mb(usage, reserve_mb)
+    target = max(0, current_mb + free_mb - headroom)
+    if current_mb == 0 or target < current_mb or free_mb > headroom + 4 * GB_MB:
+        return target
+    return current_mb
+
+
 def classify(snapshot: Snapshot, uid: int, free_threshold_mb: int,
              held_pid: int | None = None, released: bool = False) -> str:
     if released:
+        usage = memory_usage(snapshot, uid, held_pid)
+        if held_pid is not None and usage.job_alive and usage.guard_mb > 0:
+            return (f"guarded (guard {usage.guard_mb / GB_MB:.1f} GB, "
+                    f"job {usage.job_mb / GB_MB:.1f} GB, "
+                    f"others {usage.others_mb / GB_MB:.1f} GB)")
         return "released"
     owners = {app.pid: process_uid(app.pid) for app in snapshot.apps}
     if any(owner == uid and pid != held_pid for pid, owner in owners.items()):
@@ -155,6 +225,7 @@ class Holder:
         self.free_threshold_mb = free_threshold_mb
         self.uid = os.getuid()
         self.children: dict[str, subprocess.Popen] = {}
+        self.guards: set[str] = set()
         self.stop_event = threading.Event()
 
     def release_path(self, gpu: GPU) -> Path:
@@ -163,8 +234,9 @@ class Holder:
     def pid_path(self, gpu: GPU) -> Path:
         return self.state_dir / f"hold_{gpu.label}.pid"
 
-    def start_placeholder(self, gpu: GPU) -> None:
-        if self.stop_event.is_set() or time.time() >= self.until or self.release_path(gpu).exists():
+    def start_placeholder(self, gpu: GPU, guard: bool = False) -> None:
+        if (self.stop_event.is_set() or time.time() >= self.until
+                or self.release_path(gpu).exists() != guard):
             return
         env = dict(os.environ, CUDA_VISIBLE_DEVICES=gpu.uuid,
                    OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
@@ -172,13 +244,18 @@ class Holder:
                 "--label", gpu.label, "--state-dir", str(self.state_dir),
                 "--until-epoch", str(self.until), "--claim-fraction", str(self.claim_fraction),
                 "--free-threshold-mb", str(self.free_threshold_mb)]
+        if guard:
+            args += ["--guard", "--check-seconds", str(self.check_seconds)]
         with (self.state_dir / f"hold_{gpu.label}.log").open("a") as log:
             child = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=log,
                                      stderr=subprocess.STDOUT, env=env, close_fds=True)
         # Keep the pipe open: the child observes EOF even if this daemon is SIGKILLed.
         self.children[gpu.uuid] = child
+        if guard:
+            self.guards.add(gpu.uuid)
         self.pid_path(gpu).write_text(f"{child.pid}\n")
-        LOG.info("GPU %s (%s): started placeholder PID %s", gpu.label, gpu.uuid, child.pid)
+        LOG.info("GPU %s (%s): started %s PID %s", gpu.label, gpu.uuid,
+                 "guard" if guard else "placeholder", child.pid)
 
     def stop_placeholder(self, gpu: GPU) -> None:
         child = self.children.get(gpu.uuid)
@@ -199,6 +276,7 @@ class Holder:
             child.kill()
             child.wait(timeout=5)
         self.children.pop(gpu.uuid, None)
+        self.guards.discard(gpu.uuid)
         remove_pid_file(self.pid_path(gpu), child.pid)
         LOG.info("GPU %s: placeholder PID %s stopped", gpu.label, child.pid)
 
@@ -206,7 +284,8 @@ class Holder:
         # Releases come first, including when nvidia-smi fails on another GPU.
         for gpu in self.gpus:
             child = self.children.get(gpu.uuid)
-            if child is not None and (self.release_path(gpu).exists() or child.poll() is not None):
+            if child is not None and (child.poll() is not None
+                    or self.release_path(gpu).exists() != (gpu.uuid in self.guards)):
                 self.stop_placeholder(gpu)
         for gpu in self.gpus:
             remaining = self.until - time.time()
@@ -216,11 +295,35 @@ class Holder:
                 snapshot = query_gpu(gpu.uuid, timeout=min(10, remaining))
             except (OSError, ValueError, subprocess.SubprocessError) as exc:
                 LOG.warning("GPU %s: query failed; skipping claim: %s", gpu.label, exc)
+                if gpu.uuid in self.guards:
+                    self.stop_placeholder(gpu)
                 continue
             child = self.children.get(gpu.uuid)
+            released = self.release_path(gpu).exists()
+            if released:
+                if child is not None and gpu.uuid not in self.guards:
+                    self.stop_placeholder(gpu)
+                    continue  # Query again after the full placeholder has gone.
+                usage = memory_usage(snapshot, self.uid, child.pid if child else None)
+                if child is not None:
+                    if (not usage.job_alive or not usage.known
+                            or snapshot.total_mb - snapshot.used_mb < GB_MB):
+                        self.stop_placeholder(gpu)
+                else:
+                    try:
+                        reserve = read_reserve_mb(self.release_path(gpu))
+                    except OSError as exc:
+                        LOG.warning("GPU %s: cannot read release file: %s", gpu.label, exc)
+                        continue
+                    if guard_target_mb(snapshot, usage, 0, reserve) > 0:
+                        self.start_placeholder(gpu, guard=True)
+                continue
+            if gpu.uuid in self.guards:
+                self.stop_placeholder(gpu)
+                continue
             state = classify(snapshot, self.uid, self.free_threshold_mb,
-                             child.pid if child else None, self.release_path(gpu).exists())
-            if state in ("released", "our job running") and child is not None:
+                             child.pid if child else None)
+            if state == "our job running" and child is not None:
                 self.stop_placeholder(gpu)
             elif state == "free":
                 self.start_placeholder(gpu)
@@ -235,6 +338,66 @@ class Holder:
                 self.stop_placeholder(gpu)
 
 
+def guard_placeholder(torch, args: argparse.Namespace, release: Path,
+                      should_exit: Callable[[float], bool]) -> int:
+    """Resize in the child so a slow query on another GPU cannot delay yielding."""
+    allocation = None
+    allocation_mb = 0
+    try:
+        while not should_exit(0):
+            next_check = time.monotonic() + args.check_seconds
+
+            def query() -> Snapshot:
+                return query_gpu(args.gpu, timeout=max(0.001, min(
+                    10, args.check_seconds / 2, args.until_epoch - time.time())))
+
+            snapshot = query()
+            usage = memory_usage(snapshot, os.getuid(), os.getpid())
+            reserve = read_reserve_mb(release)
+            target_mb = guard_target_mb(snapshot, usage, allocation_mb, reserve)
+            if target_mb == 0:
+                return 0
+            if target_mb != allocation_mb:
+                # Dropping a tensor alone leaves it in PyTorch's caching allocator.
+                # Return the old block to CUDA before measuring or allocating again.
+                allocation = None
+                allocation_mb = 0
+                torch.cuda.empty_cache()
+                # Recheck ownership and budget after freeing: a job or foreign
+                # process can arrive while torch imports or an old block is freed.
+                snapshot = query()
+                usage = memory_usage(snapshot, os.getuid(), os.getpid())
+                reserve = read_reserve_mb(release)
+                target_mb = min(target_mb, guard_target_mb(snapshot, usage, 0, reserve))
+                if target_mb <= 0 or should_exit(0):
+                    return 0
+                free_bytes, _ = torch.cuda.mem_get_info(0)
+                target_mb = min(target_mb, free_bytes // MIB - guard_headroom_mb(usage, reserve))
+                if target_mb <= 0 or should_exit(0):
+                    return 0
+                allocation = torch.empty(target_mb * MIB, dtype=torch.uint8, device="cuda:0")
+                allocation_mb = target_mb
+                print(f"Guard holding {allocation_mb / GB_MB:.1f} GB on {args.gpu}; "
+                      f"job {usage.job_mb / GB_MB:.1f} GB; PID {os.getpid()}", flush=True)
+            while not should_exit(0):
+                # Check pressure locally at least every second, even between the
+                # more expensive nvidia-smi sizing checks. Exiting drops the CUDA
+                # context too, and the daemon will reap us on its next check.
+                if torch.cuda.mem_get_info(0)[0] < GB_MB * MIB:
+                    return 0
+                remaining = next_check - time.monotonic()
+                if remaining <= 0:
+                    break
+                if should_exit(min(1.0, remaining)):
+                    return 0
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(f"Guard query failed; yielding GPU {args.gpu}: {exc}", flush=True)
+    finally:
+        allocation = None
+        torch.cuda.empty_cache()
+    return 0
+
+
 def placeholder(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Private GPU holder child")
     parser.add_argument("--gpu", required=True)
@@ -243,12 +406,14 @@ def placeholder(argv: list[str]) -> int:
     parser.add_argument("--until-epoch", type=float, required=True)
     parser.add_argument("--claim-fraction", type=float, required=True)
     parser.add_argument("--free-threshold-mb", type=int, required=True)
+    parser.add_argument("--guard", action="store_true")
+    parser.add_argument("--check-seconds", type=float, default=30)
     args = parser.parse_args(argv)
     release = args.state_dir / f"release_{args.label}"
 
     def should_exit(timeout: float = 0) -> bool:
         remaining = args.until_epoch - time.time()
-        if remaining <= 0 or release.exists():
+        if remaining <= 0 or release.exists() != args.guard:
             return True
         readable, _, _ = select.select([sys.stdin], [], [], min(timeout, remaining))
         return bool(readable) and os.read(sys.stdin.fileno(), 1) == b""
@@ -262,6 +427,8 @@ def placeholder(argv: list[str]) -> int:
     # Recheck after slow imports and before initializing a CUDA context.
     if should_exit():
         return 0
+    if args.guard:
+        return guard_placeholder(torch, args, release, should_exit)
     snapshot = query_gpu(args.gpu, timeout=min(10, args.until_epoch - time.time()))
     if classify(snapshot, os.getuid(), args.free_threshold_mb) != "free" or should_exit():
         print("GPU is no longer free (or release/deadline reached); exiting", flush=True)

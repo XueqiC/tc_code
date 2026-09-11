@@ -79,18 +79,74 @@ while [ -e "$STATE/hold_4.pid" ]; do sleep 1; done
 rm "$STATE/release_4"
 ```
 
-The daemon stops its placeholder on the next check and will not restart it
-while the release file exists. The child also checks the release file itself,
-so an established holder usually exits within one second. On release removal,
-our remaining real jobs still block claiming; once they finish, holding resumes.
-If a real job is detected alongside a placeholder, the daemon also yields its
-placeholder. Other users' processes are never signaled.
+The daemon stops its full placeholder on the next check. That child also checks
+the release file itself, so an established full holder usually exits within one
+second. While the release file exists and the GPU has no job with our UID, it
+stays released. Once our job appears, the daemon can start a **guard** in the
+same `hold_4.pid`/`hold_4.log` slot. Wait for the initial full holder to disappear
+**before** launching the job; the PID file can reappear for its guard afterward.
+
+Without a release file, the existing full-placeholder behavior is unchanged:
+our real jobs block claiming, and a full placeholder yields if our job appears.
+Removing the release file stops any guard; full holding resumes once our jobs
+finish and the GPU meets the idle-claim rules. Other users' processes are never
+signaled.
+
+## Guarding a released job
+
+A guard holds memory beyond our job's total budget, allowing a job that starts
+small to grow. `R` is the **total job budget**, including its current usage. It
+defaults to 66 GB. A finite positive number in `release_<gpu>` overrides that
+GPU's budget; an empty or nonnumeric file uses `GPU_HOLD_RESERVE_GB` from the
+daemon's environment, or 66 if that variable is absent or invalid. Values use
+GiB (1024 MiB), labeled GB in settings and status. For example:
+
+```bash
+# Set GPU 4's total job budget; the guard rereads it at every sizing check.
+echo 66 > .gpu_hold/release_4
+
+# Alternatively set the default for empty release files when launching a daemon.
+GPU_HOLD_RESERVE_GB=72 tools/gpu_hold.sh --gpus 0,4 --until 2026-09-26T23:59
+```
+
+The guard sums all our compute processes except its own PID. It leaves free
+headroom of `max(R - job_usage, 2 GB)` and allocates the remaining free memory.
+On a 96 GB card with a 30 GB job and R=66, this means a 30 GB guard and 36 GB
+free for the job. At 60 GB job usage, the same guard leaves 6 GB free. Physical
+memory counters also account for other usage and CUDA overhead, so actual
+allocations can be smaller. `--claim-fraction` applies only to full placeholders.
+
+The guard child checks sizing independently every `--check-seconds` (default
+30), so queries on another GPU do not delay it:
+
+- If available headroom is too small, including free memory below 2 GB, it
+  shrinks by deleting its tensor, calling `torch.cuda.empty_cache()`, and
+  reallocating a smaller tensor after another ownership/memory check.
+- If free memory exceeds the required headroom by **more than 4 GB**, it grows.
+  This margin avoids repeated resizing for small fluctuations. Budget changes
+  in the release file use the same rules.
+- If any foreign or unknown-owner compute process is present, it makes no new
+  allocation and leaves an existing guard alone. This also covers foreign jobs
+  already using more than the memory outside our budget. If free memory drops
+  below 2 GB in that situation, it yields entirely instead of reallocating.
+- If free memory drops **below 1 GB**, it frees the entire guard, including its
+  CUDA context, within one check interval. Local free-memory checks run at
+  least once a second between sizing checks; the daemon also stops a guard if
+  it observes this pressure. Pressure yielding takes precedence over foreign
+  process handling and does not reallocate in that check.
+
+A guard exits when our job disappears, the release file is removed, memory
+accounting is unavailable, or a query fails. It also obeys the deadline and
+parent-pipe cleanup rules. The daemon can start another guard on a later check
+when the job is still present and there is safe surplus memory.
 
 These are cooperative memory holds, not scheduler reservations: another process
 can start between a free-memory check and allocation. There is no eviction of
 other users, and there is no atomic GPU reservation. Use release files for your
-own job handoff; `released` reports the request, so wait for PID-file removal
-before assuming the placeholder has finished exiting.
+own job handoff and allow enough budget for large allocations between checks;
+polling cannot prevent an OOM from an allocation that outruns those checks.
+`released` reports the request, so wait for the initial full holder's PID-file
+removal before launching the job.
 
 ## State, status, and shutdown
 
@@ -112,11 +168,14 @@ Status prints one row per GPU, including its UUID and used/total MiB:
 | `held` | A verified placeholder process is alive (possibly initializing). |
 | `our job running` | Another process with our UID is using the GPU. |
 | `other users present` | Foreign/unknown compute PIDs or threshold-level memory use blocks claiming. |
-| `released` | A release file exists; holding is disabled. |
+| `guarded (guard X GB, job Y GB, others Z GB)` | A release file exists, our job is alive, and a verified placeholder is holding guard memory. |
+| `released` | A release file exists, with no active guard allocation reported. |
 | `free` | Eligible for a claim, but no placeholder currently exists. |
 | `unknown` | The GPU query failed; status returns a nonzero exit code. |
 
-Release takes precedence, followed by our real jobs, our holder, and other usage.
+Release/guard status takes precedence, followed by our real jobs, our holder,
+and other usage. Guard/job/others values exclude the guard PID from job usage;
+`others` includes foreign processes and memory not attributed to compute PIDs.
 Status reads live GPU data and validates holder PID ownership and command line;
 it never starts children or takes the daemon lock. A release still prints as
 `released` when its GPU query fails, with the error alongside it.
@@ -142,5 +201,7 @@ released automatically when its process exits; its file remains for reuse.
 ```
 
 The tests replace GPU queries and child launches, exercise the real lock across
-processes, and use a fake torch allocator to verify the single allocation and
-sleeping keepalive. They do not start a daemon or initialize CUDA.
+processes, and use fake `nvidia-smi` responses and a fake torch caching allocator
+to verify full holding, guard sizing, shrinking, growth hysteresis, pressure
+release, foreign-process handling, numeric/environment budgets, and status.
+They do not start a daemon or initialize CUDA.

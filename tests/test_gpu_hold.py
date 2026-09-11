@@ -444,3 +444,240 @@ def test_module_import_does_not_import_torch():
                              "import sys; from tools import gpu_hold; assert 'torch' not in sys.modules"],
                             cwd=ROOT, capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
+
+
+@pytest.fixture
+def guard_rig(tmp_path, monkeypatch):
+    """Exercise the real query parser and child loop without CUDA or subprocesses."""
+    gb = hold.GB_MB
+    state = SimpleNamespace(clock=1000.0, total=128 * gb, job=30 * gb, job_alive=True,
+                            foreign=[], live=0, cached=0, allocations=[], events=[],
+                            ticks=[], queries=[], fail_query=False, query_hook=None)
+    release = tmp_path / "release_0"
+    release.touch()
+    monkeypatch.delenv("GPU_HOLD_RESERVE_GB", raising=False)
+    monkeypatch.setattr(hold.time, "time", lambda: state.clock)
+    monkeypatch.setattr(hold.time, "monotonic", lambda: state.clock)
+    monkeypatch.setattr(hold, "process_uid",
+                        lambda pid: UID if pid in (100, os.getpid()) else UID + 1)
+    monkeypatch.setattr(hold.sys, "stdin", SimpleNamespace(fileno=lambda: 99))
+
+    def free_mb():
+        return state.total - state.job - sum(mb for _, mb in state.foreign) - state.live - state.cached
+
+    def smi(args, **kwargs):
+        assert args[0] == "nvidia-smi" and "--id=GPU-aaaa" in args
+        state.queries.append((state.clock, kwargs["timeout"]))
+        if state.fail_query:
+            raise subprocess.TimeoutExpired("nvidia-smi", kwargs["timeout"])
+        if state.query_hook:
+            state.query_hook()
+        if "--query-compute-apps=pid,used_gpu_memory" in args:
+            apps = ([(100, state.job)] if state.job_alive else []) + state.foreign
+            if state.live + state.cached:
+                apps.append((os.getpid(), state.live + state.cached))
+            output = "".join(f"{pid}, {mb}\n" for pid, mb in apps)
+        else:
+            output = f"0, GPU-aaaa, {state.total - free_mb()}, {state.total}\n"
+        return SimpleNamespace(stdout=output)
+
+    def select_(read, write, error, timeout):
+        state.clock += timeout
+        while state.ticks and state.ticks[0][0] <= state.clock:
+            _, action = state.ticks.pop(0)
+            action()
+        return [], [], []
+
+    class Tensor:
+        def __init__(self, size):
+            self.mb = size // hold.MIB
+            assert self.mb <= free_mb()
+            state.live += self.mb
+
+        def __del__(self):
+            state.live -= self.mb
+            state.cached += self.mb
+            state.events.append(("delete", state.clock, self.mb))
+
+    def empty(size, **kwargs):
+        assert kwargs == {"dtype": "uint8", "device": "cuda:0"}
+        state.allocations.append(size // hold.MIB)
+        state.events.append(("allocate", state.clock, size // hold.MIB))
+        return Tensor(size)
+
+    def empty_cache():
+        state.events.append(("empty_cache", state.clock, state.cached))
+        state.cached = 0
+
+    monkeypatch.setattr(hold.subprocess, "run", smi)
+    monkeypatch.setattr(hold.select, "select", select_)
+    monkeypatch.setitem(sys.modules, "torch", SimpleNamespace(
+        set_num_threads=lambda _: None, uint8="uint8", empty=empty,
+        cuda=SimpleNamespace(empty_cache=empty_cache,
+                             mem_get_info=lambda _: (free_mb() * hold.MIB, state.total * hold.MIB)),
+    ))
+
+    def run(duration=2.5, interval=1):
+        return hold.placeholder([
+            "--gpu", GPU0.uuid, "--label", "0", "--state-dir", str(tmp_path),
+            "--until-epoch", str(1000 + duration), "--claim-fraction", "0.92",
+            "--free-threshold-mb", "1500", "--guard", "--check-seconds", str(interval),
+        ])
+
+    state.run = run
+    state.release = release
+    return state
+
+
+@pytest.mark.parametrize("total_gb", [96, 128])
+def test_guard_sizing_excludes_own_placeholder_and_reserves_job_budget(guard_rig, total_gb):
+    state = guard_rig
+    state.total = total_gb * hold.GB_MB
+    state.ticks = [(1001, lambda: setattr(state, "job", 60 * hold.GB_MB))]
+    assert state.run() == 0
+    # 128 total - 30 job - (66 budget - 30 job) = 62 guard.
+    # Growing to 60 consumes the reserved headroom, without inflating the guard.
+    assert state.allocations == [(total_gb - 66) * hold.GB_MB]
+    assert state.live == state.cached == 0
+
+
+def test_guard_shrinks_on_pressure_and_returns_cached_tensor_to_cuda(guard_rig):
+    state = guard_rig
+    state.ticks = [(1001, lambda: setattr(state, "job", int(64.5 * hold.GB_MB)))]
+    assert state.run() == 0
+    assert state.allocations == [62 * hold.GB_MB, int(61.5 * hold.GB_MB)]
+    assert state.events[2:5] == [
+        ("delete", 1001, 62 * hold.GB_MB),
+        ("empty_cache", 1001, 62 * hold.GB_MB),
+        ("allocate", 1001, int(61.5 * hold.GB_MB)),
+    ]
+
+
+def test_guard_grows_only_when_slack_exceeds_four_gb(guard_rig):
+    state = guard_rig
+    state.job = 70 * hold.GB_MB
+    state.ticks = [
+        (1001, lambda: setattr(state, "job", 66 * hold.GB_MB)),  # Exactly 4 GB slack.
+        (1002, lambda: setattr(state, "job", 60 * hold.GB_MB)),
+    ]
+    assert state.run(duration=3) == 0
+    assert state.allocations == [56 * hold.GB_MB, 62 * hold.GB_MB]
+    assert [t for event, t, _ in state.events if event == "allocate"] == [1000, 1002]
+
+
+@pytest.mark.parametrize("foreign_mb", [1, 63 * hold.GB_MB])
+def test_guard_does_not_allocate_with_foreign_process(guard_rig, foreign_mb):
+    state = guard_rig
+    state.foreign = [(200, foreign_mb)]
+    assert state.run() == 0
+    assert state.allocations == []
+
+
+def test_existing_guard_leaves_allocation_unchanged_with_foreign_process(guard_rig):
+    state = guard_rig
+    def other_arrives():
+        state.foreign = [(200, hold.GB_MB)]
+        state.release.write_text("50")  # Would otherwise grow the guard.
+    state.ticks = [(1001, other_arrives)]
+    assert state.run() == 0
+    assert state.allocations == [62 * hold.GB_MB]
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_guard_frees_entirely_within_interval_under_one_gb(guard_rig, foreign):
+    state = guard_rig
+    def pressure():
+        if foreign:
+            state.foreign = [(200, int(35.5 * hold.GB_MB))]
+        else:
+            state.job = int(65.5 * hold.GB_MB)
+    state.ticks = [(1000.5, pressure)]
+    assert state.run(duration=60, interval=30) == 0
+    assert state.clock == 1001  # Local pressure check doesn't wait for nvidia-smi.
+    assert state.allocations == [62 * hold.GB_MB]
+    assert state.live == state.cached == 0
+
+
+@pytest.mark.parametrize("contents,env,expected_gb", [
+    ("72\n", None, 72), (" 70.5 \n", "80", 70.5), ("", "80", 80),
+    ("not a number", None, 66), ("nan", "inf", 66), ("-5", "-1", 66),
+    ("1e308", "1e309", 66),
+])
+def test_guard_release_file_numeric_reserve_and_env_default(guard_rig, monkeypatch,
+                                                          contents, env, expected_gb):
+    state = guard_rig
+    state.release.write_text(contents)
+    if env is not None:
+        monkeypatch.setenv("GPU_HOLD_RESERVE_GB", env)
+    assert state.run() == 0
+    assert state.allocations == [int((128 - expected_gb) * hold.GB_MB)]
+
+
+@pytest.mark.parametrize("reason", ["job_exit", "release_removed", "query_failure"])
+def test_guard_yields_when_no_longer_safe_or_needed(guard_rig, reason):
+    state = guard_rig
+    def change():
+        if reason == "job_exit":
+            state.job_alive = False
+            state.job = 0
+        elif reason == "release_removed":
+            state.release.unlink()
+        else:
+            state.fail_query = True
+    state.ticks = [(1001, change)]
+    assert state.run() == 0
+    assert state.clock == 1001
+    assert state.live == state.cached == 0
+
+
+def test_guard_rechecks_foreign_process_before_reallocation(guard_rig):
+    state = guard_rig
+    def arrive_after_drop():
+        if state.allocations and not state.live:
+            state.foreign = [(200, hold.GB_MB)]
+    state.query_hook = arrive_after_drop
+    state.ticks = [(1001, lambda: state.release.write_text("80"))]
+    assert state.run() == 0
+    assert state.allocations == [62 * hold.GB_MB]
+    assert state.clock == 1001
+    assert state.live == state.cached == 0
+
+
+def test_daemon_starts_guard_reaps_it_on_pressure_and_keeps_full_mode(rig):
+    holder = rig.holder
+    holder.release_path(GPU0).write_text("66")
+    rig.owners[100] = UID
+    rig.snapshots[GPU0.uuid] = hold.Snapshot(
+        0, GPU0.uuid, 30 * hold.GB_MB, 128 * hold.GB_MB,
+        (hold.ComputeApp(100, 30 * hold.GB_MB),))
+    holder.check_once()
+    guard, full = rig.children
+    assert "--guard" in rig.launches[0][0]
+    assert "--guard" not in rig.launches[1][0]
+    assert rig.launches[0][0][-2:] == ["--check-seconds", "30"]
+    holder.check_once()  # Preserve even before the child's CUDA context appears.
+    assert len(rig.children) == 2
+    assert not guard.signals and not full.signals
+    rig.snapshots[GPU0.uuid] = hold.Snapshot(
+        0, GPU0.uuid, int(127.5 * hold.GB_MB), 128 * hold.GB_MB,
+        (hold.ComputeApp(100, int(65.5 * hold.GB_MB)),
+         hold.ComputeApp(guard.pid, 62 * hold.GB_MB)))
+    holder.check_once()
+    assert guard.signals == [signal.SIGTERM]
+    assert not full.signals
+    assert GPU0.uuid not in holder.guards
+    assert not holder.pid_path(GPU0).exists()
+
+
+def test_status_reports_guard_job_and_others(rig, monkeypatch, capsys):
+    (rig.state_dir / "config.json").write_text(json.dumps({"gpus": [hold.asdict(GPU0)]}))
+    rig.owners.update({100: UID, 200: UID + 1})
+    rig.holder.release_path(GPU0).touch()
+    rig.snapshots[GPU0.uuid] = hold.Snapshot(
+        0, GPU0.uuid, 94 * hold.GB_MB, 128 * hold.GB_MB,
+        (hold.ComputeApp(100, 30 * hold.GB_MB), hold.ComputeApp(200, 2 * hold.GB_MB),
+         hold.ComputeApp(300, 62 * hold.GB_MB)))
+    monkeypatch.setattr(hold, "recorded_placeholder", lambda *_: 300)
+    assert hold.print_status(rig.state_dir, [GPU0.uuid], None) == 0
+    assert "guarded (guard 62.0 GB, job 30.0 GB, others 2.0 GB)" in capsys.readouterr().out
+    assert not rig.children
