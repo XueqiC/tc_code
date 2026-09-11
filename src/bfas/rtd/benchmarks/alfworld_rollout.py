@@ -450,76 +450,8 @@ def alfworld_task_rollouts_lockstep(task_refs, backend, parameters, *, env_facto
         renderer=renderer, journal=journal, rollout_index=index, base_seed=base_seed,
         step_executor=executor)
         for ref, index in zip(refs, indices)]
-    results, live = [None] * len(streams), {}
-
-    def advance(i, method, value):
-        try:
-            live[i] = method(value)
-        except StopIteration as completed:
-            results[i] = completed.value
-            live.pop(i, None)
-
-    def settle():
-        # Submit every ready step before waiting. Retries may replay several
-        # cached steps; drain them to the next unsampled prompt at this barrier.
-        while any(isinstance(request, Future) for request in live.values()):
-            for i, request in tuple(live.items()):
-                if isinstance(request, Future):
-                    try:
-                        response = request.result()
-                    except BaseException as exc:
-                        advance(i, streams[i].throw, exc)
-                    else:
-                        advance(i, streams[i].send, response)
-
-    try:
-        # Exit joins every RPC before throwing into/closing suspended streams,
-        # so worker cleanup cannot race a pipe read on error or cancellation.
-        with executor:
-            for i, stream in enumerate(streams):
-                try:
-                    live[i] = next(stream)
-                except StopIteration as completed:
-                    results[i] = completed.value
-            settle()
-            first = True
-            while live:
-                order = tuple(live)
-
-                def dispatch(batch_indices, actions):
-                    for index, action in zip(batch_indices, actions):
-                        i = order[index]
-                        advance(i, streams[i].send, action)
-
-                if first:
-                    actions = []
-                    for i, (prompt, _) in live.items():
-                        action = starts[i]
-                        if (backend._prompt_ids(prompt) != action.prompt_ids or
-                                backend.identity(parameters) != action.policy_id):
-                            raise AssertionError('batched task-start prompt/policy mismatch')
-                        actions.append(action)
-                    dispatch(range(len(order)), actions)
-                    first = False
-                else:
-                    actions = backend.sample_feedback_actions(tuple(live.values()), parameters,
-                        prompts_per_batch=len(refs), on_batch=dispatch)
-                if len(actions) != len(order):
-                    raise AssertionError('lockstep backend returned an unaligned action batch')
-                settle()
-        return tuple(results)
-    except BaseException as exc:
-        # Journal policy failures against every suspended episode and close all
-        # owned workers even if one worker/renderer/validator aborts the batch.
-        for i in tuple(live):
-            try:
-                streams[i].throw(exc)
-            except BaseException:
-                pass
-        raise
-    finally:
-        for stream in streams:
-            stream.close()
+    from ..generation_batch import run_episode_streams_lockstep
+    return run_episode_streams_lockstep(streams, backend, parameters, executor, first_actions=starts)
 
 
 def collect_feedback(task_refs, backend, parameters, *, env_factory, renderer, journal,

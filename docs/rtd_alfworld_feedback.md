@@ -106,6 +106,76 @@ This verifies RNG independence; GPU kernel rounding can still vary with batch
 shape. GPU token equivalence and speed must be measured separately before
 claiming bitwise production equivalence or a measured A100 speedup.
 
+## Lockstep greedy window diagnostics
+
+The D16 path is `AlphaDExperimentMixin.alpha_actual` →
+`experiment_metrics_v11.window_metrics` → `metrics_v11.greedy_success` →
+`GreedyBackend`. Previously each unique fixed parent ran to completion through
+`interactive_diagnostics.alfworld_greedy`, with one HF generate call per action
+under `r*/s*/v11_window_metrics` / `diagnostic_greedy_generation`.
+
+With `generation_batch` enabled, ALFWorld now sends those unique parents through
+`ALFWorldExperimentSupport.diagnostic_batch`. Diagnostics and feedback share
+`generation_batch.run_episode_streams_lockstep`: live prompts generate together,
+each returned sub-batch immediately dispatches its environment steps, and
+completed episodes leave the next sampling barrier. Diagnostic reset and step
+RPCs run in parallel threads; generation, rendering and cleanup run on the caller.
+Workers and threads close before a cohort returns or an exception propagates.
+
+`BFAS_DIAGNOSTIC_LOCKSTEP_EPISODES` sets the positive live-episode limit, falling
+back to `BFAS_FEEDBACK_LOCKSTEP_EPISODES`, then **32**. This overrides
+`generation_batch.prompts_per_batch` for diagnostics only. D12 length grouping,
+equal effective action caps, left padding and `generation_batch.max_batch_tokens`
+still bound physical calls; an oversized single prompt runs alone. Use
+`BFAS_DIAGNOSTIC_LOCKSTEP=0` for the original serial driver. Backends without
+generation batching or a diagnostic batch provider retain serial execution.
+
+HF uses `do_sample=False`, one beam and argmax (recorded temperature 0), retaining
+the serial stop tokens, likelihoods, decoded text, truncation flags, policy IDs
+and diagnostic metadata. No sampling tickets, episode seed draws or RNG updates
+are introduced. The 40 fixed slots retain their order and repeated-parent cache;
+each unique parent is evaluated once at each checkpoint. The original diagnostic
+40-action horizon, binary reward and exception behavior remain in force, without
+adding feedback retries, fold restrictions or feedback episode journal records.
+Only physical compute records change: `diagnostic_greedy_generation` now records
+`sequences`, prompt-token count and padded prompt-token count for every call.
+
+CPU fake-policy/stub-environment tests assert exact serial/lockstep `TaskRollout`
+records, including every token and likelihood, early EOS/native turn stops,
+episode early termination, horizon exhaustion, fixed-slot success/repair/damage,
+and unchanged RNG states. They also exercise bounded cohorts, token budgets,
+context caps, parallel reset/step RPCs and failure cleanup. Production bf16
+batch-shape drift has the same qualification as D12; these CPU checks do not
+claim bitwise GPU equivalence or measured production speedup.
+
+## Generation-stage audit
+
+Audited direct `sample_action`, `sample_actions`, `prefetch_actions`, HF
+`generate` and `sequences=1` producers in `src/bfas/rtd`. A call with
+`num_return_sequences=1` can still contain many prompt rows; it is not evidence
+of serial execution. Token-budget limits, distinct effective caps or the last
+live episode can also produce a legitimate singleton physical call.
+
+| Stage / producer | Current execution | Converted here? |
+| --- | --- | --- |
+| D16 window before/full/control greedy success (`metrics_v11.greedy_success`) | Shared lockstep episode driver and batched argmax, default K=32 | Yes, for ALFWorld with generation batching |
+| Offline controls calling the same greedy-success helper (`controls_v11.run_controls`) | Uses the same ALFWorld diagnostic dispatch when available | Yes, through the shared helper |
+| `alpha_d` virtual-reference, same-batch-reference, post-commit feedback (`AlphaDExperimentMixin.alpha_feedback`, `RTDExperiment.feedback`) | Already uses `feedback_rollout_tasks` and ALFWorld lockstep; each virtual checkpoint remains a separate policy evaluation | Already batched; scheduler extracted for reuse |
+| Paired validation and z-direction/acquisition validation probes (`alpha_validation_return`) | Already uses ALFWorld lockstep feedback on its isolated stream | Already batched; scheduler extracted for reuse |
+| Commit and virtual-reference source pairs (`alpha_draw_pairs`) | Already prefetches two draws per state across requests through D12 batches | No change |
+| Source/feature acquisition pool and pending-purchase states (`RTDExperiment.pool`, `sample_state`) | Iterates states; draws for one state batch together, normally two, with no cross-state prefetch at this entry point | No change |
+| Acquisition candidate values (`joint_surrogate.marginal_values`) | Uses existing gradients/statistics; no per-candidate generation or environment probe | No conversion needed |
+| Round-end parse battery (`metrics_v11.parse_battery`) | Already prefetches four draws per fixed state across requests | No change |
+| Round-end variance and offline source-estimator diagnostics (`controls_v11.sampler`, `metrics_v11.estimator_batches`) | Calls `sample_action` once per draw: singleton HF batches, eight draws per state per resample | Remains serial |
+| Legacy baseline source collection (`baselines/runner.py`) | Two separate `sample_action` calls per state | Remains serial |
+| Round-end official ALFWorld v1.1/unified evaluation (`registry.alfworld_evaluate` → `webshop_evaluation.evaluate_adapter`) | Separate adapter campaign, concurrent episode threads making individual requests to the vLLM serving lane; outside in-process HF generation | No change |
+| Legacy ALFWorld official evaluation (`alfworld_evaluation.official_episode` / `HFBackend.generate`) | Separate campaign with singleton local HF generation | Remains serial |
+| BFCL/WebShop continuation and diagnostic providers; explicit serial fallback (`return_gradient.bfcl_task_rollout`, `webshop_rollout`, `GreedyBackend.sample_action`) | Individual continuation/diagnostic actions; BFCL feedback starts can already batch | No change |
+
+This change requires a newly started process to use the edited modules. Existing
+ALFWorld V0/D3 and BFCL V0 processes were not restarted or modified; production
+results and Luna configurations were not edited.
+
 ## Read-only progress
 
 ```bash

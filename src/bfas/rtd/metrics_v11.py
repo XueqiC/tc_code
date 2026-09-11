@@ -2,6 +2,7 @@
 from contextlib import nullcontext
 from dataclasses import replace
 import math
+import os
 
 import numpy as np
 import torch
@@ -137,6 +138,11 @@ class GreedyBackend:
     def __getattr__(self, name):
         return getattr(self.backend, name)
 
+    def sample_feedback_actions(self, requests, parameters, *, prompts_per_batch, on_batch=None):
+        # Never delegate to the stochastic feedback sampler through __getattr__.
+        return self.backend.greedy_actions([prompt for prompt, _ in requests], parameters,
+            prompts_per_batch=prompts_per_batch, on_batch=on_batch)
+
     def sample_action(self, prompt, parameters, generator, **_):
         from .runtime import HFGenerateBackend, installed_parameters
         b = self.backend
@@ -153,7 +159,8 @@ class GreedyBackend:
             settings = GenerationConfig(do_sample=False, num_beams=1, max_new_tokens=limit,
                 eos_token_id=list(stops), pad_token_id=eos, bos_token_id=b.tokenizer.bos_token_id,
                 repetition_penalty=1., use_cache=True, return_dict_in_generate=True, output_scores=True)
-            with b.measured('diagnostic_greedy_generation'), installed_parameters(b.model, parameters), torch.no_grad():
+            with b.measured('diagnostic_greedy_generation', sequences=1, prompt_tokens=len(prompt_ids),
+                    padded_prompt_tokens=len(prompt_ids)), installed_parameters(b.model, parameters), torch.no_grad():
                 output = b.model.generate(input_ids=torch.tensor([prompt_ids], device=device),
                     attention_mask=torch.ones((1, len(prompt_ids)), device=device, dtype=torch.long),
                     generation_config=settings)
@@ -179,18 +186,23 @@ class GreedyBackend:
 def greedy_success(fixed, support, backend, parameters, checker, *, identity):
     greedy = GreedyBackend(backend)
     rng = generator_for(parameters, identity, 'greedy')
-    result, cache = {}, {}
-    for row in task_rows(fixed, support):
-        parent = row['parent_hash']
-        if parent not in cache:
-            rollout = support.feedback(parent, greedy, parameters, rng, checker)
-            if not rollout.from_task_start or rollout.policy_id != backend.identity(parameters):
-                raise ValueError('greedy metric requires a full task at the evaluated checkpoint')
-            if rollout.reward not in (0., 1.):
-                raise ValueError('repair/damage requires binary task success')
-            cache[parent] = bool(rollout.reward)
-        result[row['key']] = cache[parent]
-    return result
+    rows, cache = task_rows(fixed, support), {}
+    parents = tuple(dict.fromkeys(row['parent_hash'] for row in rows))
+    if (os.environ.get('BFAS_DIAGNOSTIC_LOCKSTEP', '1') != '0' and
+            getattr(backend, 'generation_batch', None) is not None and
+            hasattr(backend, 'greedy_actions') and hasattr(support, 'diagnostic_batch')):
+        rollouts = support.diagnostic_batch(parents, greedy, parameters, rng, checker)
+    else:
+        rollouts = ((parent, support.feedback(parent, greedy, parameters, rng, checker)) for parent in parents)
+    for expected, (parent, rollout) in zip(parents, rollouts, strict=True):
+        if parent != expected:
+            raise ValueError('greedy metric requires the fixed parent order')
+        if not rollout.from_task_start or rollout.policy_id != backend.identity(parameters):
+            raise ValueError('greedy metric requires a full task at the evaluated checkpoint')
+        if rollout.reward not in (0., 1.):
+            raise ValueError('repair/damage requires binary task success')
+        cache[parent] = bool(rollout.reward)
+    return {row['key']: cache[row['parent_hash']] for row in rows}
 
 
 def repair_damage(before, after):

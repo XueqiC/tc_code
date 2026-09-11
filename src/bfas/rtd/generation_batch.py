@@ -7,6 +7,7 @@ changing it changes realizations, never the temperature-1 categorical law.
 No tickets, generated actions or KV caches survive a sampling scope.
 """
 from collections import deque
+from concurrent.futures import Future
 from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass, replace
 from itertools import groupby
@@ -190,6 +191,70 @@ class HFGenerationBatchMixin:
         if not ids or self.max_context_tokens-len(ids) < 1:
             raise IncompleteRolloutError('complete prompt exceeds context; no truncation')
         return ids
+
+    def greedy_actions(self, prompts, parameters, *, prompts_per_batch, on_batch=None):
+        """Diagnostic argmax with D12 padding/budgets, without sampling tickets.
+
+        Keep the serial diagnostic ActionTrace fields exactly; only physical
+        compute counts change. Finished rows are stripped at their first stop.
+        """
+        if self.model.training:
+            raise ValueError('frozen eval policy required')
+        rows = []
+        for prompt in prompts:
+            ids = self._prompt_ids(prompt)
+            rows.append(dict(index=len(rows), prompt_index=len(rows), ids=ids,
+                             limit=min(self.max_action_tokens, self.max_context_tokens-len(ids))))
+        groups = length_bucketed_groups(rows, prompts_per_batch=prompts_per_batch,
+            budget=self.generation_batch.max_batch_tokens)
+        result = [None] * len(rows)
+        for group in groups:
+            actions = self._generate_greedy_group(group, parameters)
+            if len(actions) != len(group):
+                raise AssertionError('greedy backend returned an unaligned action batch')
+            for row, action in zip(group, actions):
+                result[row['index']] = action
+            if on_batch is not None:
+                on_batch(tuple(row['index'] for row in group), actions)
+        return tuple(result)
+
+    def _generate_greedy_group(self, rows, parameters):
+        from transformers import GenerationConfig
+        from .runtime import installed_parameters
+        from .student import termination_ids
+        eos, stops = self.tokenizer.eos_token_id, termination_ids(self)
+        device = next(iter(parameters.values())).device
+        width, size = max(len(r['ids']) for r in rows), len(rows)
+        ids = torch.full((size, width), eos, dtype=torch.long, device=device)
+        mask = torch.zeros_like(ids)
+        for i, row in enumerate(rows):
+            ids[i, -len(row['ids']):] = torch.tensor(row['ids'], device=device)
+            mask[i, -len(row['ids']):] = 1
+        settings = GenerationConfig(do_sample=False, num_beams=1, max_new_tokens=rows[0]['limit'],
+            eos_token_id=list(stops), pad_token_id=eos, bos_token_id=self.tokenizer.bos_token_id,
+            repetition_penalty=1., use_cache=True, return_dict_in_generate=True, output_scores=True)
+        with self.measured('diagnostic_greedy_generation', sequences=size,
+                prompt_tokens=sum(len(r['ids']) for r in rows), padded_prompt_tokens=size*width), \
+                installed_parameters(self.model, parameters), torch.no_grad():
+            output = self.model.generate(input_ids=ids, attention_mask=mask, generation_config=settings)
+            tokens = output.sequences[:, width:]
+            if not output.scores or len(output.scores) != tokens.shape[1]:
+                raise ValueError('HF generation scores do not cover greedy actions')
+            values = torch.stack([s.float().log_softmax(-1).gather(1, tokens[:, t:t+1]).squeeze(1)
+                                  for t, s in enumerate(output.scores)], dim=1).cpu().tolist()
+            sequences = tokens.cpu().tolist()
+        identity, result = self.identity(parameters), []
+        for row, sequence, logps in zip(rows, sequences, values):
+            length = next((i+1 for i, token in enumerate(sequence) if token in stops), len(sequence))
+            sequence, logps = sequence[:length], logps[:length]
+            truncated = sequence[-1] not in stops
+            if truncated and len(sequence) != row['limit']:
+                raise ValueError('malformed generation: expected first EOS or action limit')
+            result.append(ActionTrace(row['ids'], tuple(sequence), eos if truncated else sequence[-1],
+                self.tokenizer.decode(sequence if truncated else sequence[:-1], skip_special_tokens=False),
+                sum(logps), self.backend_id, identity, tuple(logps),
+                dict(temperature=0., do_sample=False, diagnostic_only=True), truncated=truncated))
+        return tuple(result)
 
     def sample_actions(self, prompt_ids, n, parameters, generator, *, temperature=1., top_p=1.):
         if type(n) is not int or n < 1:
@@ -464,3 +529,83 @@ def feedback_rollout_tasks(support, tasks, backend, parameters, generator, check
         for parent, count in tasks:
             for rollout in feedback_rollouts(support, parent, count, backend, parameters, generator, checker):
                 yield parent, rollout
+
+
+def run_episode_streams_lockstep(streams, backend, parameters, executor, *, first_actions=None):
+    """Share the feedback sampling barrier and RPC cleanup with diagnostics.
+
+    Streams yield either (prompt, generator) or an environment RPC Future and
+    return their original episode record. All policy and stream work stays on
+    the caller thread. This driver owns the executor and closes every stream.
+    """
+    starts = first_actions
+    results, live = [None] * len(streams), {}
+
+    def advance(i, method, value):
+        try:
+            live[i] = method(value)
+        except StopIteration as completed:
+            results[i] = completed.value
+            live.pop(i, None)
+
+    def settle():
+        # Submit every ready step before waiting. Retries may replay several
+        # cached steps; drain them to the next unsampled prompt at this barrier.
+        while any(isinstance(request, Future) for request in live.values()):
+            for i, request in tuple(live.items()):
+                if isinstance(request, Future):
+                    try:
+                        response = request.result()
+                    except BaseException as exc:
+                        advance(i, streams[i].throw, exc)
+                    else:
+                        advance(i, streams[i].send, response)
+
+    try:
+        # Exit joins every RPC before throwing into/closing suspended streams,
+        # so worker cleanup cannot race a pipe read on error or cancellation.
+        with executor:
+            for i, stream in enumerate(streams):
+                try:
+                    live[i] = next(stream)
+                except StopIteration as completed:
+                    results[i] = completed.value
+            settle()
+            first = True
+            while live:
+                order = tuple(live)
+
+                def dispatch(batch_indices, actions):
+                    for index, action in zip(batch_indices, actions):
+                        i = order[index]
+                        advance(i, streams[i].send, action)
+
+                if first and starts is not None:
+                    actions = []
+                    for i, (prompt, _) in live.items():
+                        action = starts[i]
+                        if (backend._prompt_ids(prompt) != action.prompt_ids or
+                                backend.identity(parameters) != action.policy_id):
+                            raise AssertionError('batched task-start prompt/policy mismatch')
+                        actions.append(action)
+                    dispatch(range(len(order)), actions)
+                    first = False
+                else:
+                    actions = backend.sample_feedback_actions(tuple(live.values()), parameters,
+                        prompts_per_batch=len(streams), on_batch=dispatch)
+                if len(actions) != len(order):
+                    raise AssertionError('lockstep backend returned an unaligned action batch')
+                settle()
+        return tuple(results)
+    except BaseException as exc:
+        # Journal policy failures against every suspended episode and close all
+        # owned workers even if one worker/renderer/validator aborts the batch.
+        for i in tuple(live):
+            try:
+                streams[i].throw(exc)
+            except BaseException:
+                pass
+        raise
+    finally:
+        for stream in streams:
+            stream.close()

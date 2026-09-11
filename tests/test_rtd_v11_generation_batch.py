@@ -50,6 +50,23 @@ def rng(seed=9):
     return torch.Generator().manual_seed(seed)
 
 
+def test_diagnostic_generation_batch_matches_serial_greedy_hf(backend):
+    from bfas.rtd.metrics_v11 import GreedyBackend
+    parameters = snapshot(lora_parameters(backend.model))
+    prompts = ['0 1', '2 0 1', '0 2 1 2', '2 1 0 1 0']
+    generator = rng()
+    before = generator.get_state().clone()
+    serial = [GreedyBackend(backend).sample_action(prompt, parameters, generator) for prompt in prompts]
+    batched = backend.greedy_actions(prompts, parameters, prompts_per_batch=32)
+    assert [a.action_ids for a in batched] == [a.action_ids for a in serial]
+    assert [a.text for a in batched] == [a.text for a in serial]
+    assert [a.truncated for a in batched] == [a.truncated for a in serial]
+    assert [a.generation_metadata for a in batched] == [a.generation_metadata for a in serial]
+    for actual, expected in zip(batched, serial):
+        assert actual.generation_token_logprobs == pytest.approx(expected.generation_token_logprobs, abs=2e-6)
+    assert torch.equal(generator.get_state(), before)
+
+
 def checked(backend, action, parameters):
     with torch.no_grad():
         score, values, metadata = backend.score_action(action, parameters, return_details=True)

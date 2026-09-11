@@ -133,6 +133,16 @@ class ALFWorldExperimentSupport:
         return alfworld_feedback_rollout(self.states[parent], self.categories[tid], [],
             backend, parameters, generator, checker=checker)
 
+    def diagnostic_batch(self, parents, backend, parameters, generator, checker):
+        _privileged()
+        if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
+            raise ValueError('ALFWorld feedback needs its bound support/window context')
+        from .interactive_diagnostics import alfworld_greedy_batch
+        parents = tuple(parents)
+        rollouts = alfworld_greedy_batch([self.states[parent] for parent in parents],
+                                        backend, parameters, generator, checker)
+        yield from zip(parents, rollouts, strict=True)
+
     def feedback_batch(self, tasks, backend, parameters, generator, checker):
         """Keep serial task/ticket/seed order; co-schedule bounded episode cohorts."""
         _privileged()
