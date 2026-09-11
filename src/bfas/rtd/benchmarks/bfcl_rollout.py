@@ -6,7 +6,32 @@ from queue import Queue
 from threading import Lock
 
 from ..generation_batch import action_cap
+from ..feedback_rng import FEEDBACK_RNG_VERSION
 from ..return_gradient import TaskRollout, bfcl_task_rollout
+
+
+class BFCLFeedbackBackend:
+    """Singleton logical draws and stable action records under RNG V2.
+
+    Physical batch sizes/timings remain in compute records. Logical action
+    metadata and generated-token hashes agree with the serial stream driver.
+    """
+    def __init__(self, backend):
+        self.backend = backend
+
+    def __getattr__(self, name):
+        return getattr(self.backend, name)
+
+    def sample_action(self, prompt, parameters, generator, **settings):
+        if getattr(self.backend, 'generation_batch', None) is None:
+            return self.backend.sample_action(prompt, parameters, generator, **settings)
+        if settings != dict(temperature=1., top_p=1.):
+            raise ValueError('BFCL requires temperature=1/top_p=1')
+        return self.sample_feedback_actions([(prompt, generator)], parameters)[0]
+
+    def sample_feedback_actions(self, requests, parameters, **settings):
+        return self.backend.sample_feedback_actions(requests, parameters,
+            feedback_rng_version=FEEDBACK_RNG_VERSION, **settings)
 
 
 class _Cancelled(BaseException):

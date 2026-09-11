@@ -34,6 +34,7 @@ from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
 from .generation_batch import sample_actions, feedback_rollout_tasks
 from .forward_batch import source_score_scope
+from .feedback_rng import FeedbackRNG
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
 
@@ -45,6 +46,7 @@ class BFCLSupport:
     adapter). They cannot silently become zero-reward feedback or flat targets.
     """
     def __init__(self, root, config):
+        self.config = dict(config)
         from ..adapters.bfcl import BFCLAdapter
         adapter = BFCLAdapter()
         entries, categories = adapter._load_entries()
@@ -97,6 +99,42 @@ class BFCLSupport:
 
     def feedback(self, parent, backend, parameters, generator, checker):
         return bfcl_task_rollout(*self._feedback_request(parent), backend, parameters, generator, checker=checker)
+
+    def feedback_streams(self, tasks, backend, parameters, rng_context, checker, *, lockstep):
+        """Use the same complete episode streams in serial and bounded cohorts."""
+        import os
+        from .benchmarks.bfcl_rollout import BFCLFeedbackBackend, bfcl_task_rollouts_lockstep
+        if not isinstance(rng_context, FeedbackRNG):
+            raise ValueError('BFCL feedback requires its seed/round/step/role RNG context')
+        backend = BFCLFeedbackBackend(backend)
+        natural = self.config['meta_tasks_per_feedback'] * self.config['rollouts_per_meta_task']
+        try:
+            limit = int(os.environ.get('BFAS_FEEDBACK_LOCKSTEP_EPISODES', str(natural))) if lockstep else 1
+        except ValueError:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer') from None
+        if limit < 1:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer')
+        entries, indices = [], defaultdict(int)
+        device = next(iter(parameters.values())).device
+        for parent, count in tasks:
+            if type(count) is not int or count < 1:
+                raise ValueError('positive BFCL feedback rollout count required')
+            request = self._feedback_request(parent)
+            task_id = self.parents[parent]
+            for _ in range(count):
+                generator = rng_context.generator(task_id, indices[task_id], device=device)
+                indices[task_id] += 1
+                entries.append((parent, request, generator))
+        for offset in range(0, len(entries), limit):
+            cohort = entries[offset:offset+limit]
+            if lockstep:
+                episodes = bfcl_task_rollouts_lockstep([r for _, r, _ in cohort], backend,
+                    parameters, [g for _, _, g in cohort], checker=checker)
+            else:
+                episodes = [bfcl_task_rollout(*r, backend, parameters, g, checker=checker)
+                            for _, r, g in cohort]
+            for (parent, _, _), episode in zip(cohort, episodes, strict=True):
+                yield parent, episode
 
     def diagnostic_batch(self, parents, backend, parameters, generator, checker):
         from .benchmarks.bfcl_rollout import bfcl_task_rollouts_lockstep
@@ -516,7 +554,9 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
             self.journal.append('feedback_plan', round=s['round'], step=s['step'], role=label,
                                 tasks=s['feedback_tasks'], episodes=sum(n for _, n in s['feedback_tasks']))
             for parent, rollout in feedback_rollout_tasks(self.support, s['feedback_tasks'], self.backend,
-                                                          parameters, self.sampling_rng, self.checker):
+                    parameters, self.sampling_rng, self.checker,
+                    rng_context=(FeedbackRNG(self.config['training_seed'], s['round'], s['step'], label)
+                                 if hasattr(self.support, 'feedback_streams') else None)):
                 rollouts.append(rollout)
                 self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
                                     parent_hash=parent, rollout=asdict(rollout))

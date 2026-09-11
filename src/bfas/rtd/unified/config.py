@@ -95,6 +95,7 @@ def validate_config(config, *, arm=None, replay_schedule=None, **options):
 
 
 def manifest_fields(config, manifest):
+    from ..feedback_rng import feedback_rng_identity
     if (config.get('replay_schedule') and config.get('replay_mode') != 'streaming'
             and file_hash(config['replay_schedule']) != config['replay_schedule_hash']):
         raise ValueError('P1 recorded schedule changed')
@@ -104,7 +105,7 @@ def manifest_fields(config, manifest):
         eta=config['initial_eta'], rank=config['lora_rank'], lora_alpha=config['lora_alpha'],
         lora_target_modules=config['lora_target_modules'], steps=1 if manifest['smoke'] else 24,
         smoke=manifest['smoke'],
-        protocol=config['p1'])
+        protocol=config['p1'], **feedback_rng_identity(config, manifest))
     return dict(version='rtd-unified-p1-run', distillation_protocol=config['arm'],
         arm_components=config['arm_preset'], p1_matching=matched,
         campaign_identity=digest(dict(matched=matched, arm=config['arm'], config=manifest['config_hash'])),

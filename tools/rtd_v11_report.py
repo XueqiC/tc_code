@@ -88,6 +88,8 @@ def collect(root, *, runs=None, campaigns=None, base_overall=None, controls=()):
                          correlations=paired_correlations(validations)))
     if len(fixed_hashes) > 1:
         raise ValueError('V arms use different fixed task sets')
+    from bfas.rtd.feedback_rng import guard_feedback_rng_comparison
+    guard_feedback_rng_comparison([manifest for _, manifest in manifests])
     diagnostics = []
     for path in controls:
         report = inputs.json(Path(path))

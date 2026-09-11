@@ -1,5 +1,7 @@
 """CPU BFCL callback/tool isolation and serial/lockstep sampling equivalence."""
 from copy import deepcopy
+from collections import Counter
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -15,9 +17,10 @@ sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 
 from bfas.rtd import bfcl_decode
 from bfas.rtd.benchmarks.bfcl_rollout import bfcl_task_rollouts_lockstep
-from bfas.rtd.experiment import BFCLSupport
+from bfas.rtd.experiment import BFCLSupport, RTDExperiment
+from bfas.rtd.feedback_rng import FeedbackRNG, FEEDBACK_RNG_VERSION
 from bfas.rtd.functional_step import lora_parameters, snapshot
-from bfas.rtd.generation_batch import FirstActionBackend, GenerationBatch
+from bfas.rtd.generation_batch import FirstActionBackend, GenerationBatch, feedback_rollout_tasks
 from bfas.rtd.metrics_v11 import GreedyBackend, freeze_tasks, greedy_success, repair_damage
 from bfas.rtd.return_gradient import bfcl_task_rollout
 from bfas.rtd.runtime import HFGenerateBackend
@@ -48,6 +51,7 @@ class FakePolicy(torch.nn.Module):
         assert threading.get_ident() == self.owner and input_ids.device.type == 'cpu'
         assert not self.training and float(self.lora_w) == .75
         c = generation_config
+        self.stops = c.eos_token_id
         tasks, steps = input_ids[:, -3] - 8, input_ids[:, -2] - 64
         self.calls.append((len(tasks), input_ids.shape[1], c.max_new_tokens))
         if self.probe:
@@ -71,6 +75,20 @@ class FakePolicy(torch.nn.Module):
             if done.all():
                 break
         return SimpleNamespace(sequences=sequences, scores=scores)
+
+    def forward(self, input_ids, **kwargs):
+        assert threading.get_ident() == self.owner
+        logits = torch.full((*input_ids.shape, 128), -1000.)
+        for row, ids in enumerate(input_ids):
+            end = (ids == 1).nonzero().item()
+            task = int(ids[end-2]) - 8
+            for pos in range(end, len(ids)):
+                if pos-end == task % 4:
+                    logits[row, pos, self.stops[task % len(self.stops)]] = self.lora_w
+                else:
+                    logits[row, pos, 2] = self.lora_w
+                    logits[row, pos, 6] = 0.
+        return SimpleNamespace(logits=logits)
 
 
 @pytest.fixture
@@ -105,6 +123,7 @@ def executor_stub(monkeypatch):
             return []
 
         def inference(self, task, **kwargs):
+            owner = threading.get_ident()
             key = self.model_name_underline_replaced + '_tool_instance'
             state = []
             setattr(multi_turn_utils, key, state)
@@ -117,6 +136,7 @@ def executor_stub(monkeypatch):
                     message = dict(task=task['task'], step=step, observations=state[:])
                     data = dict(message=message, function=[])
                     response, _ = self._query_prompting(data)
+                    assert threading.get_ident() == owner
                     parsed = self._parse_query_response_prompting(response)
                     if failure['stage'] == 'step':
                         raise RuntimeError('injected step failure')
@@ -132,6 +152,9 @@ def executor_stub(monkeypatch):
                     active.remove(key)
 
     class Checker:
+        def check(self, request, calls):
+            return dict(valid=not calls)
+
         def check_multi_turn(self, task, result, truth, category):
             if failure['stage'] == 'checker':
                 raise RuntimeError('injected checker failure')
@@ -149,6 +172,7 @@ def make_case(*, count=8, budget=16384, call_format='qwen'):
     parameters = snapshot(lora_parameters(backend.model))
     parameters['lora_w'].data.fill_(.75)
     support = object.__new__(BFCLSupport)
+    support.config = dict(training_seed=19, meta_tasks_per_feedback=2, rollouts_per_meta_task=2)
     support.parents, support.entries, support.categories, support.states = {}, {}, {}, {}
     support._truth = {'multi_turn_base': {}}
     for task in range(count):
@@ -292,3 +316,163 @@ def test_bfcl_rollout_diagnostic_limit_inherits_feedback(executor_stub, monkeypa
                                     s.generators[0], executor_stub.Checker()))
     assert max(executor_stub.peak) == 3
     assert_clean(s, executor_stub)
+
+
+class FeedbackJournal:
+    def __init__(self):
+        self.events = []
+        self.owner = threading.get_ident()
+
+    def append(self, kind, **values):
+        assert threading.get_ident() == self.owner
+        self.events.append(json.loads(json.dumps(dict(kind=kind, **values))))
+
+    @contextmanager
+    def measure_phase(self, operation, **counts):
+        self.append('compute_begin', operation=operation, **counts)
+        yield
+        self.append('compute_end', operation=operation, **counts)
+
+
+def feedback_campaign(stub, monkeypatch, *, lockstep, limit=None, budget=16384, call_format='gemma4'):
+    monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP', str(int(lockstep)))
+    if limit is None:
+        monkeypatch.delenv('BFAS_FEEDBACK_LOCKSTEP_EPISODES', raising=False)
+    else:
+        monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP_EPISODES', str(limit))
+    s = make_case(count=4, budget=budget, call_format=call_format)
+    if call_format == 'gemma4':
+        # Exercise the native malformed-call guard as well as ordinary chat.
+        decode = s.backend.tokenizer.decode
+        s.backend.tokenizer.decode = lambda ids, **kw: ('<|tool_call>bad' if ids and ids[0] == 6
+                                                        else decode(ids, **kw))
+    journal = s.backend.journal = FeedbackJournal()
+    engine = SimpleNamespace(config=s.support.config, support=s.support, backend=s.backend,
+        checker=stub.Checker(), sampling_rng=torch.Generator().manual_seed(983),
+        state=dict(round=2, step=4, feedback_tasks=[(p, 2) for p in s.support.parents], smoke=False),
+        journal=journal, alpha_d=True, v11=True, scope=lambda role: nullcontext())
+    before = engine.sampling_rng.get_state().clone()
+    scores = []
+    result = RTDExperiment.feedback(engine, s.parameters, 'post_commit_feedback', trajectory_scores=scores)
+    assert torch.equal(before, engine.sampling_rng.get_state())
+    assert_clean(s, stub)
+    return s, engine, result, scores
+
+
+@pytest.mark.parametrize('limit', [None, 1, 3, 32])
+@pytest.mark.parametrize('budget,call_format', [(16384, 'qwen'), (22, 'gemma4'), (1, 'gemma4')])
+def test_bfcl_feedback_v2_exact_trajectories_scores_and_logical_journal(executor_stub, monkeypatch,
+                                                                     limit, budget, call_format):
+    serial = feedback_campaign(executor_stub, monkeypatch, lockstep=False, budget=budget, call_format=call_format)
+    executor_stub.peak.clear()
+    batched = feedback_campaign(executor_stub, monkeypatch, lockstep=True, limit=limit,
+                               budget=budget, call_format=call_format)
+    s, se, sr, ss = serial
+    b, be, br, bs = batched
+    # Full ActionTrace metadata and sample hashes agree, without normalization.
+    assert se.state['feedback_rollouts'] == be.state['feedback_rollouts']
+    assert sr.metadata == br.metadata
+    assert torch.equal(sr.gradient['lora_w'], br.gradient['lora_w'])
+    assert all(torch.equal(x['lora_w'], y['lora_w']) for x, y in zip(ss, bs, strict=True))
+    assert any(float(x['lora_w']) != 0 for x in ss)
+    for kind in ('feedback_plan', 'feedback_rollout', 'score_consistency', 'return_gradient'):
+        assert [e for e in se.journal.events if e['kind'] == kind] == [
+            e for e in be.journal.events if e['kind'] == kind]
+    # Physical compute calls and action completion order necessarily differ.
+    # Every logical journal record, including generated-token hashes, is equal.
+    logical = lambda e: Counter(json.dumps(row, sort_keys=True) for row in e.journal.events
+                                if row['kind'] not in {'compute_begin', 'compute_end'})
+    assert logical(se) == logical(be)
+    assert max(executor_stub.peak) == min(limit or 4, 8)
+    if budget == 16384 and limit != 1:
+        assert len(b.backend.model.calls) < len(s.backend.model.calls)
+    assert all(n == 1 or n*(width+cap) <= budget for n, width, cap in b.backend.model.calls)
+    rollouts = be.state['feedback_rollouts']['post_commit_feedback']
+    assert [len(r.actions) for r in rollouts] == [1, 1, 3, 3, 2, 2, 5, 5]
+    assert any(r.truncated for r in rollouts)
+    assert any(r.malformed for r in rollouts)
+    assert all(a.generation_metadata['feedback_rng_version'] == FEEDBACK_RNG_VERSION
+               for r in rollouts for a in r.actions)
+
+
+@pytest.mark.parametrize('lockstep', [False, True])
+def test_bfcl_feedback_streams_ignore_task_order_and_other_episode_lengths(executor_stub, monkeypatch, lockstep):
+    monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP', str(int(lockstep)))
+    s = make_case(count=4)
+    context = FeedbackRNG(0, 2, 4, 'same_batch_reference_feedback')
+    shared = torch.Generator().manual_seed(999)
+    before = shared.get_state().clone()
+    def run(parents):
+        return list(feedback_rollout_tasks(s.support, [(p, 2) for p in parents], s.backend,
+            s.parameters, shared, executor_stub.Checker(), rng_context=context))
+    parents = list(s.support.parents)
+    original = run(parents)
+    assert sorted(original, key=lambda r: r[0]) == sorted(run(parents[::-1]), key=lambda r: r[0])
+    s.support.entries[s.support.parents[parents[0]]]['horizon'] = 7
+    assert [row for row in original if row[0] != parents[0]] == [
+        row for row in run(parents) if row[0] != parents[0]]
+    assert torch.equal(before, shared.get_state())
+    assert_clean(s, executor_stub)
+
+
+@pytest.mark.parametrize('value', ['', '0', '-1', '1.5', 'many'])
+def test_bfcl_feedback_invalid_cohort_limit_before_sampling(executor_stub, monkeypatch, value):
+    monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP_EPISODES', value)
+    monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP', '1')
+    s = make_case()
+    with pytest.raises(ValueError, match='BFAS_FEEDBACK_LOCKSTEP_EPISODES'):
+        list(feedback_rollout_tasks(s.support, [('00', 2)], s.backend, s.parameters, s.generators[0],
+            executor_stub.Checker(), rng_context=FeedbackRNG(0, 1, 1, 'feedback')))
+    assert not s.backend.model.calls and not executor_stub.peak
+
+
+def test_bfcl_feedback_without_generation_batch_keeps_episode_streams(executor_stub, monkeypatch):
+    s = make_case(count=4)
+    s.backend.generation_batch = None
+    context = FeedbackRNG(0, 1, 1, 'feedback')
+    shared = torch.Generator().manual_seed(91)
+    before = shared.get_state().clone()
+    results = []
+    for enabled in (False, True):
+        monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP', str(int(enabled)))
+        results.append(list(feedback_rollout_tasks(s.support, [(p, 2) for p in s.support.parents],
+            s.backend, s.parameters, shared, executor_stub.Checker(), rng_context=context)))
+    assert results[0] == results[1]
+    assert max(executor_stub.peak) == 1
+    assert torch.equal(before, shared.get_state())
+    assert_clean(s, executor_stub)
+
+
+def test_bfcl_feedback_refuses_missing_rng_context(executor_stub):
+    s = make_case()
+    with pytest.raises(ValueError, match='RNG context'):
+        list(feedback_rollout_tasks(s.support, [('00', 2)], s.backend, s.parameters, s.generators[0],
+                                   executor_stub.Checker()))
+    assert not s.backend.model.calls and not executor_stub.peak
+
+
+def test_bfcl_feedback_mixed_category_caps_and_held_out_role(executor_stub, monkeypatch):
+    from bfas.rtd.experiment_alpha_d import AlphaDExperimentMixin
+    s = make_case(count=4, budget=22)
+    s.backend.action_caps['single_turn'] = 2
+    for parent in ('00', '02'):
+        old = s.support.parents[parent]
+        tid = 'simple_python_' + parent
+        s.support.parents[parent] = tid
+        s.support.entries[tid] = s.support.entries.pop(old) | dict(id=tid, horizon=1)
+        s.support.categories[tid] = 'simple_python'
+        s.support._truth.setdefault('simple_python', {})[tid] = dict(ground_truth=[])
+    results = []
+    for lockstep in (False, True):
+        monkeypatch.setenv('BFAS_FEEDBACK_LOCKSTEP', str(int(lockstep)))
+        journal = s.backend.journal = FeedbackJournal()
+        engine = SimpleNamespace(config=s.support.config, manifest={'arm': 'V1'},
+            support=s.support, backend=s.backend, checker=executor_stub.Checker(), device='cpu',
+            state=dict(round=2, step=4, window_id='r2/s4', feedback_tasks=[(p, 2) for p in s.support.parents]),
+            journal=journal, scope=lambda role: nullcontext())
+        result = AlphaDExperimentMixin.alpha_validation_return(engine, s.parameters, 'paired_validation')
+        results.append((result, [e for e in journal.events if e['kind'] == 'validation_rollout']))
+        assert_clean(s, executor_stub)
+    assert results[0] == results[1]
+    actions = [a for row in results[0][1] for a in row['rollout']['actions']]
+    assert {a['generation_metadata']['max_action_tokens'] for a in actions} == {2, 3}

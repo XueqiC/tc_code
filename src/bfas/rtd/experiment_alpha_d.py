@@ -25,6 +25,7 @@ from .conventions import exposure_step, record_identity, repetition_counts
 from .joint_surrogate import control, execute_update, marginal_values, replacement_batch, validate_pair
 from .generation_batch import action_cap, feedback_rollout_tasks
 from .forward_batch import forward_enabled
+from .feedback_rng import FeedbackRNG
 
 
 class AlphaDExperimentMixin:
@@ -460,7 +461,9 @@ class AlphaDExperimentMixin:
             self.journal.append('feedback_plan', round=s['round'], step=s['step'], role=role,
                                 tasks=s['feedback_tasks'], episodes=sum(n for _, n in s['feedback_tasks']))
             for parent, rollout in feedback_rollout_tasks(self.support, s['feedback_tasks'], self.backend,
-                                                          parameters, generator, self.checker):
+                    parameters, generator, self.checker,
+                    rng_context=(FeedbackRNG(self.config['training_seed'], s['round'], s['step'], role)
+                                 if hasattr(self.support, 'feedback_streams') else None)):
                 if rollout.policy_id != self.backend.identity(parameters) or not rollout.from_task_start:
                     raise ValueError('paired validation requires executed full tasks at the selected student')
                 rewards.append(rollout.reward); tasks.append(rollout.task_id)

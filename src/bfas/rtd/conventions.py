@@ -113,13 +113,14 @@ def exposure_step(state):
 
 
 def schedule_identity(manifest, config, support):
+    from .feedback_rng import feedback_rng_identity
     bank = Path(manifest['bank_path'])
     return dict(data_hash=manifest.get('data_hash'), base_checkpoint_hash=manifest.get('base_checkpoint_hash'),
         bank_public_hash=file_hash(bank/'public/requests.json'), bank_integrity_hash=file_hash(bank/'sealed/integrity.json'),
         initial_parameter_hash=manifest.get('initial_parameter_hash'), budget_ceilings=manifest['budget_ceilings'],
         support_hash=digest(support.parents), rounds=config.get('rounds', 2),
         training_seed=config['training_seed'], slots=config.get('slots_per_step', 40),
-        K=config.get('max_new_packages_per_window', 20))
+        K=config.get('max_new_packages_per_window', 20), **feedback_rng_identity(config, manifest))
 
 
 def load_schedule(config, manifest, support, *, smoke=False, check_initial_parameters=True):

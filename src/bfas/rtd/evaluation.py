@@ -305,9 +305,12 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
 def report(directories, output):
     from .ledger import Ledger
     from .persistence import ComputeJournal
+    from .feedback_rng import feedback_rng_identity, guard_feedback_rng_comparison
+    runs = [(directory, json.loads((directory/'manifest.json').read_text()))
+            for directory in map(Path, directories)]
+    guard_feedback_rng_comparison([manifest for _, manifest in runs])
     rows = []
-    for directory in map(Path, directories):
-        manifest = json.loads((directory / 'manifest.json').read_text())
+    for directory, manifest in runs:
         ledger = Ledger.resume(manifest['budget_ceilings'][0], directory / 'teacher.jsonl')
         trajectory = json.loads((directory / 'trajectory.json').read_text())
         journal = ComputeJournal(directory / 'compute.jsonl')
@@ -391,7 +394,8 @@ def report(directories, output):
                 code_drift=result.get('code_drift', []) if result else [],
                 official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
-                hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
+                hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory),
+                **feedback_rng_identity(manifest['config'], manifest)))
             if manifest['config'].get('benchmark', 'bfcl') != 'bfcl' or manifest['config'].get('student_call_format') == 'gemma4':
                 rows[-1].pop('historical_demo_output_exact')
                 rows[-1].pop('historical_generation_output_estimated')

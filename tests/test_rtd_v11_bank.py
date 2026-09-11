@@ -155,13 +155,17 @@ def stable_manifest(manifest, root):
     return json.dumps(value, sort_keys=True, indent=2)+'\n'
 
 
-def test_legacy_manifest_bytes_match_prechange_fixture(manifest_inputs, monkeypatch):
+def test_legacy_manifest_bytes_only_change_for_feedback_rng_version(manifest_inputs, monkeypatch):
     c = manifest_inputs
     # Reproduce the historical declaration before D15 added an effective default.
     c.config['score_consistency_tolerance'].pop('min_tokens_for_mean')
     monkeypatch.setattr(cli, 'source_identity', lambda root: dict(hash='frozen-source'))
     monkeypatch.setattr(cli, 'evaluation_harness_identity', lambda *args: dict(hash='frozen-harness'))
-    current = stable_manifest(cli.make_manifest(c.config, 'R1', c.audit), c.root)
+    manifest = cli.make_manifest(c.config, 'R1', c.audit)
+    # V2 intentionally changes BFCL feedback, including the serial fallback.
+    # Preserve the historical fixture and verify this is the only new field.
+    assert manifest.pop('feedback_rng_version') == 2
+    current = stable_manifest(manifest, c.root)
     assert current == (ROOT/'tests/fixtures/rtd_v11/v10_manifest.json').read_text()
 
 

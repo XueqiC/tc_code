@@ -157,15 +157,55 @@ rollout. Category caps and D12 token budgets split the physical generate calls;
 `BFAS_DIAGNOSTIC_LOCKSTEP_EPISODES` (or the feedback override) bounds live
 episodes. Cancellation releases pending queries before joining the workers.
 
-The same BFCL driver accepts independent stochastic episode generators and
-prefetched task starts. CPU fake-policy/stub-executor tests compare serial and
-lockstep tokens, likelihoods, rewards, malformed flags, RNG states, task copies
-and cleanup for Qwen and Gemma formatting. Production BFCL stochastic feedback
-still shares one generator across variable-length continuations in episode-major
-order, unlike ALFWorld's independent episode streams. Its provider therefore
-retains the original serial path: enabling stochastic lockstep requires an
-explicit decision about changing that RNG contract. The low-level driver
-rejects shared stochastic generators rather than silently reassigning tickets.
+## Version 2 BFCL stochastic feedback
+
+BFCL temperature-1 feedback now uses the same bounded cohort driver through
+`BFCLSupport.feedback_streams`. Each complete episode, including its first
+action, has an independent generator. `feedback_rng.FEEDBACK_RNG_VERSION = 2`
+replaces version 1's shared episode-major feedback RNG. The seed is the first
+16 hexadecimal digits of SHA256 of the sorted JSON object below, modulo 2**63
+(serialized by `persistence.digest`):
+
+```text
+{feedback_rng_version: 2, run_seed: training_seed, round: round_number,
+ step: step_number, feedback_role: role, meta_task_id: official_task_id,
+ rollout_index: zero_based_index_within_task}
+```
+
+This follows ALFWorld's deterministic task/rollout hash derivation. No arm,
+parent iteration order, episode length, completion order, physical batch size,
+or shared-generator state enters the key. Feedback does not advance the source
+sampling RNG. Acquisition, same-batch reference, post-commit, and held-out
+validation roles pass their round/step/role explicitly. Repeating a measurement
+after recovery reconstructs its streams from the same key.
+
+`BFAS_FEEDBACK_LOCKSTEP_EPISODES` bounds BFCL harness threads, defaulting to
+`meta_tasks_per_feedback * rollouts_per_meta_task` (32 for the BFCL Luna configs).
+Both task starts and continuations use singleton logical sampling groups;
+physical calls combine them subject to category caps and the D12 token budget.
+`BFAS_FEEDBACK_LOCKSTEP=0` runs serially with the **same version-2 streams**.
+Backends without generation batching also receive independent episode streams
+and run serially. Tool execution, malformed-action guards, terminal checks,
+task copies and simulator cleanup remain inside the original BFCL harness.
+
+New BFCL manifests record `feedback_rng_version: 2`. Exposure schedule identity,
+P1 matching metadata and campaign identity bind this version. Existing resume
+and complete/streaming replay identity checks reject version-1 or unversioned
+artifacts under version 2, including when source-code drift is acknowledged.
+Reports refuse mixed feedback RNG versions across BFCL arms. A new P1 comparison
+therefore needs a version-2 V0 schedule and version-2 follower arms; historical
+manifests and schedules must not be relabeled to bypass these checks. ALFWorld's
+existing RNG derivation and manifest fields are unchanged.
+
+CPU fake-policy/stub-executor tests assert exact serial/lockstep `TaskRollout`
+records, token likelihoods, checked scores, trajectory gradients, rewards,
+malformed flags and logical journal records, including generated-token sample
+hashes. Version-2 action metadata describes the singleton logical draw.
+Physical `compute_begin`/`compute_end` records retain actual batch sizes and
+padding, so those records, timing, global event ordering and journal hash chains
+are expected to differ. Tests also cover task reordering, variable episode
+lengths, cohort limits, token budgets, Qwen/Gemma formatting and cleanup.
+The low-level driver continues to reject shared stochastic generators.
 
 Round-end variance and offline source-estimator diagnostics now prefetch eight
 draws per exposure across each resample using D12. Requests retain category caps,
@@ -200,7 +240,7 @@ live episode can also produce a legitimate singleton physical call.
 | Round-end official ALFWorld v1.1/unified evaluation (`registry.alfworld_evaluate` → `webshop_evaluation.evaluate_adapter`) | Separate adapter campaign, concurrent episode threads making individual requests to the vLLM serving lane; outside in-process HF generation | No change |
 | Legacy ALFWorld official evaluation (`alfworld_evaluation.official_episode` / `HFBackend.generate`) | Separate campaign with singleton local HF generation | Remains serial |
 | BFCL greedy diagnostic provider (`BFCLSupport.diagnostic_batch`) | Lockstep queries through the original `return_gradient.bfcl_task_rollout`, bounded K and token-budget sub-batches | Yes |
-| BFCL stochastic continuation provider | Starts already batch; continuations retain their shared episode-major RNG stream | Remains serial pending RNG-contract decision; independent-stream lockstep driver tested |
+| BFCL stochastic feedback provider | Version-2 per-task/rollout streams for starts and continuations, bounded lockstep cohorts | Yes; serial fallback uses the same versioned streams |
 | WebShop continuation/diagnostic providers and explicit serial fallback (`webshop_rollout`, `GreedyBackend.sample_action`) | Individual continuation/diagnostic actions | No change |
 
 This change requires a newly started process to use the edited modules. Existing

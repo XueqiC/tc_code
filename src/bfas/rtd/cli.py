@@ -282,6 +282,8 @@ def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
         manifest['resources'].pop('historical_demo_output_exact', None)
         manifest['resources'].pop('historical_generator_output_estimated', None)
         manifest['resources']['bank_audit'] = audit
+    from .feedback_rng import feedback_rng_identity
+    manifest.update(feedback_rng_identity(config))
     if config.get('generation_batch') is not None:
         from .generation_batch import RNG_RULE
         manifest['score_consistency']['generation'] = 'hf-generate-kv-batched-categorical-v1'

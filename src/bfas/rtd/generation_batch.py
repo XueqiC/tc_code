@@ -327,10 +327,19 @@ class HFGenerationBatchMixin:
         return length_bucketed_groups(rows, prompts_per_batch=self.generation_batch.prompts_per_batch,
                                       budget=self.generation_batch.max_batch_tokens)
 
-    def sample_feedback_actions(self, requests, parameters, *, prompts_per_batch=None, on_batch=None):
+    def sample_feedback_actions(self, requests, parameters, *, prompts_per_batch=None, on_batch=None,
+                                feedback_rng_version=None):
         """One independent serial-equivalent RNG stream per live continuation."""
+        if feedback_rng_version is not None:
+            from .feedback_rng import FEEDBACK_RNG_VERSION
+            if feedback_rng_version != FEEDBACK_RNG_VERSION:
+                raise ValueError('unsupported feedback RNG version')
         groups = [self._request_rows([(prompt, 1, self.max_action_tokens)], generator)
                   for prompt, generator in requests]
+        if feedback_rng_version is not None:
+            for group in groups:
+                for row in group:
+                    row['feedback_rng_version'] = feedback_rng_version
         return self.generate_feedback_groups(groups, parameters,
             prompts_per_batch=prompts_per_batch, on_batch=on_batch)
 
@@ -468,6 +477,12 @@ class HFGenerationBatchMixin:
                 if independent is not None:
                     metadata.update(sampling_batch_size=row['sampling_group']['size'],
                                     sampling_prompt_width=row['sampling_group']['width'])
+                if 'feedback_rng_version' in row:
+                    # V2 action identity describes its singleton logical draw.
+                    # Physical size/padding are already in compute_begin/end.
+                    metadata.update(feedback_rng_version=row['feedback_rng_version'],
+                        batch_size=row['sampling_group']['size'],
+                        padded_prompt_tokens=row['sampling_group']['width'])
                 action = ActionTrace(row['ids'], tuple(sequence), action_eos,
                     self.tokenizer.decode(sequence if truncated else sequence[:-1], skip_special_tokens=False),
                     sum(logps), self.backend_id, identity, tuple(logps), metadata, truncated=truncated)
@@ -519,11 +534,14 @@ def feedback_rollouts(support, parent, count, backend, parameters, generator, ch
         yield rollout
 
 
-def feedback_rollout_tasks(support, tasks, backend, parameters, generator, checker):
+def feedback_rollout_tasks(support, tasks, backend, parameters, generator, checker, *, rng_context=None):
     """Collect across parents so the natural feedback block shares each decode."""
-    if (os.environ.get('BFAS_FEEDBACK_LOCKSTEP', '1') != '0' and
+    lockstep = (os.environ.get('BFAS_FEEDBACK_LOCKSTEP', '1') != '0' and
             getattr(backend, 'generation_batch', None) is not None and
-            not getattr(backend, 'diagnostic_only', False) and hasattr(support, 'feedback_batch')):
+            not getattr(backend, 'diagnostic_only', False))
+    if hasattr(support, 'feedback_streams') and not getattr(backend, 'diagnostic_only', False):
+        yield from support.feedback_streams(tasks, backend, parameters, rng_context, checker, lockstep=lockstep)
+    elif lockstep and hasattr(support, 'feedback_batch'):
         yield from support.feedback_batch(tasks, backend, parameters, generator, checker)
     else:
         for parent, count in tasks:
