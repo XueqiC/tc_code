@@ -25,7 +25,7 @@ D2/fixedmean 在原 auxiliary QP 中加入对 x=a−a_ref 的线性等式，复�
 
 ## 匹配协议与 D0
 
-所有 P1 臂从同一 issuer checkpoint + 相同 seed/LoRA 初始化出发。生产 run 必须提供同一完成的 V0 `exposure_schedule.json`；借用 D14 的 hash-bound replay、逐步 record/weight/repetition/pool/purchase 检查。不会按某臂的反馈重新采购或重排曝光。采样每次刷新，按 seed/round/step/role 使用共同 RNG seed；学生更新后分布当然可不同。feedback task 选择使用独立共同 seed，不能受某臂前面的 RNG 消耗影响。
+所有 P1 臂从同一 issuer checkpoint + 相同 seed/LoRA 初始化出发。生产 run 必须提供同一 V0 `exposure_schedule.json`；默认 complete 模式要求 V0 已完成，streaming 模式可并发跟随运行中的 V0。两者复用 D14 的 hash-bound replay、逐步 record/weight/repetition/pool/purchase 检查。不会按某臂的反馈重新采购或重排曝光。采样每次刷新，按 seed/round/step/role 使用共同 RNG seed；学生更新后分布当然可不同。feedback task 选择使用独立共同 seed，不能受某臂前面的 RNG 消耗影响。
 
 三角色 acquisition_reference_feedback、same_batch_reference_feedback、post_commit_feedback 在每个 decision 都执行相同任务/rollout 预算。D2/D3 在自己的 a_ref trial 测 h；普通 commit 复用最近 decision 的反馈并重新投影、记录年龄。D1 保留原 α/d 参考点；D0 收集相同反馈但不用于系数学习。原 acquisition label fitting、额外 paired-validation/variance-resampling 在所有 P1 臂均关闭；完整确认评测走 evaluate，不能把训练反馈当独立确认。
 
@@ -69,6 +69,16 @@ $PY tools/rtd_experiment.py run --config "$CFG" --arm D3-fixedmean --replay-sche
 ```
 
 D0 等价入口：`AW_DISTILL=rtd_sft_kl $PY tools/rtd_experiment.py run --config "$CFG" --arm D0 --replay-schedule "$SCHEDULE" --run-dir "$OUT/D0"`。BFCL/WebShop 分别改 CFG、OUT 和录制 schedule 的 v1_1 配置；BFCL 录制用 `v1_1_bfcl_gemma4.yaml`。各 benchmark 只使用自己的 bank/schedule，不能跨 benchmark 回放。
+
+V0 已在独立进程运行时，D3 可立即跟随；D0/D1/D2 与所有 D3 变体使用同样参数：
+
+```bash
+$PY tools/rtd_experiment.py run --config "$CFG" --arm D3 \
+  --replay-schedule "$SCHEDULE" --replay-mode streaming \
+  --replay-poll-seconds 60 --replay-timeout-seconds 129600 --run-dir "$OUT/D3"
+```
+
+streaming 逐步消费 V0 已提交的曝光，并在最后 checkpoint 前等待 `complete=true` 和最终文件 hash。两种模式完成后的 manifest `replay_*` 字段一致（包含有序 `replay_consumed_steps` 与 `replay_schedule_hash`）；冻结的 `config.replay_mode`、等待参数和配置/运行身份保留启动方式，resume 据此继续验证已消费前缀。无 schedule 的生产 run 仍报错，独立 smoke 保留原豁免。
 
 ALFWorld D3 精确 smoke 命令：
 

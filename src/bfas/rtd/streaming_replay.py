@@ -1,4 +1,4 @@
-"""Execution-only, prefix-bound V0 schedule reader for streaming V1."""
+"""Execution-only, prefix-bound V0 schedule reader for V1 and unified arms."""
 import hashlib
 import json
 from pathlib import Path
@@ -10,7 +10,12 @@ from .persistence import ComputeJournal, atomic_json, digest
 
 
 def enabled(config):
-    return config.get('arm') == 'V1' and config.get('replay_mode', 'complete') == 'streaming'
+    from .unified.arms import ARMS
+    # Unified manifests finalize their replay evidence as complete; the frozen
+    # launch configuration still selects streaming validation on every resume.
+    settings = config.get('config', config)
+    return (config.get('arm') in {'V1', *ARMS}
+            and settings.get('replay_mode', config.get('replay_mode', 'complete')) == 'streaming')
 
 
 def prepare_manifest(engine):
@@ -21,9 +26,10 @@ def prepare_manifest(engine):
         engine.journal.append('replay_schedule_diff', reason='manifest identity changed',
             diff=[dict(field='identity', expected=manifest.get('replay_schedule_identity'), actual=identity)])
         raise ValueError('V0/V1 exposure schedule identity differs')
-    manifest.update(replay_mode='streaming', replay_schedule_identity=identity)
+    manifest['replay_schedule_identity'] = identity
+    manifest.setdefault('replay_mode', engine.config.get('replay_mode', 'complete'))
     manifest.setdefault('replay_consumed_steps', [])
-    manifest.setdefault('replay_schedule_hash', None)
+    manifest.setdefault('replay_schedule_hash', engine.config.get('replay_schedule_hash'))
     atomic_json(engine.directory/'manifest.json', manifest)
 
 
@@ -80,7 +86,7 @@ class StreamingSchedule:
         if remaining <= 0:
             message = (f'streaming replay timed out after {self.timeout:g} seconds waiting for V0 '
                        f'schedule {self.path} ({reason}, step={key}); V0 may have stopped; '
-                       'resume V1 once V0 has progressed or completed; resume state retained')
+                       f"resume {self.manifest['arm']} once V0 has progressed or completed; resume state retained")
             self.journal.append('replay_schedule_timeout', message=message, reason=reason,
                                 elapsed_seconds=time.monotonic()-self.started)
             raise TimeoutError(message)
@@ -185,11 +191,13 @@ class StreamingSchedule:
             data, final_hash = self.snapshot()
             if data['complete']:
                 if len(self.consumed) != len(self.expected):
-                    self.fail('incomplete V1 consumption', 'steps', len(self.expected), len(self.consumed))
+                    self.fail('incomplete replay consumption', 'steps', len(self.expected), len(self.consumed))
                 previous = self.manifest.get('replay_schedule_hash')
                 if previous is not None and previous != final_hash:
                     self.fail('final whole-file hash changed', 'replay_schedule_hash', previous, final_hash)
                 self.manifest['replay_schedule_hash'] = final_hash
+                if self.manifest['config'].get('method') == 'rtd_unified':
+                    self.manifest['replay_mode'] = 'complete'
                 self.persist()
                 if previous is None:
                     self.journal.append('replay_schedule_complete', schedule=str(self.path), sha256=final_hash,

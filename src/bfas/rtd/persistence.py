@@ -24,13 +24,18 @@ def manifest_digest(manifest):
 
 
 def manifest_hash(manifest):
-    """Streaming V1 binds immutable identity; its journal binds replay progress.
+    """Streaming binds immutable identity; its journal binds replay progress.
 
     Historical manifests without observations retain their original digest.
     """
-    if manifest.get('arm') == 'V1' and manifest.get('replay_mode') == 'streaming':
+    from .streaming_replay import enabled as streaming_enabled
+    if streaming_enabled(manifest):
         manifest = {k: v for k, v in manifest.items()
                     if k not in {'replay_consumed_steps', 'replay_schedule_hash'}}
+        manifest = dict(manifest, replay_mode='streaming')
+    elif (manifest.get('config', {}).get('method') == 'rtd_unified'
+            and 'replay_schedule_identity' in manifest):
+        manifest = {k: v for k, v in manifest.items() if k != 'replay_consumed_steps'}
     return manifest_digest(manifest)
 
 

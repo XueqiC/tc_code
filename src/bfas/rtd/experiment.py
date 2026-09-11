@@ -220,7 +220,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         self.journal = journal or ComputeJournal(self.directory / 'compute.jsonl', cuda=self.device.type == 'cuda')
         from .streaming_replay import enabled as streaming_enabled, prepare_manifest, StreamingSchedule
         streaming = streaming_enabled(config)
-        if streaming:
+        unified_replay = manifest['config'].get('method') == 'rtd_unified' and config.get('replay_schedule')
+        if streaming or (unified_replay and (not resume or 'replay_schedule_identity' in manifest)):
             prepare_manifest(self)
         self.journal.bind_score_manifest(manifest, self.directory/'manifest.json')
         self.store = StateStore(self.directory / 'recovery', manifest)
@@ -232,7 +233,7 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
             if manifest['arm'] in ARMS:
                 # Independently seeded streams; initialization/training seed remains 0.
                 self.sampling_rng.manual_seed(int(digest([config['training_seed'], manifest['arm'], 'source_and_feedback'])[:15], 16))
-            if manifest['arm'] == 'V1':
+            if manifest['arm'] == 'V1' or unified_replay:
                 self.replay_schedule = (StreamingSchedule(self, smoke=smoke) if streaming else
                                         load_schedule(config, manifest, support, smoke=smoke))
         self.slot_rng = torch.Generator().manual_seed(config['training_seed'])
@@ -931,6 +932,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         self.transition('round_start')
 
     def run(self, *, stop_after_round=False):
+        from .streaming_replay import enabled as streaming_enabled
+        streaming = streaming_enabled(self.config)
         phases = dict(round_start=self.round_start, step_start=self.step_start, reference=self.reference,
             selected=self.selected, revealed=self.revealed, actual=self.actual, feedback=self.feedback_commit,
             committed=self.committed, round_end=self.round_end, initialize_fixed=self.initialize_fixed)
@@ -938,8 +941,7 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
             if stop_after_round and self.state['checkpoints'] and self.state['checkpoints'][-1]['round'] >= int(stop_after_round):
                 return dict(round_ready=self.state['checkpoints'][-1]['round'], complete=False)
             phase = self.state['phase']
-            if (phase == 'round_end' and self.config.get('replay_mode') == 'streaming'
-                    and self.manifest['arm'] == 'V1'
+            if (phase == 'round_end' and streaming
                     and (self.state['smoke'] or self.state['round'] == self.state['rounds'])):
                 # Final integrity must succeed before publishing the last round
                 # checkpoint; coordinator resume must not skip this barrier.
@@ -955,7 +957,7 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
                     phase = self.state['phase']
                     print(f"[rtd] round={round_number} step={step_number} phase={phase}", flush=True)
                     phases[phase]()
-        if self.config.get('replay_mode') == 'streaming' and self.manifest['arm'] == 'V1':
+        if streaming:
             self.replay_schedule.finish()
         result = assert_run_invariants(self.state, self.ledger, complete=True)
         atomic_json(self.directory / 'audit.json', result)

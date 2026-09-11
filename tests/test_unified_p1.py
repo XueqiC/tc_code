@@ -125,11 +125,11 @@ def test_profile_format_cpu_and_failed_stage(tmp_path, capsys):
     assert 'peak_gpu_gb=1.000000' in profile_line('commit', 1., 10**9)
 
 
-def p1_engine(path, bank, arm='D3', *, resume=False, replay_schedule=None):
+def p1_engine(path, bank, arm='D3', *, resume=False, replay_schedule=None, smoke=True, **replay_options):
     config = cli.load_config('configs/rtd/unified_bfcl_gemma4.yaml', arm=arm)
     config.update(slots_per_step=2, max_new_packages_per_window=1)
     if replay_schedule:
-        config, _ = arm_config(config, arm, replay_schedule)
+        config, _ = arm_config(config, arm, replay_schedule, **replay_options)
     backend = tiny_backend()
     model = backend.model
     model.head = torch.nn.Identity()
@@ -140,10 +140,14 @@ def p1_engine(path, bank, arm='D3', *, resume=False, replay_schedule=None):
     model.forward = forward
     directory, _, _, states = bank
     manifest = dict(config_hash=digest(config), config=config, arm=arm, bank_path=str(directory),
-        budget_ceilings=[100000, 200000, 300000], bank_public_cap_sum=32768, hardware_hash='toy-cpu', smoke=True)
+        budget_ceilings=[100000, 200000, 300000], bank_public_cap_sum=32768, hardware_hash='toy-cpu', smoke=smoke)
     path.mkdir(exist_ok=True)
-    atomic_json(path/'manifest.json', manifest)
-    return P1Experiment(config, manifest, path, backend, TinySupport(states), resume=resume, smoke=True)
+    if resume:
+        manifest = json.loads((path/'manifest.json').read_text())
+        config = manifest['config']
+    else:
+        atomic_json(path/'manifest.json', manifest)
+    return P1Experiment(config, manifest, path, backend, TinySupport(states), resume=resume, smoke=smoke)
 
 
 @pytest.mark.parametrize('arm', list(ARMS))

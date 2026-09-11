@@ -200,13 +200,14 @@ def test_preflight_completed_replay_checks_content_and_defers_only_initial_param
         preflight.preflight_config(config, arm)
 
 
-def test_preflight_streaming_constructs_reader_without_waiting(local_startup, monkeypatch):
+@pytest.mark.parametrize('arm', ['V1', 'D0', 'D1', 'D2', 'D3', 'D3-nocross', 'D3-raw', 'D3-shuffle', 'D3-fixedmean'])
+def test_preflight_streaming_constructs_reader_without_waiting(local_startup, monkeypatch, arm):
     from bfas.rtd.conventions import arm_config, schedule_identity, hashed_step
     from bfas.rtd.streaming_replay import StreamingSchedule
     c = local_startup
     execution, _, _ = runtime.backend_config(c.config)
     path = c.path.parent/'stream.json'
-    config, arm = arm_config(execution, 'V1', path, replay_mode='streaming')
+    config, arm = arm_config(execution if arm == 'V1' else c.config, arm, path, replay_mode='streaming')
     config = cli.validate_config(config)
     manifest = cli.make_manifest(config, arm, cli.bank_audit(config), smoke=True)
     identity = schedule_identity(manifest, config, c.support) | {'initial_parameter_hash': 'real-LoRA-hash'}

@@ -30,6 +30,30 @@ def schedule_path(path):
     return path/'exposure_schedule.json' if path.is_dir() else path
 
 
+def replay_config(config, path):
+    """Share D14 mode validation and binding across all exposure followers."""
+    result = dict(config)
+    path = schedule_path(path).resolve()
+    mode = result.get('replay_mode', 'complete')
+    if mode not in {'complete', 'streaming'}:
+        raise ValueError('replay_mode must be complete or streaming')
+    if mode == 'streaming':
+        for key, default in [('replay_poll_seconds', 60.), ('replay_timeout_seconds', 36*3600.)]:
+            value = result.setdefault(key, default)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f'{key} must be positive finite seconds')
+        if result.get('replay_schedule_hash') is not None:
+            raise ValueError('streaming replay cannot use a complete-mode config hash')
+        result.update(replay_schedule=str(path), replay_mode=mode)
+    else:
+        expected = result.get('replay_schedule_hash')
+        actual = file_hash(path)
+        if expected is not None and expected != actual:
+            raise ValueError('replay schedule changed')
+        result.update(replay_schedule=str(path), replay_schedule_hash=actual)
+    return result
+
+
 def arm_config(config, arm=None, replay_schedule=None, **replay_options):
     """A first-class arm selects every coupled setting before validation/hash."""
     if config.get('method') == 'rtd_unified':
@@ -50,24 +74,7 @@ def arm_config(config, arm=None, replay_schedule=None, **replay_options):
     if arm == 'V1':
         if not path:
             raise ValueError('V1 requires --replay-schedule <V0 run dir>')
-        path = schedule_path(path).resolve()
-        mode = result.get('replay_mode', 'complete')
-        if mode not in {'complete', 'streaming'}:
-            raise ValueError('replay_mode must be complete or streaming')
-        if mode == 'streaming':
-            for key, default in [('replay_poll_seconds', 60.), ('replay_timeout_seconds', 36*3600.)]:
-                value = result.setdefault(key, default)
-                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-                    raise ValueError(f'{key} must be positive finite seconds')
-            if result.get('replay_schedule_hash') is not None:
-                raise ValueError('streaming replay cannot use a complete-mode config hash')
-            result.update(replay_schedule=str(path), replay_mode=mode)
-            return result, arm
-        expected = result.get('replay_schedule_hash')
-        actual = file_hash(path)
-        if expected is not None and expected != actual:
-            raise ValueError('replay schedule changed')
-        result.update(replay_schedule=str(path), replay_schedule_hash=actual)
+        result = replay_config(result, path)
     elif path:
         raise ValueError('only V1 may replay an exposure schedule')
     elif any(k in result for k in ('replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds')):

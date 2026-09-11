@@ -14,8 +14,7 @@ import torch
 
 from ..experiment import RTDExperiment
 from ..functional_step import FrozenStep, commit_step, lora_parameters, snapshot
-from ..conventions import load_schedule
-from ..persistence import digest, file_hash
+from ..persistence import atomic_json, digest, file_hash
 from ...behavior.deltas import tensor_state_hash
 from .arms import solve_arm
 from .config import runtime_config
@@ -30,13 +29,11 @@ from .scoring import score_streamed
 
 class P1Experiment(RTDExperiment):
     def __init__(self, config, manifest, directory, backend, support, **kwargs):
+        if not config.get('replay_schedule') and not kwargs.get('smoke', False):
+            raise ValueError('P1 requires a recorded V0 exposure schedule')
         self.p1_config = config
         self.unified = UnifiedConfig.from_config(config)
         super().__init__(runtime_config(config), manifest, directory, backend, support, **kwargs)
-        if config.get('replay_schedule'):
-            self.replay_schedule = load_schedule(self.config, manifest, support, smoke=self.state['smoke'])
-        elif not self.state['smoke']:
-            raise ValueError('P1 requires a completed recorded exposure schedule')
 
     @property
     def slots(self):
@@ -257,10 +254,28 @@ class P1Experiment(RTDExperiment):
         self.transition('feedback')
 
     def round_end(self):
+        self.finish_complete_replay()
         with self.stage('save'):
             return super().round_end()
 
+    def finish_complete_replay(self):
+        """Publish the same completed replay evidence for either launch mode."""
+        if (self.config.get('replay_mode') != 'complete'
+                or 'replay_schedule_identity' not in self.manifest):
+            return
+        rows = self.state['steps']
+        if len(rows) != (1 if self.state['smoke'] else 12*self.state['rounds']):
+            return
+        if file_hash(self.config['replay_schedule']) != self.config['replay_schedule_hash']:
+            raise ValueError('P1 recorded schedule changed before completion')
+        self.manifest.update(replay_mode='complete', replay_consumed_steps=[dict(
+            round=row['round'], step=row['step'], content_hash=digest(row['exposure_schedule'])) for row in rows])
+        atomic_json(self.directory/'manifest.json', self.manifest)
+
     def run(self, **kwargs):
-        if self.config.get('replay_schedule') and file_hash(self.config['replay_schedule']) != self.config['replay_schedule_hash']:
+        if (self.config.get('replay_schedule') and self.config.get('replay_mode') != 'streaming'
+                and file_hash(self.config['replay_schedule']) != self.config['replay_schedule_hash']):
             raise ValueError('P1 recorded schedule changed before execution')
-        return super().run(**kwargs)
+        result = super().run(**kwargs)
+        self.finish_complete_replay()
+        return result

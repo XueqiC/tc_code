@@ -323,7 +323,8 @@ def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
                                 '1': dict(inner=56, feedback=79, available_packages=44)},
                 alfworld_excluded_probe_groups=4),
             uncertainty_scope='reprojected trajectory contributions; excludes feedback staleness bias')
-        if arm == 'V1' and config.get('replay_mode') == 'streaming':
+        from .streaming_replay import enabled as streaming_enabled
+        if streaming_enabled(config):
             manifest.update(replay_mode='streaming', replay_consumed_steps=[], replay_schedule_hash=None)
         if 'crcd' in str(config['student']).lower():
             raise ValueError('v1.1 base must be the issuer checkpoint, without project bank adaptation')
@@ -359,7 +360,8 @@ def startup_config(path, arm=None, replay_schedule=None, *, smoke=True,
         config = load_config(path)
     config, arm = arm_config(config, arm, replay_schedule, **replay_options)
     if config.get('method') == 'rtd_unified' and not smoke and not config.get('replay_schedule'):
-        raise ValueError('P1 run requires --replay-schedule <completed V0 run>; standalone smoke is exempt')
+        raise ValueError('P1 run requires --replay-schedule <V0 run>; '
+                         'use --replay-mode streaming for a live V0; standalone smoke is exempt')
     if smoke:
         config = dict(config, smoke_override=dict(parents_per_fold=2, slots=2, rollouts=1, windows=1,
                      baseline='action-independent zero', max_seconds=smoke_deadline_seconds))
@@ -406,7 +408,8 @@ def run_command(args):
         from .unified.experiment import P1Experiment
         RTDExperiment = P1Experiment
         if not smoke and not config.get('replay_schedule'):
-            raise ValueError('P1 run requires --replay-schedule <completed V0 run>; standalone smoke is exempt')
+            raise ValueError('P1 run requires --replay-schedule <V0 run>; '
+                             'use --replay-mode streaming for a live V0; standalone smoke is exempt')
     if config['evaluate_after_round'] and not smoke and not args.training_worker:
         return run_campaign(args, config)
     smoke_deadline_seconds = getattr(args, 'smoke_deadline_seconds', 900)
@@ -524,7 +527,8 @@ def run_campaign(args, config):
                 validate_resume(ROOT, directory, saved, current,
                                 acknowledge=getattr(args, 'acknowledge_code_drift', False),
                                 training=not all((directory/f'round-{r}').exists() for r in range(1, config.get('rounds', 3)+1)))
-                if saved.get('replay_mode') == 'streaming' and saved['arm'] == 'V1':
+                from .streaming_replay import enabled as streaming_enabled
+                if streaming_enabled(saved):
                     # Completed campaigns skip the training worker entirely.
                     # They must still revalidate the consumed source schedule.
                     from .streaming_replay import validate_saved_replay
@@ -620,11 +624,11 @@ def main(argv=None):
             p.add_argument('--arm', choices=['R0', 'R1', 'V0', 'V1', 'V2', *P1_ARMS], default=os.environ.get('RTD_ARM'))
             p.add_argument('--smoke-deadline-seconds', type=positive_seconds, default=900,
                            help='smoke time limit in seconds (default: 900; resume must match the saved config)')
-            p.add_argument('--replay-schedule', type=Path, help='V1: V0 run directory or exposure_schedule.json')
+            p.add_argument('--replay-schedule', type=Path, help='V1/unified arms: V0 run directory or exposure_schedule.json')
             p.add_argument('--replay-mode', choices=['complete', 'streaming'],
-                           help='V1 schedule mode (default: complete; resume uses saved mode)')
+                           help='V1/unified schedule mode (default: complete; resume uses saved mode)')
             p.add_argument('--replay-poll-seconds', type=float,
-                           help='streaming V1 poll interval (default: 60 seconds)')
+                           help='streaming replay poll interval (default: 60 seconds)')
             p.add_argument('--replay-timeout-seconds', type=float,
                            help='streaming V1 overall timeout per execution attempt (default: 129600 seconds / 36 hours)')
             p.add_argument('--training-worker', action='store_true', help=argparse.SUPPRESS)

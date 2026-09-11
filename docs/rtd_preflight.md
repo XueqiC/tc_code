@@ -9,10 +9,21 @@ Run the smoke startup checks without loading a model or using a GPU/API:
 
 The default is the same smoke configuration, including the arm preset and smoke
 overrides, used by `tools/rtd_experiment.py smoke`. For a full run, add
-`--mode run --replay-schedule <completed-V0-run>`; P1 requires the completed
-schedule. V1 also accepts the smoke/run streaming replay options. A streaming
+`--mode run --replay-schedule <V0-run>`. The default replay mode requires a
+completed schedule. V1 and all unified arms (D0/D1/D2/D3 and D3 variants) also
+accept `--replay-mode streaming --replay-poll-seconds 60 --replay-timeout-seconds 129600`
+to follow a live V0. P1 still requires an explicit schedule for a full run. A streaming
 source that has not published a schedule is reported as deferred; preflight
 does not wait. Any available schedule is checked for identity and content.
+
+Training consumes committed V0 steps in order, with the same purchases, source
+states, weights, and repetitions; each student samples its own fresh actions.
+The last checkpoint waits for V0's `complete=true` marker and final schedule hash.
+Unified runs publish identical completed `replay_*` manifest fields in either
+mode, including `replay_consumed_steps` and `replay_schedule_hash`. The frozen
+`config.replay_mode` retains the launch mode and its polling/timeout settings for
+resume; config hashes and campaign identities retain that provenance. Earlier
+checkpoints remain valid as replay progress advances.
 
 `smoke` and `run` execute this preflight before campaign dispatch, hardware
 probing, or model loading. The check uses the production config/arm adapters,

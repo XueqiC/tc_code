@@ -341,10 +341,15 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
     ignored = {'initial_parameter_hash', 'harness_hash', 'evaluation_harness',
                'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash',
                'score_consistency_observed'}
-    if saved.get('arm') == 'V1' and saved.get('replay_mode') == 'streaming':
+    from .streaming_replay import enabled as streaming_enabled
+    if streaming_enabled(saved):
         # The engine checks the frozen schedule identity against its initialized
         # model/support and revalidates journal-bound progress before training.
         ignored |= {'replay_schedule_identity', 'replay_consumed_steps', 'replay_schedule_hash'}
+        if saved['config'].get('method') == 'rtd_unified':
+            ignored.add('replay_mode')
+    elif saved['config'].get('method') == 'rtd_unified' and 'replay_schedule_identity' in saved:
+        ignored |= {'replay_schedule_identity', 'replay_consumed_steps', 'replay_mode'}
     if ({k: v for k, v in saved.items() if k not in ignored}
             != {k: v for k, v in current.items() if k not in ignored}):
         raise ValueError('resume config/data/base metadata changed')

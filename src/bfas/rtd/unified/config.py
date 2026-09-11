@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from ..persistence import digest, file_hash
-from ..conventions import schedule_path
+from ..conventions import replay_config
 from .arms import ARMS
 from .engine import UnifiedConfig
 
@@ -27,19 +27,21 @@ def arm_config(config, arm=None, replay_schedule=None, **options):
     arm = arm or result.get('arm') or 'D3'
     if arm not in ARMS:
         raise ValueError('unified configurations require D0/D1/D2/D3 or a D3 attribution arm')
-    if options and any(v is not None for v in options.values()):
-        if any(k != 'replay_mode' or v != 'complete' for k, v in options.items() if v is not None):
-            raise ValueError('P1 requires one completed recorded schedule (D14 content hashes)')
+    if set(options) - {'replay_mode', 'replay_poll_seconds', 'replay_timeout_seconds'}:
+        raise ValueError('unsupported P1 replay option')
+    result.update({k: v for k, v in options.items() if v is not None})
     result.update(arm=arm, arm_preset=asdict(ARMS[arm]))
     result['unified']['estimator'] = ARMS[arm].estimator
     result.setdefault('p1', deepcopy(P1_DEFAULTS))
     path = replay_schedule or result.get('replay_schedule')
+    if result.get('replay_mode', 'complete') not in {'complete', 'streaming'}:
+        raise ValueError('replay_mode must be complete or streaming')
     if path:
-        path = schedule_path(path).resolve()
-        actual = file_hash(path)
-        if result.get('replay_schedule_hash', actual) != actual:
-            raise ValueError('P1 replay schedule changed')
-        result.update(replay_schedule=str(path), replay_schedule_hash=actual, replay_mode='complete')
+        result = replay_config(result, path)
+        result.setdefault('replay_mode', 'complete')
+    elif result.get('replay_mode') == 'streaming' or any(
+            k in result for k in ('replay_poll_seconds', 'replay_timeout_seconds')):
+        raise ValueError('P1 replay requires --replay-schedule <V0 run dir>')
     return result, arm
 
 
@@ -93,7 +95,8 @@ def validate_config(config, *, arm=None, replay_schedule=None, **options):
 
 
 def manifest_fields(config, manifest):
-    if config.get('replay_schedule') and file_hash(config['replay_schedule']) != config['replay_schedule_hash']:
+    if (config.get('replay_schedule') and config.get('replay_mode') != 'streaming'
+            and file_hash(config['replay_schedule']) != config['replay_schedule_hash']):
         raise ValueError('P1 recorded schedule changed')
     matched = dict(initialization=manifest['base_checkpoint_hash'], tokenizer=manifest['tokenizer_hash'],
         data=manifest['data_hash'], hardware=manifest['hardware_hash'],
