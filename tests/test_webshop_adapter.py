@@ -95,6 +95,7 @@ def no_network_or_real_environment(monkeypatch, tmp_path):
     monkeypatch.setattr(appworld_teacher, "generate_reply", forbidden)
     monkeypatch.setattr(ledger, "LEDGER_ROOT", tmp_path / "teacher_ledger")
     monkeypatch.setenv("BFAS_TEACHER_MIN_INTERVAL_S", "0")
+    monkeypatch.delenv("BFAS_TEACHER", raising=False)
     original_import = builtins.__import__
 
     def guarded_import(name, *args, **kwargs):
@@ -134,7 +135,8 @@ def teacher(monkeypatch):
             raise reply
         if state.report_usage:
             usage_callback({"completion_tokens": 37 + config.attempt,
-                            "prompt_tokens": 2000, "total_tokens": 2037 + config.attempt})
+                            "prompt_tokens": 2000, "total_tokens": 2037 + config.attempt,
+                            "prompt_tokens_details": {"cached_tokens": 1024}})
         return reply
 
     monkeypatch.setattr(appworld_teacher, "load_teacher_config", load)
@@ -235,10 +237,54 @@ def test_failed_attempts_are_charged_once_and_success_is_cached(harness, teacher
     assert [r["temperature"] for r in records] == [0.0, 0.7, 0.7]
     assert [r["verified"] for r in records] == [False, False, True]
     assert [r["tokens_spent"] for r in records] == [37, 38, 39]
+    assert [r["usage"] for r in records] == [
+        {"completion_tokens": count, "prompt_tokens": 2000, "cached_tokens": 1024}
+        for count in (37, 38, 39)
+    ]
     assert all(r["teacher"] == "gpt-5.4" and r["purpose"] == "teacher" and r["timestamp"] for r in records)
     assert ledger.load_ledger("webshop")["500"]["tokens_total"] == 114
     assert set(adapter.teacher_demo(["500"], attempts=3)) == {"500"}
     assert len(teacher.calls) == len(ledger_records()) == 3
+
+
+@pytest.mark.parametrize("name", [
+    None, "gpt-5.6-luna", "gpt-oss:120b", "mistral-large-3",
+    "openrouter/openai/gpt-5.4", "openrouter/anthropic/claude-sonnet-5",
+    "openrouter/google/gemini-3.1-pro-preview", "openrouter/openai/gpt-5.6-luna",
+    "openai/gpt-5.4", "openai/gpt-5.6-luna",
+])
+def test_teacher_default_or_environment_selection_and_ledger_label(harness, teacher, monkeypatch, name):
+    adapter, bridge, _ = harness
+    if name is None:
+        monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    else:
+        monkeypatch.setenv("BFAS_TEACHER", name)
+    expected = name or "gpt-5.4"
+    assert adapter.teacher_name() == expected
+    bridge.done_after = 1
+    bridge.rewards = [0.0, 1.0]
+    assert set(adapter.teacher_demo(["500"], attempts=2)) == {"500"}
+    assert [config.name for config in teacher.configs] == [expected, expected]
+    assert [row["teacher"] for row in ledger_records()] == [expected, expected]
+    assert [row["usage"] for row in ledger_records()] == [
+        {"completion_tokens": count, "prompt_tokens": 2000, "cached_tokens": 1024}
+        for count in (37, 38)
+    ]
+
+
+def test_ledger_uses_resolved_config_name(harness, teacher, monkeypatch):
+    adapter, bridge, _ = harness
+    bridge.done_after = 1
+    original_load = appworld_teacher.load_teacher_config
+
+    def load(name):
+        config = original_load(name)
+        config.name = "openrouter/openai/gpt-5.6-luna"
+        return config
+
+    monkeypatch.setattr(appworld_teacher, "load_teacher_config", load)
+    adapter.teacher_demo(["500"], attempts=1)
+    assert ledger_records()[0]["teacher"] == "openrouter/openai/gpt-5.6-luna"
 
 
 def test_failed_attempt_cap_and_response_estimate_fallback(harness, teacher):

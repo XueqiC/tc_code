@@ -44,7 +44,7 @@ BFCL = ROOT / "envs/bfcl/gorilla/berkeley-function-call-leaderboard"
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(BFCL))
 
-TEACHER = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro")
+TEACHER = os.environ.get("BFAS_BFCL_TEACHER", "gpt-5.4")
 BASE_URL = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/") + "/v1"
 TEACHER_ATTEMPTS = 3
 

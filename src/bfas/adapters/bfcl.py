@@ -23,7 +23,8 @@ from ..adapter import (
     TeacherEpisode,
     Turn,
 )
-from ..protocol import SAMPLING_TEMPERATURE, SupportSplit, make_support_split
+from ..bfcl_teacher import PROVIDERS, ollama_credentials, provider_credentials, read_results, teacher_task_ids
+from ..protocol import SupportSplit, make_support_split
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -47,6 +48,12 @@ GUIDE_HEADER = (
 
 class BFCLScoreError(RuntimeError):
     pass
+
+
+class BFCLTeacherError(RuntimeError):
+    def __init__(self, message: str, tokens_spent: int):
+        super().__init__(message)
+        self.tokens_spent = tokens_spent
 
 
 def _completion_tokens(results: Sequence[Mapping[str, Any]]) -> int | None:
@@ -172,6 +179,8 @@ extract_bfcl_verdicts = extract_verdicts
 class BFCLAdapter(BenchmarkAdapter):
     name = "bfcl"
     needs_server = False
+    ledger_teacher_scoped = True
+    teacher_task_ids = staticmethod(teacher_task_ids)
 
     def __init__(self, seed: int = 0, port: int = 8901, mt_training: bool = False):
         self.seed = seed
@@ -447,31 +456,28 @@ class BFCLAdapter(BenchmarkAdapter):
         self,
         args: Sequence[str],
         policy_ref: PolicyRef | None = None,
+        *,
+        usage_log: Path | None = None,
     ) -> dict[str, str]:
         env = self._subprocess_env()
         model = str(args[args.index("--model") + 1]) if "--model" in args else ""
+        prefix = model.split("/", 1)[0]
         is_azure = model.startswith("azure/")
         command = self._bfcl_command("generate", *args)
-        # API-served teacher models (e.g. deepseek-v4-pro-FC) must not get
-        # local vllm server args; they need the OpenAI-compatible creds for
-        # the Ollama endpoint instead.
-        is_api_model = is_azure or "deepseek" in model or model.startswith("gpt-")
-        if is_api_model and not is_azure:
-            env["OPENAI_BASE_URL"] = os.environ.get(
-                "OLLAMA_BASE_URL", "https://ollama.com"
-            ).rstrip("/") + "/v1"
-            key = os.environ.get("OLLAMA_API_KEY", "")
-            if not key:
-                key_file = Path.home() / ".ollama_api_key2"
-                if key_file.exists():
-                    key = key_file.read_text().strip()
-            env["OPENAI_API_KEY"] = key
-        elif not is_api_model:
+        if prefix in PROVIDERS:
+            # Validate before launching the worker. The native-tools handler
+            # resolves the same provider settings independently of OPENAI_*.
+            env["OPENAI_BASE_URL"], env["OPENAI_API_KEY"] = provider_credentials(prefix)
+        elif not is_azure and ("deepseek" in model or model.startswith("gpt-")):
+            env["OPENAI_BASE_URL"], env["OPENAI_API_KEY"] = ollama_credentials()
+        elif not is_azure:
             command.extend([
                 "--backend", "vllm",
                 "--num-gpus", "1",
                 "--gpu-memory-utilization", os.environ.get("GPU_UTIL") or "0.85",
             ])
+        if usage_log is not None:
+            env["BFAS_BFCL_USAGE_LOG"] = str(usage_log)
         checkpoint = self._trained_checkpoint(policy_ref)
         merged = None
         if checkpoint is not None:
@@ -484,7 +490,7 @@ class BFCLAdapter(BenchmarkAdapter):
 
     @staticmethod
     def _bfcl_command(*args: str) -> list[str]:
-        if any(str(arg).startswith("azure/") for arg in args):
+        if any(str(arg).split("/", 1)[0] in {"azure", *PROVIDERS} for arg in args):
             return [str(BFCL_BIN.with_name("python")), str(BFCL_CLI), *args]
         return [str(BFCL_BIN), *args]
 
@@ -517,16 +523,19 @@ class BFCLAdapter(BenchmarkAdapter):
                 "--result-dir", result_name, "--score-dir", score_name,
                 "--partial-eval",
             )
-            env = self._run_generate(generate, policy_ref)
-            self._run_evaluate(evaluate, env, BFCL_ROOT / score_name)
             result_dir = BFCL_ROOT / result_name
             score_dir = BFCL_ROOT / score_name
-            results: list[dict[str, Any]] = []
-            for path in result_dir.rglob("*_result.json"):
-                for line in path.read_text().splitlines():
-                    if line.strip():
-                        results.append(json.loads(line))
-            return results, result_dir, score_dir
+            try:
+                env = self._run_generate(
+                    generate, policy_ref, usage_log=result_dir / "bfas_usage.jsonl"
+                )
+                self._run_evaluate(evaluate, env, score_dir)
+            except BaseException as exc:
+                # Keep raw artifacts when a subprocess fails; the gateway must
+                # still charge every response received before that failure.
+                exc.tokens_spent = _completion_tokens(read_results(result_dir)) or 0
+                raise
+            return read_results(result_dir), result_dir, score_dir
         finally:
             for path, content in data_backups:
                 path.write_bytes(content)
@@ -667,37 +676,33 @@ class BFCLAdapter(BenchmarkAdapter):
     def teacher_demo(
         self, task_ids: Sequence[str], attempts: int
     ) -> dict[str, Demo]:
-        model = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
-        remaining = list(task_ids)
-        demos: dict[str, Demo] = {}
-        for attempt in range(attempts):
-            if not remaining:
-                break
-            results, result_dir, score_dir = self._official_pass(
-                model,
-                remaining,
-                0.0 if attempt == 0 else SAMPLING_TEMPERATURE,
-            )
-            try:
-                categories = self.task_categories()
-                verdicts = extract_verdicts(
-                    score_dir, {task_id: categories[task_id] for task_id in remaining}
-                )
-                for result in results:
-                    task_id = str(result["id"])
-                    if not verdicts.get(task_id) or task_id in demos:
-                        continue
-                    demos[task_id] = self.demo_from_result(result, attempt)
-                remaining = [task_id for task_id in remaining if task_id not in demos]
-            finally:
-                shutil.rmtree(result_dir, ignore_errors=True)
-                shutil.rmtree(score_dir, ignore_errors=True)
-        return demos
+        from ..ledger import acquire_demos
+
+        return acquire_demos("bfcl", self, task_ids, attempts)
+
+    def _teacher_demo_from_result(self, result: Mapping[str, Any], attempt_index: int) -> Demo:
+        task_id = str(result["id"])
+        category = self.task_categories()[task_id]
+        target = self._target(result.get("result"))
+        context = {
+            "messages": self._messages(task_id),
+            "functions": self._functions(task_id),
+        }
+        turns: list[Turn] = []
+        if not category.startswith(("multi_turn", "web_search", "memory")):
+            turns.append(Turn(
+                self._render(context["messages"], context["functions"]), target, context,
+            ))
+        return Demo(task_id, turns, target[:4000], {
+            "attempt": attempt_index + 1, "checker_verified": True,
+        })
 
     def teacher_episode(
         self, task_id: str, attempt_index: int, temperature: float
     ) -> TeacherEpisode:
-        model = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro-FC")
+        if not self.teacher_task_ids([task_id]):
+            return TeacherEpisode(task_id, False, None, tokens_spent=0)
+        model = os.environ.get("BFAS_BFCL_TEACHER", os.environ.get("BFAS_TEACHER", "gpt-5.4"))
         results, result_dir, score_dir = self._official_pass(
             model, [task_id], temperature
         )
@@ -710,8 +715,8 @@ class BFCLAdapter(BenchmarkAdapter):
             )
             target = self._target(result.get("result")) if result else ""
             demo = None
-            if verdicts.get(task_id) is True and result is not None:
-                demo = self.demo_from_result(result, attempt_index)
+            if verdicts.get(task_id) is True and result is not None and not result.get("error"):
+                demo = self._teacher_demo_from_result(result, attempt_index)
             return TeacherEpisode(
                 task_id=task_id,
                 verified=demo is not None,
@@ -722,7 +727,10 @@ class BFCLAdapter(BenchmarkAdapter):
                 # too, including failed attempts; never estimate visible text
                 # when the provider reported its total (reasoning included).
                 tokens_spent=_completion_tokens(results),
+                teacher=model,
             )
+        except Exception as exc:
+            raise BFCLTeacherError(str(exc), _completion_tokens(results) or 0) from exc
         finally:
             shutil.rmtree(result_dir, ignore_errors=True)
             shutil.rmtree(score_dir, ignore_errors=True)

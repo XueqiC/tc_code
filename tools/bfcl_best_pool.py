@@ -49,7 +49,7 @@ def main() -> int:
     by_task = {r["task_id"]: r for r in v3_rows}
     samples = pp.student_samples(4)
 
-    cfg = at.load_teacher_config("deepseek-v4-pro")
+    cfg = at.load_teacher_config("gpt-5.4")
     rows, judged = [], 0
     for tid, base_row in sorted(by_task.items()):
         verified = []

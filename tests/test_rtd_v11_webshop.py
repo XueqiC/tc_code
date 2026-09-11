@@ -117,6 +117,8 @@ def test_teacher_demo_bank_cost_prefixes_and_public_certificate(tmp_path, monkey
     class Teacher:
         def __init__(self):
             self.response_texts, self.tokens_spent = [], 0
+            self.config = SimpleNamespace(name='gpt-5.4')
+            self.usage = {}
         def generate_reply(self, messages, temperature):
             self.tokens_spent += 17
             self.response_texts.append('I found the requested bottle.\nclick[Buy Now]')

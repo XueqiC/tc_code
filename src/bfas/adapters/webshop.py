@@ -20,8 +20,9 @@ from types import SimpleNamespace
 from typing import Any
 
 from ..adapter import BenchmarkAdapter, Demo, PolicyRef, Rollout, TaskRef, TeacherEpisode, Turn
-from ..ledger import acquire_demos, estimate_response_tokens
+from ..ledger import acquire_demos
 from ..protocol import TEACHER_ATTEMPTS
+from ._teacher import TeacherSession
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -179,33 +180,11 @@ class _EnvBridge:
             self.process.stdout.close()
 
 
-class _TeacherSession:
+class _TeacherSession(TeacherSession):
     def __init__(self):
         import appworld_teacher
 
-        self.config = appworld_teacher.load_teacher_config("gpt-5.4")
-        self.response_texts: list[str] = []
-        self.tokens_spent = 0
-
-    def generate_reply(self, messages: list[dict[str, str]], temperature: float) -> str:
-        import appworld_teacher
-
-        reported = False
-
-        def charge(usage: Mapping[str, Any]) -> None:
-            nonlocal reported
-            count = usage.get("completion_tokens", usage.get("output_tokens"))
-            if isinstance(count, int) and count >= 0:
-                self.tokens_spent += count  # includes Azure reasoning tokens
-                reported = True
-
-        reply = appworld_teacher.generate_reply(
-            self.config, messages, temperature=temperature, usage_callback=charge
-        )
-        self.response_texts.append(reply)
-        if not reported:
-            self.tokens_spent += estimate_response_tokens([reply])
-        return reply
+        super().__init__(appworld_teacher.load_teacher_config(WebShopAdapter.teacher_name()))
 
 
 class _EpisodeClient:
@@ -282,7 +261,7 @@ class WebShopAdapter(BenchmarkAdapter):
 
     @staticmethod
     def teacher_name() -> str:
-        return "gpt-5.4"
+        return os.environ.get("BFAS_TEACHER", "gpt-5.4")
 
     def prepare_renderer(self, policy_ref: PolicyRef) -> None:
         if self._tokenizer is None or self._loaded_policy != str(policy_ref):
@@ -324,7 +303,7 @@ class WebShopAdapter(BenchmarkAdapter):
                 webshop_eval.HISTORY_OBS_CHARS, webshop_eval.MAX_PROMPT_CHARS,
             )
         except Exception as exc:
-            if teacher is None or not (teacher.response_texts or teacher.tokens_spent):
+            if teacher is None or not (teacher.response_texts or teacher.tokens_spent or teacher.usage):
                 raise
             # A later API/env failure must not discard earlier paid output.
             record = {"session": session, "reward": 0.0, "success": False,
@@ -369,7 +348,8 @@ class WebShopAdapter(BenchmarkAdapter):
             demo = Demo(task_id, turns, "\n\n".join(worked),
                         dict(rollout.raw, attempt=attempt_index + 1))
         return TeacherEpisode(task_id, rollout.verified, demo,
-                              tuple(teacher.response_texts), teacher.tokens_spent)
+                              tuple(teacher.response_texts), teacher.tokens_spent,
+                              teacher=teacher.config.name, usage=teacher.usage)
 
     def teacher_demo(self, task_ids: Sequence[str], attempts: int) -> dict[str, Demo]:
         # The same gateway is used by run.py. Do not append here as well as in

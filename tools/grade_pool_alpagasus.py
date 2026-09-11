@@ -20,7 +20,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 OUTPUT_PATH = ROOT / "data" / "alpagasus_scores.json"
-TEACHER = "deepseek-v4-pro"
+TEACHER = "gpt-5.4"
 
 SYSTEM_PROMPT = (
     "We would like to request your feedback on the performance of AI assistant "

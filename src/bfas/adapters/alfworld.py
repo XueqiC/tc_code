@@ -27,6 +27,7 @@ from ..adapter import (
     Turn,
 )
 from ..protocol import SAMPLING_TEMPERATURE
+from ._teacher import TeacherSession
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -674,7 +675,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
                 else:
                     import appworld_teacher
 
-                    if isinstance(teacher_config, _TeacherSession):
+                    if isinstance(teacher_config, (_TeacherSession, TeacherSession)):
                         teacher_reply = teacher_config.generate_reply(
                             messages, temperature
                         )
@@ -686,7 +687,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
                     if not reply.strip():
                         # deepseek intermittently returns empty content at
                         # temperature 0; one mildly warmed retry recovers it
-                        if isinstance(teacher_config, _TeacherSession):
+                        if isinstance(teacher_config, (_TeacherSession, TeacherSession)):
                             teacher_reply = teacher_config.generate_reply(
                                 messages, 0.3
                             )
@@ -771,18 +772,27 @@ class ALFWorldAdapter(BenchmarkAdapter):
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         config = appworld_teacher.load_teacher_config(teacher_name)
-        # Let HTTP 429 escape to the run-level pause/resume wrapper around the
-        # ledger gateway.  A quota rejection is not a paid attempt and must not
-        # consume the task's ledger budget.
-        rollout = self._episode(
-            None,
-            task_id,
-            "train",
-            temperature,
-            teacher_config=config,
-        )
+        session = TeacherSession(config)
+        # An initial HTTP 429 escapes to the run-level pause/resume wrapper.
+        # Later failures retain the episode's already purchased output.
+        try:
+            rollout = self._episode(
+                None,
+                task_id,
+                "train",
+                temperature,
+                teacher_config=session,
+            )
+        except Exception:
+            if not (session.response_texts or session.tokens_spent or session.usage):
+                raise
+            # A later API/environment failure must retain earlier paid usage.
+            return TeacherEpisode(
+                task_id, False, None, tuple(session.response_texts), session.tokens_spent,
+                teacher=config.name, usage=session.usage,
+            )
         demo = None
         if rollout.verified:
             worked = self._teacher_worked_example(rollout)
@@ -799,7 +809,10 @@ class ALFWorldAdapter(BenchmarkAdapter):
             task_id=task_id,
             verified=rollout.verified,
             demo=demo,
-            response_texts=tuple(turn.target for turn in rollout.turns),
+            response_texts=tuple(session.response_texts),
+            tokens_spent=session.tokens_spent,
+            teacher=config.name,
+            usage=session.usage,
         )
 
     def teacher_demo_incremental(
@@ -820,7 +833,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         quota_gate = _TeacherQuotaGate(appworld_teacher)
 
         def collect_task(

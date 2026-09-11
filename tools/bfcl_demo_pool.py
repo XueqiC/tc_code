@@ -36,7 +36,7 @@ def serialize(messages: list[dict]) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--result-dir", default="result_demos_deepseek_v4_pro_FC")
+    ap.add_argument("--result-dir", default="result_demos_gpt_5_4")
     ap.add_argument("--verified", default="data/bfcl_demos_ds_verified.json")
     ap.add_argument("--tag", default="ds")
     args = ap.parse_args()
