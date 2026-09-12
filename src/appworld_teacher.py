@@ -483,9 +483,15 @@ def generate_reply(
     usage_callback: Callable[[Mapping[str, Any]], None] | None = None,
     max_completion_tokens: int | None = None,
     retries: int | None = None,
+    response_callback: Callable[[Mapping[str, Any]], None] | None = None,
+    reasoning_effort: str | None = None,
 ) -> str:
     global _OLLAMA_KEY_IDX
     body = _build_request_body(config, messages, temperature)
+    if reasoning_effort is not None:
+        if config.backend != "openai_api" or reasoning_effort not in {"none", "low", "medium", "high", "xhigh", "max"}:
+            raise ValueError("reasoning_effort requires an official OpenAI reasoning model")
+        body["reasoning_effort"] = reasoning_effort
     if max_completion_tokens is not None:
         if type(max_completion_tokens) is not int or max_completion_tokens <= 0:
             raise ValueError("max_completion_tokens must be a positive integer")
@@ -511,10 +517,20 @@ def generate_reply(
                 request, timeout=CHAT_COMPLETION_TIMEOUT_SECONDS
             ) as response:
                 response_data = response.read()
+                headers = getattr(response, "headers", None)
+                response_request_id = headers.get("x-request-id") if headers else None
             break
         except urllib.error.HTTPError as exc:
             status = exc.code
             retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            if response_callback is not None:
+                try:
+                    error_data = json.loads(exc.read())
+                except (ValueError, UnicodeDecodeError):
+                    error_data = {}
+                response_callback({"http_status": status, "attempt": request_attempt,
+                                   "request_id": exc.headers.get("x-request-id") if exc.headers else None,
+                                   "data": error_data})
             exc.close()
             if status == 429 and request_attempt < rate_limit_attempts:
                 if config.backend == "openai":
@@ -563,7 +579,16 @@ def generate_reply(
     try:
         data = json.loads(response_data)
     except (json.JSONDecodeError, UnicodeDecodeError):
+        if response_callback is not None:
+            response_callback({"http_status": 200, "attempt": request_attempt,
+                               "request_id": response_request_id, "data": {},
+                               "invalid_json": True})
         raise TeacherAPIError("chat completion returned invalid JSON") from None
+    if response_callback is not None:
+        # Persist the entire provider envelope before parsing choices/content.
+        # This includes usage on discarded, truncated, or malformed responses.
+        response_callback({"http_status": 200, "attempt": request_attempt,
+                           "request_id": response_request_id, "data": data})
     if not isinstance(data, Mapping):
         raise TeacherAPIError("chat completion response is not an object")
     if usage_callback is not None:

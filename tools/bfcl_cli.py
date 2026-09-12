@@ -16,6 +16,10 @@ def main():
 
     register_azure_model()
     register_api_models()
+    if os.environ.get("MECH_BFCL_CAPTURE") == "1":
+        from bfas.mech_bfcl.harness import register_capture
+
+        register_capture()
     # The historical DeepSeek entry uses the harness's generic OpenAI handler.
     # Supply its Ollama credentials locally, without a paid credential probe.
     if "generate" in sys.argv and "--model" in sys.argv:
