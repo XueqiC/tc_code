@@ -29,11 +29,12 @@ def event(text='{"ok":true}', finish='stop', tokens=12):
         choices=[dict(finish_reason=finish,message=dict(content=text))]))
 
 
-def test_discarded_generation_and_cached_attempt_still_charged(tmp_path, config):
+@pytest.mark.parametrize('text', ['broken JSON', '[]', '42', 'null'])
+def test_discarded_generation_and_cached_attempt_still_charged(tmp_path, config, text):
     def generate(c,m,**kwargs):
         assert kwargs['retries'] == 0
-        kwargs['response_callback'](event('broken JSON'))
-        return 'broken JSON'
+        kwargs['response_callback'](event(text))
+        return text
     teacher = Teacher(tmp_path, config, generate)
     value, call = teacher.ask('C','first',[],100)
     assert value is None
@@ -86,3 +87,19 @@ def test_shared_transport_reports_error_usage_before_raising(monkeypatch,config)
     with pytest.raises(shared.TeacherAPIError):
         shared.generate_reply(config,[],retries=0,response_callback=observed.append)
     assert observed[0]['data']['usage']['completion_tokens'] == 12
+
+
+def test_full_reservations_use_configured_arm_budget_and_cached_calls(tmp_path, config):
+    caps = []
+    def generate(c, m, **kwargs):
+        cap = kwargs['max_completion_tokens']
+        caps.append(cap)
+        kwargs['response_callback'](event('{}', tokens=cap))
+        return '{}'
+    teacher = Teacher(tmp_path, config, generate)
+    for index in range(10):
+        assert teacher.ask('C', str(index), [], 3000, output_budget=30000, require_full_cap=True)[1]
+    assert teacher.ask('C', 'next', [], 3000, output_budget=30000, require_full_cap=True) == (None, None)
+    assert teacher.ask('C', '0', [], 3000, output_budget=30000, require_full_cap=True)[1]
+    assert caps == [3000] * 10
+    assert ledger_summary(teacher.path)['C']['output_tokens'] == 30000

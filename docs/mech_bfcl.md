@@ -75,14 +75,15 @@ export BFAS_TEACHER=openai/gpt-5.6-luna
 export BFAS_OPENAI_SERVICE_TIER=flex
 export OPENAI_BASE_URL=https://api.openai.com/v1
 # OPENAI_API_KEY must already be exported by your credential setup.
-MECH_RUN="$PWD/results/mech_bfcl"
+# Use a fresh directory; an existing single-pass run cannot adopt the loop.
+MECH_RUN="$PWD/results/mech_bfcl_loop"
 BFCL_PY="$PWD/envs/bfcl/.venv/bin/python"
 TRAIN_PY="$PWD/.venv/bin/python"
 VLLM="$PWD/envs/vllm-serve/.venv/bin/vllm"
 mkdir -p "$MECH_RUN"
 
 "$TRAIN_PY" -m pytest -q tests/test_mech_bfcl*.py
-"$BFCL_PY" tools/mech_bfcl.py splits
+"$BFCL_PY" tools/mech_bfcl.py splits --run-dir "$MECH_RUN"
 
 # The API parent and engine children share a process group. Stop all of them
 # and wait until the GPU is empty before allowing training to load weights.
@@ -110,18 +111,18 @@ wait_server
 
 # Exactly 24 support rollouts determine seeds. The fixed 16 calibration
 # rollouts supply held-out contexts and never contribute failure diagnoses.
-"$BFCL_PY" tools/mech_bfcl.py rollout --base-url http://127.0.0.1:8901/v1
-"$BFCL_PY" tools/mech_bfcl.py diagnose
-"$BFCL_PY" tools/mech_bfcl.py generate --arm C --base-url http://127.0.0.1:8901/v1
-"$BFCL_PY" tools/mech_bfcl.py generate --arm D --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py rollout --run-dir "$MECH_RUN" --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py diagnose --run-dir "$MECH_RUN"
+"$BFCL_PY" tools/mech_bfcl.py generate --run-dir "$MECH_RUN" --arm C --target-exercises 64 --max-output-tokens 24000 --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py generate --run-dir "$MECH_RUN" --arm D --target-exercises 64 --max-output-tokens 24000 --base-url http://127.0.0.1:8901/v1
 
 # Every evaluate invocation runs all three layers. Repeat base once before
 # training; report records paired correctness stability, including web effects.
-"$BFCL_PY" tools/mech_bfcl.py evaluate --arm base --base-url http://127.0.0.1:8901/v1
-"$BFCL_PY" tools/mech_bfcl.py evaluate --arm base --repeat repeat --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm base --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm base --repeat repeat --base-url http://127.0.0.1:8901/v1
 stop_server
 
-"$TRAIN_PY" tools/mech_bfcl.py train --arm C
+"$TRAIN_PY" tools/mech_bfcl.py train --run-dir "$MECH_RUN" --arm C
 setsid "$VLLM" serve google/gemma-4-12B-it \
   --served-model-name google/gemma-4-12B-it \
   --dtype bfloat16 --max-model-len 32768 --gpu-memory-utilization 0.85 \
@@ -130,10 +131,10 @@ setsid "$VLLM" serve google/gemma-4-12B-it \
   --port 8901 >"$MECH_RUN/serve-C.log" 2>&1 &
 export MECH_SERVING_PID=$!
 wait_server
-"$BFCL_PY" tools/mech_bfcl.py evaluate --arm C --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm C --base-url http://127.0.0.1:8901/v1
 stop_server
 
-"$TRAIN_PY" tools/mech_bfcl.py train --arm D
+"$TRAIN_PY" tools/mech_bfcl.py train --run-dir "$MECH_RUN" --arm D
 setsid "$VLLM" serve google/gemma-4-12B-it \
   --served-model-name google/gemma-4-12B-it \
   --dtype bfloat16 --max-model-len 32768 --gpu-memory-utilization 0.85 \
@@ -142,10 +143,10 @@ setsid "$VLLM" serve google/gemma-4-12B-it \
   --port 8901 >"$MECH_RUN/serve-D.log" 2>&1 &
 export MECH_SERVING_PID=$!
 wait_server
-"$BFCL_PY" tools/mech_bfcl.py evaluate --arm D --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm D --base-url http://127.0.0.1:8901/v1
 stop_server
 
-"$BFCL_PY" tools/mech_bfcl.py report
+"$BFCL_PY" tools/mech_bfcl.py report --run-dir "$MECH_RUN"
 ```
 
 All inference uses T=0.001, greedy `top_k=1`, seed 0, and explicit
@@ -161,20 +162,37 @@ This command sequence uses vLLM LoRA, avoiding a second set of merged weights.
 `diagnose` spends at most 2,000 of the shared 8,000 output tokens. Preparation
 uses at most 6,000 for approximately 48 local exercises and 24 actual natural
 states from calibration, in distinct generation groups. Natural states are
-never fabricated or edited. At most eight support failures seed each arm;
-each seed requests nine examples, with at most 24,000 output tokens per arm.
-Counts yield to budget and validation. Failed neighbours and malformed or
-inconsistent examples are retained in the generation audit. An arm may have
-fewer than 48 valid examples; this is reported explicitly and training never
-repeats examples to compensate. No replacement seeds are mined from evaluation.
+never fabricated or edited. At most eight support failures seed each arm.
+Generation rotates through those seeds repeatedly, requesting nine short
+examples per call with a fresh diversity instruction and the already accepted
+examples for that context. Both arms use `--target-exercises` (default 64) and
+`--max-output-tokens` (default 24,000), frozen together with the seed order in
+`generation_protocol.json`. Each call reserves 3,000 output tokens. The loop
+stops at the distinct validated target, or before actual output tokens spent
+plus the next full reservation would exceed the cap; the reservation is never
+shrunk to spend the remainder. Caps below 3,000 permit no arm calls.
+
+De-duplication happens before admission, across the whole arm and within each
+batch. It compares student messages, tools, executor state, and demonstration,
+ignoring IDs and variant labels. Failed neighbours, malformed or inconsistent
+examples, duplicates, and unused proposals from the final call remain charged.
+`generation.json` records the stop reason, actual count, call count, output
+tokens, and any target shortfall. Training never repeats examples to compensate.
+No replacement seeds are mined from evaluation. Cached attempts replay without
+new teacher purchases on resume; changing settings or adopting the loop from
+an existing single-pass generation requires a new `--run-dir`.
 
 C and D receive identical task/interface/state context and format requirements.
 Only D receives the current student response, execution failure, and testable
 gap hypothesis. Prior natural history is identical and may contain imperfect
-student actions. D must retain condition, surface, and base-verified neighbouring
-examples globally; per-seed coverage failures are reported without requiring a
-strict contrast pair for every seed. Both arms apply the same AST/executor
-checks and frozen-base neighbourhood probes. The student input is built from
+student actions. The system prompt, seed/diversity rotation, reservation policy,
+de-duplication, and admission checks are shared. Both arms must retain condition,
+surface, and base-verified neighbouring examples globally, including a changed
+condition action; this preserves D's requirements across all loop iterations.
+Per-seed coverage failures are reported without requiring a strict contrast
+pair for every seed. Both arms apply the same AST/executor checks and frozen-base
+neighbourhood probes. Reaching the count alone does not make a bank ready for
+training if variant coverage fails. The student input is built from
 whitelisted history/tool fields; diagnosis, variant labels, gold arguments,
 validation metadata, and costs remain outside the rendered prompt.
 

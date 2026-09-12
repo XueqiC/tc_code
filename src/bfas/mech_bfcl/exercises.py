@@ -11,6 +11,14 @@ FORBIDDEN = ("<eos>", "<turn|>", "<|im_end|>", "<|endoftext|>", "<|tool_response
 VARIANTS = {"condition", "surface", "neighbour_correct"}
 
 
+def exercise_fingerprint(exercise):
+    """Identify the same supervision in the same state, ignoring audit labels."""
+    return digest(dict(messages=exercise["messages"], functions=exercise["functions"],
+                       snapshot=exercise.get("snapshot"),
+                       involved_classes=exercise.get("involved_classes", []),
+                       demonstration=demonstration(exercise["demo"])))
+
+
 def demonstration(value):
     if not isinstance(value, dict) or value.get("kind") not in {"call", "abstain"}:
         raise ValueError("Demonstration requires kind=call|abstain")

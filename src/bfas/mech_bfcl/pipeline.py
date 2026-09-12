@@ -8,10 +8,19 @@ import urllib.request
 
 from .common import (REGISTRY, STUDENT, append_row, digest, read_json, read_rows,
                      setup_harness, write_json)
-from .exercises import OfficialValidator, VARIANTS, materialize, native_pair
+from .exercises import (OfficialValidator, VARIANTS, exercise_fingerprint,
+                        materialize, native_pair)
 from .harness import NoThinking, frames, official_run, trajectory_metrics
 from .splits import inventory, stratum
 from .teacher import Teacher, ledger_summary
+
+GENERATION_CALL_TOKENS = 3000
+DIVERSITY_FOCI = (
+    "Vary concrete entities and argument values within the declared schema.",
+    "Vary decisive prerequisites, availability, and boundary conditions supported by this state.",
+    "Vary wording and request structure while preserving each intended decision relation.",
+    "Explore nearby correct cases and different valid call, argument, or ordering choices.",
+)
 
 
 def clean_context(frame, splits):
@@ -157,7 +166,7 @@ def student_reply(args, exercise, tokenizer):
     return raw["choices"][0]["text"], raw
 
 
-def generation_prompt(context, diagnosis=None):
+def generation_prompt(context, diagnosis=None, *, attempt=0, diversity_index=None, accepted=()):
     common = (
         'Return JSON {"exercises":[{"user":"short task", "demo":{"kind":"call",'
         '"calls":[{"name":"declared_tool","arguments":{}}]},"variant":"condition"}]}.'
@@ -170,16 +179,22 @@ def generation_prompt(context, diagnosis=None):
         'Variant is condition (change a decisive condition AND the correct action), surface '
         '(surface change preserving the decision relation), or neighbour_correct (a nearby ordinary '
         'case). Include at least two of each type; no labels in student-visible text. '
-        'Keep each task and demonstration short. Return only JSON, no markdown.'
+        'Keep each task and demonstration short. Return only JSON, no markdown. '
+        'If student_gap is supplied, target that observed gap; otherwise generate ordinary '
+        'varied practice for this stage. Neighbour candidates must check nearby correct '
+        'behaviour and will be verified on the frozen base student. Condition variants '
+        'must predictably change the relevant call, argument, or order. '
+        'Follow the new diversity instruction on every call. Do not repeat any accepted '
+        'exercise, even under a different variant label. Fill missing variant types.'
     )
-    payload = dict(context=context)
-    if diagnosis is not None:
-        payload["student_gap"] = diagnosis
-        common += (' Target the supplied observed gap. The neighbour_correct candidates must check '
-                   'the opposite/nearby correct behaviour; they will be verified on the frozen base student. '
-                   'Condition variants must predictably reverse/change the relevant call, argument, or order.')
-    else:
-        common += ' Generate ordinary varied practice for this stage.'
+    context_hash = digest(context)
+    own = [e for e in accepted if e["source_hash"] == context_hash]
+    focus = DIVERSITY_FOCI[(attempt if diversity_index is None else diversity_index) % len(DIVERSITY_FOCI)]
+    payload = dict(context=context, student_gap=diagnosis,
+        diversity_instruction=f"Batch {attempt + 1}: {focus} "
+                              "Create fresh examples distinct from all previously accepted exercises.",
+        accepted_exercises=[dict(messages=e["messages"], demo=e["demo"], variant=e["variant"]) for e in own],
+        missing_variants=sorted(VARIANTS - {e["variant"] for e in accepted}))
     return [dict(role="system", content=common), dict(role="user", content=json.dumps(payload, ensure_ascii=False))]
 
 
@@ -254,41 +269,82 @@ def heldout(args, splits, teacher, validator):
     return output
 
 
-def generate(args, splits):
-    from transformers import AutoTokenizer
-    seeds = training_seeds(args.run_dir, splits)
-    diagnoses = {d["seed_id"]: d for d in read_json(args.run_dir / "diagnoses.json")}
-    if not seeds:
-        raise ValueError("No support failures: report insufficient headroom; do not mine evaluation")
-    if any(not diagnoses[s["seed_id"]]["valid"] for s in seeds):
-        raise ValueError("Missing testable diagnoses; inspect diagnoses.json (failed generations remain charged)")
-    check_server(args, "base")
-    teacher, validator = Teacher(args.run_dir), OfficialValidator()
-    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
-    heldout(args, splits, teacher, validator)
-    output, audit = [], []
-    for seed in seeds:
+def bind_generation(args, seeds):
+    """Freeze one loop configuration for both arms and all resumptions."""
+    if args.target_exercises <= 0 or args.max_output_tokens <= 0:
+        raise ValueError("Generation target and output-token cap must be positive")
+    value = dict(version=2, target_exercises=args.target_exercises,
+        max_output_tokens=args.max_output_tokens, call_output_tokens=GENERATION_CALL_TOKENS,
+        seed_order=[s["seed_id"] for s in seeds],
+        contexts_hash=digest([s["context"] for s in seeds]))
+    path = args.run_dir / "generation_protocol.json"
+    if path.exists():
+        if read_json(path) != value:
+            raise ValueError("C/D generation settings or seed rotation changed; use a new --run-dir")
+        return value
+    previous = ledger_summary(args.run_dir / "teacher_ledger.jsonl")
+    if any(previous[arm]["calls"] or (args.run_dir / arm / "generation.json").exists()
+           or (args.run_dir / arm / "exercises.json").exists() for arm in ("C", "D")):
+        raise ValueError("Existing arm generation belongs to the old protocol; use a new --run-dir")
+    # Rollout/diagnosis may already have bound the run with default budgets.
+    # No arm purchases exist yet, so freeze both configured ceilings together.
+    protocol_path = args.run_dir / "protocol.json"
+    if protocol_path.exists():
+        protocol = read_json(protocol_path)
+        protocol["budgets"].update(C=args.max_output_tokens, D=args.max_output_tokens)
+        write_json(protocol_path, protocol)
+    write_json(path, value)
+    return value
+
+
+def generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer):
+    """Shared round-robin loop; cached attempts replay without new purchases."""
+    output, audit, accepted = [], [], {}
+    attempt = 0
+    stop_reason = "target_reached"
+    while len(output) < args.target_exercises:
+        seed = seeds[attempt % len(seeds)]
+        round_index = attempt // len(seeds)
         diag = None if args.arm == "C" else dict(
             hypothesis=diagnoses[seed["seed_id"]]["diagnosis"],
             observed_response=seed["failure_frame"]["response"],
             observed_execution=seed["failure_frame"].get("execution"))
-        prompt = generation_prompt(seed["context"], diag)
-        value, cost = teacher.ask(args.arm, args.arm+":"+seed["seed_id"], prompt,
-                                 24000 // len(seeds))
+        prompt = generation_prompt(seed["context"], diag, attempt=attempt,
+                                   diversity_index=round_index + attempt % len(seeds), accepted=output)
+        group = args.arm + ":" + seed["seed_id"]
+        value, cost = teacher.ask(args.arm, f"{group}:round:{round_index}", prompt,
+                                 GENERATION_CALL_TOKENS, output_budget=args.max_output_tokens,
+                                 require_full_cap=True)
+        if cost is None:
+            stop_reason = "output_token_cap"
+            break
+        attempt += 1
         if not value:
-            audit.append(dict(seed_id=seed["seed_id"], reason="teacher failure/budget", cost_call_id=cost))
+            audit.append(dict(seed_id=seed["seed_id"], round=round_index,
+                              reason="teacher failure", cost_call_id=cost))
             continue
         proposals = value.get("exercises", [])
         if not isinstance(proposals, list):
             audit.append(dict(seed_id=seed["seed_id"], reason="exercises is not a list", cost_call_id=cost))
             continue
-        for index, proposed in enumerate(proposals[:12]):
+        for index, proposed in enumerate(proposals):
+            if len(output) == args.target_exercises:
+                audit.append(dict(seed_id=seed["seed_id"], cost_call_id=cost,
+                                  reason="target reached; unused proposals remain charged",
+                                  unused_proposals=len(proposals) - index))
+                break
             try:
                 row = materialize(proposed, seed["context"], arm=args.arm,
-                    group=args.arm+":"+seed["seed_id"], index=index, call_id=cost)
+                    group=group, index=f"{round_index}:{index}", call_id=cost)
+                fingerprint = exercise_fingerprint(row)
+                if fingerprint in accepted:
+                    row["validation"] = dict(valid=False, reason="Duplicate accepted exercise",
+                                             duplicate_of=accepted[fingerprint])
+                    audit.append(row)
+                    continue
                 row["validation"] = validator.validate(row)
-                if args.arm == "D" and row["variant"] not in VARIANTS:
-                    row["validation"] = dict(valid=False, reason="Missing D variant type")
+                if row["variant"] not in VARIANTS:
+                    row["validation"] = dict(valid=False, reason="Missing variant type")
                 if row["validation"]["valid"]:
                     native_pair(tokenizer, row)  # Native format round-trip before admission.
                     if row["variant"] == "neighbour_correct":
@@ -304,29 +360,47 @@ def generate(args, splits):
                             row["validation"] = dict(valid=False, reason="Base was not right on neighbour candidate")
                     if row["validation"]["valid"]:
                         output.append(row)
+                        accepted[fingerprint] = row["id"]
                 audit.append(row)
             except (KeyError, ValueError, TypeError) as exc:
-                audit.append(dict(seed_id=seed["seed_id"], index=index, cost_call_id=cost, reason=str(exc)))
-    # Exact duplicates do not purchase extra exposure or independent evidence.
-    unique = {}
-    for row in output:
-        unique.setdefault(digest([row["messages"], row["functions"], row["demo"]]), row)
-    output = list(unique.values())
+                audit.append(dict(seed_id=seed["seed_id"], round=round_index,
+                                  index=index, cost_call_id=cost, reason=str(exc)))
+    return output, audit, stop_reason
+
+
+def generate(args, splits):
+    from transformers import AutoTokenizer
+    seeds = training_seeds(args.run_dir, splits)
+    diagnoses = {d["seed_id"]: d for d in read_json(args.run_dir / "diagnoses.json")}
+    if not seeds:
+        raise ValueError("No support failures: report insufficient headroom; do not mine evaluation")
+    if any(not diagnoses[s["seed_id"]]["valid"] for s in seeds):
+        raise ValueError("Missing testable diagnoses; inspect diagnoses.json (failed generations remain charged)")
+    settings = bind_generation(args, seeds)
+    check_server(args, "base")
+    teacher, validator = Teacher(args.run_dir), OfficialValidator()
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
+    heldout(args, splits, teacher, validator)
+    output, audit, stop_reason = generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer)
     coverage = {s["seed_id"]: dict(Counter(e["variant"] for e in output
                 if e["generation_group"] == args.arm+":"+s["seed_id"])) for s in seeds}
-    missing = [seed for seed, counts in coverage.items() if args.arm == "D" and not VARIANTS <= counts.keys()]
+    missing = [seed for seed, counts in coverage.items() if not VARIANTS <= counts.keys()]
     write_json(args.run_dir / args.arm / "exercises.json", output)
     write_json(args.run_dir / args.arm / "generation_audit.json", audit)
     global_coverage = Counter(e["variant"] for e in output)
     surface_actions = {digest(e["demo"]) for e in output if e["variant"] == "surface"}
     condition_changes = any(digest(e["demo"]) not in surface_actions for e in output if e["variant"] == "condition")
-    ready = bool(output) and (args.arm == "C" or (VARIANTS <= global_coverage.keys() and condition_changes))
+    ready = bool(output) and VARIANTS <= global_coverage.keys() and condition_changes
+    costs = ledger_summary(teacher.path)
     write_json(args.run_dir / args.arm / "generation.json", dict(arm=args.arm, count=len(output),
-        target=[48, 96], coverage=coverage, missing_variant_groups=missing,
+        target=args.target_exercises, max_output_tokens=args.max_output_tokens,
+        call_output_tokens=GENERATION_CALL_TOKENS, stop_reason=stop_reason,
+        calls=costs[args.arm]["calls"], output_tokens=costs[args.arm]["output_tokens"],
+        coverage=coverage, missing_variant_groups=missing,
         ready=ready, global_coverage=dict(global_coverage), condition_action_changes=condition_changes,
-        contexts_hash=digest([s["context"] for s in seeds]),
-        below_target=len(output)<48, reason="Budget first; no repetition to fill counts"))
-    write_json(args.run_dir / "teacher_cost.json", ledger_summary(teacher.path))
+        contexts_hash=settings["contexts_hash"], below_target=len(output) < args.target_exercises,
+        reason="Stop at the validated target or before the next full reservation exceeds the cap"))
+    write_json(args.run_dir / "teacher_cost.json", costs)
 
 
 def evaluate(args, splits):

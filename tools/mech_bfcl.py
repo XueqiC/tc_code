@@ -27,6 +27,10 @@ def parser():
     commands.add_parser("diagnose", parents=[common])
     gen = commands.add_parser("generate", parents=[common])
     gen.add_argument("--arm", choices=["C", "D"], required=True)
+    gen.add_argument("--target-exercises", type=positive_int, default=64,
+                     help="Target number of distinct validated exercises per arm (default: 64)")
+    gen.add_argument("--max-output-tokens", type=positive_int, default=24000,
+                     help="Total teacher output-token cap per arm (default: 24000)")
     train = commands.add_parser("train", parents=[common])
     train.add_argument("--arm", choices=["C", "D"], required=True)
     train.add_argument("--model-path", default=STUDENT)
@@ -37,6 +41,13 @@ def parser():
     evaluate.add_argument("--repeat", choices=["main", "repeat"], default="main")
     commands.add_parser("report", parents=[common])
     return p
+
+
+def positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
 
 
 def main(argv=None):

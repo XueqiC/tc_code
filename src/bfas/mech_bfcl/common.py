@@ -62,8 +62,13 @@ def setup_harness(runtime=None):
 
 def bind_run(directory, splits):
     path = Path(directory) / "protocol.json"
+    generation_path = Path(directory) / "generation_protocol.json"
+    budgets = dict(BUDGETS)
+    if generation_path.exists():
+        cap = read_json(generation_path)["max_output_tokens"]
+        budgets.update(C=cap, D=cap)
     value = dict(version=1, student=STUDENT, teacher=TEACHER, service_tier="flex",
-                 seed=splits["seed"], split_hash=digest(splits), budgets=BUDGETS,
+                 seed=splits["seed"], split_hash=digest(splits), budgets=budgets,
                  temperature=0.001, top_k=1, thinking=False)
     if path.exists() and read_json(path) != value:
         raise ValueError("Run directory belongs to a different protocol/split")

@@ -58,12 +58,14 @@ class Teacher:
         self.config = config
         self.generate = generate or shared.generate_reply
 
-    def ask(self, bucket, key, messages, cap):
+    def ask(self, bucket, key, messages, cap, *, output_budget=None, require_full_cap=False):
         """One attempt per stable key, no hidden retries or token estimates.
 
         A timeout can have been billed without returning usage. Such attempts
         cannot honestly be assigned exact zero cost: preserve their reservation
         and block all further purchases until external billing reconciliation.
+        Arm generation supplies its frozen output budget and requires a full
+        reservation. Cached attempts are returned even when no new call fits.
         """
         with lock(self.path.with_suffix(".lock")):
             summary = ledger_summary(self.path)
@@ -75,7 +77,10 @@ class Teacher:
                 if row["prompt_hash"] != digest(messages):
                     raise ValueError("Attempt key reused with changed context")
                 return row.get("parsed"), row["call_id"]
-            remaining = BUDGETS[bucket] - summary[bucket]["output_tokens"]
+            budget = BUDGETS[bucket] if output_budget is None else output_budget
+            remaining = budget - summary[bucket]["output_tokens"]
+            if require_full_cap and cap > remaining:
+                return None, None
             cap = min(cap, remaining)
             if cap <= 0:
                 return None, None
@@ -83,7 +88,8 @@ class Teacher:
             record = dict(call_id=call_id, key=key, bucket=bucket, event="reserved",
                           requested_model=self.config.model, requested_service_tier="flex",
                           reasoning_effort="none",
-                          cap=cap, timestamp=time.time(), prompt_hash=digest(messages), usage=None)
+                          cap=cap, output_budget=budget, timestamp=time.time(),
+                          prompt_hash=digest(messages), usage=None)
             append_row(self.path, record)
             write_json(self.directory / "teacher_raw" / (call_id + ".request.json"),
                        dict(messages=messages, cap=cap, model=self.config.model, service_tier="flex", reasoning_effort="none"))
@@ -115,6 +121,7 @@ class Teacher:
                 if not isinstance(parsed, dict):
                     raise ValueError("Teacher must return a JSON object")
             except Exception as exc:
+                parsed = None
                 error = f"{type(exc).__name__}: {exc}".replace(self.config.api_key, "[REDACTED]")
             final = dict(record, event="final", usage=usage, parsed=parsed, error=error,
                          disposition="candidate" if parsed is not None else "discarded",
