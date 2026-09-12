@@ -1,3 +1,7 @@
+import copy
+from contextlib import contextmanager
+import random
+
 import pytest
 import torch
 
@@ -7,7 +11,8 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bfas.mech_bfcl import training
-from bfas.mech_bfcl.training import chunked_hidden_gradient, frozen_hidden, mixture_loss, token_schedule
+from bfas.mech_bfcl.training import chunked_hidden_gradient, frozen_hidden, mixture_loss, pass_schedules, token_schedule
+from tools.mech_bfcl import parser
 
 
 GPU_UUIDS = [
@@ -167,7 +172,8 @@ def test_train_checks_gpu_and_logs_memory_before_model_load(gpu_guard, monkeypat
     for arm in ("C", "D"):
         training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
         training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
-    args = SimpleNamespace(run_dir=tmp_path, arm="C", tokenizer="stub", model_path="stub", tokens_per_step=1)
+    args = SimpleNamespace(run_dir=tmp_path, arm="C", tokenizer="stub", model_path="stub",
+                           tokens_per_step=1, passes=1, learning_rate=1e-5)
     with pytest.raises(RuntimeError if foreign else ModelLoadReached) as exc:
         training.train(args, dict(seed=0, support=["task"]))
     assert loads == ([] if foreign else [True])
@@ -230,6 +236,212 @@ def test_token_accumulation_exact_one_pass_partial_last_row():
     assert consumed[-1] == (2,0)
     with pytest.raises(ValueError, match="Insufficient"):
         token_schedule(rows,13,4)
+
+
+def test_multi_pass_schedules_are_reproducible_and_reset_exposure():
+    rows = [dict(id=str(i), target_ids=list(range(n))) for i, n in enumerate((3, 7, 2, 5, 6))]
+    original = copy.deepcopy(rows)
+    schedules = pass_schedules(rows, 11, 4, passes=4, seed=19)
+    assert schedules == pass_schedules(rows, 11, 4, passes=4, seed=19)
+    assert schedules[:1] == pass_schedules(rows, 11, 4, seed=19)
+    assert schedules != pass_schedules(rows, 11, 4, passes=4, seed=20)
+    assert rows == original
+    assert len({tuple(s["row_order"]) for s in schedules}) > 1
+    for i, schedule in enumerate(schedules):
+        assert schedule["pass_number"] == i + 1
+        assert schedule["seed"] == 19 + i
+        order = list(range(len(rows)))
+        random.Random(19 + i).shuffle(order)
+        assert schedule["row_order"] == order
+        steps = schedule["steps"]
+        assert [sum(s["end"] - s["start"] for s in step) for step in steps] == [4, 4, 3]
+        consumed = [(s["row"], p) for step in steps for s in step for p in range(s["start"], s["end"])]
+        expected = [(r, p) for r in order for p in range(len(rows[r]["target_ids"]))][:11]
+        assert consumed == expected
+        assert len(consumed) == len(set(consumed)) == 11
+
+
+def test_train_cli_dose_defaults_and_overrides():
+    defaults = parser().parse_args(["train", "--arm", "C"])
+    assert (defaults.passes, defaults.learning_rate, defaults.tokens_per_step) == (1, 1e-5, 512)
+    custom = parser().parse_args(["train", "--arm", "D", "--passes", "20", "--learning-rate", "1e-4"])
+    assert (custom.passes, custom.learning_rate) == (20, 1e-4)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1.5"])
+def test_train_cli_rejects_invalid_passes(value):
+    with pytest.raises(SystemExit):
+        parser().parse_args(["train", "--arm", "C", "--passes", value])
+
+
+@pytest.mark.parametrize("passes", [0, -1])
+def test_schedules_reject_nonpositive_passes(passes):
+    with pytest.raises(ValueError, match="Positive number of training passes"):
+        pass_schedules([dict(target_ids=[1])], 1, passes=passes)
+
+
+@pytest.fixture
+def tiny_training(monkeypatch, tmp_path):
+    """Run the real loss and AdamW on CPU with a tiny adapter/backbone stub."""
+    monkeypatch.delenv("MECH_SERVING_PID", raising=False)
+    monkeypatch.setattr(training, "check_gpu_residency", lambda: None)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "manual_seed_all", lambda seed: None)
+    monkeypatch.setattr(torch.cuda, "max_memory_allocated", lambda: 0)
+    monkeypatch.setattr(torch.cuda, "is_current_stream_capturing", lambda: False)
+    if hasattr(torch, "accelerator"):
+        monkeypatch.setattr(torch.accelerator, "current_accelerator", lambda **kwargs: None)
+    tensor = torch.tensor
+
+    def cpu_tensor(*args, **kwargs):
+        if kwargs.get("device") == "cuda":
+            kwargs["device"] = "cpu"
+        return tensor(*args, **kwargs)
+
+    monkeypatch.setattr(torch, "tensor", cpu_tensor)
+    models, optimizers = [], []
+    adamw = torch.optim.AdamW
+
+    def optimizer(*args, **kwargs):
+        instance = adamw(*args, **kwargs)
+        optimizers.append(instance)
+        return instance
+
+    monkeypatch.setattr(torch.optim, "AdamW", optimizer)
+
+    class Decoder(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embedding = torch.nn.Embedding(9, 3)
+            for name in training.TARGET_MODULES:
+                self.add_module(name, torch.nn.Linear(3, 3, bias=False))
+            self.adapter = torch.nn.Parameter(torch.zeros(3))
+            self.enabled = True
+            self.inputs = []
+
+        def forward(self, input_ids, use_cache):
+            assert input_ids.device.type == "cpu"
+            if self.enabled:
+                self.inputs.append(input_ids.clone())
+            hidden = self.q_proj(self.embedding(input_ids))
+            return SimpleNamespace(last_hidden_state=hidden + (self.adapter if self.enabled else 0))
+
+    class Model(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.model = Decoder()
+            self.lm_head = torch.nn.Linear(3, 9, bias=False)
+            self.config = SimpleNamespace()
+            self.requires_grad_(False)
+            self.model.adapter.requires_grad_(True)
+
+        def get_base_model(self):
+            return self
+
+        @contextmanager
+        def disable_adapter(self):
+            self.model.enabled = False
+            try:
+                yield
+            finally:
+                self.model.enabled = True
+
+        def gradient_checkpointing_enable(self, **kwargs):
+            pass
+
+        def enable_input_require_grads(self):
+            pass
+
+        def save_pretrained(self, path, **kwargs):
+            path.mkdir(parents=True)
+
+    def load_model(*args, **kwargs):
+        model = Model()
+        models.append(model)
+        return model
+
+    tokenizer = SimpleNamespace(save_pretrained=lambda *a: None)
+    monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(
+        AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a, **k: tokenizer),
+        AutoModelForCausalLM=SimpleNamespace(from_pretrained=load_model)))
+    monkeypatch.setitem(sys.modules, "peft", SimpleNamespace(
+        LoraConfig=lambda **kwargs: None, get_peft_model=lambda model, config: model))
+    encoded = {arm: [dict(id=f"{arm}_{i}", prompt_ids=[1, 2], target_ids=[3 + i] * n)
+                     for i, n in enumerate(lengths)]
+               for arm, lengths in (("C", (1, 2, 3, 4)), ("D", (3, 4, 5, 6)))}
+    monkeypatch.setattr(training, "encode_rows", lambda bank, tokenizer: (
+        copy.deepcopy(encoded[bank[0]["arm"]]), []))
+    for arm in ("C", "D"):
+        training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
+        training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
+
+    def run(arm="C", **dose):
+        args = parser().parse_args(["train", "--run-dir", str(tmp_path), "--arm", arm])
+        for key, value in {"tokens_per_step": 4, "passes": 3, "learning_rate": 1e-3, **dose}.items():
+            setattr(args, key, value)
+        args.position_chunk = 2
+        training.train(args, dict(seed=0, support=["task"]))
+
+    return SimpleNamespace(run=run, models=models, optimizers=optimizers, encoded=encoded)
+
+
+@pytest.mark.parametrize("passes", [1, 3])
+def test_train_accounts_for_all_passes_and_matches_arms(tiny_training, tmp_path, passes):
+    for arm in ("C", "D"):
+        tiny_training.run(arm, passes=passes)
+        plan_bytes = (tmp_path / "training_plan.json").read_bytes()
+        if arm == "C":
+            frozen = plan_bytes
+        else:
+            assert plan_bytes == frozen
+        plan = training.read_json(tmp_path / "training_plan.json")
+        directory = tmp_path / arm / "training"
+        config = training.read_json(directory / "config.json")
+        metrics = training.read_json(directory / "metrics.json")
+        steps = training.read_json(directory / "steps.json")
+        for artifact in (plan, config, metrics):
+            assert artifact["passes"] == passes
+            assert artifact["learning_rate"] == 1e-3
+            assert artifact["tokens_per_step"] == 4
+        assert metrics["supervised_tokens_per_pass"] == plan["common_supervised_cap"] == 10
+        assert metrics["supervised_tokens"] == 10 * passes
+        assert metrics["optimizer_steps"] == len(steps) == 3 * passes
+        assert [s["step"] for s in steps] == list(range(1, 3 * passes + 1))
+        for p in range(1, passes + 1):
+            assert [s["supervised_tokens"] for s in steps if s["pass_number"] == p] == [4, 4, 2]
+        model = tiny_training.models[-1]
+        optimizer = tiny_training.optimizers[-1]
+        assert optimizer.param_groups[0]["lr"] == 1e-3
+        assert optimizer.state[model.model.adapter]["step"].item() == 3 * passes
+        assert model.model.adapter.detach().abs().sum() > 0
+        assert metrics["input_tokens"] == sum(ids.numel() for ids in model.model.inputs)
+        assert metrics["unique_input_tokens"] == sum(2 + len(r["target_ids"]) for r in tiny_training.encoded[arm])
+        schedules = plan["schedules"][arm]
+        assert len(schedules) == passes
+        exposed_rows = {s["row"] for schedule in schedules for step in schedule["steps"] for s in step}
+        assert metrics["data_examples"] == len(exposed_rows)
+        assert plan["row_ids"][arm] == [r["id"] for r in tiny_training.encoded[arm]]
+
+
+@pytest.mark.parametrize("first_arm", ["C", "D"])
+@pytest.mark.parametrize("changed", [dict(passes=4), dict(learning_rate=2e-3), dict(tokens_per_step=5)])
+def test_train_rejects_cross_arm_dose_changes(tiny_training, tmp_path, first_arm, changed):
+    tiny_training.run(first_arm)
+    frozen = (tmp_path / "training_plan.json").read_bytes()
+    other_arm = "D" if first_arm == "C" else "C"
+    with pytest.raises(ValueError, match="C/D exposure plan changed after it was frozen"):
+        tiny_training.run(other_arm, **changed)
+    assert (tmp_path / "training_plan.json").read_bytes() == frozen
+    assert len(tiny_training.models) == len(tiny_training.optimizers) == 1
+    assert not (tmp_path / other_arm / "training").exists()
+
+
+@pytest.mark.parametrize("rate", [0, -1e-5, float("nan"), float("inf"), -float("inf")])
+def test_train_rejects_invalid_learning_rate(tiny_training, tmp_path, rate):
+    with pytest.raises(ValueError, match="Learning rate must be positive and finite"):
+        tiny_training.run(learning_rate=rate)
+    assert not tiny_training.models
+    assert not (tmp_path / "training_plan.json").exists()
 
 
 def test_reference_uses_same_backbone_disabled_adapter_and_restores_mode():

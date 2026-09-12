@@ -98,8 +98,8 @@ def report(args, splits):
              "for every arm and paired comparison. The frozen split and split hash are unchanged.",
              f"Excluded categories: {', '.join(scope['excluded_categories'])}. {scope['exclusion_reason']}",
              f"Excluded IDs: {', '.join(scope['excluded_ids']) or 'none'}.", "",
-             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Supervised tokens | Steps | Train seconds |",
-             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Passes | Learning rate | Total supervised tokens | Optimizer steps | Train seconds |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     breakdown = {}
     for arm, items in models.items():
         accuracy = {str(layer): sum(i["correct"] for i in items if i["layer"] == layer) /
@@ -108,7 +108,8 @@ def report(args, splits):
         training = dict(accuracy=accuracy, **metrics)
         rows.append(dict(arm=arm, **training))
         lines.append(f"| {arm} | " + " | ".join(f"{100*accuracy[str(l)]:.2f}" for l in (1,2,3)) +
-            f" | {cost.get(arm, {}).get('output_tokens', 0)} | {metrics.get('supervised_tokens', 0)} | "
+            f" | {cost.get(arm, {}).get('output_tokens', 0)} | {metrics.get('passes', '—')} | "
+            f"{metrics.get('learning_rate', '—')} | {metrics.get('supervised_tokens', 0)} | "
             f"{metrics.get('optimizer_steps', 0)} | {metrics.get('wall_seconds', 0):.1f} |")
         by_category = {}
         for layer in (1, 2, 3):

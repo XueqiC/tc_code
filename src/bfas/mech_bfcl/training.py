@@ -1,11 +1,11 @@
-"""One-pass BF16 LoRA with exact full-vocabulary reference preservation.
+"""Exposure-matched BF16 LoRA with exact full-vocabulary reference preservation.
 
 The API teacher supplies a demonstration, not logits in Gemma's vocabulary.
 The target is q=.5*one_hot(demo_token)+.5*p_frozen_base over the FULL vocabulary.
 Only position chunks are projected; no top-k or vocabulary truncation is used.
 """
-from collections import Counter
 import csv
+import math
 import os
 from pathlib import Path
 import random
@@ -97,6 +97,24 @@ def token_schedule(rows, cap, tokens_per_step=512):
     return steps
 
 
+def pass_schedules(rows, cap, tokens_per_step=512, *, passes=1, seed=0):
+    """Shuffle afresh per pass; segment row indices refer to the original rows."""
+    if passes <= 0:
+        raise ValueError("Positive number of training passes required")
+    schedules = []
+    for pass_index in range(passes):
+        pass_seed = seed + pass_index
+        order = list(range(len(rows)))
+        random.Random(pass_seed).shuffle(order)
+        steps = token_schedule([rows[i] for i in order], cap, tokens_per_step)
+        for step in steps:
+            for segment in step:
+                segment["row"] = order[segment["row"]]
+        schedules.append(dict(pass_number=pass_index+1, seed=pass_seed,
+                              row_order=order, steps=steps))
+    return schedules
+
+
 def frozen_hidden(model, ids, indices):
     import torch
     was_training = model.training
@@ -162,6 +180,10 @@ def check_gpu_residency():
 
 
 def train(args, splits):
+    if args.passes <= 0:
+        raise ValueError("Positive number of training passes required")
+    if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
+        raise ValueError("Learning rate must be positive and finite")
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from peft import LoraConfig, get_peft_model
@@ -169,7 +191,7 @@ def train(args, splits):
         raise RuntimeError("Stop the vLLM process and unset MECH_SERVING_PID before training")
     target_dir = args.run_dir / args.arm / "training"
     if target_dir.exists():
-        raise ValueError("Training output already exists; one-pass runs cannot be resumed/repeated in place")
+        raise ValueError("Training output already exists; runs cannot be resumed/repeated in place")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
     banks = {arm: read_json(args.run_dir / arm / "exercises.json") for arm in ("C", "D")}
     preparation = {arm: read_json(args.run_dir / arm / "generation.json") for arm in banks}
@@ -183,12 +205,14 @@ def train(args, splits):
     encoded, excluded = {}, {}
     for arm in banks:
         encoded[arm], excluded[arm] = encode_rows(banks[arm], tokenizer)
-        random.Random(splits["seed"]).shuffle(encoded[arm])
     cap = min(16000, *(sum(len(r["target_ids"]) for r in encoded[a]) for a in encoded))
-    schedules = {a: token_schedule(encoded[a], cap, args.tokens_per_step) for a in encoded}
+    schedules = {a: pass_schedules(encoded[a], cap, args.tokens_per_step,
+                                  passes=args.passes, seed=splits["seed"]) for a in encoded}
     plan = dict(common_supervised_cap=cap, bank_hashes={a: digest(banks[a]) for a in banks},
                 tokenizer=args.tokenizer, seed=splits["seed"], tokens_per_step=args.tokens_per_step,
+                passes=args.passes, learning_rate=args.learning_rate,
                 encoded_hashes={a: digest(encoded[a]) for a in encoded}, excluded=excluded,
+                row_ids={a: [r["id"] for r in encoded[a]] for a in encoded},
                 schedules=schedules)
     plan_path = args.run_dir / "training_plan.json"
     if plan_path.exists() and read_json(plan_path) != plan:
@@ -221,16 +245,19 @@ def train(args, splits):
     if any(p.requires_grad for p in base.lm_head.parameters()):
         raise ValueError("Chunked decoder VJP requires a frozen lm_head")
     parameters = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(parameters, lr=1e-5, weight_decay=0.0)
-    rows, steps = encoded[args.arm], schedules[args.arm]
+    optimizer = torch.optim.AdamW(parameters, lr=args.learning_rate, weight_decay=0.0)
+    rows = encoded[args.arm]
+    steps = [(schedule["pass_number"], segments) for schedule in schedules[args.arm]
+             for segments in schedule["steps"]]
     log, input_tokens, supervised = [], 0, 0
     write_json(target_dir / "config.json", dict(student=STUDENT, model_path=args.model_path,
         model_commit=getattr(base.config, "_commit_hash", None), lora_rank=16, lora_alpha=32,
         lora_dropout=0, target_modules=sorted(actual), dtype="bfloat16", micro_batch=1,
-        learning_rate=1e-5, gradient_checkpointing=True, passes=1,
+        learning_rate=args.learning_rate, gradient_checkpointing=True, passes=args.passes,
+        tokens_per_step=args.tokens_per_step,
         teacher_target="one-hot demonstration", reference_target="full vocabulary frozen adapter-disabled base",
         mixture=[0.5, 0.5], thinking=False, position_chunk=args.position_chunk))
-    for step, segments in enumerate(steps):
+    for step, (pass_number, segments) in enumerate(steps):
         optimizer.zero_grad(set_to_none=True)
         step_tokens = sum(s["end"]-s["start"] for s in segments)
         step_loss = 0.0
@@ -261,13 +288,16 @@ def train(args, splits):
             step_loss += loss
             del ids, reference, hidden, target, gradient
         optimizer.step()
-        log.append(dict(step=step+1, supervised_tokens=step_tokens, loss=step_loss/step_tokens,
+        log.append(dict(step=step+1, pass_number=pass_number,
+                        supervised_tokens=step_tokens, loss=step_loss/step_tokens,
                         wall_seconds=time.monotonic()-step_start))
         write_json(target_dir / "steps.json", log)
     model.save_pretrained(target_dir / "adapter", safe_serialization=True)
     tokenizer.save_pretrained(target_dir / "adapter")
     write_json(target_dir / "metrics.json", dict(input_tokens=input_tokens,
         unique_input_tokens=sum(len(r["prompt_ids"])+len(r["target_ids"]) for r in rows),
-        supervised_tokens=supervised, optimizer_steps=len(log), wall_seconds=time.monotonic()-start_time,
+        supervised_tokens=supervised, supervised_tokens_per_pass=cap, passes=args.passes,
+        learning_rate=args.learning_rate, tokens_per_step=args.tokens_per_step,
+        optimizer_steps=len(log), wall_seconds=time.monotonic()-start_time,
         max_allocated_bytes=torch.cuda.max_memory_allocated(), training_plan_hash=digest(plan),
-        data_examples=len({s["row"] for step in steps for s in step})))
+        data_examples=len({s["row"] for _, segments in steps for s in segments})))

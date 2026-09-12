@@ -35,6 +35,10 @@ def parser():
     train.add_argument("--arm", choices=["C", "D"], required=True)
     train.add_argument("--model-path", default=STUDENT)
     train.add_argument("--tokens-per-step", type=int, default=512)
+    train.add_argument("--passes", type=positive_int, default=1,
+                       help="Passes over each arm's exercises with the common token cap per pass (default: 1)")
+    train.add_argument("--learning-rate", type=float, default=1e-5,
+                       help="AdamW learning rate, shared by both arms (default: 1e-5)")
     train.add_argument("--position-chunk", type=int, default=32)
     evaluate = commands.add_parser("evaluate", parents=[common])
     evaluate.add_argument("--arm", choices=["base", "C", "D"], required=True)

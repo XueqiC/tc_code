@@ -95,6 +95,22 @@ def test_report_and_paired_statistics_record_full_task_scope(tmp_path, evaluatio
     assert "| C_vs_D | 3 | 246 |" in text
 
 
+def test_report_records_training_dose_and_total_exposure(tmp_path, evaluations):
+    splits, _ = evaluations
+    metrics = dict(passes=20, learning_rate=1e-4, supervised_tokens_per_pass=611,
+                   supervised_tokens=12220, optimizer_steps=40, wall_seconds=12.5)
+    for arm in ("C", "D"):
+        write_json(tmp_path / arm / "training/metrics.json", metrics)
+    report(SimpleNamespace(run_dir=tmp_path), splits)
+    result = read_json(tmp_path / "report.json")
+    text = (tmp_path / "report.md").read_text()
+    assert "| Passes | Learning rate | Total supervised tokens | Optimizer steps |" in text
+    for arm in ("C", "D"):
+        entry = next(r for r in result["mechanism_table"] if r["arm"] == arm)
+        assert all(entry[key] == value for key, value in metrics.items())
+        assert f"| {arm} | 100.00 | 100.00 | 100.00 | 0 | 20 | 0.0001 | 12220 | 40 | 12.5 |" in text
+
+
 @pytest.mark.parametrize("changed", ["ids", "metadata"])
 def test_pairs_reject_wrong_layer3_selection_or_scope(tmp_path, evaluations, changed):
     splits, _ = evaluations

@@ -247,13 +247,34 @@ failed inventory on rerun. There is no unbudgeted repair path.
 The trainer ports the useful LoRA/encoding pattern from the read-only base
 repository's `src/bfas/rtd/baselines/paper_train.py`. It implements this experiment's
 different loss and exposure rules: BF16, r16/alpha32/dropout0, all actual attention
-and MLP linear projections, AdamW at 1e-5, micro-batch 1, checkpointing, one pass.
+and MLP linear projections, AdamW, micro-batch 1, and checkpointing. The GPT-6
+design's one pass at learning rate 1e-5 remains the default. `train --passes N`
+(positive integer, default 1) and `--learning-rate LR` (positive finite float,
+default 1e-5) allow a larger training dose because BFCL supervised spans are
+short: 611 supervised tokens yield only two updates at 512 tokens per step.
+For example, use `--passes 20 --learning-rate 1e-4 --tokens-per-step 512` on
+**both** C and D training commands to obtain 12,220 supervised token exposures
+and 40 optimizer steps per arm when the common cap is 611 tokens.
+
 No GPU is held by an inference server during training. The common supervision
-cap is `min(16000, usable_C_tokens, usable_D_tokens)`, frozen before either arm
-trains. Updates accumulate exactly 512 supervised tokens (except the final
-update); sequences can cross update boundaries without repeating token targets.
+cap is `min(16000, usable_C_tokens, usable_D_tokens)` **per pass**. Each pass
+starts from the arm's full usable exercise set in ID order and reshuffles it
+using `seed + pass_index` (zero-based), preserving the original first-pass
+order. Each arm receives exactly the common cap per pass and the same number
+of passes. Updates accumulate `--tokens-per-step` supervised tokens (default
+512), except the final update of **each pass**; accumulation resets at pass
+boundaries while AdamW state persists. Sequences can cross update boundaries
+without repeating token targets within a pass.
 Whole contexts use 4k or 8k; over-8k examples are excluded and audited. A final
 partial supervision span can meet the common cap without appending an EOS.
+
+Before either arm trains, `training_plan.json` freezes the common per-pass cap,
+passes, learning rate, tokens per step, and both arms' schedules for every pass.
+The schedules include pass numbers, shuffle seeds, row orders, and exact token
+segments; row indices refer to the plan's `row_ids`. Changing either arm's dose
+after freezing raises `C/D exposure plan changed after it was frozen`.
+Choose the dose before starting either arm; existing training directories
+cannot be resumed or overwritten in place.
 
 The API teacher provides a demonstration, not Gemma-vocabulary logits. For each
 demonstration token `y`, the distillation target is explicitly
@@ -263,8 +284,14 @@ off. The backbone's hidden states are projected in chunks of 32 supervised
 positions over the entire vocabulary, including Gemma's final softcap.
 Chunk graphs are freed after computing the hidden-state gradient, followed by
 one decoder backward pass. No full-sequence vocabulary tensor or top-k target
-cache is retained. Both arms record input tokens, actual supervised tokens,
-optimizer updates, wall time, memory, exact module names, and model revision.
+cache is retained. Both arms record passes, learning rate, and tokens per step
+in `training/config.json` and `training/metrics.json`. Metrics record
+`supervised_tokens_per_pass` as the common cap and `supervised_tokens` as total
+exposures across all passes (`passes * supervised_tokens_per_pass`), along with
+input tokens, optimizer updates, wall time, and memory. Config records exact
+module names and model revision; `steps.json` labels every update with its pass.
+The report shows passes, learning rate, optimizer steps, and total supervised
+exposure for each trained arm.
 
 Local validation checks format, official AST argument validity, and available
 official execution. A valid AST is **not** independent verification of teacher
