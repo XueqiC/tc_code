@@ -104,14 +104,18 @@ def test_hotpotqa_token_crossing_observation_boundary_is_masked():
 def synthetic_bank(tmp_path):
     records, payloads = [], {}
     for name, cost, usable in [("good", 20, True), ("bad", 3, False), ("good2", 10, True)]:
+        task_id = "good" if name == "bad" else name
+        attempt_index = 1 if name == "good" else 0
         qid = digest(name)
-        state = FullState.create(dict(task_id=name), [{"role": "user", "content": "Thought 1:"}],
-                                 native_prompt("Thought 1:"), digest(name))
+        state = FullState.create(dict(task_id=task_id), [{"role": "user", "content": "Thought 1:"}],
+                                 native_prompt("Thought 1:"), digest(task_id))
         records.append(state_record(qid, state, "hotpotqa_demo_episode", cost, "exact",
                                     unavailable=None if usable else "failed"))
         payloads[qid] = dict(cost=cost, cost_confidence="exact",
-            historical_response=dict(teacher="openai/gpt-5.6-luna", verified=usable, tokens_spent=cost),
-            provenance=dict(task_id=name, rendering_student=STUDENT),
+            historical_response=dict(task_id=task_id, attempt_index=attempt_index,
+                teacher="openai/gpt-5.6-luna", verified=usable, tokens_spent=cost),
+            provenance=dict(task_id=task_id, attempt_index=attempt_index,
+                cost_scope="recorded_teacher_attempt", rendering_student=STUDENT),
             behaviors=[dict(state=asdict(state), text="I know it.\nAction 1: finish[Alpha]")] if usable else [])
     bank = tmp_path/"bank"
     seal_v11(bank, records, payloads, benchmark="hotpotqa", student=STUDENT, public={}, audit={}, inputs={})
@@ -137,6 +141,13 @@ def test_prepare_only_hotpotqa_synthetic_bank_preserves_prompts_and_charges_fail
     assert manifest["B"] == manifest["teacher_tokens_charged"] == 33
     assert manifest["usable_cost_basis"] == 30
     assert len(manifest["charges"]) == 3
+    attempts = json.loads((bank/"public/task_attempts.json").read_text())
+    assert attempts["version"] == 2 and attempts["purchase_unit"] == "teacher_attempt"
+    assert attempts["attempt_order"] == manifest["purchase_order"]
+    assert len(attempts["tasks"]) == 2
+    assert sorted((c["task_id"], c["attempt_index"], c["tokens"], c["usable"])
+                  for c in manifest["charges"]) == [
+        ("good", 0, 3, False), ("good", 1, 20, True), ("good2", 0, 10, True)]
     assert manifest["positive_rows"] == manifest["purchased_usable_packages"] == 2
     assert sum(c["tokens"] for c in manifest["charges"] if not c["usable"]) == 3
     assert manifest["gpu_hours"] == manifest["new_teacher_calls"] == manifest["new_teacher_tokens"] == 0

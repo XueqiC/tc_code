@@ -114,14 +114,19 @@ def test_purchase_requires_exactly_one_budget(kwargs):
 def make_bank(tmp_path):
     records, payloads = [], {}
     for name, cost, usable in [("good", 20, True), ("bad", 3, False), ("good2", 10, True)]:
+        # A failed attempt and a later success share a task, but are paid separately.
+        task_id = "good" if name == "bad" else name
+        attempt_index = 1 if name == "good" else 0
         qid = digest(name)
-        state = FullState.create({"task_id": name}, [{"role": "user", "content": name}],
-                                 "<bos><|turn>model\n"+EMPTY_THOUGHT, "parent")
+        state = FullState.create({"task_id": task_id}, [{"role": "user", "content": task_id}],
+                                 "<bos><|turn>model\n"+EMPTY_THOUGHT, digest(task_id))
         records.append(state_record(qid, state, "demo_attempt", cost, "exact",
                                     unavailable=None if usable else "failed"))
         payloads[qid] = dict(cost=cost, cost_confidence="exact",
-            historical_response=dict(teacher="openai/gpt-5.6-luna-FC", verified=usable, tokens_spent=cost),
-            provenance=dict(task_id=name, rendering_student=STUDENT),
+            historical_response=dict(task_id=task_id, attempt_index=attempt_index,
+                teacher="openai/gpt-5.6-luna-FC", verified=usable, tokens_spent=cost),
+            provenance=dict(task_id=task_id, attempt_index=attempt_index,
+                cost_scope="recorded_teacher_attempt", rendering_student=STUDENT),
             behaviors=[dict(state=asdict(state), text="answer<turn|>\n")] if usable else [])
     bank = tmp_path/"bank"
     seal_v11(bank, records, payloads, benchmark="bfcl", student=STUDENT, public={}, audit={}, inputs={})
@@ -136,7 +141,7 @@ def test_real_certificate_and_failed_inventory(tmp_path):
         lambda q: json.loads((bank/"sealed"/(q+".json")).read_text())["cost"], 30, 1)
     assert purchase["teacher_tokens_charged"] == expected["teacher_tokens_charged"]
     assert purchase["usable_cost_basis"] == 30  # bad's 3 tokens are outside denominator
-    assert all(r.task_id != "bad" for r in rows)
+    assert all(r.package_id != digest("bad") for r in rows)
     assert sum(c["tokens"] for c in purchase["charges"]) == purchase["teacher_tokens_charged"]
     assert all(p.read_bytes() == data for p, data in before.items())
     assert all(not r.target.startswith(EMPTY_THOUGHT) and r.prompt.endswith(EMPTY_THOUGHT) for r in rows)
@@ -154,6 +159,13 @@ def test_absolute_cap_charges_failed_inventory_above_usable_basis(tmp_path):
     failed = next(c for c in purchase["charges"] if c["package_id"] == digest("bad"))
     assert failed["tokens"] == 3 and failed["usable"] is False
     assert failed["unavailable_reason"] == "failed"
+    assert (failed["task_id"], failed["attempt_index"]) == ("good", 0)
+    succeeded = next(c for c in purchase["charges"] if c["package_id"] == digest("good"))
+    assert (succeeded["task_id"], succeeded["attempt_index"], succeeded["tokens"]) == ("good", 1, 20)
+    attempts = json.loads((bank/"public/task_attempts.json").read_text())
+    assert attempts["version"] == 2 and attempts["purchase_unit"] == "teacher_attempt"
+    assert attempts["attempt_order"] == purchase["purchase_order"]
+    assert len(attempts["tasks"]) == 2 and len(purchase["charges"]) == 3
     assert {r.task_id for r in rows} == {"good", "good2"}
     assert sum(c["tokens"] for c in purchase["charges"]) == 33
     assert all(p.read_bytes() == data for p, data in before.items())

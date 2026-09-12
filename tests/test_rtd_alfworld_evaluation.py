@@ -295,6 +295,7 @@ def test_tag_lock_contends_across_processes(campaign):
     lock = evaluation.tag_lock_path(c.root, "same")
     code = """
 import sys
+sys.path.insert(0, sys.argv[2])
 from bfas.rtd.evaluation_lock import evaluation_lock
 try:
     with evaluation_lock(sys.argv[1], tag='child', timeout=0):
@@ -302,8 +303,11 @@ try:
 except TimeoutError:
     pass
 """
+    # Always exercise this checkout, independently of the caller's PYTHONPATH.
+    source = Path(__file__).resolve().parents[1] / "src"
     with evaluation_lock(lock, tag="parent", timeout=0):
-        child = subprocess.run([sys.executable, "-c", code, str(lock)], capture_output=True, text=True, timeout=15)
+        child = subprocess.run([sys.executable, "-c", code, str(lock), str(source)],
+                               capture_output=True, text=True, timeout=15)
     assert child.returncode == 0, child.stderr
 
 

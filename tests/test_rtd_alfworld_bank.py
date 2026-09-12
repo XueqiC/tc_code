@@ -447,5 +447,13 @@ def test_cli_inventory_build_audit_and_reports(archive, tmp_path, capsys):
 
 
 def test_benchmark_package_init_has_no_import_side_effects():
-    script = "import sys; import bfas.rtd.benchmarks; assert 'torch' not in sys.modules; assert 'bfas.rtd.broker' not in sys.modules"
-    subprocess.run([sys.executable, "-B", "-c", script], check=True)
+    # Parent-process sys.path edits do not propagate to a fresh interpreter.
+    script = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import bfas.rtd.benchmarks
+assert 'torch' not in sys.modules
+assert 'bfas.rtd.broker' not in sys.modules
+"""
+    source = Path(__file__).resolve().parents[1] / "src"
+    subprocess.run([sys.executable, "-B", "-c", script, str(source)], check=True, timeout=15)
