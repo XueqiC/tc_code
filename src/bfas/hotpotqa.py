@@ -6,7 +6,7 @@ in prompts/hotpotqa_react_LICENSE.txt. Dataset context is never shown to agents.
 from __future__ import annotations
 
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import fcntl
 import hashlib
 from ipaddress import ip_address
@@ -178,7 +178,9 @@ class Wikipedia:
     def _snapshot(self, query):
         key = hashlib.sha256(query.encode("utf-8")).hexdigest()
         path = self.cache_dir / f"{key}.json"
-        with file_lock(path.with_suffix(".lock")):
+        # Snapshots are atomically published and immutable. Offline replay also
+        # works on read-only caches without creating or opening a lock for write.
+        with (nullcontext() if self.offline else file_lock(path.with_suffix(".lock"))):
             if path.exists():
                 record = json.loads(path.read_text(encoding="utf-8"))
                 if record.get("query") != query or record.get("version") != WIKI_VERSION:

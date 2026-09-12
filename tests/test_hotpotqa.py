@@ -148,7 +148,7 @@ def test_official_em_f1(pred, gold, em, f1):
     assert scores["f1"] == pytest.approx(f1)
 
 
-def test_cache_is_query_keyed_deterministic_and_offline(tmp_path):
+def test_cache_is_query_keyed_deterministic_and_offline(tmp_path, monkeypatch):
     calls = []
     html = "<p>Café is in Paris. Paris is old. Three. Four. Five. Six.</p>"
     def fetch(query, timeout):
@@ -161,6 +161,7 @@ def test_cache_is_query_keyed_deterministic_and_offline(tmp_path):
     assert wiki.lookup("paris").startswith("(Result 2 / 2)")
     assert wiki.lookup("paris") == "No more results.\n"
     snapshots = {p.name: p.read_bytes() for p in tmp_path.glob("*.json")}
+    monkeypatch.setattr(hp, 'file_lock', lambda *a: pytest.fail('offline replay must not write cache locks'))
     wiki = hp.Wikipedia(tmp_path, offline=True, fetch=lambda *a: pytest.fail("cache hit fetched"))
     assert wiki.search("Café & Paris") == first
     assert wiki.lookup("paris").startswith("(Result 1 / 2)")

@@ -67,9 +67,9 @@ def test_score_consistency_luna_override_survives_frozen_p1_validation(name):
 
 @pytest.mark.parametrize('name,caps', [
     ('v1_1_bfcl_luna', [2500, 5000]), ('unified_bfcl_gemma4_luna', [2500, 5000]),
-    ('v1_1_hotpotqa_luna', [10000, 20000]), ('unified_hotpotqa_gemma4_luna', [10000, 20000]),
-    ('unified_hotpotqa_gemma4_luna_d0', [10000, 20000]),
-    ('unified_hotpotqa_gemma4_d0_luna', [10000, 20000]),
+    ('v1_1_hotpotqa_luna', [15000, 30000]), ('unified_hotpotqa_gemma4_luna', [15000, 30000]),
+    ('unified_hotpotqa_gemma4_luna_d0', [15000, 30000]),
+    ('unified_hotpotqa_gemma4_d0_luna', [15000, 30000]),
 ])
 def test_luna_config_absolute_budget_and_mutually_exclusive_forms(name, caps):
     from bfas.rtd.unified.config import runtime_config

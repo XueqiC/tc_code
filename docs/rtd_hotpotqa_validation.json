@@ -1,54 +1,144 @@
 {
   "benchmark": "hotpotqa",
   "bank_path": "data/rtd/v1_1_hotpotqa_luna",
-  "cap_certificate_sha256": "3078806c4da8981cc10bd2a06aa602f3a56cf946ac7637a9e0d738bddfa1e633",
+  "pool_path": "/home/xueqi/hq/projects/tc-alignment-ws/envs/hotpotqa/teacher_pool_v2",
+  "cap_certificate_sha256": "c8cdd26933710f7b66bde2788695d40b6155f89b51e6e75ed891ca17bc49c972",
   "prompt_sha256": "e52ba17b32d98144c4ee3f95f3cd5a2fec2016629219427f8aa9ddcfbdcc3fdf",
   "bank_summary": {
     "available_cost_by_confidence": {
-      "exact": 10719
+      "estimated": 8033,
+      "exact": 125173
     },
-    "available_packages": 25,
-    "bank_public_cap_sum": 51200,
+    "available_packages": 113,
+    "bank_public_cap_sum": 1851392,
     "budget_basis": "usable_recorded_output_tokens",
     "budget_ceilings": [
-      1072,
-      2680
+      13321,
+      33302
     ],
-    "budget_denominator": 10719,
-    "cap_certificate_sha256": "3078806c4da8981cc10bd2a06aa602f3a56cf946ac7637a9e0d738bddfa1e633",
+    "budget_denominator": 133206,
+    "cap_certificate_sha256": "c8cdd26933710f7b66bde2788695d40b6155f89b51e6e75ed891ca17bc49c972",
     "cost_scope": "cached-content cost; not the full teacher bill",
     "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
-    "recorded_bank_usage": 10719,
+    "recorded_bank_usage": 133206,
     "teacher_accounting": {
-      "estimated_output_tokens": 6775,
-      "exact_output_tokens": 98316,
-      "failed_attempts": 57,
-      "failed_output_tokens": 94372,
-      "historical_attempts": 82,
-      "historical_output_tokens": 105091,
+      "cost_confidence": "estimated",
+      "estimated_output_tokens": 28390,
+      "exact_output_tokens": 507176,
+      "failed_attempts": 306,
+      "failed_output_tokens": 468766,
+      "historical_attempts": 419,
+      "historical_output_tokens": 535566,
+      "historical_tasks": 200,
+      "later_verified_attempts": 0,
       "new_teacher_calls": 0,
       "new_teacher_tokens": 0,
-      "scope": "completed ledger prefix; failed attempts retained as unavailable paid packages",
+      "scope": "completed ledger prefix; all attempts charged once per task",
       "usage": {
-        "cached_tokens": 82397,
-        "completion_tokens": 105091,
-        "prompt_tokens": 1123290
+        "cached_tokens": 402477,
+        "completion_tokens": 535566,
+        "prompt_tokens": 6422285
       },
-      "verified_episodes": 25
+      "verified_episodes": 113,
+      "verified_tasks": 113
     },
     "version": "rtd-v1.1.0-state-bank"
   },
+  "bank_audit": {
+    "attempts_with_trajectory_archive": 419,
+    "available_packages_by_confidence": {
+      "estimated": 2,
+      "exact": 111
+    },
+    "budget_checkpoints_tokens": [
+      15000,
+      30000
+    ],
+    "cost_confidence": "estimated",
+    "estimated_output_tokens": 28390,
+    "exact_output_tokens": 507176,
+    "failed_attempts": 306,
+    "failed_output_tokens": 468766,
+    "historical_attempts": 419,
+    "historical_output_tokens": 535566,
+    "historical_tasks": 200,
+    "later_verified_attempts": 0,
+    "ledger_demos_not_yet_in_pool": [],
+    "m": 200,
+    "new_teacher_calls": 0,
+    "new_teacher_tokens": 0,
+    "packages": 200,
+    "pool_demos": 113,
+    "request_calls_outside_completed_ledger": 0,
+    "scope": "completed ledger prefix; all attempts charged once per task",
+    "snapshot": {
+      "attempts.jsonl": {
+        "bytes": 2126334,
+        "sha256": "b20f71bd72d46f18b3abf43cb63e99eab48848b740dbf5205cc259725e2e40e1",
+        "trailing_bytes": 0
+      },
+      "identity.json": {
+        "bytes": 15068,
+        "sha256": "551d0ff73dfa1a722d0d806176ca500fb2360c39b51520fd3806b1dae5c7d2ed",
+        "trailing_bytes": 0
+      },
+      "ledger": {
+        "bytes": 9986590,
+        "sha256": "2428e55077795df128dd1367f1abbee3d480ea1f60a397dd23f9808cf12babbe",
+        "trailing_bytes": 0
+      },
+      "pool": {
+        "bytes": 9927945,
+        "sha256": "e8611d2ca97a9743bcbcd6fd8d20299b04bc732ffecb856211dcc8a072808f08",
+        "trailing_bytes": 0
+      },
+      "usage.jsonl": {
+        "bytes": 1134921,
+        "sha256": "9ac9670bb357191a2c1cca49c6eab127a351f92a3a9b6e5d37a29829fbc244c7",
+        "trailing_bytes": 0
+      }
+    },
+    "unavailable_packages": 87,
+    "usage": {
+      "cached_tokens": 402477,
+      "completion_tokens": 535566,
+      "prompt_tokens": 6422285
+    },
+    "verified_episodes": 113,
+    "verified_tasks": 113
+  },
+  "configured_budget_checkpoints_tokens": [
+    15000,
+    30000
+  ],
+  "maximum_usable_task_cost": 8889,
+  "class_caps": {
+    "hotpotqa_demo_episode": 16384
+  },
+  "individually_affordable_packages_at_zero_spend": {
+    "15000": 0,
+    "30000": 113
+  },
+  "support": {
+    "archived_path": "_trash/v1_1_hotpotqa_luna_partial_09120141Z/public/support.json",
+    "sha256": "164ee60ec28d12447b44a21334b36e86dd1e71b9121e7d28bcaefdc62dff3808",
+    "byte_identical": true,
+    "parents": 200,
+    "fold_counts": {
+      "1": 96,
+      "0": 104
+    }
+  },
   "tests": {
     "interpreter": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python",
-    "command": "-m pytest -q tests/ -k 'hotpotqa or bank_build or registry or preflight'",
-    "passed": 151,
-    "deselected": 3128,
-    "shared_regression_tests_passed": 31
+    "command": "-m pytest -q tests/ -k 'hotpotqa or bank_build'",
+    "passed": 120,
+    "deselected": 3217
   },
   "preflight": {
     "V0": {
       "arm": "V0",
-      "available_packages": 25,
+      "available_packages": 113,
       "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
       "config_protocol_version": "1.1.0",
       "deferred": [],
@@ -70,7 +160,7 @@
     },
     "D3": {
       "arm": "D3",
-      "available_packages": 25,
+      "available_packages": 113,
       "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
       "config_protocol_version": "unified-p0-1",
       "deferred": [],
@@ -91,15 +181,21 @@
       "tokenizer": "local cache"
     }
   },
-  "paid_attempts": 82,
-  "student_rendered_turns": 128,
-  "native_eos_equivalent_empty_targets": 2,
+  "packages": 200,
+  "paid_attempts": 419,
+  "student_rendered_turns": 643,
+  "native_eos_equivalent_empty_targets": 6,
+  "integrity_verified_payloads": 200,
+  "all_task_attempts_charged_once": true,
+  "source_pool_hashes_unchanged": true,
   "gpu_used": false,
   "network_used": false,
   "new_teacher_calls": 0,
+  "committed": false,
   "staging": {
     "status": "blocked",
-    "reason": "linked worktree Git index is on a read-only filesystem"
-  },
-  "committed": false
+    "reason": "Git cannot create index.lock: linked worktree Git index is on a read-only filesystem",
+    "index_lock": "/home/xueqi/hq/projects/tc-alignment/.git/worktrees/tc-alignment-uni/index.lock",
+    "exit_code": 128
+  }
 }
