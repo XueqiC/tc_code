@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bfas.mech_bfcl.common import ROOT, digest, read_json, write_json
 from bfas.mech_bfcl.pipeline import LAYER3_EXCLUDED_CATEGORIES, layer3_selection
-from bfas.mech_bfcl.stats import pair, paired_interval, refresh_pairs, report
+from bfas.mech_bfcl.stats import pair, paired_interval, pool_seed_pairs, refresh_pairs, report
 
 
 def row(i, parent, correct):
@@ -122,4 +122,112 @@ def test_pairs_reject_wrong_layer3_selection_or_scope(tmp_path, evaluations, cha
         items[-1]["evaluation_scope"]["excluded_ids"] = []
     write_json(path, items)
     with pytest.raises(ValueError, match="layer-3"):
+        refresh_pairs(tmp_path, splits)
+
+
+@pytest.fixture(params=[0, 19])
+def seed_evaluations(tmp_path, request):
+    split_seed = request.param
+    splits = dict(seed=split_seed, evaluation=[f"task_{i}" for i in range(3)],
+                  items={f"task_{i}": dict(parent_id="large" if i < 2 else "small", category="memory")
+                         for i in range(3)})
+    _, scope = layer3_selection(splits)
+    variants = [("base", None, [False, False, False]),
+                ("C", split_seed, [False, False, True]), ("D", split_seed, [True, True, False]),
+                ("C", 7, [False, True, False]), ("D", 7, [True, True, True]),
+                ("C", 11, [True, True, True])]
+    for arm, seed, scores in variants:
+        name = arm if seed in (None, split_seed) else f"{arm}-s{seed}"
+        items = []
+        for layer in (1, 2, 3):
+            for i, score in enumerate(scores):
+                item = dict(row(f"task_{i}" if layer == 3 else f"local_{layer}_{i}",
+                                "large" if i < 2 else "small", score), layer=layer)
+                if layer == 3:
+                    item["evaluation_scope"] = scope
+                items.append(item)
+        write_json(tmp_path / "evaluation" / name / "main/items.json", list(reversed(items)))
+        if arm != "base":
+            folder = "training" if seed == split_seed else f"training_s{seed}"
+            write_json(tmp_path / arm / folder / "metrics.json", dict(train_seed=seed, passes=3,
+                       learning_rate=1e-3, supervised_tokens=30, optimizer_steps=9, wall_seconds=seed))
+    # Decode repeats and partial evaluations must not become extra training seeds.
+    write_json(tmp_path / "evaluation/C-s99/repeat/items.json", [])
+    write_json(tmp_path / "evaluation/D-s99/main/protocol.json", {})
+    return splits, scope
+
+
+def test_report_discovers_all_seed_variants_and_pools_questions_before_parents(tmp_path, seed_evaluations):
+    splits, scope = seed_evaluations
+    baseline = splits["seed"]
+    report(SimpleNamespace(run_dir=tmp_path), splits)
+    result = read_json(tmp_path / "report.json")
+    entries = {(r["arm"], r["train_seed"]): r for r in result["mechanism_table"]}
+    assert set(entries) == {("base", None), ("C", baseline), ("D", baseline), ("C", 7), ("D", 7), ("C", 11)}
+    assert entries[("C", 7)]["variant"] == "C-s7"
+    assert entries[("C", 7)]["wall_seconds"] == 7
+    assert entries[("C", baseline)]["wall_seconds"] == baseline
+    assert result["pooled_training_seeds"] == sorted([baseline, 7])
+    assert result["unpooled_training_seeds"] == {"C": [11], "D": []}
+    assert set(result["category_breakdown"]) == {r["variant"] for r in entries.values()}
+    intervals = result["intervals"]
+    assert intervals == read_json(tmp_path / "paired/intervals.json")
+    assert {"base_vs_C", "base_vs_D", "C_vs_D", "base_vs_C_s7", "base_vs_D_s7",
+            f"C_s{baseline}_vs_C_s7", f"D_s{baseline}_vs_D_s7", "C_s7_vs_D_s7", "C_vs_D_pooled"} <= intervals.keys()
+    for layer in ("1", "2", "3"):
+        c_noise = intervals[f"C_s{baseline}_vs_C_s7"][layer]
+        assert c_noise["delta"] == -0.25
+        assert c_noise["mean_absolute_item_delta"] == pytest.approx(2/3)
+        assert c_noise["outcomes"] == {"00": 1, "01": 1, "10": 1}
+        assert intervals[f"D_s{baseline}_vs_D_s7"][layer]["mean_absolute_item_delta"] == pytest.approx(1/3)
+        pooled = intervals["C_vs_D_pooled"][layer]
+        assert pooled["items"] == 3  # Training seeds never multiply the item or parent count.
+        assert pooled["independent_parents"] == 2
+        assert pooled["delta"] == 0.375
+        assert pooled["item_weighted_delta"] == 0.5
+        assert pooled["ci95"] == [0.0, 0.75]
+        assert pooled["outcomes"] == {}  # Fractional means have no binary catches/regressions.
+        assert pooled["train_seeds"] == sorted([baseline, 7])
+    assert intervals["C_vs_D_pooled"]["3"]["evaluation_scope"] == scope
+    pooled_rows = read_json(tmp_path / "paired/C_vs_D_pooled.json")
+    assert len(pooled_rows) == 9
+    assert [r["left_mean_correct"] for r in pooled_rows[:3]] == [0.0, 0.5, 0.5]
+    assert [r["right_mean_correct"] for r in pooled_rows[:3]] == [1.0, 1.0, 0.5]
+    assert [r["delta"] for r in pooled_rows[:3]] == [1.0, 0.5, 0.0]
+    text = (tmp_path / "report.md").read_text()
+    assert "| C-s7 |" in text and "| D-s7 |" in text and "| C-s11 |" in text
+    assert "| C_vs_D_pooled | 3 | 3 | 37.50 |" in text
+    assert "conditional on these training seeds" in text
+
+
+@pytest.mark.parametrize("change", ["seed_set", "items", "parent", "category", "unscored", "duplicate"])
+def test_seed_pooling_rejects_mismatched_data(change):
+    left = {0: [row("a", "p", True)], 7: [row("a", "p", False)]}
+    right = copy.deepcopy(left)
+    if change == "seed_set":
+        del right[7]
+    elif change == "items":
+        left[7] = right[7] = [row("b", "p", False)]
+    elif change == "parent":
+        left[7][0]["parent_id"] = right[7][0]["parent_id"] = "q"
+    elif change == "category":
+        right[7][0]["category"] = "other"
+    elif change == "unscored":
+        right[7][0]["correct"] = 0.5
+    else:
+        right[7] *= 2
+    with pytest.raises(ValueError):
+        pool_seed_pairs(left, right)
+
+
+@pytest.mark.parametrize("change", ["heldout_hash", "seed", "train_seed"])
+def test_report_rejects_mixed_seed_protocols(tmp_path, seed_evaluations, change):
+    splits, _ = seed_evaluations
+    protocol = dict(split_hash=digest(splits), heldout_hash="frozen", temperature=0.001,
+                    top_k=1, seed=splits["seed"], train_seed=splits["seed"])
+    write_json(tmp_path / "evaluation/C/main/protocol.json", protocol)
+    changed = dict(protocol, train_seed=7)
+    changed[change] = "changed"
+    write_json(tmp_path / "evaluation/C-s7/main/protocol.json", changed)
+    with pytest.raises(ValueError, match="same split|training seed mismatch"):
         refresh_pairs(tmp_path, splits)

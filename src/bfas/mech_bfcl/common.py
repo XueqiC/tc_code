@@ -14,6 +14,20 @@ TEACHER = "openai/gpt-5.6-luna"
 BUDGETS = {"shared": 8000, "C": 24000, "D": 24000}
 
 
+def resolved_train_seed(args, split_seed):
+    seed = getattr(args, "train_seed", None)
+    return split_seed if seed is None else seed
+
+
+def variant_name(arm, train_seed, split_seed):
+    return arm if arm == "base" or train_seed == split_seed else f"{arm}-s{train_seed}"
+
+
+def training_directory(directory, arm, train_seed, split_seed):
+    name = "training" if train_seed == split_seed else f"training_s{train_seed}"
+    return Path(directory) / arm / name
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 

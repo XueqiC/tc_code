@@ -375,12 +375,12 @@ def tiny_training(monkeypatch, tmp_path):
         training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
         training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
 
-    def run(arm="C", **dose):
+    def run(arm="C", split_seed=0, **dose):
         args = parser().parse_args(["train", "--run-dir", str(tmp_path), "--arm", arm])
         for key, value in {"tokens_per_step": 4, "passes": 3, "learning_rate": 1e-3, **dose}.items():
             setattr(args, key, value)
         args.position_chunk = 2
-        training.train(args, dict(seed=0, support=["task"]))
+        training.train(args, dict(seed=split_seed, support=["task"]))
 
     return SimpleNamespace(run=run, models=models, optimizers=optimizers, encoded=encoded)
 
@@ -421,6 +421,82 @@ def test_train_accounts_for_all_passes_and_matches_arms(tiny_training, tmp_path,
         exposed_rows = {s["row"] for schedule in schedules for step in schedule["steps"] for s in step}
         assert metrics["data_examples"] == len(exposed_rows)
         assert plan["row_ids"][arm] == [r["id"] for r in tiny_training.encoded[arm]]
+
+
+@pytest.mark.parametrize("split_seed,repeat_seed", [(0, 7), (19, 0)])
+def test_training_seed_variants_preserve_plan_and_use_seeded_rng(
+        tiny_training, tmp_path, monkeypatch, split_seed, repeat_seed):
+    seeds, cuda_seeds, dropout = [], [], []
+    manual_seed = torch.manual_seed
+
+    def seeded(seed):
+        seeds.append(seed)
+        manual_seed(seed)
+        dropout.append(torch.nn.functional.dropout(torch.ones(64), p=0.5))
+
+    monkeypatch.setattr(torch, "manual_seed", seeded)
+    monkeypatch.setattr(torch.cuda, "manual_seed_all", cuda_seeds.append)
+    inputs = {p: p.read_bytes() for arm in ("C", "D") for p in (tmp_path / arm).glob("*.json")}
+    frozen = None
+    # Start with a repeat to verify the shared plan is independent of run order.
+    for train_seed in (repeat_seed, split_seed):
+        for arm in ("C", "D"):
+            tiny_training.run(arm, split_seed=split_seed, train_seed=train_seed)
+            assert seeds[-1] == cuda_seeds[-1] == train_seed
+            plan_bytes = (tmp_path / "training_plan.json").read_bytes()
+            frozen = plan_bytes if frozen is None else frozen
+            assert plan_bytes == frozen
+            folder = "training" if train_seed == split_seed else f"training_s{train_seed}"
+            directory = tmp_path / arm / folder
+            config = training.read_json(directory / "config.json")
+            metrics = training.read_json(directory / "metrics.json")
+            assert config["train_seed"] == metrics["train_seed"] == train_seed
+            assert (directory / "adapter").is_dir()
+            schedules = training.read_json(directory / "schedules.json")
+            assert schedules == pass_schedules(tiny_training.encoded[arm], 10, 4, passes=3, seed=train_seed)
+            # Verify the optimizer actually consumed this schedule, not only its metadata.
+            expected = []
+            for schedule in schedules:
+                for step in schedule["steps"]:
+                    for segment in step:
+                        row = tiny_training.encoded[arm][segment["row"]]
+                        expected.append([row["prompt_ids"] + row["target_ids"][:segment["end"]-1]])
+            assert [ids.tolist() for ids in tiny_training.models[-1].model.inputs] == expected
+            assert metrics["supervised_tokens"] == 30
+            assert metrics["optimizer_steps"] == 9
+            assert metrics["training_plan_hash"] == training.digest(training.read_json(tmp_path / "training_plan.json"))
+    assert seeds == [repeat_seed, repeat_seed, split_seed, split_seed]
+    torch.testing.assert_close(dropout[0], dropout[1])
+    torch.testing.assert_close(dropout[2], dropout[3])
+    assert not torch.equal(dropout[0], dropout[2])
+    assert all(p.read_bytes() == content for p, content in inputs.items())
+    plan = training.read_json(tmp_path / "training_plan.json")
+    assert plan["seed"] == split_seed
+    assert plan["schedules"]["C"][0]["seed"] == split_seed
+    with pytest.raises(ValueError, match="Training output already exists"):
+        tiny_training.run(train_seed=repeat_seed, split_seed=split_seed)
+
+
+@pytest.mark.parametrize("arm", ["C", "D"])
+@pytest.mark.parametrize("changed", [dict(passes=4), dict(learning_rate=2e-3), dict(tokens_per_step=5), "cap"])
+def test_train_rejects_dose_changes_across_seeds(tiny_training, tmp_path, arm, changed):
+    tiny_training.run("C")
+    frozen = (tmp_path / "training_plan.json").read_bytes()
+    if changed == "cap":
+        tiny_training.encoded["C"][0]["target_ids"].append(3)
+        changed = {}
+    with pytest.raises(ValueError, match="C/D exposure plan changed after it was frozen"):
+        tiny_training.run(arm, train_seed=7, **changed)
+    assert (tmp_path / "training_plan.json").read_bytes() == frozen
+    assert len(tiny_training.models) == 1
+    assert not (tmp_path / arm / "training_s7").exists()
+
+
+def test_omitted_training_seed_defaults_to_nonzero_split(tiny_training, tmp_path):
+    tiny_training.run(split_seed=19)
+    config = training.read_json(tmp_path / "C/training/config.json")
+    assert config["train_seed"] == 19
+    assert not (tmp_path / "C/training_s19").exists()
 
 
 @pytest.mark.parametrize("first_arm", ["C", "D"])

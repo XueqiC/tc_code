@@ -57,6 +57,7 @@ def batch(tmp_path, monkeypatch):
         selected = [tid for group in selection.values() for tid in group]
         assert len(selected) == len(set(selected))
         if "generate" in command:
+            assert env["MECH_SEED"] == str(splits["seed"])
             assert "--run-ids" in command and "--skip-server-setup" in command
             assert command[command.index("--num-threads") + 1] == "1"
             assert env["MECH_CAPTURE_DIR"] == str(root / "trajectories")
@@ -153,10 +154,12 @@ def test_missing_ids_reported_together_after_batch_and_cost_recorded(batch):
     assert {p.relative_to(archives[0]): p.read_bytes() for p in archives[0].rglob("*") if p.is_file()} == before
 
 
-@pytest.mark.parametrize("arm,repeat", [("base", "main"), ("base", "repeat"), ("C", "main"), ("D", "main")])
-def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypatch, arm, repeat):
+@pytest.mark.parametrize("train_seed", [None, 0, 7, -3])
+@pytest.mark.parametrize("arm,repeat", [("base", "main"), ("base", "repeat"), ("C", "main"), ("D", "repeat")])
+def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypatch, arm, repeat, train_seed):
     b = batch
     b.args.arm, b.args.repeat = arm, repeat
+    b.args.train_seed = train_seed
     # Frozen subset: 246 usable questions and ten excluded web-search questions.
     # The requested memory question still expands through unscored prerequisites.
     for n in range(1, 256):
@@ -181,11 +184,17 @@ def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypat
                       category="simple_python", layer=layer, generation_group="heldout")
                  for layer in (1, 2)]
     write_json(b.tmp_path / "heldout.json", exercises)
-    destination = b.tmp_path / "evaluation" / arm / repeat
+    variant = arm if arm == "base" or train_seed in (None, 0) else f"{arm}-s{train_seed}"
+    destination = b.tmp_path / "evaluation" / variant / repeat
     # Simulate the old 256-ID run, with different metadata and no items.json.
     write_json(destination / "full/run.json", dict(ids=b.splits["evaluation"], split_hash=split_hash))
     (destination / "full/evaluate.log").write_text("old web_search omission\n")
     pipeline.evaluate(b.args, b.splits)
+    protocol = read_json(destination / "protocol.json")
+    expected_seed = None if arm == "base" else 0 if train_seed is None else train_seed
+    assert protocol["train_seed"] == expected_seed
+    assert protocol["seed"] == b.splits["seed"] == 0
+    assert protocol["heldout_hash"] == digest(exercises)
     items = read_json(destination / "items.json")
     full = [r for r in items if r["layer"] == 3]
     expected = b.splits["evaluation"][:246]
@@ -197,6 +206,10 @@ def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypat
     assert not set(excluded) & set(b.generated)
     assert len(b.calls) == 2
     run = read_json(destination / "full/run.json")
+    if arm == "base":
+        assert "train_seed" not in run
+    else:
+        assert run["train_seed"] == expected_seed
     assert run["ids"] == expected
     assert run["split_hash"] == split_hash == digest(b.splits)
     assert b.splits == original
@@ -216,10 +229,38 @@ def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypat
     assert cost["prerequisites"]["generations"] == 8
     assert cost["generations"] == 500
     assert cost["output_tokens"] == 500 * 7
+    if expected_seed in (None, 0):
+        # Pre-feature default/base caches have no training-seed field.
+        write_json(destination / "protocol.json", {k: v for k, v in protocol.items() if k != "train_seed"})
+        write_json(destination / "full/run.json", {k: v for k, v in run.items() if k != "train_seed"})
     monkeypatch.setattr(pipeline, "student_reply", lambda *args: pytest.fail("local result should be reused"))
     pipeline.evaluate(b.args, b.splits)
+    assert read_json(b.tmp_path / "heldout.json") == exercises
+    write_json(destination / "protocol.json", dict(protocol, train_seed=123))
+    with pytest.raises(ValueError, match="Evaluation protocol/artifact changed during resume"):
+        pipeline.evaluate(b.args, b.splits)
     assert len(b.calls) == 2
     assert len(list(destination.glob("full.failed-*"))) == 1
+
+
+@pytest.mark.parametrize("arm", ["base", "C", "D"])
+def test_harness_resume_fingerprint_tracks_adapter_seed_only(batch, arm):
+    b = batch
+    b.args.arm, b.args.train_seed = arm, 7
+    ids, scope = pipeline.layer3_selection(b.splits)
+    destination = b.tmp_path / "full"
+    items = harness.official_run(b.args, ids, destination, b.adapter, b.splits, evaluation_scope=scope)
+    run = read_json(destination / "run.json")
+    assert run["seed"] == b.splits["seed"] == 0
+    b.args.train_seed = 8
+    if arm == "base":
+        assert "train_seed" not in run
+        assert harness.official_run(b.args, ids, destination, b.adapter, b.splits, evaluation_scope=scope) == items
+    else:
+        assert run["train_seed"] == 7
+        with pytest.raises(ValueError, match="changed inputs"):
+            harness.official_run(b.args, ids, destination, b.adapter, b.splits, evaluation_scope=scope)
+    assert len(b.calls) == 2
 
 
 def test_non_memory_batch_adds_no_episodes(batch):

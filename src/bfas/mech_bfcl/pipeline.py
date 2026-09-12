@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import urllib.request
 
 from .common import (REGISTRY, STUDENT, append_row, digest, read_json, read_rows,
-                     setup_harness, write_json)
+                     resolved_train_seed, setup_harness, training_directory, variant_name, write_json)
 from .exercises import (OfficialValidator, VARIANTS, exercise_fingerprint,
                         materialize, native_pair)
 from .harness import NoThinking, frames, official_run, trajectory_metrics
@@ -151,7 +151,11 @@ def check_server(args, arm):
         if args.served_model != STUDENT:
             raise ValueError("Base rollouts/probes must use the base student served as google/gemma-4-12B-it")
     else:
-        artifact = (args.run_dir / arm / "training/adapter").resolve()
+        train_seed = resolved_train_seed(args, args.seed)
+        alias = "mech-" + variant_name(arm, train_seed, args.seed)
+        if train_seed != args.seed and args.served_model != alias:
+            raise ValueError(f"Training-seed repeat must be served as {alias}")
+        artifact = (training_directory(args.run_dir, arm, train_seed, args.seed) / "adapter").resolve()
         if not (artifact / "adapter_config.json").exists():
             raise ValueError("No trained adapter for the requested arm")
         if Path(model.get("root", "")).resolve() != artifact:
@@ -433,12 +437,19 @@ def evaluate(args, splits):
     exercises = read_json(args.run_dir / "heldout.json")
     if {e["layer"] for e in exercises} != {1, 2}:
         raise ValueError("Held-out sets must contain both local and natural continuation items")
-    destination = args.run_dir / "evaluation" / args.arm / args.repeat
+    train_seed = None if args.arm == "base" else resolved_train_seed(args, splits["seed"])
+    variant = variant_name(args.arm, train_seed, splits["seed"])
+    destination = args.run_dir / "evaluation" / variant / args.repeat
     destination.mkdir(parents=True, exist_ok=True)
     fingerprint = dict(arm=args.arm, split_hash=digest(splits), heldout_hash=digest(exercises),
-                       server=server, temperature=0.001, top_k=1, seed=splits["seed"])
-    if (destination / "protocol.json").exists() and read_json(destination / "protocol.json") != fingerprint:
-        raise ValueError("Evaluation protocol/artifact changed during resume")
+                       server=server, temperature=0.001, top_k=1, seed=splits["seed"],
+                       train_seed=train_seed)
+    if (destination / "protocol.json").exists():
+        previous = read_json(destination / "protocol.json")
+        # Legacy evaluations could only use the split-seed adapter (or base).
+        previous.setdefault("train_seed", None if args.arm == "base" else splits["seed"])
+        if previous != fingerprint:
+            raise ValueError("Evaluation protocol/artifact changed during resume")
     write_json(destination / "protocol.json", fingerprint)
     existing = {r["id"]: r for r in read_rows(destination / "local.jsonl")}
     for exercise in exercises:

@@ -7,7 +7,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
-from bfas.mech_bfcl.common import STUDENT, bind_run, lock, read_json, setup_harness
+from bfas.mech_bfcl.common import (STUDENT, bind_run, lock, read_json, resolved_train_seed,
+                                  setup_harness, variant_name)
 
 
 def parser():
@@ -18,7 +19,7 @@ def parser():
     common.add_argument("--seed", type=int, default=0)
     common.add_argument("--tokenizer", default=STUDENT)
     common.add_argument("--base-url", help="Already running vLLM /v1 endpoint")
-    common.add_argument("--served-model", help="vLLM served ID; default base or mech-C/mech-D")
+    common.add_argument("--served-model", help="vLLM served ID; defaults to base or mech-<arm>[-s<train-seed>]")
     common.add_argument("--bfcl-python", default=str(ROOT / "envs/bfcl/.venv/bin/python"))
     commands = p.add_subparsers(dest="command", required=True)
     split = commands.add_parser("splits", parents=[common])
@@ -33,6 +34,8 @@ def parser():
                      help="Total teacher output-token cap per arm (default: 24000)")
     train = commands.add_parser("train", parents=[common])
     train.add_argument("--arm", choices=["C", "D"], required=True)
+    train.add_argument("--train-seed", type=int,
+                       help="Training randomness only; defaults to the frozen split seed")
     train.add_argument("--model-path", default=STUDENT)
     train.add_argument("--tokens-per-step", type=int, default=512)
     train.add_argument("--passes", type=positive_int, default=1,
@@ -42,6 +45,8 @@ def parser():
     train.add_argument("--position-chunk", type=int, default=32)
     evaluate = commands.add_parser("evaluate", parents=[common])
     evaluate.add_argument("--arm", choices=["base", "C", "D"], required=True)
+    evaluate.add_argument("--train-seed", type=int,
+                          help="Adapter training seed; defaults to the frozen split seed, ignored for base")
     evaluate.add_argument("--repeat", choices=["main", "repeat"], default="main")
     commands.add_parser("report", parents=[common])
     return p
@@ -65,8 +70,11 @@ def main(argv=None):
     splits = read_json(args.splits)
     if args.seed != splits["seed"]:
         raise ValueError("All stages must use the frozen split seed")
+    if args.command in ("train", "evaluate"):
+        args.train_seed = resolved_train_seed(args, splits["seed"])
     args.served_model = args.served_model or (
-        "mech-" + args.arm if args.command == "evaluate" and args.arm != "base" else STUDENT)
+        "mech-" + variant_name(args.arm, args.train_seed, splits["seed"])
+        if args.command == "evaluate" and args.arm != "base" else STUDENT)
     with lock(args.run_dir / "pipeline.lock"):
         bind_run(args.run_dir, splits)
         if args.command == "train":

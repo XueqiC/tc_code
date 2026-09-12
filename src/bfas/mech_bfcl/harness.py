@@ -214,9 +214,15 @@ def official_run(args, ids, destination, adapter, splits, *, evaluation_scope=No
                     served_model=args.served_model, temperature=0.001, top_k=1, seed=splits["seed"])
     if evaluation_scope is not None:
         metadata.update(evaluation_scope)
+        if getattr(args, "arm", "base") != "base":
+            from .common import resolved_train_seed
+            metadata["train_seed"] = resolved_train_seed(args, splits["seed"])
     if (destination / "items.json").exists():
         from .common import read_json
-        if read_json(destination / "run.json") != metadata:
+        previous = read_json(destination / "run.json")
+        if "train_seed" in metadata:
+            previous.setdefault("train_seed", splits["seed"])
+        if previous != metadata:
             raise ValueError("Cannot reuse a harness run with changed inputs")
         return read_json(destination / "items.json")
     if (destination / "run.json").is_file():

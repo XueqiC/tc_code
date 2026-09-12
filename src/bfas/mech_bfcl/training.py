@@ -12,7 +12,8 @@ import random
 import subprocess
 import time
 
-from .common import STUDENT, digest, read_json, write_json
+from .common import (STUDENT, digest, read_json, resolved_train_seed,
+                     training_directory, write_json)
 from .exercises import native_pair
 
 TARGET_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
@@ -189,7 +190,8 @@ def train(args, splits):
     from peft import LoraConfig, get_peft_model
     if os.environ.get("MECH_SERVING_PID"):
         raise RuntimeError("Stop the vLLM process and unset MECH_SERVING_PID before training")
-    target_dir = args.run_dir / args.arm / "training"
+    train_seed = resolved_train_seed(args, splits["seed"])
+    target_dir = training_directory(args.run_dir, args.arm, train_seed, splits["seed"])
     if target_dir.exists():
         raise ValueError("Training output already exists; runs cannot be resumed/repeated in place")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
@@ -206,6 +208,8 @@ def train(args, splits):
     for arm in banks:
         encoded[arm], excluded[arm] = encode_rows(banks[arm], tokenizer)
     cap = min(16000, *(sum(len(r["target_ids"]) for r in encoded[a]) for a in encoded))
+    # Keep the original split-seed plan byte-compatible across training seeds.
+    # It freezes data and dose; each variant records its actual schedule below.
     schedules = {a: pass_schedules(encoded[a], cap, args.tokens_per_step,
                                   passes=args.passes, seed=splits["seed"]) for a in encoded}
     plan = dict(common_supervised_cap=cap, bank_hashes={a: digest(banks[a]) for a in banks},
@@ -217,13 +221,16 @@ def train(args, splits):
     plan_path = args.run_dir / "training_plan.json"
     if plan_path.exists() and read_json(plan_path) != plan:
         raise ValueError("C/D exposure plan changed after it was frozen")
-    write_json(plan_path, plan)
+    if not plan_path.exists():
+        write_json(plan_path, plan)
+    arm_schedules = pass_schedules(encoded[args.arm], cap, args.tokens_per_step,
+                                  passes=args.passes, seed=train_seed)
     if not torch.cuda.is_available():
         raise RuntimeError("Training requires the time-shared A100; CPU tests do not load Gemma weights")
     check_gpu_residency()
     start_time = time.monotonic()
-    torch.manual_seed(splits["seed"])
-    torch.cuda.manual_seed_all(splits["seed"])
+    torch.manual_seed(train_seed)
+    torch.cuda.manual_seed_all(train_seed)
     model = AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16,
         local_files_only=True, attn_implementation="sdpa", device_map={"": 0})
     actual = {n: m for n, m in model.named_modules()
@@ -247,16 +254,17 @@ def train(args, splits):
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=args.learning_rate, weight_decay=0.0)
     rows = encoded[args.arm]
-    steps = [(schedule["pass_number"], segments) for schedule in schedules[args.arm]
+    steps = [(schedule["pass_number"], segments) for schedule in arm_schedules
              for segments in schedule["steps"]]
     log, input_tokens, supervised = [], 0, 0
     write_json(target_dir / "config.json", dict(student=STUDENT, model_path=args.model_path,
         model_commit=getattr(base.config, "_commit_hash", None), lora_rank=16, lora_alpha=32,
         lora_dropout=0, target_modules=sorted(actual), dtype="bfloat16", micro_batch=1,
         learning_rate=args.learning_rate, gradient_checkpointing=True, passes=args.passes,
-        tokens_per_step=args.tokens_per_step,
+        tokens_per_step=args.tokens_per_step, train_seed=train_seed,
         teacher_target="one-hot demonstration", reference_target="full vocabulary frozen adapter-disabled base",
         mixture=[0.5, 0.5], thinking=False, position_chunk=args.position_chunk))
+    write_json(target_dir / "schedules.json", arm_schedules)
     for step, (pass_number, segments) in enumerate(steps):
         optimizer.zero_grad(set_to_none=True)
         step_tokens = sum(s["end"]-s["start"] for s in segments)
@@ -297,7 +305,7 @@ def train(args, splits):
     write_json(target_dir / "metrics.json", dict(input_tokens=input_tokens,
         unique_input_tokens=sum(len(r["prompt_ids"])+len(r["target_ids"]) for r in rows),
         supervised_tokens=supervised, supervised_tokens_per_pass=cap, passes=args.passes,
-        learning_rate=args.learning_rate, tokens_per_step=args.tokens_per_step,
+        learning_rate=args.learning_rate, tokens_per_step=args.tokens_per_step, train_seed=train_seed,
         optimizer_steps=len(log), wall_seconds=time.monotonic()-start_time,
         max_allocated_bytes=torch.cuda.max_memory_allocated(), training_plan_hash=digest(plan),
         data_examples=len({s["row"] for _, segments in steps for s in segments})))

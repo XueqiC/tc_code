@@ -174,14 +174,16 @@ stop_server
 "$BFCL_PY" tools/mech_bfcl.py report --run-dir "$MECH_RUN"
 ```
 
-All inference uses T=0.001, greedy `top_k=1`, seed 0, and explicit
+All inference uses T=0.001, greedy `top_k=1`, the frozen split seed (0 in the
+committed split), and explicit
 `enable_thinking=False`, through raw completions. No native stop/handoff marker
 is inserted into the short supervision target. The renderer reuses
 `tools/bfcl_pool_render_gemma4.py`, matching the luna bank's dotted tool names,
 argument quoting, and prompt conventions. The bank supplies conventions only;
 none of its historical examples or cached-content cost estimates are charged
 as new teacher calls or used as new training examples. `--served-model` can
-override the adapter alias; `/models` must identify the matching local adapter.
+override the default-seed adapter alias; training-seed repeats require the
+exact `mech-<arm>-s<seed>` alias. `/models` must identify the matching local adapter.
 This command sequence uses vLLM LoRA, avoiding a second set of merged weights.
 
 `diagnose` spends at most 2,000 of the shared 8,000 output tokens. Preparation
@@ -259,8 +261,8 @@ and 40 optimizer steps per arm when the common cap is 611 tokens.
 No GPU is held by an inference server during training. The common supervision
 cap is `min(16000, usable_C_tokens, usable_D_tokens)` **per pass**. Each pass
 starts from the arm's full usable exercise set in ID order and reshuffles it
-using `seed + pass_index` (zero-based), preserving the original first-pass
-order. Each arm receives exactly the common cap per pass and the same number
+using `train_seed + pass_index` (zero-based), preserving the original first-pass
+order for the default training seed. Each arm receives exactly the common cap per pass and the same number
 of passes. Updates accumulate `--tokens-per-step` supervised tokens (default
 512), except the final update of **each pass**; accumulation resets at pass
 boundaries while AdamW state persists. Sequences can cross update boundaries
@@ -269,12 +271,71 @@ Whole contexts use 4k or 8k; over-8k examples are excluded and audited. A final
 partial supervision span can meet the common cap without appending an EOS.
 
 Before either arm trains, `training_plan.json` freezes the common per-pass cap,
-passes, learning rate, tokens per step, and both arms' schedules for every pass.
-The schedules include pass numbers, shuffle seeds, row orders, and exact token
-segments; row indices refer to the plan's `row_ids`. Changing either arm's dose
+passes, learning rate, tokens per step, exercise/encoded hashes, exclusions,
+row IDs, and both arms' canonical schedules for the **split seed**. The plan
+stays unchanged across training seeds, including when a non-default seed trains
+first. Each training output's `schedules.json` records its actual pass numbers,
+shuffle seeds, row orders, and exact token segments; row indices refer to the
+plan's `row_ids`. Changing either arm's dose or data across arms **or seeds**
 after freezing raises `C/D exposure plan changed after it was frozen`.
 Choose the dose before starting either arm; existing training directories
 cannot be resumed or overwritten in place.
+
+`train --train-seed K` repeats training on the same generated C/D exercises.
+It defaults to the split seed, preserving existing behavior. It controls the
+per-pass shuffle, PyTorch CPU/CUDA manual seeds, adapter initialization, and
+any dropout randomness (configured LoRA dropout remains zero). It does not
+change support/calibration selection, diagnoses, generated banks, held-out
+sets, the frozen split, or the layer-3 subset. Keep `--seed` and `--splits`
+unchanged; `--seed` is still the split and inference seed.
+
+For the default training seed, output remains `<run-dir>/<arm>/training/`.
+For any different seed K, output is `<run-dir>/<arm>/training_sK/`, including
+its `adapter/`, `config.json`, `metrics.json`, and `schedules.json`. Both config
+and metrics record `train_seed`; all seeds retain the same `training_plan_hash`.
+The same seed cannot overwrite an existing training directory.
+
+`evaluate --train-seed K` selects the corresponding adapter. Non-default seeds
+must be served as `mech-<arm>-sK`, with `/models` pointing to that seed's local
+`training_sK/adapter/`. Their three-layer evaluations go to
+`evaluation/<arm>-sK/<repeat>/`; default seeds keep `evaluation/<arm>/<repeat>/`.
+The evaluation protocol and full harness metadata record `train_seed` while
+decoding still uses the split seed. A changed training seed in an existing
+fingerprint rejects reuse. Legacy default-seed fingerprints without the field
+remain reusable. Base ignores `--train-seed`, keeps its served name and paths,
+and records `train_seed: null` in the evaluation protocol; base harness metadata
+stays unchanged. `--repeat repeat` repeats evaluation of the selected checkpoint;
+it does not retrain it or contribute another training seed to reporting.
+
+To add seed 1 after the default C/D training and evaluations above, reuse
+`MECH_RUN`, the shell helpers, and the existing split. There are no new teacher
+calls. Read the exact dose from the frozen plan rather than assuming defaults:
+
+```bash
+MECH_TRAIN_SEED=1  # Must differ from the split seed for these suffixed paths.
+read -r MECH_PASSES MECH_LR MECH_TPS MECH_SPLIT_SEED < <(
+  "$TRAIN_PY" -c 'import json, sys; p=json.load(open(sys.argv[1])); print(p["passes"], p["learning_rate"], p["tokens_per_step"], p["seed"])' \
+    "$MECH_RUN/training_plan.json"
+)
+for arm in C D; do
+  "$TRAIN_PY" tools/mech_bfcl.py train --run-dir "$MECH_RUN" --arm "$arm" \
+    --seed "$MECH_SPLIT_SEED" --train-seed "$MECH_TRAIN_SEED" \
+    --passes "$MECH_PASSES" --learning-rate "$MECH_LR" --tokens-per-step "$MECH_TPS"
+  setsid "$VLLM" serve google/gemma-4-12B-it \
+    --served-model-name google/gemma-4-12B-it \
+    --dtype bfloat16 --max-model-len 32768 --gpu-memory-utilization 0.85 \
+    --enable-lora --max-lora-rank 16 \
+    --lora-modules "mech-$arm-s$MECH_TRAIN_SEED=$MECH_RUN/$arm/training_s$MECH_TRAIN_SEED/adapter" \
+    --port 8901 >"$MECH_RUN/serve-$arm-s$MECH_TRAIN_SEED.log" 2>&1 &
+  export MECH_SERVING_PID=$!
+  wait_server
+  "$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm "$arm" \
+    --seed "$MECH_SPLIT_SEED" --train-seed "$MECH_TRAIN_SEED" \
+    --base-url http://127.0.0.1:8901/v1
+  stop_server
+done
+"$BFCL_PY" tools/mech_bfcl.py report --run-dir "$MECH_RUN" --seed "$MECH_SPLIT_SEED"
+```
 
 The API teacher provides a demonstration, not Gemma-vocabulary logits. For each
 demonstration token `y`, the distillation target is explicitly
@@ -284,14 +345,14 @@ off. The backbone's hidden states are projected in chunks of 32 supervised
 positions over the entire vocabulary, including Gemma's final softcap.
 Chunk graphs are freed after computing the hidden-state gradient, followed by
 one decoder backward pass. No full-sequence vocabulary tensor or top-k target
-cache is retained. Both arms record passes, learning rate, and tokens per step
-in `training/config.json` and `training/metrics.json`. Metrics record
+cache is retained. Both arms record passes, learning rate, tokens per step, and
+training seed in their training directory's `config.json` and `metrics.json`. Metrics record
 `supervised_tokens_per_pass` as the common cap and `supervised_tokens` as total
 exposures across all passes (`passes * supervised_tokens_per_pass`), along with
 input tokens, optimizer updates, wall time, and memory. Config records exact
 module names and model revision; `steps.json` labels every update with its pass.
-The report shows passes, learning rate, optimizer steps, and total supervised
-exposure for each trained arm.
+The report shows training seed, passes, learning rate, optimizer steps, and total
+supervised exposure for every variant with a completed `main` evaluation.
 
 Local validation checks format, official AST argument validity, and available
 official execution. A valid AST is **not** independent verification of teacher
@@ -310,3 +371,37 @@ intervals over independent parent groups. The estimate weights each parent
 equally; item-weighted deltas are also provided. Single-parent intervals are
 unavailable. The report includes the five section-nine interpretations and a
 leave-one-parent-out check before suggesting a broad positive targeting signal.
+
+The mechanism table and category breakdowns include every completed `(arm,
+train_seed)` variant, reading its corresponding training metrics. Default C/D
+rows retain their labels and infer the split seed for legacy metrics. Base/C/D
+default evaluations remain required. Seed K adds `base_vs_C_sK`,
+`base_vs_D_sK`, `C_sK_vs_D_sK`, and within-arm `C_s0_vs_C_sK` /
+`D_s0_vs_D_sK` comparisons (replace 0 by the split seed for a different split).
+Within-arm signed deltas and catches/regressions measure training noise;
+`mean_absolute_item_delta` is the fraction of questions whose correctness flips.
+
+With at least two seeds completed for both C and D, `C_vs_D_pooled` averages
+correctness **per question over the same matched seeds**, subtracts C from D,
+then averages question deltas within parents and weights parents equally.
+The parent bootstrap operates on those means; training seeds do not multiply
+the item count or independent-parent count. Pooled rows retain fractional
+`left_mean_correct`, `right_mean_correct`, and `delta`; binary outcome counts
+are inapplicable and shown as unavailable. The report records
+`pooled_training_seeds` and `unpooled_training_seeds`; an unmatched seed remains
+in the table and its available comparisons, but is excluded from both arms'
+pool. All comparisons require identical question IDs, parent/category labels,
+and layer-3 scope. Available evaluation protocols must also share held-out
+hashes, split hashes, and decoding settings.
+
+The interpretation uses the pooled C/D comparison when available. Read it
+alongside the individual seed effects and within-arm noise: its intervals
+measure parent uncertainty conditional on the observed training seeds, not
+uncertainty over future training seeds. Generated-token cost is shared across
+seed variants and must not be summed again as new generation spending.
+
+CPU-only verification (all model/server work is mocked or uses tiny CPU tensors):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_mech_bfcl*.py
+```
