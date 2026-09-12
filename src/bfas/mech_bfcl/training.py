@@ -5,7 +5,9 @@ The target is q=.5*one_hot(demo_token)+.5*p_frozen_base over the FULL vocabulary
 Only position chunks are projected; no top-k or vocabulary truncation is used.
 """
 from collections import Counter
+import csv
 import os
+from pathlib import Path
 import random
 import subprocess
 import time
@@ -106,6 +108,59 @@ def frozen_hidden(model, ids, indices):
         model.train(was_training)
 
 
+def _nvidia_smi_rows(fields):
+    result = subprocess.run(["nvidia-smi", f"--query-{fields}", "--format=csv,noheader"],
+                            capture_output=True, text=True, check=True)
+    return [[value.strip() for value in row] for row in csv.reader(result.stdout.splitlines())
+            if row and any(value.strip() for value in row)]
+
+
+def check_gpu_residency():
+    """Check CUDA-visible GPUs without initializing CUDA; permit our GPU holder."""
+    indexed = dict(_nvidia_smi_rows("gpu=index,uuid"))
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if visible is None:
+        targets = set(indexed.values())
+    else:
+        targets = set()
+        for device in visible.split(","):
+            device = device.strip()
+            if device in indexed:
+                matches = [indexed[device]]
+            else:
+                # CUDA also accepts an unambiguous GPU UUID prefix.
+                matches = [uuid for uuid in indexed.values()
+                           if device.startswith("GPU-") and uuid.startswith(device)]
+            if len(matches) != 1:
+                raise RuntimeError(f"Cannot resolve CUDA_VISIBLE_DEVICES entry {device!r} to one GPU")
+            targets.update(matches)
+    if not targets:
+        raise RuntimeError("No training GPUs found")
+
+    for uuid, free_memory in _nvidia_smi_rows("gpu=uuid,memory.free"):
+        if uuid in targets:
+            print(f"Training GPU {uuid}: {free_memory} free", flush=True)
+
+    resident = []
+    for pid, uuid, memory in _nvidia_smi_rows("compute-apps=pid,gpu_uuid,used_memory"):
+        if uuid not in targets:
+            continue
+        try:
+            cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().decode(errors="replace")
+        except OSError:
+            # An unreadable or vanished process is not a verified placeholder.
+            cmdline = "<cmdline unavailable>"
+        if "gpu_hold" in cmdline:
+            continue
+        cmdline = " ".join(cmdline.replace("\0", " ").split()) or "<empty cmdline>"
+        if len(cmdline) > 160:
+            cmdline = cmdline[:157] + "..."
+        resident.append(f"pid={pid} gpu={uuid} memory={memory} cmd={cmdline}")
+    if resident:
+        raise RuntimeError("GPU compute processes are still resident; stop serving and wait before training\n"
+                           + "\n".join(resident))
+
+
 def train(args, splits):
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -141,10 +196,7 @@ def train(args, splits):
     write_json(plan_path, plan)
     if not torch.cuda.is_available():
         raise RuntimeError("Training requires the time-shared A100; CPU tests do not load Gemma weights")
-    occupancy = subprocess.run(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
-                               capture_output=True, text=True, check=True)
-    if occupancy.stdout.strip():
-        raise RuntimeError("GPU compute processes are still resident; stop serving and wait before training")
+    check_gpu_residency()
     start_time = time.monotonic()
     torch.manual_seed(splits["seed"])
     torch.cuda.manual_seed_all(splits["seed"])

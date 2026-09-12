@@ -3,9 +3,178 @@ import torch
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from bfas.mech_bfcl import training
 from bfas.mech_bfcl.training import chunked_hidden_gradient, frozen_hidden, mixture_loss, token_schedule
+
+
+GPU_UUIDS = [
+    "GPU-11111111-1111-1111-1111-111111111111",
+    "GPU-22222222-2222-2222-2222-222222222222",
+    "GPU-8b270cf8-6bb4-cee0-7060-88eba83d2fb0",
+    "GPU-44444444-4444-4444-4444-444444444444",
+    "GPU-55555555-5555-5555-5555-555555555555",
+]
+
+
+@pytest.fixture
+def gpu_guard(monkeypatch):
+    """Every subprocess and /proc read is a stub, even on a host with no GPUs."""
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", GPU_UUIDS[2])
+    outputs = {
+        "--query-gpu=index,uuid": "\n".join(f"{i}, {GPU_UUIDS[i]}" for i in (4, 2, 0, 3, 1)),
+        "--query-gpu=uuid,memory.free": "\n".join(f"{uuid}, {i + 10} MiB" for i, uuid in enumerate(GPU_UUIDS)),
+        "--query-compute-apps=pid,gpu_uuid,used_memory": "",
+    }
+    cmdlines, reads, calls = {}, [], []
+
+    def run(command, **kwargs):
+        assert command[0] == "nvidia-smi"
+        assert command[2:] == ["--format=csv,noheader"]
+        assert kwargs == dict(capture_output=True, text=True, check=True)
+        calls.append(command[1])
+        return SimpleNamespace(stdout=outputs[command[1]])
+
+    def read_bytes(path):
+        assert path.parent.parent == Path("/proc") and path.name == "cmdline"
+        pid = int(path.parent.name)
+        reads.append(pid)
+        result = cmdlines[pid]
+        if isinstance(result, OSError):
+            raise result
+        return result
+
+    def processes(rows):
+        outputs["--query-compute-apps=pid,gpu_uuid,used_memory"] = "\n".join(
+            f"{pid}, {GPU_UUIDS[index]}, {memory}" for pid, index, memory in rows)
+
+    monkeypatch.setattr(training.subprocess, "run", run)
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    return SimpleNamespace(outputs=outputs, cmdlines=cmdlines, reads=reads, calls=calls,
+                           processes=processes)
+
+
+@pytest.mark.parametrize("visible", [GPU_UUIDS[2], "2", "GPU-8b270cf8", " 2 "])
+def test_gpu_guard_ignores_other_gpus_and_holder(gpu_guard, monkeypatch, capsys, visible):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", visible)
+    gpu_guard.processes([(100 + i, i, "20000 MiB") for i in range(5)])
+    gpu_guard.cmdlines[102] = (
+        b"python\0/home/xueqi/hq/projects/tc-alignment/tools/gpu_hold.py\0--mode\0guard\0")
+    training.check_gpu_residency()
+    assert gpu_guard.reads == [102]
+    assert capsys.readouterr().out == f"Training GPU {GPU_UUIDS[2]}: 12 MiB free\n"
+
+
+@pytest.mark.parametrize("visible", ["4,2", f"{GPU_UUIDS[2]},4", None])
+def test_gpu_guard_checks_all_selected_gpus(gpu_guard, monkeypatch, capsys, visible):
+    if visible is None:
+        monkeypatch.delenv("CUDA_VISIBLE_DEVICES")
+        selected = set(range(5))
+    else:
+        monkeypatch.setenv("CUDA_VISIBLE_DEVICES", visible)
+        selected = {2, 4}
+    gpu_guard.processes([(100 + i, i, "2048 MiB") for i in range(5)])
+    gpu_guard.cmdlines.update({100 + i: b"python\0worker.py\0" for i in selected})
+    with pytest.raises(RuntimeError, match="GPU compute processes are still resident") as exc:
+        training.check_gpu_residency()
+    output = capsys.readouterr().out
+    for i in range(5):
+        assert (f"pid={100 + i}" in str(exc.value)) == (i in selected)
+        assert (GPU_UUIDS[i] in output) == (i in selected)
+    assert set(gpu_guard.reads) == {100 + i for i in selected}
+
+
+@pytest.mark.parametrize("occupancy", ["", "\n  \n"])
+def test_gpu_guard_empty_gpu_logs_free_memory(gpu_guard, capsys, occupancy):
+    gpu_guard.outputs["--query-compute-apps=pid,gpu_uuid,used_memory"] = occupancy
+    training.check_gpu_residency()
+    assert not gpu_guard.reads
+    assert capsys.readouterr().out == f"Training GPU {GPU_UUIDS[2]}: 12 MiB free\n"
+
+
+def test_gpu_guard_lists_foreign_processes_even_alongside_holder(gpu_guard):
+    gpu_guard.processes([(10, 2, "70000 MiB"), (20, 2, "4096 MiB"), (30, 2, "0 MiB")])
+    # Match the full command before shortening the diagnostic.
+    gpu_guard.cmdlines[10] = b"python\0" + b"x" * 200 + b"\0gpu_hold.py\0--mode\0guard\0"
+    gpu_guard.cmdlines[20] = b"python\0-m\0vllm.entrypoints.openai.api_server\0"
+    gpu_guard.cmdlines[30] = b"python\0another_worker.py\0" + b"x" * 300
+    with pytest.raises(RuntimeError) as exc:
+        training.check_gpu_residency()
+    message, *processes = str(exc.value).splitlines()
+    assert message == "GPU compute processes are still resident; stop serving and wait before training"
+    assert len(processes) == 2
+    assert processes[0] == (f"pid=20 gpu={GPU_UUIDS[2]} memory=4096 MiB "
+                            "cmd=python -m vllm.entrypoints.openai.api_server")
+    assert f"pid=30 gpu={GPU_UUIDS[2]} memory=0 MiB cmd=python another_worker.py" in processes[1]
+    assert len(processes[1].split("cmd=", 1)[1]) == 160
+    assert processes[1].endswith("...")
+
+
+@pytest.mark.parametrize("cmdline,diagnostic", [
+    (PermissionError(), "<cmdline unavailable>"),
+    (FileNotFoundError(), "<cmdline unavailable>"),
+    (b"", "<empty cmdline>"),
+    (b"python\0worker\xff.py\0", "python worker\ufffd.py"),
+])
+def test_gpu_guard_cannot_exempt_unknown_process(gpu_guard, cmdline, diagnostic):
+    gpu_guard.processes([(20, 2, "[N/A]")])
+    gpu_guard.cmdlines[20] = cmdline
+    with pytest.raises(RuntimeError, match="GPU compute processes are still resident") as exc:
+        training.check_gpu_residency()
+    assert f"pid=20 gpu={GPU_UUIDS[2]} memory=[N/A] cmd={diagnostic}" in str(exc.value)
+
+
+@pytest.mark.parametrize("visible", ["", "-1", "99", "GPU-missing", "GPU-", "2,99"])
+def test_gpu_guard_rejects_unresolved_selection(gpu_guard, monkeypatch, visible):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", visible)
+    with pytest.raises(RuntimeError, match="Cannot resolve CUDA_VISIBLE_DEVICES"):
+        training.check_gpu_residency()
+
+
+def test_gpu_guard_propagates_query_failure(gpu_guard, monkeypatch):
+    def fail(*args, **kwargs):
+        raise training.subprocess.CalledProcessError(1, "nvidia-smi")
+    monkeypatch.setattr(training.subprocess, "run", fail)
+    with pytest.raises(training.subprocess.CalledProcessError):
+        training.check_gpu_residency()
+
+
+@pytest.mark.parametrize("foreign", [False, True])
+def test_train_checks_gpu_and_logs_memory_before_model_load(gpu_guard, monkeypatch, tmp_path, capsys, foreign):
+    monkeypatch.delenv("MECH_SERVING_PID", raising=False)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch, "manual_seed", lambda seed: None)
+    monkeypatch.setattr(torch.cuda, "manual_seed_all", lambda seed: None)
+    gpu_guard.processes([(20, 2, "1024 MiB"), (30, 0, "40000 MiB")])
+    gpu_guard.cmdlines[20] = b"python\0worker.py\0" if foreign else b"python\0gpu_hold.py\0guard\0"
+    loads = []
+
+    class ModelLoadReached(Exception):
+        pass
+
+    def load_model(*args, **kwargs):
+        loads.append(True)
+        assert capsys.readouterr().out == f"Training GPU {GPU_UUIDS[2]}: 12 MiB free\n"
+        raise ModelLoadReached
+
+    monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(
+        AutoTokenizer=SimpleNamespace(from_pretrained=lambda *a, **k: None),
+        AutoModelForCausalLM=SimpleNamespace(from_pretrained=load_model)))
+    monkeypatch.setitem(sys.modules, "peft", SimpleNamespace(LoraConfig=None, get_peft_model=None))
+    monkeypatch.setattr(training, "encode_rows", lambda *a: ([dict(id="row", prompt_ids=[1], target_ids=[2])], []))
+    for arm in ("C", "D"):
+        training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
+        training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
+    args = SimpleNamespace(run_dir=tmp_path, arm="C", tokenizer="stub", model_path="stub", tokens_per_step=1)
+    with pytest.raises(RuntimeError if foreign else ModelLoadReached) as exc:
+        training.train(args, dict(seed=0, support=["task"]))
+    assert loads == ([] if foreign else [True])
+    if foreign:
+        assert "GPU compute processes are still resident" in str(exc.value)
+        assert "pid=20" in str(exc.value)
+    assert not (tmp_path / "C" / "training").exists()
 
 
 @pytest.mark.parametrize("chunk", [1, 3, 20])
