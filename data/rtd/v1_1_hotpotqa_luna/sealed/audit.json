@@ -1,0 +1,63 @@
+{
+  "attempts_with_trajectory_archive": 419,
+  "available_packages_by_confidence": {
+    "estimated": 2,
+    "exact": 111
+  },
+  "budget_checkpoints_tokens": [
+    15000,
+    30000
+  ],
+  "cost_confidence": "estimated",
+  "estimated_output_tokens": 28390,
+  "exact_output_tokens": 507176,
+  "failed_attempts": 306,
+  "failed_output_tokens": 468766,
+  "historical_attempts": 419,
+  "historical_output_tokens": 535566,
+  "historical_tasks": 200,
+  "later_verified_attempts": 0,
+  "ledger_demos_not_yet_in_pool": [],
+  "m": 200,
+  "new_teacher_calls": 0,
+  "new_teacher_tokens": 0,
+  "packages": 200,
+  "pool_demos": 113,
+  "request_calls_outside_completed_ledger": 0,
+  "scope": "completed ledger prefix; all attempts charged once per task",
+  "snapshot": {
+    "attempts.jsonl": {
+      "bytes": 2126334,
+      "sha256": "b20f71bd72d46f18b3abf43cb63e99eab48848b740dbf5205cc259725e2e40e1",
+      "trailing_bytes": 0
+    },
+    "identity.json": {
+      "bytes": 15068,
+      "sha256": "551d0ff73dfa1a722d0d806176ca500fb2360c39b51520fd3806b1dae5c7d2ed",
+      "trailing_bytes": 0
+    },
+    "ledger": {
+      "bytes": 9986590,
+      "sha256": "2428e55077795df128dd1367f1abbee3d480ea1f60a397dd23f9808cf12babbe",
+      "trailing_bytes": 0
+    },
+    "pool": {
+      "bytes": 9927945,
+      "sha256": "e8611d2ca97a9743bcbcd6fd8d20299b04bc732ffecb856211dcc8a072808f08",
+      "trailing_bytes": 0
+    },
+    "usage.jsonl": {
+      "bytes": 1134921,
+      "sha256": "9ac9670bb357191a2c1cca49c6eab127a351f92a3a9b6e5d37a29829fbc244c7",
+      "trailing_bytes": 0
+    }
+  },
+  "unavailable_packages": 87,
+  "usage": {
+    "cached_tokens": 402477,
+    "completion_tokens": 535566,
+    "prompt_tokens": 6422285
+  },
+  "verified_episodes": 113,
+  "verified_tasks": 113
+}

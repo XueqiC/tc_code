@@ -1,7 +1,8 @@
 """Hard reservations and append-only, request-level replay accounting.
 
 The currency is historical output tokens (exact or explicitly estimated).
-Input/reasoning/money remain separate usage fields; unknown is never zero.
+Completion counts include reasoning exactly as recorded by the ledger; do not
+add reasoning a second time. Input/money remain separate; unknown is never zero.
 A reservation uses the broker's public bound: recorded package cost for
 certified HotpotQA/ALFWorld/BFCL state replay, a class/request cap otherwise.
 

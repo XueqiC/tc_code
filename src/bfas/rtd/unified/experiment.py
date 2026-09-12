@@ -151,6 +151,7 @@ class P1Experiment(RTDExperiment):
             return super().alpha_revealed()
         s = self.state
         pending = [self.broker.acquire(q) for q in s['selected']]
+        pending = [p for p in pending if p.behaviors]
         self.alpha_calibrate(pending)
         old = self.alpha_old_pool()
         # Identical public record choices to the alpha/d procedure, then exact

@@ -1,0 +1,321 @@
+{
+  "query_id": "e3ec363b23dfe64b45ec81706d7a10c0ee4d176bba5d9b71f846dc41faba9063",
+  "request_state_hash": "c8d459b634a887cfad4fb014ed9cb827a8d8fcc395f2174f320aa5f1c2d22e89",
+  "dependencies": [],
+  "status": "usable",
+  "unavailable_reason": null,
+  "exclusion_reasons": [],
+  "success": true,
+  "payload_kind": "extracted_teacher_commands",
+  "commands": [
+    "go to desk 1",
+    "take pencil 3 from desk 1",
+    "go to shelf 1",
+    "move pencil 3 to shelf 1"
+  ],
+  "behaviors": [
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\n\nYour task is to: put some pencil on shelf.\n\nAdmissible commands:\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      "text": "go to desk 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake alarmclock 2 from desk 1\ntake book 3 from desk 1\ntake box 1 from desk 1\ntake creditcard 2 from desk 1\ntake creditcard 3 from desk 1\ntake laptop 2 from desk 1\ntake pencil 3 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      "text": "take pencil 3 from desk 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take pencil 3 from desk 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"examine pencil 3\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to desk 1\"], \"content\": \"You pick up the pencil 3 from the desk 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou pick up the pencil 3 from the desk 1.\n\nAdmissible commands:\nexamine desk 1\nexamine pencil 3\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      "text": "go to shelf 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take pencil 3 from desk 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"examine pencil 3\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to desk 1\"], \"content\": \"You pick up the pencil 3 from the desk 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine cabinet 3\", \"examine pencil 3\", \"examine shelf 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to shelf 1\", \"open cabinet 3\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nAdmissible commands:\nexamine cabinet 3\nexamine pencil 3\nexamine shelf 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to shelf 1\nopen cabinet 3\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      "text": "move pencil 3 to shelf 1"
+    }
+  ],
+  "cost": 182,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 1756,
+    "cached_tokens": 0,
+    "completion_tokens": 182
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 41,
+    "task_id": "pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T03:51:40.934026Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "C26-B real state replay",
+    "original_request_state_hash": "f9a03f8ab7c9c6cdd0e2389a6cb5b1c08184c7525b1414ec1d7984a1729ed5d6",
+    "source_request_state_hash": "f9a03f8ab7c9c6cdd0e2389a6cb5b1c08184c7525b1414ec1d7984a1729ed5d6",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 182,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:51:40.934026Z",
+    "demo": {
+      "turns": [
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\n\nYour task is to: put some pencil on shelf.\n\nAdmissible commands:\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to desk 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\n\nYour task is to: put some pencil on shelf.\n\nAdmissible commands:\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake alarmclock 2 from desk 1\ntake book 3 from desk 1\ntake box 1 from desk 1\ntake creditcard 2 from desk 1\ntake creditcard 3 from desk 1\ntake laptop 2 from desk 1\ntake pencil 3 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "take pencil 3 from desk 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake alarmclock 2 from desk 1\ntake book 3 from desk 1\ntake box 1 from desk 1\ntake creditcard 2 from desk 1\ntake creditcard 3 from desk 1\ntake laptop 2 from desk 1\ntake pencil 3 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou pick up the pencil 3 from the desk 1.\n\nAdmissible commands:\nexamine desk 1\nexamine pencil 3\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to shelf 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou pick up the pencil 3 from the desk 1.\n\nAdmissible commands:\nexamine desk 1\nexamine pencil 3\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nAdmissible commands:\nexamine cabinet 3\nexamine pencil 3\nexamine shelf 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to shelf 1\nopen cabinet 3\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "move pencil 3 to shelf 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nAdmissible commands:\nexamine cabinet 3\nexamine pencil 3\nexamine shelf 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to shelf 1\nopen cabinet 3\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        }
+      ],
+      "worked_example": "go to desk 1\ntake pencil 3 from desk 1\ngo to shelf 1\nmove pencil 3 to shelf 1"
+    },
+    "usage": {
+      "prompt_tokens": 1756,
+      "cached_tokens": 0,
+      "completion_tokens": 182
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":true,\"tokens_spent\":182,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T03:51:40.934026Z\",\"demo\":{\"turns\":[{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to desk 1\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to desk 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to desk 1\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n\\nAdmissible commands:\\nexamine desk 1\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\ntake alarmclock 1 from desk 1\\ntake alarmclock 2 from desk 1\\ntake book 3 from desk 1\\ntake box 1 from desk 1\\ntake creditcard 2 from desk 1\\ntake creditcard 3 from desk 1\\ntake laptop 2 from desk 1\\ntake pencil 3 from desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"take pencil 3 from desk 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n\\nAdmissible commands:\\nexamine desk 1\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\ntake alarmclock 1 from desk 1\\ntake alarmclock 2 from desk 1\\ntake book 3 from desk 1\\ntake box 1 from desk 1\\ntake creditcard 2 from desk 1\\ntake creditcard 3 from desk 1\\ntake laptop 2 from desk 1\\ntake pencil 3 from desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou pick up the pencil 3 from the desk 1.\\n\\nAdmissible commands:\\nexamine desk 1\\nexamine pencil 3\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\nmove pencil 3 to desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n> take pencil 3 from desk 1\\nYou pick up the pencil 3 from the desk 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to shelf 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou pick up the pencil 3 from the desk 1.\\n\\nAdmissible commands:\\nexamine desk 1\\nexamine pencil 3\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 3\\ngo to cabinet 4\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\nmove pencil 3 to desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n> take pencil 3 from desk 1\\nYou pick up the pencil 3 from the desk 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\\n\\nAdmissible commands:\\nexamine cabinet 3\\nexamine pencil 3\\nexamine shelf 1\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 4\\ngo to desk 1\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\nmove pencil 3 to shelf 1\\nopen cabinet 3\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n> take pencil 3 from desk 1\\nYou pick up the pencil 3 from the desk 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"move pencil 3 to shelf 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: put some pencil on shelf.\\n\\nCurrent observation:\\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\\n\\nAdmissible commands:\\nexamine cabinet 3\\nexamine pencil 3\\nexamine shelf 1\\ngo to bed 1\\ngo to cabinet 1\\ngo to cabinet 2\\ngo to cabinet 4\\ngo to desk 1\\ngo to drawer 1\\ngo to drawer 2\\ngo to garbagecan 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\nmove pencil 3 to shelf 1\\nopen cabinet 3\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\\n> take pencil 3 from desk 1\\nYou pick up the pencil 3 from the desk 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]}],\"worked_example\":\"go to desk 1\\ntake pencil 3 from desk 1\\ngo to shelf 1\\nmove pencil 3 to shelf 1\"},\"usage\":{\"prompt_tokens\":1756,\"cached_tokens\":0,\"completion_tokens\":182}}",
+  "historical_events": [],
+  "verification": {
+    "replayed": true,
+    "success_reproduced": true,
+    "unavailable_reason": null,
+    "error_type": null,
+    "done": true,
+    "won": true,
+    "transcript_hash": "fc506d2eb2e1e5f393985b24fc740139e407ae20197dc8f9b1521ed842eec30c",
+    "states": [
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\n\nYour task is to: put some pencil on shelf.\n\nAdmissible commands:\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake alarmclock 2 from desk 1\ntake book 3 from desk 1\ntake box 1 from desk 1\ntake creditcard 2 from desk 1\ntake creditcard 3 from desk 1\ntake laptop 2 from desk 1\ntake pencil 3 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take pencil 3 from desk 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"examine pencil 3\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to desk 1\"], \"content\": \"You pick up the pencil 3 from the desk 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou pick up the pencil 3 from the desk 1.\n\nAdmissible commands:\nexamine desk 1\nexamine pencil 3\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 3\ngo to cabinet 4\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to shelf 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take pencil 3 from desk 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"examine pencil 3\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to desk 1\"], \"content\": \"You pick up the pencil 3 from the desk 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine cabinet 3\", \"examine pencil 3\", \"examine shelf 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to shelf 1\", \"open cabinet 3\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nAdmissible commands:\nexamine cabinet 3\nexamine pencil 3\nexamine shelf 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to sidetable 1\nhelp\ninventory\nlook\nmove pencil 3 to shelf 1\nopen cabinet 3\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"put some pencil on shelf.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151\", \"world_files\": {\"game.tw-pddl\": \"48b9a66a32d346f7813aaf25283860cb93114f4d90607166e9d609d94183d419\", \"initial_state.pddl\": \"e023c25880b4e7a8fd01fc9e45b37dbe5782e4ac6f4f0ba6621bb3324f0aa777\", \"traj_data.json\": \"e1cea811bca929c1a856b79c2b31ae245f4c165750cab8cb424aa3fa6d5354f0\"}, \"world_hash\": \"5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\\n\\nYour task is to: put some pencil on shelf.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take alarmclock 2 from desk 1\", \"take book 3 from desk 1\", \"take box 1 from desk 1\", \"take creditcard 2 from desk 1\", \"take creditcard 3 from desk 1\", \"take laptop 2 from desk 1\", \"take pencil 3 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take pencil 3 from desk 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"examine pencil 3\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 3\", \"go to cabinet 4\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to desk 1\"], \"content\": \"You pick up the pencil 3 from the desk 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine cabinet 3\", \"examine pencil 3\", \"examine shelf 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"move pencil 3 to shelf 1\", \"open cabinet 3\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}, {\"content\": \"move pencil 3 to shelf 1\", \"index\": 4, \"role\": \"assistant\"}, {\"admissible\": [\"examine cabinet 3\", \"examine shelf 1\", \"go to bed 1\", \"go to cabinet 1\", \"go to cabinet 2\", \"go to cabinet 4\", \"go to desk 1\", \"go to drawer 1\", \"go to drawer 2\", \"go to garbagecan 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\", \"open cabinet 3\", \"take keychain 2 from shelf 1\", \"take pen 1 from shelf 1\", \"take pencil 3 from shelf 1\"], \"content\": \"You move the pencil 3 to the shelf 1.\", \"done\": true, \"index\": 4, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type pick_and_place_simple:\nTask: Put apple 1 in/on diningtable 1.\nTHOUGHT: I need to find and pick up the apple first.\nACTION: go to countertop 1\nTHOUGHT: The apple is here, so I should take it.\nACTION: take apple 1 from countertop 1\nTHOUGHT: I am holding it and can go to the destination.\nACTION: go to diningtable 1\nTHOUGHT: Placing the apple completes the task.\nACTION: put apple 1 in/on diningtable 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: put some pencil on shelf.\n\nCurrent observation:\nYou move the pencil 3 to the shelf 1.\n\nAdmissible commands:\nexamine cabinet 3\nexamine shelf 1\ngo to bed 1\ngo to cabinet 1\ngo to cabinet 2\ngo to cabinet 4\ngo to desk 1\ngo to drawer 1\ngo to drawer 2\ngo to garbagecan 1\ngo to sidetable 1\nhelp\ninventory\nlook\nopen cabinet 3\ntake keychain 2 from shelf 1\ntake pen 1 from shelf 1\ntake pencil 3 from shelf 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.\n> take pencil 3 from desk 1\nYou pick up the pencil 3 from the desk 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.\n> move pencil 3 to shelf 1\nYou move the pencil 3 to the shelf 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9"
+      }
+    ],
+    "raw_observations": [
+      {
+        "index": 0,
+        "observation": "-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a desk 1, a drawer 2, a drawer 1, a garbagecan 1, a shelf 1, and a sidetable 1.\n\nYour task is to: put some pencil on shelf.",
+        "admissible": [
+          "go to bed 1",
+          "go to cabinet 1",
+          "go to cabinet 2",
+          "go to cabinet 3",
+          "go to cabinet 4",
+          "go to desk 1",
+          "go to drawer 1",
+          "go to drawer 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look"
+        ],
+        "world_hash": "5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 1,
+        "observation": "You arrive at desk 1. On the desk 1, you see a alarmclock 2, a alarmclock 1, a book 3, a box 1, a creditcard 3, a creditcard 2, a laptop 2, and a pencil 3.",
+        "admissible": [
+          "examine desk 1",
+          "go to bed 1",
+          "go to cabinet 1",
+          "go to cabinet 2",
+          "go to cabinet 3",
+          "go to cabinet 4",
+          "go to drawer 1",
+          "go to drawer 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look",
+          "take alarmclock 1 from desk 1",
+          "take alarmclock 2 from desk 1",
+          "take book 3 from desk 1",
+          "take box 1 from desk 1",
+          "take creditcard 2 from desk 1",
+          "take creditcard 3 from desk 1",
+          "take laptop 2 from desk 1",
+          "take pencil 3 from desk 1"
+        ],
+        "world_hash": "5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 2,
+        "observation": "You pick up the pencil 3 from the desk 1.",
+        "admissible": [
+          "examine desk 1",
+          "examine pencil 3",
+          "go to bed 1",
+          "go to cabinet 1",
+          "go to cabinet 2",
+          "go to cabinet 3",
+          "go to cabinet 4",
+          "go to drawer 1",
+          "go to drawer 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look",
+          "move pencil 3 to desk 1"
+        ],
+        "world_hash": "5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 3,
+        "observation": "You arrive at shelf 1. On the shelf 1, you see a keychain 2, and a pen 1.",
+        "admissible": [
+          "examine cabinet 3",
+          "examine pencil 3",
+          "examine shelf 1",
+          "go to bed 1",
+          "go to cabinet 1",
+          "go to cabinet 2",
+          "go to cabinet 4",
+          "go to desk 1",
+          "go to drawer 1",
+          "go to drawer 2",
+          "go to garbagecan 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look",
+          "move pencil 3 to shelf 1",
+          "open cabinet 3"
+        ],
+        "world_hash": "5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 4,
+        "observation": "You move the pencil 3 to the shelf 1.",
+        "admissible": [
+          "examine cabinet 3",
+          "examine shelf 1",
+          "go to bed 1",
+          "go to cabinet 1",
+          "go to cabinet 2",
+          "go to cabinet 4",
+          "go to desk 1",
+          "go to drawer 1",
+          "go to drawer 2",
+          "go to garbagecan 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look",
+          "open cabinet 3",
+          "take keychain 2 from shelf 1",
+          "take pen 1 from shelf 1",
+          "take pencil 3 from shelf 1"
+        ],
+        "world_hash": "5897732ec7f51793d5ea399fa147f3a1a36c62739ce9f71cf7ba71cd35500355",
+        "done": true,
+        "won": true
+      }
+    ],
+    "archived_context_checks": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "completed_commands": 4
+  }
+}

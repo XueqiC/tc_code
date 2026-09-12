@@ -90,6 +90,9 @@ def convert_alfworld_bank(source, destination, *, config, tokenizer=None, ledger
         inputs['ledger_sha256'] = file_hash(ledger)
         # Ledger identity is archival evidence; only the audited costs are reused.
         ledger_lines = Path(ledger).read_text().splitlines()
+        if (len(ledger_lines) != len(payloads) or
+                {p['provenance']['line'] for p in payloads.values()} != set(range(1, len(ledger_lines)+1))):
+            raise ValueError('ALFWorld archive does not contain every supplied ledger attempt')
         for p in payloads.values():
             line = p['provenance']['line']
             if json.loads(ledger_lines[line-1]) != p['historical_response']:

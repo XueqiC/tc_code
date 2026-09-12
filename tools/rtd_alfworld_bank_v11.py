@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline conversion of the verified C26-B ALFWorld bank; no APIs or weights."""
+"""Offline C26-B conversion, including public all-attempt task accounting."""
 import argparse
 import json
 from pathlib import Path

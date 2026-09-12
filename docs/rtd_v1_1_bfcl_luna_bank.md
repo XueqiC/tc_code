@@ -90,21 +90,11 @@ absolute cumulative budgets `[15000, 30000]`; the table's 142/355 amounts are
 the archived bank's 10%/25% reference amounts. Both configs pass the existing
 protocol validators.
 
-The legacy historical-token constants and public-cap mapping are frozen
-protocol fields. Actual luna costs and the 256-token class cap come from the
-bound bank certificate. The broker previously reserved that generic 256-token
-cap; it now uses each package's validated recorded ledger cost as the runtime
-public reservation. The archived certificate and bank bytes remain unchanged.
-At 15k and 30k, the frozen ascending-query-ID prefix purchases all 20 packages
-for 1,418 tokens, unchanged from the previous rule at these large checkpoints.
-Smaller checkpoints can now admit a package whenever its recorded cost fits;
-the executor stops before the first overflow rather than skipping ahead.
-
-V0/D3 acquisition-only checks pass with identical counts. Current full startup
-checks fail because the local harness lacks `memory_kv_141-notetaker-11`; the
-historical full-startup receipts below describe the bank build environment.
-See [the reservation audit](rtd_recorded_cost_validation.json) and
-[CPU preflight modes](rtd_preflight.md).
+The 256-token cap and 1,418-token denominator remain archival identities.
+The former ascending-query-ID receipt (20 usable packages for 1,418 tokens)
+is superseded by task accounting, including paid failures. Full BFCL startup
+currently fails on the missing local harness task `memory_kv_141-notetaker-11`;
+the historical startup receipts below describe the earlier build environment.
 
 Validation completed:
 
@@ -162,3 +152,50 @@ G4_ROOT=/home/xueqi/hq/projects/tc-alignment-g4
 
 Bank creation refuses an existing output directory. Reproduction requires a
 fresh bank path; preserve the certified bank when checking it again.
+
+## Task purchase accounting correction (2026-09-11)
+
+Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
+
+The runtime purchase unit is **a task with all its recorded attempts**.
+The offline builders now write certificate-bound `public/task_attempts.json`
+with task ID, attempt index, ledger tokens, verification, confidence and archived
+query IDs. The broker prices from that public summary without opening sealed
+responses or raw pools; acquisition rechecks every member payload and charges
+the sum of its ledger output tokens, including failed attempts and reasoning
+already included in completion usage. Estimates remain estimates. The earliest
+usable attempt supplies the trajectory; other attempts still cost tokens.
+Failed-only/excluded tasks are paid but yield no training rows.
+
+Order: sort task IDs, then `random.Random(0).shuffle`, once for the bank.
+Purchases stop before the first overflow, including an unavailable blocker.
+Training keeps the original fold guards and restricts this order to legal inner
+parents without reshuffling; V0/D3 schedules retain charged failures. The table
+below covers all recorded parents, without training folds or window quotas.
+
+The bank was rebuilt in place from its own sealed ledger rows. The replacement
+gate confirmed byte-identical support/folds, reset states, sealed payloads,
+integrity and original audit; only the public accounting index and its binding
+metadata changed. The existing fraction denominator and configured checkpoints
+remain unchanged. The generic archived class cap is no longer the task price.
+
+| Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
+| ---: | ---: | ---: | ---: | ---: |
+| 7,500 | 9 | 4 | 19 | 2,860 |
+| 15,000 | 9 | 4 | 19 | 2,860 |
+| 30,000 | 9 | 4 | 19 | 2,860 |
+| 60,000 | 9 | 4 | 19 | 2,860 |
+
+The tenth frozen task costs **80,878** tokens and blocks all four budgets after
+2,860 tokens. The **1,418** denominator is the archived usable-attempt basis;
+it does not define the new task price. Absolute caps remain **15,000 / 30,000**.
+
+Both V0/D3 full CPU preflights were run and failed on the existing local harness
+missing `memory_kv_141-notetaker-11`. Their acquisition-only checks passed,
+with 9 tasks / 4 usable packages / 2,860 tokens at both configured caps.
+
+See the [shared protocol and rebuild command](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11),
+[byte-preservation and purchase audit](rtd_task_purchase_validation.json),
+[exact ALFWorld baseline comparison](rtd_alfworld_task_baseline_comparison.json),
+and [CPU validation](rtd_task_cpu_validation.json). No GPU/API calls were made.
+Older recorded-cost purchase receipts are superseded by this correction.

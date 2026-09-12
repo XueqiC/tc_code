@@ -10,7 +10,7 @@ ALFWorld 现有 bank 的 CPU 审计：107 个包，135 个父任务，36,294 est
 
 P1 预算配置必须且只能声明一种形式：`budget_checkpoints_bank_fraction: [0.1, 0.25]`，或绝对累计教师输出 token 上限 `budget_checkpoints_tokens: [B_half, B]`。两者同时出现或均未声明都会拒绝；token 形式要求每轮一个严格递增的正整数，不乘 bank 分母、不按 bank 大小缩放、不强制花满。fraction 保留对 certified usable recorded-output-token 分母的 half-up 整数舍入。两种形式使用相同 sealed-pool 采购顺序及计费规则：已产生计费输出的失败 attempt 仍计费，在首次溢出前停止（stop before the first overflow），不删失败项、不重排或跳过它来填满预算；hard reservation / replay ledger 规则不变，也不授权新增 API 调用。
 
-Luna 的 V0 与统一臂必须使用同一预算形式：BFCL 的 `v1_1_bfcl_luna.yaml` / `unified_bfcl_gemma4_luna.yaml` 设为 `[2500, 5000]`；HotpotQA 的 `v1_1_hotpotqa_luna.yaml` / `unified_hotpotqa_gemma4_luna.yaml` / D0 变体设为 `[10000, 20000]`。ALFWorld Luna 的配置与在跑 V0 保持 fraction：25% 的实际 cap 为 **29,698 tokens**，论文报告记为 **B=30k**，不将运行 cap 改为 30,000。上面的 36,294 分母属于历史 bank，不是 Luna bank。
+Luna 的 V0 与统一臂必须使用同一预算形式：BFCL 的 `v1_1_bfcl_luna.yaml` / `unified_bfcl_gemma4_luna.yaml` 设为 `[15000, 30000]`；HotpotQA 的 `v1_1_hotpotqa_luna.yaml` / `unified_hotpotqa_gemma4_luna.yaml` / D0 变体设为 `[15000, 30000]`。ALFWorld Luna 的配置与在跑 V0 保持 fraction：25% 的实际 cap 为 **29,698 tokens**，论文报告记为 **B=30k**，不将运行 cap 改为 30,000。上面的 36,294 分母属于历史 bank，不是 Luna bank。
 
 manifest 的 `budget_checkpoint_form` 记录 `bank_fraction` 或 `tokens`，`budget_ceilings` 记录解析后的绝对累计 caps，`config` 保留原声明；token 形式的 `budget_rounding=none_absolute_tokens`。即使解析出相同 caps，fraction 与 token 配置仍是不同 config/campaign/replay 身份，complete/streaming replay 不能混用。旧 fraction schedule 的身份结构保持兼容。
 
@@ -121,3 +121,52 @@ PYTHONPATH=src:. /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest
 ```
 
 最终 focused CPU 检查：55 passed，33.83 s（P1、P0 QP、P0 execution）。最终全 suite：**2,436 passed、4 skipped、6 warnings，931.44 s（15:31），退出码 0**。命令与环境设置见上，完整原始日志在本次 workspace 的 `/tmp/rtd-unified-p1-pytest.log`。GPU/API 运行次数为 0。
+
+## 2026-09-11 采购口径修正
+
+采购单位统一为 task：一次购买该任务全部已记录 attempts，按账本 completion tokens
+逐项求和，含失败与账本已计入的 reasoning；估算行按原估算计费，不再加一次 reasoning。
+三个 bank 已新增 certificate 绑定的 `public/task_attempts.json`（task id、attempt index、
+tokens、verified、confidence 与原 query IDs）。broker 定价只读 public；购买时核验所有
+成员的 sealed hash 与摘要。失败任务仍入账，但不进入教师训练行；多个可用 attempt
+选择最早一个供训练，其余照常收费。原 usable denominator 与 checkpoint 配置均不改。
+
+固定顺序是 sorted task IDs 后 `random.Random(0).shuffle`，各训练 seed 共用，首次溢出
+即停，不过滤失败、不按价格跳过或补齐预算。V0/D3 保存含失败购买的 replay schedule；
+K 窗口限制保留，窗口可用额度为剩余累计授权。训练继续遵守原 inner fold，使用该固定
+顺序在合法父任务上的子序列，不重新 shuffle。下表是全 bank 审计（含不可用/受保护任务，
+无训练 fold 或窗口配额），不是 GPU 训练轨迹。
+
+| Bank | Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| alfworld | 7,500 | 0 | 0 | 0 | 0 |
+| alfworld | 15,000 | 0 | 0 | 0 | 0 |
+| alfworld | 30,000 | 1 | 0 | 3 | 21,457 |
+| alfworld | 60,000 | 8 | 4 | 16 | 58,314 |
+| bfcl | 7,500 | 9 | 4 | 19 | 2,860 |
+| bfcl | 15,000 | 9 | 4 | 19 | 2,860 |
+| bfcl | 30,000 | 9 | 4 | 19 | 2,860 |
+| bfcl | 60,000 | 9 | 4 | 19 | 2,860 |
+| hotpotqa | 7,500 | 5 | 3 | 9 | 6,690 |
+| hotpotqa | 15,000 | 8 | 4 | 16 | 12,670 |
+| hotpotqa | 30,000 | 11 | 5 | 23 | 20,944 |
+| hotpotqa | 60,000 | 26 | 13 | 58 | 57,428 |
+
+ALFWorld 30k 的 **0 usable / 21,457** 与旧 baseline 的 **5 usable / 29,229** 不同，
+原因已实际复现：只读 `paper_data.py` shuffle 的是 233 个 attempt query IDs，买下的
+13 项属于 13 个任务，但没有购买每个任务的其余 attempts。新规则 shuffle 142 个 task IDs；
+第一个任务三次全失败，8,061 + 6,536 + 6,860 = 21,457；第二个任务 9,629，合计
+31,086 超限，因此不能再买。29,698 的原配置上限得到同样前缀。不是 rounding 或费用遗漏。
+详见 [逐项 baseline 对照](rtd_alfworld_task_baseline_comparison.json)。
+
+三个 bank 在原路径完成 accounting rebuild；替换前逐文件核验，support/folds/reset states、
+所有 sealed payloads、integrity 和原 audit 的 bytes 全部未变。118,792 / 1,418 / 133,206
+分母未变，ALFWorld cap 11,879 / 29,698、BFCL/HotpotQA cap 15,000 / 30,000 未变。
+重建命令与 SHA-256 清单见 [采购审计](rtd_task_purchase_validation.json) 及
+[HotpotQA 文档](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11)。
+
+ALFWorld、HotpotQA 的 V0/D3 full CPU preflight 通过；BFCL 两臂实际运行后因本地 harness
+缺少 `memory_kv_141-notetaker-11` 失败，另跑两臂 acquisition-only 均通过。
+本次 CPU 测试与日志摘要见 [validation](rtd_task_cpu_validation.json)。GPU/API 使用均为 0。
+
+本次指定筛选 CPU suite 最终结果：**314 passed、1 skipped、3069 deselected、1 warning，104.93 s**。

@@ -96,6 +96,7 @@ public/requests.json
 public/support.json
 public/reset_states.json
 public/cap_certificate.json
+public/task_attempts.json
 sealed/<query_id>.json
 sealed/integrity.json
 sealed/audit.json
@@ -116,7 +117,7 @@ a nonempty target. Original empty replies stay in `historical_response`, and
 `provenance.empty_targets_rendered_with_native_eos` records their turn indices.
 Tasks with no verified attempt have empty behaviors and an explicit unavailable
 reason. Their costs remain available to privileged historical accounting and
-paper-baseline charging. The RTD broker offers only usable packages.
+paper-baseline charging. The RTD broker charges failed-only tasks too; they produce no training rows.
 
 Package costs sum the task's ledger `tokens_spent == usage.completion_tokens`
 across **every attempt**, including failures, later successes, hidden reasoning
@@ -166,54 +167,106 @@ the old broker could not reserve any package at 15k. This cap originates in
 it to `Ledger.reserve`. It is unrelated to `generation_batch.max_batch_tokens`,
 which happens to also be 16,384, or the 100-token ReAct action limit.
 
-The broker now validates the certificate and sealed payload hashes, then uses
-each usable package's **recorded cost** as its runtime `cost_upper_bound`.
-Candidate filtering, acquisition cost prediction, and the hard reservation all
-use that same amount. The bank bytes and class certificate remain unchanged;
-runtime provenance retains the archived class cap and names
-`recorded_package_cost` as the reservation basis. This explicitly makes recorded
-cost public to the selector; teacher text, usage details, and verification
-evidence are returned only after acquisition. Costs are revalidated on reveal.
+## Task purchase accounting correction (2026-09-11)
 
-A ReAct episode has at most seven environment steps, with 100 tokens per model
-call and the fixed prompt; the action-only format retry remains accounted for.
-The bank's task package can charge multiple recorded attempts, including failed
-attempts and hidden reasoning. The reservation therefore uses the whole ledger
-cost, **not** `7 * 100`, target length, or another prompt/completion estimate.
-Prompt tokens are separate from the configured output-token currency. Estimated
-collector usage remains labeled estimated: reservation is exact relative to
-the recorded ledger, without claiming exact provider billing.
+Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
 
-The executor buys the frozen selected order and **stops before the first
-overflow**; it does not skip to a cheaper later package. The CPU preflight now
-exercises real broker purchases in a separate in-memory ledger. For the Luna
-banks, it freezes usable packages in ascending query-ID order (dependencies
-first), across all legal support parents, and carries purchases between
-cumulative checkpoints. This checks budget feasibility without policy draws,
-fold rotation, training window quotas, model loading, or persistent spend.
+The purchase unit is now **one task containing all recorded attempts**, including
+failed attempts, later successes, and verified attempts excluded from training.
+`public/task_attempts.json` records task ID, attempt index, ledger tokens,
+verification, confidence, and archived query IDs; the certificate binds this
+file. Builders publish it from the sealed ledger rows. The broker reads only
+this public summary to price purchases and rechecks every member payload's
+integrity and ledger summary on acquisition. Completion tokens include reasoning
+exactly as the ledger records it; reasoning is never added again. Collector
+estimates remain estimates. ALFWorld's legacy `estimated` confidence labels are
+retained, even where its archived collector row contains reported usage.
 
-| Bank | Checkpoint | Old class-cap prefix count | Recorded-cost prefix count | Recorded spend |
-| --- | ---: | ---: | ---: | ---: |
-| HotpotQA | 15,000 | 0 | **18** | 14,430 |
-| HotpotQA | 30,000 | 18 | **39** | 29,234 |
-| ALFWorld | 11,879 | 0 | **7** | 10,869 |
-| ALFWorld | 29,698 | 10 | **24** | 26,180 |
-| BFCL | 15,000 | 20 | **20** | 1,418 |
-| BFCL | 30,000 | 20 | **20** | 1,418 |
+The frozen order is **sorted task IDs, shuffled once with `random.Random(0)`**,
+independent of training seed. A task is atomic: reserve and charge the sum of
+all its attempt tokens, or stop before the first overflow. Never remove a
+failed-only task or skip to a cheaper task. A failed-only or excluded task is
+ledger-owned but supplies no training row. For tasks with usable evidence, the
+earliest usable attempt supplies the trajectory (HotpotQA already selected the
+earliest verified attempt). Other attempts are still charged. The representative
+query ID remains an archived ID; member IDs cannot be bought separately.
 
-HotpotQA V0, D3 and D0 full CPU preflights pass and agree on these counts.
-At 15k the next package costs 2,078 with 570 tokens remaining; at 30k it costs
-3,262 with 766 remaining. All 113 packages are individually affordable at both
-checkpoints. ALFWorld V0/D3 also pass. ALFWorld and BFCL previously reserved
-generic class caps (16,384 and 256 respectively), so both now use recorded
-costs. BFCL's counts at 15k/30k are unchanged because its entire usable bank
-costs only 1,418 tokens. Its acquisition-only V0/D3 checks pass; full startup is
-blocked by the local harness missing `memory_kv_141-notetaker-11`.
+V0 and unified acquisition preserve this order instead of sorting the selected
+IDs or running a cost knapsack. The per-window package limit remains; task
+purchases use the remaining cumulative authorization, avoiding artificial
+per-window fractional quotas. Failed purchases stay in the durable ledger and
+V0/D3 replay schedule, but receive no teacher exposure. Existing fold guards
+remain: training restricts the one frozen order to the current legal inner
+parents, without reshuffling. The audit table below buys across **all recorded
+parents**, including unavailable/protected tasks, without training folds or
+window quotas; it is not a predicted training schedule.
 
-This reservation change applies to certified v1.1 state banks for HotpotQA,
-ALFWorld and BFCL. WebShop and legacy bank formats retain their existing cap
-conventions. See [rtd_recorded_cost_validation.json](rtd_recorded_cost_validation.json)
-for order/prefix hashes, old/new counts, certificate hashes and CPU receipts.
+The three accounting indexes were rebuilt in place from their existing sealed
+rows. Before replacement, the rebuild checked byte identity of **every existing
+artifact except the requests/certificate/accounting metadata**. In particular,
+all support manifests, task IDs, parents, folds, reset states, sealed payloads,
+integrity indexes, and original audits stayed byte-identical. A failed comparison
+aborts replacement. No raw pool, tokenizer, model, API, or GPU was needed.
+Rebuild/audit command:
+
+```bash
+PYTHONPATH=src:. CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_task_purchase_audit.py \
+  --bank data/rtd/v1_1_alfworld_luna --bank data/rtd/v1_1_bfcl_luna \
+  --bank data/rtd/v1_1_hotpotqa_luna --rebuild-accounting \
+  --out docs/rtd_task_purchase_validation.json
+```
+
+Omit `--rebuild-accounting` for a read-only audit. The default audit budgets are
+7,500 / 15,000 / 30,000 / 60,000; they do **not** modify configured checkpoints.
+ALFWorld retains the archived usable-attempt denominator **118,792** and its
+configured fraction caps **11,879 / 29,698**. BFCL retains denominator **1,418**,
+HotpotQA **133,206**; both keep absolute caps **15,000 / 30,000**. Denominators
+are archival fraction bases, not the new task purchase prices.
+
+| Bank | Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| alfworld | 7,500 | 0 | 0 | 0 | 0 |
+| alfworld | 15,000 | 0 | 0 | 0 | 0 |
+| alfworld | 30,000 | 1 | 0 | 3 | 21,457 |
+| alfworld | 60,000 | 8 | 4 | 16 | 58,314 |
+| bfcl | 7,500 | 9 | 4 | 19 | 2,860 |
+| bfcl | 15,000 | 9 | 4 | 19 | 2,860 |
+| bfcl | 30,000 | 9 | 4 | 19 | 2,860 |
+| bfcl | 60,000 | 9 | 4 | 19 | 2,860 |
+| hotpotqa | 7,500 | 5 | 3 | 9 | 6,690 |
+| hotpotqa | 15,000 | 8 | 4 | 16 | 12,670 |
+| hotpotqa | 30,000 | 11 | 5 | 23 | 20,944 |
+| hotpotqa | 60,000 | 26 | 13 | 58 | 57,428 |
+
+ALFWorld at 30,000 does **not** match the cited 5 usable / 29,229 baseline
+receipt. Direct execution of the read-only sibling's `paper_data.load_purchased`
+reproduced that receipt: it shuffles **233 archived attempt query IDs**, and its
+first 13 purchases are 13 separate attempts from 13 tasks. It does not collect
+all attempts for each of those tasks. The new task order shuffles **142 task
+IDs**. Its first task is
+`pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256`:
+three failed attempts cost **8,061 + 6,536 + 6,860 = 21,457**. The next task,
+`pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442`,
+costs **3,116 + 3,256 + 3,257 = 9,629**. Their sum **31,086** exceeds 30,000,
+so only the first task is purchased, with **zero usable packages**. The same
+prefix holds at the unchanged configured cap 29,698. This discrepancy comes
+from the baseline reader's attempt unit and query-ID order, not rounding,
+missing costs, reasoning subtraction, or support/fold changes. The read-only
+baseline worktree and paper were not modified.
+
+BFCL's tenth frozen task costs **80878** tokens, so it blocks all four reported budgets
+after 2,860 tokens. Filling those budgets with later inexpensive tasks would
+violate the prefix rule.
+
+Full V0/D3 CPU preflight passed for ALFWorld and HotpotQA. BFCL full preflight
+was run for both arms and failed at the existing local harness missing
+`memory_kv_141-notetaker-11`; its V0/D3 acquisition-only preflights passed.
+Machine-readable evidence: [task purchase audit](rtd_task_purchase_validation.json),
+[exact baseline comparison](rtd_alfworld_task_baseline_comparison.json), and
+[CPU validation](rtd_task_cpu_validation.json). Older recorded-cost receipts
+below or in linked historical reports are superseded for purchase accounting.
+
 
 `public/support.json` is byte-identical to
 `_trash/v1_1_hotpotqa_luna_partial_09120141Z/public/support.json`, including all

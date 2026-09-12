@@ -243,6 +243,7 @@ class AlphaDExperimentMixin:
     def alpha_revealed(self):
         s = self.state
         pending = [self.broker.acquire(q) for q in s['selected']]
+        pending = [p for p in pending if p.behaviors]
         if not s['calibrated'] and pending:
             self.alpha_calibrate(pending)
         records = []

@@ -1,8 +1,8 @@
 """Privileged sealed-cache broker. Selectors import selector.py only.
 
 A bank has public/request metadata and a separate sealed/ JSON directory, never
-inside src or on sys.path. Certified HotpotQA/ALFWorld/BFCL state banks disclose
-validated recorded package costs as runtime reservation bounds. Teacher evidence
+inside src or on sys.path. Task-ledger banks charge every attempt, including
+failures, in one frozen task purchase. Public costs are reservation bounds. Teacher evidence
 is returned only by acquire, after dependency, fold, and hard-budget checks.
 No teacher API exists on this path.
 """
@@ -120,7 +120,12 @@ class SealedReplayBroker:
                                                        tuple(raw["dependencies"]), raw["unavailable_reason"])
         self._integrity = json.loads((self.directory / "sealed/integrity.json").read_text())
         self.reservation_basis = 'public_class_cap'
+        self.task_packages = {}
+        self.purchase_order = ()
         self._load_recorded_reservations()
+        if self.task_packages and any(q not in self.task_packages or cost != self.task_packages[q]['tokens']
+                                      for q, cost in ledger.charges.items()):
+            raise LedgerError('restored ledger uses different task purchase accounting')
         self._purchased: dict[str, PurchasedEvidencePackage] = {}
         self._offered: set[str] = set()
         self._ever_offered: set[str] = set()
@@ -144,6 +149,25 @@ class SealedReplayBroker:
             return
         from .bank_build import validate_state_certificate
         validate_state_certificate(self.directory)
+        from .task_packages import ATTEMPT_LEDGER, PURCHASE_BASIS, validate_attempt_ledger
+        if ATTEMPT_LEDGER in core['public_artifacts']:
+            summary = validate_attempt_ledger(json.loads(
+                (self.directory / 'public' / ATTEMPT_LEDGER).read_text()), self._records)
+            self._attempt_records = self._records
+            self.task_packages = {t['query_id']: t for t in summary['tasks']}
+            by_task = {t['task_id']: t['query_id'] for t in summary['tasks']}
+            self.purchase_order = tuple(by_task[t] for t in summary['task_order'])
+            self._records = {}
+            for q, task in self.task_packages.items():
+                record = self._attempt_records[q]
+                provenance = json.loads(record.spec.cap_provenance)
+                provenance.update(basis=PURCHASE_BASIS, archived_class_cap=record.spec.cost_upper_bound,
+                                  output_token_cap=task['tokens'])
+                self._records[q] = replace(record, spec=replace(record.spec,
+                    cost_upper_bound=task['tokens'], cost_confidence=task['cost_confidence'],
+                    cap_provenance=json.dumps(provenance, sort_keys=True)))
+            self.reservation_basis = PURCHASE_BASIS
+            return
         total = 0
         for q, record in self._records.items():
             if record.unavailable_reason is not None:
@@ -169,13 +193,31 @@ class SealedReplayBroker:
             raise LedgerError('sealed payload integrity failure')
         return payload
 
+    def _read_task_payload(self, query_id):
+        from .task_packages import build_attempt_ledger
+        task = self.task_packages[query_id]
+        payloads = {q: self._read_payload(q) for q in task['query_ids']}
+        records = [self._attempt_records[q] for q in task['query_ids']]
+        if build_attempt_ledger(records, payloads)['tasks'] != [task]:
+            raise LedgerError('task attempt ledger changed on reveal')
+        selected = payloads[query_id]
+        return dict(selected, cost=task['tokens'], cost_confidence=task['cost_confidence'],
+            usage=dict(output_tokens=task['tokens'], attempts=task['attempts']),
+            provenance=dict(selected['provenance'], purchase_unit='task',
+                cost_scope=self.reservation_basis, charged_query_ids=task['query_ids'],
+                charged_attempt_indices=[a['attempt_index'] for a in task['attempts']]))
+
+    def frozen_unowned(self):
+        """Restrict the one bank order to the current legal fold; never reshuffle."""
+        return [q for q in self.purchase_order if q not in self.ledger.owned_ids and self._legal(self._records[q])]
+
     def set_inner_parents(self, parent_hashes):
         """Rotate folds before constructing features, candidates and D_inner."""
         self.inner_parent_hashes = frozenset(parent_hashes)
         self._offered.clear()
 
     def _legal(self, record):
-        return (record.unavailable_reason is None and record.parent_hash in self.inner_parent_hashes
+        return ((record.unavailable_reason is None or bool(self.task_packages)) and record.parent_hash in self.inner_parent_hashes
                 and all(self._records[d].parent_hash in self.inner_parent_hashes
                         and self._records[d].unavailable_reason is None for d in record.dependencies))
 
@@ -190,16 +232,25 @@ class SealedReplayBroker:
             budget = min(remaining_budget, self.ledger.remaining, self.ledger.window_remaining)
             features = dict(student_snapshot.state_features)
             candidates = []
-            for q, record in sorted(self._records.items()):
+            order = ((q, self._records[q]) for q in self.purchase_order) if self.task_packages else sorted(self._records.items())
+            prefix_cost = 0
+            for q, record in order:
                 # Even state hashes/features of locked prefix requests are withheld.
                 if (q in owned_ids or not self._legal(record)
                         or (self.ledger.window is not None and self.ledger.window_purchases +
                             len(self.ledger.reservations) >= self.ledger.window['max_packages'])
-                        or not set(record.dependencies) <= self.ledger.owned_ids
-                        or record.spec.cost_upper_bound > budget):
+                        or not set(record.dependencies) <= self.ledger.owned_ids):
+                    continue
+                if record.spec.cost_upper_bound + prefix_cost > budget:
+                    if self.task_packages:
+                        break
                     continue
                 spec = replace(record.spec, features=features.get(record.spec.state_hash, PublicFeatures()))
                 candidates.append(spec)
+                if self.task_packages:
+                    prefix_cost += spec.cost_upper_bound
+                    if self.ledger.window is not None and len(candidates) + self.ledger.window_purchases >= self.ledger.window['max_packages']:
+                        break
             self._offered = {s.query_id for s in candidates}
             self._ever_offered.update(self._offered)
             return candidates
@@ -215,17 +266,23 @@ class SealedReplayBroker:
                 raise UnavailableError("purchase prefix dependencies first")
             if query_id not in self._offered and query_id not in self.ledger.owned_ids:
                 raise UnavailableError("request was not offered in the current candidate view")
+            if self.task_packages and query_id not in self.ledger.owned_ids:
+                if query_id != self.frozen_unowned()[0]:
+                    raise UnavailableError('purchase must follow the frozen task order')
             self.ledger.reserve(query_id, record.spec.cost_upper_bound)
             try:
-                payload = self._read_payload(query_id)
+                payload = self._read_task_payload(query_id) if self.task_packages else self._read_payload(query_id)
                 if (self.reservation_basis == 'recorded_package_cost'
                         and payload['cost'] != record.spec.cost_upper_bound):
                     raise LedgerError('recorded package cost changed on reveal')
                 if payload["cost_confidence"] != record.spec.cost_confidence:
                     raise LedgerError("cost confidence changed on reveal")
                 behaviors = tuple(Behavior(FullState(**r["state"]), r["text"]) for r in payload["behaviors"])
-                if not behaviors or any(b.state.parent_hash != record.parent_hash for b in behaviors):
+                if ((not behaviors and (not self.task_packages or self.task_packages[query_id]['usable']))
+                        or any(b.state.parent_hash != record.parent_hash for b in behaviors)):
                     raise ValueError("missing/full-state parent mismatch in sealed behaviors")
+                if self.task_packages and not self.task_packages[query_id]['usable']:
+                    behaviors = ()
                 package = PurchasedEvidencePackage(query_id, record.dependencies, behaviors, payload["cost"],
                     payload["cost_confidence"], payload["usage"], payload["provenance"], payload["historical_response"],
                     tuple(payload.get("historical_events", ())))

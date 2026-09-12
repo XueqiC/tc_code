@@ -24,6 +24,12 @@ def privileged():
 def seal_v11(directory, records, payloads, *, benchmark, student, public, audit, inputs,
              teacher_accounting=None):
     privileged()
+    # Real paid pools carry task/attempt identities. Older synthetic/legacy
+    # banks without a ledger keep their original request protocol.
+    if benchmark in {'alfworld', 'bfcl', 'hotpotqa'} and all(
+            'task_id' in p.get('provenance', {}) for p in payloads.values()):
+        from .task_packages import ATTEMPT_LEDGER, build_attempt_ledger
+        public = dict(public, **{ATTEMPT_LEDGER: build_attempt_ledger(records, payloads)})
     maxima, counts, confidence = {}, Counter(), Counter()
     for row in records:
         if row.unavailable_reason is not None:

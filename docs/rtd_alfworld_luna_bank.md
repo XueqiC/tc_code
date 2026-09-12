@@ -253,14 +253,10 @@ support: 34 training tasks have no usable Luna package but remain in support.
 | All-attempt recorded output-token estimate | 521,643 |
 | New teacher calls / GPU use during repair | 0 / 0 |
 
-The 16,384 class cap remains in the certificate, but the broker now reserves
-each usable episode's recorded ledger cost. Previously it reserved the generic
-class cap. On the frozen ascending-query-ID prefix, V0 and D3 CPU preflight now
-buy 7 packages for 10,869 tokens at 11,879 (previously zero), and 24 packages for
-26,180 tokens at 29,698 (previously 10 packages for 15,071 tokens). Purchases stop
-before the first overflow; estimated historical cost labels remain estimated.
-These receipts exclude policy/fold/window scheduling. See
-[the reservation audit](rtd_recorded_cost_validation.json).
+The former usable-attempt reservation audit (7/24 packages at 11,879/29,698)
+is superseded by task purchase accounting. The class cap and denominator remain
+archival; the runtime charge now sums every attempt for the selected task.
+See the correction and exact baseline comparison below.
 
 All 142 reset states also match the GPT-5.4 bank exactly, so feedback and fixed
 diagnostic task selection share the same requests, histories, prompts and hashes.
@@ -302,3 +298,54 @@ The combined CPU regression run passed **67 tests** across
 `test_rtd_v11_alfworld_conversion.py`, `test_alfworld_teacher_pool.py` and
 `test_rtd_preflight.py`; output is in
 `logs/alfworld_luna_frozen_support_tests.log`.
+
+## Task purchase accounting correction (2026-09-11)
+
+Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
+
+The runtime purchase unit is **a task with all its recorded attempts**.
+The offline builders now write certificate-bound `public/task_attempts.json`
+with task ID, attempt index, ledger tokens, verification, confidence and archived
+query IDs. The broker prices from that public summary without opening sealed
+responses or raw pools; acquisition rechecks every member payload and charges
+the sum of its ledger output tokens, including failed attempts and reasoning
+already included in completion usage. Estimates remain estimates. The earliest
+usable attempt supplies the trajectory; other attempts still cost tokens.
+Failed-only/excluded tasks are paid but yield no training rows.
+
+Order: sort task IDs, then `random.Random(0).shuffle`, once for the bank.
+Purchases stop before the first overflow, including an unavailable blocker.
+Training keeps the original fold guards and restricts this order to legal inner
+parents without reshuffling; V0/D3 schedules retain charged failures. The table
+below covers all recorded parents, without training folds or window quotas.
+
+The bank was rebuilt in place from its own sealed ledger rows. The replacement
+gate confirmed byte-identical support/folds, reset states, sealed payloads,
+integrity and original audit; only the public accounting index and its binding
+metadata changed. The existing fraction denominator and configured checkpoints
+remain unchanged. The generic archived class cap is no longer the task price.
+
+| Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
+| ---: | ---: | ---: | ---: | ---: |
+| 7,500 | 0 | 0 | 0 | 0 |
+| 15,000 | 0 | 0 | 0 | 0 |
+| 30,000 | 1 | 0 | 3 | 21,457 |
+| 60,000 | 8 | 4 | 16 | 58,314 |
+
+The read-only baseline reader still shuffles **233 attempt query IDs**. Executing
+it reproduced **13 attempts from 13 tasks, 5 usable, 29,229 tokens at 30k**; it
+does not buy all attempts for each task. The new rule shuffles **142 task IDs**.
+Its first task, `pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256`,
+has three failures costing 8,061 + 6,536 + 6,860 = **21,457**. The next task costs
+**9,629**, so buying both would cost **31,086**, above 30k. The resulting zero
+usable packages also holds at the unchanged configured cap **29,698**. This is
+a difference in purchase unit and ordering, not rounding or missing costs.
+ALFWorld retains its legacy estimated confidence labels and denominator 118,792.
+
+V0/D3 full CPU preflight passed at the unchanged 11,879 / 29,698 caps.
+
+See the [shared protocol and rebuild command](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11),
+[byte-preservation and purchase audit](rtd_task_purchase_validation.json),
+[exact ALFWorld baseline comparison](rtd_alfworld_task_baseline_comparison.json),
+and [CPU validation](rtd_task_cpu_validation.json). No GPU/API calls were made.
+Older recorded-cost purchase receipts are superseded by this correction.

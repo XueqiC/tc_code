@@ -1,0 +1,53 @@
+{
+  "query_id": "96ac054d3e22a866016b8260f28382543865422b0e9631ac2a03ca6ef706d4b6",
+  "request_state_hash": "5c56fe78cc534d1776175098345154f07bd9de5bd09509c14b1d2de5afea513f",
+  "dependencies": [],
+  "status": "unavailable",
+  "unavailable_reason": "failed, interrupted, or protected attempt",
+  "exclusion_reasons": [
+    "protected probe/calibration parent"
+  ],
+  "success": false,
+  "payload_kind": null,
+  "commands": [],
+  "behaviors": [],
+  "cost": 2055,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 22148,
+    "cached_tokens": 0,
+    "completion_tokens": 2055
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 32,
+    "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T03:48:48.922066Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "pending CPU replay",
+    "source_request_state_hash": "7e1fc39ee9cc4a2d22212704024411eb20f9b54f47765ce91fe2d88de49a1c61",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": false,
+    "tokens_spent": 2055,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:48:48.922066Z",
+    "usage": {
+      "prompt_tokens": 22148,
+      "cached_tokens": 0,
+      "completion_tokens": 2055
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":false,\"tokens_spent\":2055,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T03:48:48.922066Z\",\"usage\":{\"prompt_tokens\":22148,\"cached_tokens\":0,\"completion_tokens\":2055}}",
+  "historical_events": []
+}

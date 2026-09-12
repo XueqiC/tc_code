@@ -57,10 +57,13 @@ def acquisition_preflight(manifest, support):
     from .persistence import digest
     from .selector import StudentSnapshot
     ledger, broker = prepare_ledger(manifest, support)
-    # Ascending query IDs match executor reservation order; dependencies precede
-    # their children. No budget-dependent filtering may alter this frozen order.
+    # Task banks use the certificate-bound seed-zero order. Legacy request
+    # banks retain dependency-first ID order. Never filter this order by cost.
     remaining = {q for q, r in broker._records.items() if broker._legal(r)}
     order, ordered = [], set()
+    if broker.task_packages:
+        order = [q for q in broker.purchase_order if q in remaining]
+        remaining.clear()
     while remaining:
         ready = sorted(q for q in remaining if set(broker._records[q].dependencies) <= ordered)
         if not ready:
@@ -85,13 +88,19 @@ def acquisition_preflight(manifest, support):
         if ledger.reservations or ledger.spent > cap:
             raise ValueError('acquisition preflight left an invalid ledger')
         checkpoints.append(dict(budget_tokens=cap, purchase_count=len(ledger.owned_ids),
+            tasks_purchased=len(ledger.owned_ids) if broker.task_packages else None,
+            usable_packages=sum(broker._records[q].unavailable_reason is None for q in ledger.owned_ids),
+            attempts_purchased=(sum(len(broker.task_packages[q]['attempts']) for q in ledger.owned_ids)
+                                if broker.task_packages else len(ledger.owned_ids)),
             spent_tokens=ledger.spent, remaining_tokens=ledger.remaining,
             purchased_query_ids_sha256=digest(order[:position]), next_query_id=next_id,
             next_reservation_tokens=(broker._records[next_id].spec.cost_upper_bound if next_id else None),
             stop_reason='first_overflow' if next_id else 'inventory_exhausted',
             individually_affordable_at_zero_spend=sum(broker._records[q].spec.cost_upper_bound <= cap for q in order)))
-    return dict(reservation_basis=broker.reservation_basis, order='query_id_ascending_dependency_first',
-        order_sha256=digest(order), available_packages=len(order),
+    return dict(reservation_basis=broker.reservation_basis,
+        order=('sorted_task_ids_random_seed_0' if broker.task_packages else 'query_id_ascending_dependency_first'),
+        order_sha256=digest(order), inventory_tasks=len(order) if broker.task_packages else None,
+        available_packages=sum(broker._records[q].unavailable_reason is None for q in order),
         scope='all legal support parents; cumulative prefix without training window quotas',
         checkpoints=checkpoints)
 
@@ -175,7 +184,7 @@ def main(argv=None):
         if args.acquisition_only:
             audit = bank_audit(config)
             rows = json.loads((Path(audit['bank_path'])/'public/requests.json').read_text())
-            support = SimpleNamespace(parents={r['parent_hash'] for r in rows if r['unavailable_reason'] is None})
+            support = SimpleNamespace(parents={r['parent_hash'] for r in rows})
             summary = dict(status='OK', arm=arm, mode='acquisition_only', bank_path=audit['bank_path'],
                 cap_certificate_sha256=audit.get('cap_certificate_sha256'),
                 acquisition=acquisition_preflight(audit, support))

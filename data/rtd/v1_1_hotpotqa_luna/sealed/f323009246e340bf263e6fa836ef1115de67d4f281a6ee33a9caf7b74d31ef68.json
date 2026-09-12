@@ -1,0 +1,103 @@
+{
+  "cost": 8871,
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 54703,
+    "completion_tokens": 8871,
+    "cached_tokens": 4746
+  },
+  "provenance": {
+    "task_id": "5a7a64f75542996c55b2dd91",
+    "attempt_index": 0,
+    "teacher": "openai/gpt-5.6-luna",
+    "ledger_row": 250,
+    "ledger_rows": [
+      250,
+      256,
+      265
+    ],
+    "charged_attempt_indices": [
+      0,
+      1,
+      2
+    ],
+    "selection": "earliest_verified_attempt_index",
+    "cost_scope": "all_recorded_task_attempts",
+    "ledger_sha256": "2428e55077795df128dd1367f1abbee3d480ea1f60a397dd23f9808cf12babbe",
+    "verified": false,
+    "rendering_student": "google/gemma-4-12B-it",
+    "empty_targets_rendered_with_native_eos": []
+  },
+  "historical_response": {
+    "task_id": "5a7a64f75542996c55b2dd91",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": false,
+    "tokens_spent": 3144,
+    "purpose": "teacher",
+    "timestamp": "2026-09-12T01:14:29.729760Z",
+    "prompt_version": "react6-e52ba17b32d9",
+    "usage": {
+      "prompt_tokens": 15077,
+      "completion_tokens": 3144,
+      "cached_tokens": 1582
+    },
+    "usage_status": "estimated"
+  },
+  "historical_attempts": [
+    {
+      "task_id": "5a7a64f75542996c55b2dd91",
+      "teacher": "openai/gpt-5.6-luna",
+      "attempt_index": 0,
+      "temperature": 0.0,
+      "verified": false,
+      "tokens_spent": 3144,
+      "purpose": "teacher",
+      "timestamp": "2026-09-12T01:14:29.729760Z",
+      "prompt_version": "react6-e52ba17b32d9",
+      "usage": {
+        "prompt_tokens": 15077,
+        "completion_tokens": 3144,
+        "cached_tokens": 1582
+      },
+      "usage_status": "estimated"
+    },
+    {
+      "task_id": "5a7a64f75542996c55b2dd91",
+      "teacher": "openai/gpt-5.6-luna",
+      "attempt_index": 1,
+      "temperature": 0.7,
+      "verified": false,
+      "tokens_spent": 1853,
+      "purpose": "teacher",
+      "timestamp": "2026-09-12T01:15:20.332100Z",
+      "prompt_version": "react6-e52ba17b32d9",
+      "usage": {
+        "prompt_tokens": 15279,
+        "completion_tokens": 1853,
+        "cached_tokens": 1582
+      },
+      "usage_status": "reported"
+    },
+    {
+      "task_id": "5a7a64f75542996c55b2dd91",
+      "teacher": "openai/gpt-5.6-luna",
+      "attempt_index": 2,
+      "temperature": 0.7,
+      "verified": false,
+      "tokens_spent": 3874,
+      "purpose": "teacher",
+      "timestamp": "2026-09-12T01:16:39.752129Z",
+      "prompt_version": "react6-e52ba17b32d9",
+      "usage": {
+        "prompt_tokens": 24347,
+        "completion_tokens": 3874,
+        "cached_tokens": 1582
+      },
+      "usage_status": "reported"
+    }
+  ],
+  "behaviors": [],
+  "verification": null
+}
