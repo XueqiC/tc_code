@@ -209,7 +209,9 @@ def run_hotpotqa(root, merged, out, *, kang, port, smoke=False, config):
 def evaluate_run(root, directory, manifest):
     from ..evaluation import _flatten_adapter
     from ..hardware import hardware_identity
+    from .paper_seeds import verify_seed_zero
     root, directory = Path(root).resolve(), Path(directory).resolve()
+    verify_seed_zero(directory, manifest, selection=True)
     import torch
     torch.set_num_threads(max(1, min(4, int(manifest["config"].get("cpu_threads", 4)))))
     manifest["status"] = "evaluating"
@@ -246,6 +248,7 @@ def evaluate_run(root, directory, manifest):
     else:
         raise ValueError("unknown paper baseline benchmark: " + benchmark)
     receipt = dict(protocol=protocol(manifest["benchmark"], smoke=smoke), method=manifest["method"],
+        seed=manifest.get("seed", 0),
         teacher_tokens_charged=manifest["teacher_tokens_charged"], B=manifest["B"],
         checkpoint_sha256=manifest["checkpoint_sha256"], export_sha256=tree_hash(policy))
     receipt["hardware"] = hardware

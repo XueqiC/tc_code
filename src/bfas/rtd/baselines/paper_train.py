@@ -14,11 +14,13 @@ from .paper_data import first_thought, select_smartad
 from .paper_losses import (SmallDiscriminator, discriminator_loss, group_advantages,
                            grpo_loss, span_ce, token_kinds)
 from .paper_progress import progress, stage
+from .paper_seeds import training_seed, verify_seed_zero
 from ..source_scoring import require_device
 
 
 def hyperparameters(config, method):
-    settings = dict(student=config["student"], seed=0, lora_rank=config["lora_rank"],
+    seed = training_seed(config)
+    settings = dict(student=config["student"], seed=seed, lora_rank=config["lora_rank"],
         lora_alpha=config["lora_alpha"], lora_target_modules=config["lora_target_modules"],
         lora_dropout=0., optimizer="fixed_preconditioned_single_step",
         preconditioner="train_only_rms_diagonal", preconditioner_refresh_steps=12,
@@ -34,7 +36,7 @@ def hyperparameters(config, method):
                   n=3, sampling_temperature=.7, official_single_sample_also_reported=True,
                   tie_break="first valid sample; first raw sample when all invalid"),
         gad=dict(discriminator="separate byte GRU", embedding_width=32, hidden_width=64,
-                 discriminator_optimizer="AdamW", discriminator_lr=1e-4, discriminator_seed=0,
+                 discriminator_optimizer="AdamW", discriminator_lr=1e-4, discriminator_seed=seed,
                  discriminator_weight_decay=0., discriminator_loss="Bradley-Terry",
                  group_size=4, rounds=4, pg_steps_per_round=5, warmup_student_steps=4,
                  discriminator_steps_per_prompt=1, advantage_epsilon=1e-6, clip=.2,
@@ -49,9 +51,10 @@ def hyperparameters(config, method):
 
 
 class PaperTrainer:
-    def __init__(self, backend, rows, config, method, directory, journal):
+    def __init__(self, backend, rows, config, method, directory, journal, *, manifest=None):
         self.backend, self.rows, self.config = backend, list(rows), config
         self.method, self.directory, self.journal = method, Path(directory), journal
+        self.seed, self.manifest = training_seed(config), manifest
         self.parameters = lora_parameters(backend.model)
         self.device = next(iter(self.parameters.values())).device
         expected = torch.device(config.get("training_device", str(self.device)))
@@ -60,13 +63,13 @@ class PaperTrainer:
         self.encoded_rows, self.encoded_prompts = {}, {}
         self.scored_tokens = 0
         self.hp = hyperparameters(config, method)
-        self.rng = torch.Generator(device=self.device).manual_seed(0)
+        self.rng = torch.Generator(device=self.device).manual_seed(self.seed % (2**64))
         self.discriminator = None
         if method == "gad":
             # A separate RNG scope prevents discriminator initialization from
             # changing student/source sampling or LoRA initialization.
             with torch.random.fork_rng(devices=[]):
-                torch.manual_seed(0)
+                torch.manual_seed(self.seed % (2**64))
                 self.discriminator = SmallDiscriminator().to(self.device)
             self.discriminator_optimizer = torch.optim.AdamW(
                 self.discriminator.parameters(), lr=1e-4, weight_decay=0.)
@@ -208,10 +211,13 @@ class PaperTrainer:
                 for row in self.rows:
                     self.encode(row)
         atomic_json(self.directory/"training_rows.json", [asdict(row) for row in self.rows])
+        if self.manifest is not None and self.seed:
+            verify_seed_zero(self.directory, self.manifest, selection=True)
+            atomic_json(self.directory/"manifest.json", self.manifest)
         teacher_by_prompt = {}
         for row in self.rows:
             teacher_by_prompt.setdefault(row.prompt, row)
-        schedule_rng = random.Random(0)
+        schedule_rng = random.Random(self.seed)
         schedule = [[schedule_rng.randrange(len(self.rows)) for _ in range(self.hp["slots_per_step"])]
                     for _ in range(self.hp["student_steps"])]
         atomic_json(self.directory/"exposure_schedule.json", dict(

@@ -43,6 +43,26 @@ evaluation artifacts. Levels run sequentially in the supplied order with the
 same frozen purchase order and seed. Omit `--prepare-only` to train/evaluate each
 level in one invocation, using a fresh prefix.
 
+`--seed` accepts any non-negative integer and controls training randomness only:
+adapter initialization, global scoring/dropout RNGs, the exposure schedule,
+preconditioner rollouts, and GAD sampling/discriminator initialization. Dropout
+remains disabled by the existing recipe. Seed zero retains the paths above;
+seed 7 appends `_s7` to each path (for example, `alfworld_smartad_B15000_s7`).
+Pass the same unsuffixed `--run-dir` prefix for each repeat. The seed is recorded
+in the manifest, hyperparameters, preparation summary, and evaluation metrics,
+so curve reports can group by method/budget and compute mean and spread.
+
+Purchase order and usable demonstrations remain frozen at purchase seed zero.
+For nonzero repeats, a guard compares purchase metadata and the exact bytes of
+`purchased_rows.json` with matching seed-zero runs in the same parent directory,
+including a reference under a different name. Before the first training update,
+it also compares `training_rows.json` and SmartAD's `smartad_selection.json`
+(scores and selected IDs); evaluation rechecks these artifacts. Mismatches or
+missing required reference artifacts fail loudly. Preparation can verify purchases
+while selection is still pending; if no seed-zero run exists, the manifest records
+`no_seed_zero_run`. Reference runs are read only. Exposure schedules may differ;
+evaluation task selection, decoding, and evaluation seeds stay fixed.
+
 Append `--prepare-only` for a CPU purchase/manifest audit. It creates no metrics
 and launches no workers. Training and evaluation use separate child processes
 so the training model releases GPU memory before vLLM starts. Existing run
@@ -159,8 +179,8 @@ is not an additional generated action. Complete prompts are never truncated.
 
 LoRA rank 16, alpha 32, dropout 0, and the seven target modules are read from
 `configs/rtd/v1_1_alfworld_luna.yaml`: q/k/v/o projections and gate/up/down
-projections. Student seed is fixed at 0. Load the same local BF16/eager Gemma
-backbone and FP32 LoRA coordinates via the RTD loader, with its gradient
+projections. Student seed defaults to 0 and follows `--seed`. Load the same local
+BF16/eager Gemma backbone and FP32 LoRA coordinates via the RTD loader, with its gradient
 checkpointing and generation/scoring consistency guard.
 
 Match the D0 control's **optimizer and student update budget**: 24 commits,
@@ -168,7 +188,7 @@ Match the D0 control's **optimizer and student update budget**: 24 commits,
 Use the shared `FrozenStep` and `rms_diagonal` implementations; refresh P at
 steps 1 and 13 from two fresh student responses per distinct purchased prompt,
 with relative damping .01 and mean diagonal 1. Rows are sampled with replacement
-using a separate seed-zero RNG; the exposure schedule is saved. SmartAD's
+using a separate training-seed RNG; the exposure schedule is saved. SmartAD's
 selection and Kang's prefix change the method-specific training rows.
 
 These are budgeted few-shot baseline runs, **not P1 recorded-V0-exposure arms**:
