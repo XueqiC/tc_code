@@ -3,6 +3,7 @@
 
 Default runs training and official evaluation in separate processes. Use
 --prepare-only for a CPU-only purchase/manifest audit without loading a model.
+Comma-separated --budget-tokens levels use --run-dir as a common directory prefix.
 """
 import argparse
 from dataclasses import asdict
@@ -17,26 +18,39 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/"src"), str(ROOT)]
 
 
+def budget_token_levels(value):
+    try:
+        levels = [int(part) for part in value.split(",")]
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("budget tokens must be comma-separated nonnegative integers") from error
+    if any(level < 0 for level in levels):
+        raise argparse.ArgumentTypeError("budget tokens must be nonnegative integers")
+    if len(set(levels)) != len(levels):
+        raise argparse.ArgumentTypeError("budget token levels must be distinct")
+    return levels
+
+
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--method", required=True, choices=("smartad", "sad", "kang", "gad"))
     parser.add_argument("--benchmark", required=True, choices=("alfworld", "bfcl"))
     parser.add_argument("--bank", required=True, type=Path)
-    parser.add_argument("--budget-fraction", default="0.25")
+    budget = parser.add_mutually_exclusive_group(required=True)
+    budget.add_argument("--budget-tokens", type=budget_token_levels, metavar="B[,B,...]",
+                        help="absolute teacher-output-token cap(s); multiple levels use RUN_DIR_B<cap>")
+    budget.add_argument("--budget-fraction", help="legacy fraction of the certified usable cost basis")
     parser.add_argument("--seed", type=int, default=0, choices=(0,))
     parser.add_argument("--run-dir", required=True, type=Path)
     parser.add_argument("--port", type=int, default=8930)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--_phase", choices=("train", "evaluate"), help=argparse.SUPPRESS)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args._phase and args.budget_tokens is not None and len(args.budget_tokens) != 1:
+        parser.error("an internal worker phase requires a single budget level")
+    return args
 
 
-def prepare(args):
-    import yaml
-    from bfas.rtd.baselines.paper_data import STUDENT, load_purchased
-    from bfas.rtd.baselines.paper_evaluation import protocol
-    from bfas.rtd.baselines.paper_train import hyperparameters
-    from bfas.rtd.persistence import atomic_json, file_hash, digest
+def validate_run_args(args):
     if not args.bank.is_absolute():
         raise ValueError("--bank must be an absolute path")
     if not 1 <= args.port <= 65535:
@@ -45,6 +59,15 @@ def prepare(args):
         raise ValueError("run directory must not be inside the read-only bank")
     if args.run_dir.exists():
         raise FileExistsError("choose a fresh --run-dir; existing runs are never overwritten")
+
+
+def prepare(args):
+    import yaml
+    from bfas.rtd.baselines.paper_data import STUDENT, load_purchased
+    from bfas.rtd.baselines.paper_evaluation import protocol
+    from bfas.rtd.baselines.paper_train import hyperparameters
+    from bfas.rtd.persistence import atomic_json, file_hash, digest
+    validate_run_args(args)
     cfg_path = ROOT/"configs/rtd"/f"v1_1_{args.benchmark}_luna.yaml"
     config = yaml.safe_load(cfg_path.read_text())
     shared_path = ROOT/"configs/rtd/v1_1_alfworld_luna.yaml"
@@ -56,7 +79,8 @@ def prepare(args):
         initial_eta=1e-5, optimizer="fixed_preconditioned_single_step")
     if args.benchmark == "bfcl":
         config["student_call_format"] = "gemma4"
-    purchase, rows = load_purchased(args.bank, args.benchmark, args.budget_fraction)
+    purchase, rows = load_purchased(args.bank, args.benchmark, args.budget_fraction,
+                                   budget_tokens=args.budget_tokens)
     source_files = [Path(__file__), *sorted((ROOT/"src/bfas/rtd/baselines").glob("paper_*.py")),
                     ROOT/"tools/baseline_bfcl.py", ROOT/"src/bfas/adapters/alfworld.py",
                     *[ROOT/"src/bfas/rtd"/name for name in ("runtime.py", "functional_step.py",
@@ -105,31 +129,19 @@ def train_worker(directory, manifest):
         atomic_json(directory/"manifest.json", manifest)
 
 
-def main(argv=None):
-    args = arguments(argv)
-    args.run_dir = args.run_dir.resolve()
-    os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", PYTHONHASHSEED="0")
-    from bfas.rtd.persistence import atomic_json, file_hash
+def run_budget(args):
+    from bfas.rtd.persistence import atomic_json
     path = args.run_dir/"manifest.json"
-    if args._phase:
-        manifest = json.loads(path.read_text())
-        for name, sha in manifest["source_hashes"].items():
-            if file_hash(ROOT/name) != sha:
-                raise ValueError("baseline code changed after preparation")
-        if args._phase == "train":
-            train_worker(args.run_dir, manifest)
-        else:
-            from bfas.rtd.baselines.paper_evaluation import evaluate_run
-            evaluate_run(ROOT, args.run_dir, manifest)
-        return 0
     manifest = prepare(args)
     if args.prepare_only:
-        print(json.dumps(dict(status="prepared", B=manifest["B"],
+        print(json.dumps(dict(status="prepared", run_dir=str(args.run_dir), B=manifest["B"],
             teacher_tokens_charged=manifest["teacher_tokens_charged"],
             usable_packages=manifest["purchased_usable_packages"], new_teacher_calls=0, gpu_hours=0.)))
         return 0
+    budget = (["--budget-tokens", str(args.budget_tokens)] if args.budget_tokens is not None
+              else ["--budget-fraction", args.budget_fraction])
     worker = [sys.executable, str(Path(__file__).resolve()), "--method", args.method,
-        "--benchmark", args.benchmark, "--bank", str(args.bank), "--budget-fraction", args.budget_fraction,
+        "--benchmark", args.benchmark, "--bank", str(args.bank), *budget,
         "--seed", "0", "--run-dir", str(args.run_dir)]
     try:
         for phase in ("train", "evaluate"):
@@ -147,6 +159,36 @@ def main(argv=None):
         manifest["evaluation_gpu_hours"] = sum(r["gpu_seconds"] for r in usages)/3600
         manifest["gpu_hours"] = manifest.get("training_gpu_hours", 0.)+manifest["evaluation_gpu_hours"]
         atomic_json(path, manifest)
+    return 0
+
+
+def main(argv=None):
+    args = arguments(argv)
+    args.run_dir = args.run_dir.resolve()
+    os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", PYTHONHASHSEED="0")
+    if args._phase:
+        from bfas.rtd.persistence import file_hash
+        manifest = json.loads((args.run_dir/"manifest.json").read_text())
+        for name, sha in manifest["source_hashes"].items():
+            if file_hash(ROOT/name) != sha:
+                raise ValueError("baseline code changed after preparation")
+        if args._phase == "train":
+            train_worker(args.run_dir, manifest)
+        else:
+            from bfas.rtd.baselines.paper_evaluation import evaluate_run
+            evaluate_run(ROOT, args.run_dir, manifest)
+        return 0
+    levels = args.budget_tokens
+    runs = []
+    for cap in levels if levels is not None else [None]:
+        directory = (args.run_dir.with_name(f"{args.run_dir.name}_B{cap}")
+                     if levels is not None and len(levels) > 1 else args.run_dir)
+        runs.append(argparse.Namespace(**{**vars(args), "budget_tokens": cap, "run_dir": directory}))
+    # Refuse collisions across the entire curve before creating or running any level.
+    for run in runs:
+        validate_run_args(run)
+    for run in runs:
+        run_budget(run)
     return 0
 
 

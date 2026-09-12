@@ -19,23 +19,31 @@ TEACHER = "gpt-5.6-luna"
 EMPTY_THOUGHT = "<|channel>thought\n<channel|>"
 
 
-def frozen_purchase(package_ids, cost_of, denominator, fraction):
-    """Seed-zero prefix, actual charges, half-up cap; never skip a blocker.
+def frozen_purchase(package_ids, cost_of, denominator=None, fraction=None, *, budget_tokens=None):
+    """Seed-zero prefix, actual charges, absolute or half-up cap; never skip a blocker.
 
     Includes unavailable/failed attempts. Actual costs are inspected by the
     sealed replay accountant, not treated as free acquisition features.
     """
-    fraction = Decimal(str(fraction))
-    if not fraction.is_finite() or not 0 < fraction <= 1:
-        raise ValueError("budget fraction must be in (0, 1]")
-    if type(denominator) is not int or denominator <= 0:
-        raise ValueError("positive usable cost basis required")
+    if (fraction is None) == (budget_tokens is None):
+        raise ValueError("exactly one of budget fraction and budget tokens is required")
+    if budget_tokens is not None:
+        if type(budget_tokens) is not int or budget_tokens < 0:
+            raise ValueError("budget tokens must be a nonnegative integer")
+        exact, cap, rounding = budget_tokens, budget_tokens, "none"
+    else:
+        fraction = Decimal(str(fraction))
+        if not fraction.is_finite() or not 0 < fraction <= 1:
+            raise ValueError("budget fraction must be in (0, 1]")
+        if type(denominator) is not int or denominator <= 0:
+            raise ValueError("positive usable cost basis required")
+        exact = fraction * denominator
+        cap = int(exact.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        rounding = "positive_integer_half_up"
     order = sorted(package_ids)
     if len(set(order)) != len(order):
         raise ValueError("duplicate package IDs")
     random.Random(0).shuffle(order)
-    exact = fraction * denominator
-    cap = int(exact.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     charges, spent, blocked = [], 0, None
     for qid in order:
         cost = cost_of(qid)
@@ -48,8 +56,9 @@ def frozen_purchase(package_ids, cost_of, denominator, fraction):
         spent += cost
     return dict(purchase_seed=0, purchase_order=order, purchase_order_hash=digest(order),
         purchase_rule="sorted query IDs; random.Random(0).shuffle; stop before first overflow",
-        budget_fraction=str(fraction), usable_cost_basis=denominator,
-        B_exact=str(exact), B=cap, rounding="positive_integer_half_up",
+        budget_fraction=str(fraction) if fraction is not None else None,
+        budget_tokens=budget_tokens, usable_cost_basis=denominator,
+        B_exact=str(exact), B=cap, rounding=rounding,
         purchased_package_ids=[r["package_id"] for r in charges], charges=charges,
         teacher_tokens_charged=spent, remaining_tokens=cap-spent, blocked_next=blocked,
         cost_scope="sealed cached-content access including purchased unavailable attempts",
@@ -78,7 +87,7 @@ def deployed_row(row):
     return row
 
 
-def load_purchased(bank, benchmark, fraction):
+def load_purchased(bank, benchmark, fraction=None, *, budget_tokens=None):
     bank = Path(bank)
     if not bank.is_absolute():
         raise ValueError("--bank must be an absolute path")
@@ -100,7 +109,8 @@ def load_purchased(bank, benchmark, fraction):
         return value
 
     purchase = frozen_purchase(requests, lambda q: payload(q)["cost"],
-                               cert["core"]["budget_denominator"], fraction)
+                               cert["core"]["budget_denominator"], fraction,
+                               budget_tokens=budget_tokens)
     rows = []
     for charge in purchase["charges"]:
         qid = charge["package_id"]

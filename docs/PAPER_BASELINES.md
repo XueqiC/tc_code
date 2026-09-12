@@ -10,13 +10,31 @@ benchmark performance result was produced.
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python tools/baseline_run.py \
   --method smartad --benchmark alfworld \
   --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna \
-  --budget-fraction 0.25 --seed 0 --run-dir results/paper_baselines/alfworld_smartad
+  --budget-tokens 30000 --seed 0 --run-dir results/paper_baselines/alfworld_smartad
 
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python tools/baseline_run.py \
   --method gad --benchmark bfcl \
   --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_bfcl_luna \
-  --budget-fraction 0.25 --seed 0 --run-dir results/paper_baselines/bfcl_gad
+  --budget-tokens 5000 --seed 0 --run-dir results/paper_baselines/bfcl_gad
+
+# Prepare the ALFWorld B/2, B, 2B curve on CPU in one invocation.
+.venv/bin/python tools/baseline_run.py \
+  --method smartad --benchmark alfworld \
+  --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna \
+  --budget-tokens 15000,30000,60000 --seed 0 \
+  --run-dir results/paper_baselines/alfworld_smartad --prepare-only
 ```
+
+Supply exactly one of `--budget-tokens` and the backward-compatible
+`--budget-fraction`; there is no implicit CLI budget. Token caps are nonnegative
+integers (zero permits only zero-cost packages). A single cap uses `--run-dir`
+unchanged. A comma list requires distinct caps and treats `--run-dir` as a common
+prefix, creating sibling directories `alfworld_smartad_B15000`,
+`alfworld_smartad_B30000`, and `alfworld_smartad_B60000` in the example above.
+Each contains its own manifest and purchased rows, and, when run, training and
+evaluation artifacts. Levels run sequentially in the supplied order with the
+same frozen purchase order and seed. Omit `--prepare-only` to train/evaluate each
+level in one invocation, using a fresh prefix.
 
 Append `--prepare-only` for a CPU purchase/manifest audit. It creates no metrics
 and launches no workers. Training and evaluation use separate child processes
@@ -28,14 +46,33 @@ directory, except the existing serving/port locks.
 
 ## Purchase contract
 
-The authority is the frozen **purchase** rule in `paper/sections/appendix.tex`,
-“Sealed-pool baseline runs”, alongside `bank_build.py` and the v1.1 certificate.
+Choose the absolute **teacher-output-token cap B a priori**, before inspecting
+bank costs, success rates, purchased trajectories, or evaluation results. Fix
+the same B for every method on a benchmark, independently of bank size or the
+certified usable cost basis. Proposed defaults and prespecified budget-curve
+levels are:
+
+| Benchmark | B/2 | B (proposed default) | 2B |
+|---|---:|---:|---:|
+| ALFWorld | 15,000 | 30,000 | 60,000 |
+| HotpotQA | 10,000 | 20,000 | 40,000 |
+| BFCL | 2,500 | 5,000 | 10,000 |
+
+These are protocol choices, not budgets fitted to observed performance. The
+HotpotQA rule is specified for the paper; this runner currently supports only
+ALFWorld and BFCL. Pass the chosen cap(s) explicitly on the command line.
+
+The authority for the frozen **purchase order and charging** rule is
+`paper/sections/appendix.tex`, “Sealed-pool baseline runs”, alongside
+`bank_build.py` and the v1.1 certificate.
 Start from all public query IDs, sorted lexicographically, then shuffle once
 with Python `random.Random(0)`. All methods use this identical order. Do not
 shuffle only successful packages or skip costly failures.
 
-The integer cap is `B = ROUND_HALF_UP(fraction * certified usable cost basis)`;
-the unrounded product is also recorded. Inspect the next package's recorded
+With `--budget-tokens B`, the integer cap is exactly B, without rounding or bank
+normalization. For legacy `--budget-fraction` runs only, the cap remains
+`B = ROUND_HALF_UP(fraction * certified usable cost basis)`, with the unrounded
+product recorded. Inspect the next package's recorded
 `cost` in privileged sealed replay accounting. Purchase it only if cumulative
 actual charges remain at most B; **stop at the first overflow**, even if later
 packages would fit. This is an offline actual-content-cost simulation, distinct
@@ -45,7 +82,8 @@ inventory still cost their recorded tokens and supply no positives. Costs keep
 the bank's exact/estimated confidence; historical collection costs are neither
 replaced nor relabeled as new calls. Certificate and package digests are checked.
 
-Read-only audit of the supplied banks on 2026-09-11:
+Historical read-only audit of the supplied banks on 2026-09-11 using the legacy
+25% fraction rule (not the proposed absolute caps above):
 
 | Bank | Usable basis | B at 25% | Charged | Purchased attempts | Usable trajectories | Training turns |
 |---|---:|---:|---:|---:|---:|---:|
@@ -177,7 +215,8 @@ the same tasks and official checkers. Each vote is archived in
 `kang_votes.jsonl` under its campaign directory. This doubles evaluation
 campaigns for Kang and adds its candidate/probe cost.
 
-`manifest.json` records B and its exact product, the complete frozen order,
+`manifest.json` records B, the requested `budget_tokens` (or legacy
+`budget_fraction` and its exact product), the complete frozen order,
 purchased IDs and per-attempt charges/confidence/digests, teacher tokens,
 positive counts, method hyperparameters, configuration/code hashes, base and
 tokenizer identities, checkpoint identity, hardware, status and GPU hours.
