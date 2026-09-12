@@ -1602,3 +1602,264 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/10 16:27Z rtd-v11-c 合并 main + webshop-adapter + gemma4-bfcl(5bbe357;子集 55 测试通过);Codex D16 已起(tc-alignment-v11c):学生泛化到 gemma-4-12B-it、Gemma 4 decode、WebShop v1.1 包、ALFWorld v1.1 配置/bank 转换、bank 构建工具、三个新 config(logs/codex_d16_launch.log)。BFCL GPT-5.4 采集运行中(等待器 bl3kln3ho);WebShop reasoning-low 探针运行中(b8lz825y0)。
 - 9/10 16:49Z Azure APIM 限流:并行的 BFCL 采集 + WebShop 探针 + 单集追踪互相争抢 TPM,追踪 500 s 内没跑完(429 重试)。规则:同一时间只跑一条 Azure 采集;追踪等探针结束再做。
 - 9/10 17:03Z 用户:先更新论文 §5/§6(pair、benchmark、Table 1 含基座分),再按附件《RTD 统一蒸馏任务书》改方法(统一来源替换 a_ij、gCV 估计器、联合 QP、采购价值 A(Q)、摊销控制器;P0→P3)。附件存为 docs/RTD_UNIFIED_DISTILLATION_TASKBOOK_ZH.md。计划:论文先改;D16 落地后从 rtd-v11-c 开 unified 分支,Codex 做 P0(数学契约+玩具测试+接口)。
+- 9/10 17:06Z 论文 §5/§6/附录已改为新 pair(gemma-4-12B + GPT-5.4;ALFWorld/WebShop/BFCL;Table 1 基座行 56.4/18.2/45.6;旧 pair 结果移到附录 tab:earlier;协议表/支持集表/参考表更新;新增 gemma4 bib)并推送。方法部分待 unified 分支 P0 后重写。
+- 9/10 17:07Z unified 分支:worktree tc-alignment-uni(branch rtd-unified,自 rtd-v11-c 5bbe357),Codex P0 已起(logs/codex_unified_p0_launch.log):src/bfas/rtd/unified/(TeachingProblem、a_ij、q̂、g_raw/g_CV、b_ij、联合 QP)、§6 接口、玩具测试、docs/RTD_UNIFIED_METHOD_ZH.md 与 EXPERIMENT_PLAN。D16 落地后需把 rtd-v11-c 合并进 rtd-unified。
+- 9/10 17:12Z 用户:GPU2 空了赶紧占上 → GPU2(20b20454)起 gemma-4-12B-it vLLM(:8950,pid 2420248,logs/vllm_gpu2_hold_gemma4-12b-base.log),作评测通道占位。
+- 9/10 17:33Z D16 提交 c05782a(rtd-v11-c)。bank 构建命令见 tc-alignment-v11c/docs/rtd_v1_1_d16.md:BFCL 需 data/bfcl_sft/pool_gpt54_sft.jsonl + data/teacher_ledger/bfcl_gpt54.jsonl;WebShop 需 data/webshop_sft/demos_gpt54.json + webshop ledger;ALFWorld 用 tools/rtd_alfworld_bank_v11.py 转换 v1_alfworld_c26(正在跑)。
+- 9/10 17:33Z ALFWorld v1.1 bank 建成 data/rtd/v1_1_alfworld(107 包,估计成本 36,294,cap 和 219,136)。
+- 9/10 17:34Z 无 ≥66GB 空卡;挂抢卡链跑 ALFWorld v1.1 V0 smoke(D16 GPU 验证;tc-alignment-v11c/logs/alf_smoke_grab.log)。
+- 9/10 17:43Z WebShop 教师探针:reasoning low 在 605–609 = 1/5 通过(13 次尝试 8,409 token,~650/次),与 none(600–604,1/5)相同 → GPT-5.4 + 当前 ReAct 提示 ≈ 学生基座。正在测观察窗 6,000 字符(610–614,none;logs/webshop_teacher_obs6000_probe.log)。gpt-5.6-luna 探测在 Azure 限流下超时,稍后再试。
+- 9/10 17:44Z gpt-5.6-luna 在 Azure 可用(1.3 s)。已链:obs6000 探针结束后测 luna(无 reasoning,obs 2500)在 615–619 的通过率(logs/webshop_teacher_luna_probe.log)。
+- 9/10 17:47Z BFCL GPT-5.4 FC harness 采集完成:demand 40 题(seed 50 split)verified 27/40(全部来自第 1 次尝试),合并结果 envs/bfcl/.../result_demos_azure_gpt_5_4_FC;但 D16 bank 需要 adapter 路径的 ledger/demo 模式 → 已链(luna 探针结束后)通过 BFCLAdapter.teacher_demo 重采 40 题(约 +1 万 token),写 data/bfcl_sft/demos_gpt54_adapter.json 与 ledger(teacher=azure/gpt-5.4-FC)。
+- 9/10 17:50Z Azure P1 key 返回 403 'OpenAI token quota is already exceeded'(本周额度已被更早的 AppWorld gpt-5.4 池 4.79M 用掉;今天 BFCL harness 采集仅 1,884 token);P2 key 正常。已停用 P1 的探针/链;后续探针与采集改用 AZURE_P2_PRIMARY。
+- 9/10 18:07Z WebShop 教师探针汇总(每组 5 题×≤3 次):gpt-5.4 none 1/5;gpt-5.4 low 1/5;gpt-5.6-luna greedy 1/5(ledger 里 625–629 的 teacher 字段误标为 gpt-5.4,实际是 luna;其 T=0.7 尝试全部 0 token=调用失败,luna 不接受 temperature)。三种教师都≈学生基座 → 问题在提示/观察处理;正在逐步追踪 625/627(logs/webshop_teacher_trace_625.log)。
+- 9/10 18:29Z 追踪结论:教师行为合理,失败源于观察窗 2,500 字符只显示结果页前 ~3 件商品。拟改协议 OBS_CHARS=6000(教师/学生同口径):GPU2 重测 12B 基座 obs6000(results/webshop/gemma4_12b_base_obs6000);P2 教师探针 obs6000 630–634(logs/webshop_teacher_obs6000_p2.log)。
+- 9/10 18:39Z Codex P0 交付(rtd-unified):src/bfas/rtd/unified/{problem,estimators,objective,solver,execution,feedback,interfaces,scoring,engine}.py + 51 测试(全套 2,387 通过)+ docs/RTD_UNIFIED_METHOD_ZH.md / EXPERIMENT_PLAN / P0 预算清单 + configs/rtd/unified_bfcl_gemma4.yaml。已证恒等式 I1–I11,反例 C1–C9;关键数学修正:随机长度均值 NLL 下'期望匹配'与'快照处软梯度为零'不能同时成立,实现给出匹配的长度修正。
+- 9/10 18:42Z rtd-unified 合并 D16(6cd879f;identity 测试取 D16 版;64 项相关测试通过)。下一步 Codex P1-prep:unified 的 ALFWorld/WebShop 配置、smoke 路径、D0–D3 臂预设。
+- 9/10 18:43Z P2 key 429 'token limit exceeded'(TPM 限流,非配额):BFCL adapter 采集与 WebShop obs6000 教师探针并行争抢 → 杀掉探针,让 BFCL 采集单独跑完后再链探针。P1 仍 403(配额)。
+- 9/10 19:28Z P1-prep 提交 0914657(rtd-unified)。GPU 链改为(tc-alignment-uni):有 ≥66GB 空卡 → unified D3 ALFWorld smoke(2h 上限)→ v1.1 ALFWorld V0 真跑(录 P1 的 exposure schedule);旧 v11c smoke 链已停。
+- 9/10 19:33Z 论文方法/理论按 unified replacement 重写并推送:§3(a_ij、q̂、g_CV+长度修正、b_ij/θ⁺(a)、凸联合问题、A(Q))、§4 三个命题(合法目标与一致估计、仿射更新、条件局部增益)+ 反例、摘要/引言/相关工作/结论、RQ2、归因表(D0–D3+变体)、附录方法细节与证明。
+- 9/10 19:44Z BFCL adapter 路径采集完成:40 题 verified 25(5,841 s,多为 429 等待),demos 写入 data/bfcl_sft/demos_gpt54_adapter.json;adapter 路径未写 BFAS ledger;结束时 P2 也返回 quota exceeded。
+- 9/10 19:45Z Azure P1、P2 均 403 quota exceeded → 本周教师调用停止。已停 obs6000 教师探针链。Codex 任务:从 harness 尝试记录合成 bfcl_gpt54 ledger + pool 并建 bank(logs/codex_bfcl_bank_launch.log)。
+- 9/10 19:50Z WebShop 12B 基座 obs6000 = SR 19.4 / score 54.8(obs2500:18.2/53.7);冻结 OBS_CHARS=6000(tools/webshop_eval.py 默认改 6000);Table 1/附录/协议文档已更新推送。
+- 9/10 19:59Z BFCL GPT-5.4 bank 建成 data/rtd/v1_1_bfcl_gpt54(21 包/21 状态;可用成本 1,519 token = 710 精确 + 809 估计;10%/25% 上限 152/380;harness 全部尝试实际用量 205,053 token,主要是 memory 前置链;报告 docs/rtd_v1_1_bfcl_gpt54_bank.md)。rtd-unified 已合并 main(1424712 → merge)。
+- 9/10 20:58Z 用户问 Ollama 是否有 luna:没有。ollama.com 20 模型中非中资:gpt-oss:120b/20b、mistral-large-3:675b、nemotron-3-super/ultra/nano、gemma4:31b。正在用 ollama key1 探 gpt-oss:120b 做 WebShop 教师(640–644,obs 6000;logs/webshop_teacher_gptoss120_probe.log)。
+- 9/10 20:59Z ollama /v1 原生工具调用检查:gpt-oss:120b(57 tok,0.6 s)与 mistral-large-3:675b(12 tok,0.8 s)均返回结构化 tool_calls → 可作 BFCL FC 教师(需给 harness 加 ollama 侧 FC 条目,同 deepseek-v4-pro-FC 路径)。
+- 9/10 20:59Z Codex(g4 树):ollama 侧 FC 教师条目 gpt-oss:120b / mistral-large-3、adapter 路径写 ledger 修复、memory 前置链跳过选项(logs/codex_ollama_fc_launch.log)。
+- 9/10 21:09Z gpt-oss:120b WebShop 教师探针 0/5(15 次 43.9k token,~2.9k/次)。四种教师均 0–20% → 提示/验证口径问题。已向用户提①更贴近 ReAct 的两例示范并重冻结;②每题尝试 6–8 次;③(不推荐)reward≥0.8 视为通过。正在探 mistral-large-3(645–649)。
+- 9/10 21:13Z 起草 docs/webshop_prompt_v2_draft.md(ReAct 原文风格两段式示范 + 核对/回退规则),等用户选①后交 Codex 落实并重测学生基座。
+- 9/10 21:20Z mistral-large-3 WebShop 教师探针 0/5(13k token)。Codex ollama FC 教师提交 g4@a68c11f(130 测试通过);gpt-oss:120b BFCL 2 题冒烟运行中(logs/bfcl_ollama_smoke.log,g4 树)。
+- 9/10 21:21Z BFCL ollama FC 教师冒烟通过:gateway 写 ledger 行(teacher=ollama/gpt-oss:120b-FC),live_simple_20-4-0 verified 113 tok,28 s;harness 的 StatisticsError(单样本 stdev)仍是非致命打印。WebShop ledger 教师标签修正(luna 13 行、gpt-oss 15、mistral 15;备份在 ../tc-alignment-ws/_trash/)。
+- 9/10 21:40Z 用户:停止教师探针,调研 Lambda / OpenRouter 并给方案 → docs/teacher_provider_options_0910.md(推荐 OpenRouter+gpt-5.4,约 $50–100)。
+- 9/10 21:41Z Codex ×2 准备 OpenRouter 路径(不调用 API):g4 树 BFCL openrouter/<vendor>/<model>-FC 条目(logs/codex_openrouter_bfcl_launch.log);ws 树 appworld_teacher openrouter 提供方 + 修 ledger teacher 硬编码 'gpt-5.4' + BFAS_TEACHER 环境变量(logs/codex_openrouter_teacher_launch.log)。
+- 9/10 21:50Z Codex OpenRouter 路径落地:g4@54f5c36(BFCL openrouter/<vendor>/<model>-FC,178 测试)、ws@(teacher client openrouter + BFAS_TEACHER + ledger 标签修复,124 测试)。待用户给 OPENROUTER_API_KEY。
+- 9/10 21:58Z ws@b3dfa10:所有默认教师回退 deepseek→gpt-5.4(27 文件,128 测试)。待办:用户给 OpenRouter key / 选方案;WebShop 提示 v2 决定;GPU 链等卡。
+- 9/10 23:10Z 用户问 Lambda 租 GPU 与 luna 最划算渠道 → docs/lambda_gpu_rental_options_0910.md(推荐 1×H100 PCIe 按需 ≈$2k±50%,或 8×H100 3 天/benchmark;luna 官方 API Flex+缓存最便宜)。
+- 9/10 23:17Z ws@80035e6:教师客户端支持官方 OpenAI(openai/<model>,BFAS_OPENAI_SERVICE_TIER=flex,记录 prompt/cached tokens,225 测试)。BFCL 侧(g4 树)尚无 openai/ 官方条目,待用户选渠道后补。
+- 9/10 23:27Z g4@87b4440:BFCL 官方 OpenAI FC 教师条目(Flex 档、cached tokens),302 测试。三条教师渠道(ollama / OpenRouter / 官方 OpenAI)代码全部就绪,只等 key 与用户选择。
+- 9/11 01:41Z 旧 GPU 链(pid 3291245)停掉,改 v2 链:GPU3(A100,劳友 29 GB 闲置进程)上用 46 GB 配置 configs/rtd/unified_alfworld_gemma4_smoke46.yaml(max_state_batch_size 1)立刻跑 D3 冒烟(2 h 上限),之后仍等 ≥66 GB 空卡跑 V0(原 60 GB 配置)。日志 ../tc-alignment-uni/logs/uni_gpu_chain_v2.log、uni_smoke_alf_D3.log。
+- 9/11 01:42Z 46 GB 冒烟被协议守卫拒绝(validate_config:P1 要求 60 GB 预算,任务书冻结项)→ 撤回:smoke46 配置移到 ../tc-alignment-uni/_trash/,原链(≥66 GB 整卡 → D3 冒烟 → V0)重新挂起,日志 ../tc-alignment-uni/logs/uni_gpu_chain.log。
+- ⟳ RESTART CHECKLIST addendum (9/11 01:50Z): unified GPU 链 pid 3369051(scratch uni_gpu_chain.sh:等 ≥66 GB 整卡 → D3 冒烟 → V0;日志 ../tc-alignment-uni/logs/uni_gpu_chain.log);重启后若进程还在只需重挂监视器(unichain 行 + smoke log 的 Traceback/OOM),若不在则用同脚本 nohup 重启。教师 API 一律不调,直到用户给渠道/key。
+- 9/11 01:58Z 用户问 Lambda 之外的租卡渠道 → docs/gpu_rental_alternatives_0911.md(推荐 RunPod Secure RTX PRO 6000 96 GB $2.09/h ≈ $1,250;并行申请 ACCESS Explore/NAIRR 免费额度)。
+- 9/11 01:59Z Codex(uni 树,只加新文件):scripts/cloud_bootstrap.sh + cloud_idle_stop.sh + docs/cloud_bootstrap.md,为租卡(RunPod/Lambda)准备 ALFWorld unified 环境(logs/codex_cloud_bootstrap_launch.log)。
+- 9/11 02:04Z Azure P1/P2 均 403(api_status.py 实测);ollama 两把可用。加每日 08:41 本地 cron 探测 Azure 恢复(会话级,重启需重挂)。
+- ⟳ RESTART CHECKLIST addendum (9/11 02:08Z): 重挂每日 08:41 本地的 Azure 配额探测 cron(ops/api_status.py,恢复才发频道)与整点 :23 汇报 cron。
+- 9/11 02:08Z 用户给第三把 Azure key(截图)→ 存 secrets AZURE_P3_ENDPOINT/PRIMARY/SECONDARY,实测 401 invalid subscription(P1/P2 同网关为 403);已请用户确认/重发。用户定优先级:P1 → P2 → P3。
+- 9/11 02:12Z uni@ff97ef2:scripts/cloud_bootstrap.sh / cloud_idle_stop.sh / docs/cloud_bootstrap.md / requirements/cloud_{train,alfworld}.txt(租卡启动脚本,未在真机验证)。
+- 9/11 02:17Z 用户给官方 OpenAI key(存 secrets OPENAI_API_KEY);实测 gpt-5.4 与 gpt-5.6-luna(Flex)可用。用户指示:省着用,教师用 GPT-5.6-luna。待拍板:ALFWorld bank 用 luna 重建统一教师;WebShop 提示 v2 探针。
+- 9/11 02:17Z Codex(ws 树):WebShop 提示 v2 以 WEBSHOP_PROMPT_VERSION 开关实现(默认 v1 不变;教师/学生同版本;ledger/demo 记 prompt_version),供用户批准后立即探针(logs/codex_webshop_prompt_v2_launch.log)。
+- 9/11 02:18Z 用户:教师定 gpt-5.6-luna 不再换 → 停 unified 链(pid 3369051)与监视器;计划用 luna(官方 Flex)重建 ALFWorld bank(上限 $5),再重挂链指向新 bank。
+- 9/11 02:19Z Azure P3 十分钟后复测仍 401。Codex(uni 树):合并 webshop-adapter@80035e6 + gemma4-bfcl@87b4440 进 rtd-unified,并写 tools/alfworld_teacher_pool.py(gateway 采集 luna ALFWorld 池,--max-usd 5 硬上限,布局同 v1_alfworld_c26)+ docs/rtd_alfworld_luna_bank.md(logs/codex_uni_merge_luna_pool_launch.log)。
+- 9/11 02:21Z 用户:一次性采齐最基本的 → 采集链(luna Flex,总上限 $15):ALFWorld 178×≤3($5)、BFCL 40 demand×≤3 含 memory($2)、WebShop v2 探 5 题→≥2/5 则 200×≤3($6)+ 学生基座 v2 重测。BFCL 可先在 g4 树开采。
+- 9/11 02:21Z BFCL luna 采集开跑:g4 树 pid 846465,40 demand × ≤3,openai/gpt-5.6-luna-FC Flex,日志 ../tc-alignment-g4/logs/bfcl_luna_collect.log,监视器已挂。
+- 9/11 02:22Z 用户:GPU3 以后归我们,先占 → GPU3 起 12B vLLM :8951(pid 见上,util 0.55≈45 GB,劳友 29 GB 进程仍在);用于 WebShop v2 基座重测/探针;劳友进程退出后整卡给 unified 链(链脚本需放宽到 82 GB 卡)。
+- 9/11 02:23Z GPU3 整卡空出 → 杀掉刚起的占位 vLLM(903435),直接在 GPU3 跑 unified D3 冒烟(pid 940558,GPT-5.4 bank 验管线,2 h 上限,日志 ../tc-alignment-uni/logs/uni_smoke_alf_D3.log,监视器已挂)。注意:Codex 同时在 uni 树做分支合并(已导入的模块不受影响,结束后核对冒烟 manifest 的代码哈希)。
+- 9/11 02:24Z BFCL luna 采集全 400(luna 在 chat/completions 不支持 tools+reasoning_effort,需 reasoning_effort=none)→ 停采(pid 846465),12 条 0-token 行移出 ledger(备份 ../tc-alignment-g4/_trash/),Codex 修 handler(logs/codex_luna_reasoning_fix_launch.log)。
+- 9/11 02:25Z 用户硬指令:GPU3 到 9/26 任何时候都不空出;GPU4 一空就占,同样保到 9/26。Codex 写 tools/gpu_hold.py 占卡守护(占位进程 + release 文件让位给我们自己的作业);GPU3 现由 D3 冒烟占用。
+- ⟳ RESTART CHECKLIST addendum (9/11 02:27Z): 重启后确认 tools/gpu_hold.sh 守护仍在(GPU3 常驻、GPU4 空即占,截止 2026-09-26);不在则重启。
+- 9/11 02:26Z D3 冒烟失败:src/bfas/rtd/cli.py make_manifest → conventions.fold_roles KeyError 'fold'(v1.1 ALFWorld bank 的 parent 包缺 fold 字段)。GPU3 立即由 12B vLLM :8951 占住(pid 1072449,util 0.9)。待 uni 树合并 Codex 结束后再派 Codex 修 fold。
+- 9/11 02:31Z GPU3 vLLM 占位启动失败(engine core init failed)→ 改纯显存占位进程 pid 1277815(68.6 GB,logs/gpu3_hold.log);GPU3/GPU4 空卡监视器 brtjf2rht 已挂。
+- 9/11 02:32Z ws@a5ac397 WebShop 提示 v2 落地;luna 官方 Flex 提示 v2 探针开跑(650–654,≤3 次,日志 ../tc-alignment-ws/logs/webshop_v2_luna_probe.log)。vLLM GPU3 失败原因:缺 flashinfer 模块(A100 上 vLLM 选了 FlashInfer)。
+- 9/11 02:32Z 用户:现在开始 RTD unified + v1.1 验证,验证统一单种子(seed 0)。顺序:fold 修复 → D3 冒烟 → luna bank → V0 → D0–D3(+变体),GPU3 串行,GPU4 空则并行。
+- 9/11 02:34Z 用户最终定案:teacher = gpt-5.6-luna(官方 API),student = gemma-4-12B-it,不再改。
+- 9/11 02:40Z gpu_hold 守护启动(GPU3,4 至 9/26;状态 bash tools/gpu_hold.sh status;release 文件 .gpu_hold/release_<gpu>);手动占位 1277815 已让位给守护。g4@bfec543 luna reasoning 修复,BFCL luna 采集重启 pid 1548900(logs/bfcl_luna_collect2.log)。uni 树合并+采集脚本已提交。
+- 9/11 02:40Z ALFWorld luna 采集开跑:uni 树 tools/alfworld_teacher_pool.py(142 题,≤3 次,cap $5/400k tok),日志 ../tc-alignment-uni/logs/alfworld_luna_pool.log;Codex 修 fold(logs/codex_fold_fix_launch.log)。gpu_hold:GPU3 held 74.7 GB(占位 pid 1680739),GPU4 others present。
+- 9/11 02:47Z WebShop 提示 v2 luna 探针:1/5(13 次,15.4k 完成 token,486k 提示 token 仅 11k 命中缓存,$0.057)→ 无改善,WebShop 采集暂停;跑 3 题诊断轨迹(results/webshop_diag_luna_v2,ws 树)。
+- 9/11 02:51Z uni@dfce958 fold 修复提交;D3 冒烟经 gpu_hold release 在 GPU3 重跑(scratch smoke_gpu3.sh,pid 2006947,日志 ../tc-alignment-uni/logs/smoke_gpu3_chain.log + uni_smoke_alf_D3.log;结束后自动清 release,守护重新占卡)。
+- 9/11 02:53Z D3 冒烟第二次失败:ValueError generation_batch requires protocol_version 1.1.0(unified 配置缺 protocol_version)。Codex 修配置并加 CPU 预检 tools/rtd_preflight.py(全 arm 起跑路径无 GPU 验证)(logs/codex_preflight_launch.log)。GPU3 已由守护重占。WebShop 诊断脚本因 max_tokens 参数被 luna 拒(需 max_completion_tokens),未取得轨迹;已向用户建议换 τ²-bench(luna 模拟器每 episode ≈$0.004)。
+- 9/11 02:54Z 用户:先试 τ²-bench(替代 WebShop 候选)。Codex(ws 树):装 envs/tau2(沙盒)、adapter 加 openai 通道(luna 模拟器/教师,flex)、tools/tau2_eval.py(pass^1,retail/airline/telecom,$3 上限)、tools/tau2_teacher_probe.py(logs/codex_tau2_setup_launch.log)。装好后:GPU2 :8950 学生基座评测 + luna 教师 5×3 域探针。
+- 9/11 03:01Z 用户:无需 CPU 预检,GPU2/3 上能跑通即可 → 拿到 protocol_version 修复即直接 GPU3 重跑冒烟;训练只能在 GPU3(82 GB),GPU2(49 GB)仅评测/vLLM。
+- 9/11 03:01Z 用户:以后固定这几张卡,训练主要放 GPU3。
+- 9/11 03:10Z uni@831b078 protocol_version 修复 + 预检;D3 冒烟第三次在 GPU3 起跑(scratch smoke_gpu3.sh)。
+- 9/11 03:10Z ALFWorld luna 采集在 28 次(15 题通过,$0.066)后因 --max-tokens 400k 把提示 token 也计入而停;以 --max-tokens 8M($5 上限不变)续采(ledger 断点续)。
+- 9/11 03:14Z D3 冒烟第三次:通过起跑,round 1 采样处 AssertionError 'prefetched draw prompt/policy/cap mismatch'(generation_batch 预取 vs unified 双源采样)。Codex 修(logs/codex_prefetch_fix_launch.log)。GPU3 由守护重占(交接空档约 40 s)。
+- 9/11 03:16Z 备好 GPU3 P1 链脚本(scratch p1_gpu3_chain.sh:release_3 → D3 冒烟 → V0(v1_1_alfworld.yaml)→ D0(rtd_unified_baseline.py + d0.yaml)/D1/D2/D3/变体 --replay-schedule V0/exposure_schedule.json;可用 CFG_U/CFG_V/CFG_D0/OUT/ARMS/SKIP_SMOKE 覆盖);等 prefetch 修复后启动;luna bank 建好后改 replay_bank_path 的配置副本重跑。
+- 9/11 03:18Z ws@d72ccca τ²-bench 装好(envs/tau2 @a2c0247);τ² 链开跑:学生基座 100 题 pass^1(GPU2 :8950,luna 模拟器 Flex,$3 上限)→ luna 教师探针 5×3 域($3 上限);日志 ../tc-alignment-ws/logs/tau2_chain.log、tau2_eval_gemma4_12b.log、tau2_probe_luna.log。
+- 9/11 03:19Z GPU2 的 12B vLLM(2420248)在 ~03:00Z 被外部正常关停(GPU2 让给 scaling-down-law 实验,用户要求不影响它);τ² 首跑因此 infrastructure error 死亡。12B 评测服务改到 GPU3(release_3 由我持有,pid 2743113,util 0.85,:8950),τ² 链重启。用户:GPU4 空后 GPU3–4 全归本项目。
+- 9/11 03:20Z 用户:GPU2 的 12B 服务是他让停的,可恢复 → GPU2 :8952 重起 12B(pid 2774868,util 0.68,与 sdl 11 GB 共存);GPU3 评测服务撤掉、release_3 清除交回守护;τ² 链改指 :8952 重启。
+- 9/11 03:21Z uni@1437e1b prefetch 修复;GPU3 P1 链启动(GPT-5.4 bank 先做端到端验证:D3 冒烟 → V0 → D3 D0 D1 D2;OUT results/rtd_unified/p1_alfworld_gpt54;日志 ../tc-alignment-uni/logs/p1_gpu3_chain.log);luna bank 建好后换 bank 重跑。
+- 9/11 03:28Z envs/vllm-serve 缺 flashinfer 模块(vLLM 0.27.1 Gemma 4 路径要它)→ GPU3/GPU2 两次 engine init 失败;GPU2 :8952 以 VLLM_ATTENTION_BACKEND=FLASH_ATTN + VLLM_USE_FLASHINFER_SAMPLER=0 重试。
+- 9/11 03:31Z GPU2 :8952 12B 服务起来(pid 2926427,FLASH_ATTN + 关 flashinfer sampler,38 GB);τ² 链第三次启动(上一次等服务超时)。
+- 9/11 03:32Z D3 冒烟第四次失败:feedback rollouts 处 ValueError generation requires temperature=1/top_p=1/top_k=0 and agent_action=256(alfworld_rollout._validate_action)。Codex 修并做整轮 CPU 合同测试(logs/codex_genguard_fix_launch.log)。GPU3 交回守护。
+- 9/11 03:34Z τ² 首次实跑两处问题:学生 vLLM 需 --enable-auto-tool-choice --tool-call-parser(3 题 infra error);luna 教师探针 unknown_charge(LiteLLM 无 luna 价目 → 预算层报错)。Codex 修(logs/codex_tau2_fix_launch.log)。花费 <$0.02。
+- 9/11 03:34Z uni@0ca764a 采集器加 --workers;ALFWorld luna 采集以 4 并行续跑(ledger 断点续)。
+- 9/11 03:36Z 4 并行采集器拒绝续跑旧目录(collection_support 哈希随代码变了);改新目录 data/rtd/v1_alfworld_luna2 从头采(旧 collection 38 次/16 题/$0.10 保留作记录,总花费需并入);日志 ../tc-alignment-uni/logs/alfworld_luna_pool2.log。
+- 9/11 03:41Z uni@ee0a02d 生成参数守卫修复 + 整轮 CPU 合同测试;GPU3 P1 链第二次启动(冒烟 → V0 → D3 D0 D1 D2,GPT-5.4 bank)。
+- 9/11 03:42Z ws@e709967 τ² 修复(luna 价目/预检);GPU2 :8952 服务加 --enable-auto-tool-choice --tool-call-parser gemma4 重起;τ² 链第四次启动。
+- 9/11 03:51Z τ² 第四次:学生路径通了(retail#5 失败、airline#2 通过),telecom 题与 luna 教师探针仍 unknown_charge(预算层遇到未识别的模型名/usage 形态即中止)→ Codex 修 fix2(logs/codex_tau2_fix2_launch.log)。花费 <$0.05。
+- 9/11 03:52Z D3 冒烟第五次:feedback rollouts 146 s 后 IncompleteFeedbackError(某 ALFWorld env step RPC 失败,原因未记录;同时有 4 个采集 worker 在跑)。Codex 加诊断 + 重试一次 + 可配超时(logs/codex_rpcfail_fix_launch.log)。GPU3 由守护重占。
+- 9/11 03:57Z 用户:先只跑 BFCL + ALFWorld,其余 benchmark(τ²/WebShop)等这两个结束再说 → τ² 暂停(代码保留)。
+- 9/11 03:57Z 用户:τ² 只在 CPU 上继续调试,除非 2 小时内能解决否则不占 GPU → 停掉 GPU2 :8952 的 12B 服务(空闲),GPU2 全部留给 sdl;τ² 代码修复继续(Codex fix2),不再跑实测。
+- 9/11 03:59Z 用户核心目标:明天必须有一个 benchmark 上我们方法的结果;GPU4 空即并行。计划:RPC 修复 → 冒烟 → 直接跑 D3(streaming 模式,不等 V0),bank 优先 luna;GPU4 跑 V0 → D0;每个预算检查点报中间分。
+- 9/11 04:00Z 用户底线:尽快拿到 RTD v1.1 与 unified 的测试结果 → GPU3 顺序 D3(streaming)→ V2 → V0;GPU4 空后 V0 → V1 → D0。链脚本 scratch p1_gpu3_chain_v2.sh(STAGES/UUID/GPUIDX/OUT 可覆盖;V1/V2 无 V0 排程时 streaming)。
+- 9/11 04:06Z ws@174337b τ² 计费兼容修复提交(99 测试);τ² 按指示搁置,不再跑实测。
+- 9/11 04:08Z uni@afd3cbf RPC 诊断/重试/超时提交;GPU3 冒烟第六次(仅冒烟;通过后按 luna bank 是否建好选配置起 D3 streaming → V2 → V0)。
+- 9/11 05:11Z D3 冒烟通过(3,664 s;results/rtd_unified/smoke_alf_D3)。链脚本 STAGES="" 被当作未设置导致误起 D3stream(被守卫拒:P1 run 需 --replay-schedule 已完成 V0)和 V0(GPT-5.4 bank,已杀)。协议顺序 V0 → D3/V2。计划:luna bank 好后 GPU3 跑 V0,完成后 GPU3 D3、GPU4 V2。GPU3 已交回守护。
+- 9/11 05:11Z BFCL luna 采集完成:23/40 通过,74 次,22.9 万完成 token,≈$0.14。下一步建 data/rtd/v1_1_bfcl_luna(Codex)。
+- 9/11 05:22Z uni@7ed5461 BFCL luna bank 建成:20 包 / 23 题通过,74 次全计费 228,545 exact token,usable 预算基数 1,418(cap 256,检查点 142/355);configs v1_1_bfcl_luna.yaml / unified_bfcl_gemma4_luna.yaml;V0/D3 预检通过。
+- 9/11 05:37Z ALFWorld luna 采集完成(106/142,$0.76);bank data/rtd/v1_1_alfworld_luna(104 包,基数 118,792);GPU3 正式链启动:V0(v1_1_alfworld_luna.yaml)→ D3 → V2(luna 配置,OUT results/rtd_unified/p1_alfworld_luna,日志 ../tc-alignment-uni/logs/p1_gpu3_chain_luna.log,uni_p1_alf_V0.log)。
+- ⟳ RESTART CHECKLIST addendum (9/11 05:40Z): GPU3 正式链 scratch p1_gpu3_chain_v2.sh(pid 1269770;OUT ../tc-alignment-uni/results/rtd_unified/p1_alfworld_luna;V0 → D3 → V2);重启后若链进程在则只重挂监视器(p1_gpu3_chain_luna.log 的 [p1chain] 行 + 当前 arm 日志的 round/checkpoint/Traceback),若不在则同参数(SKIP_SMOKE=1 STAGES="V0 D3 V2" CFG_U/CFG_V/CFG_D0=*_luna.yaml)重启(已完成 arm 由 .chain_done/exposure_schedule.json 跳过)。gpu_hold 守护 pid 1680547。
+- 9/11 05:41Z luna 正式链在 V0 预检失败:ValueError external support manifest differs from bank(luna bank 的 support 与冻结的外部 support manifest 不一致);D3/V2 随之跳过,链结束,GPU3 守护重占。Codex 修(logs/codex_support_manifest_fix_launch.log)。
+- 9/11 05:53Z uni@6f20c1c luna bank 按冻结 support 重建(仅环境派生哈希不同;104 包不变),V0/V2 预检通过;GPU3 luna 链第二次启动(V0 → D3 → V2)。
+- 9/11 06:04Z luna 链第二次:V0 预检过了,采样阶段被 D15 分数一致性守卫拦下(mean |delta| 0.0523 > 0.05 nats/token,max 0.545,无离群 token);链误入 V2 streaming 已杀,GPU3 交回守护。Codex 诊断生成/重打分数值差并加可审计的 tolerance 覆盖(luna 配置 mean_abs 0.08)(logs/codex_score_tol_launch.log)。
+- 9/11 06:20Z uni@516e1fe D15 阈值覆盖(luna mean_abs 0.08,manifest 记录观测 delta;诊断:bf16 batch/decode-prefill 漂移,非打分错位);GPU3 luna 链第三次启动(V0 → D3 → V2)。
+- 9/11 07:21Z V0 第三次在 round 1 revealed 阶段再触发 D15(mean 0.097,max 1.27,1 离群)。临时放宽 luna 配置阈值 mean 0.15 / max 2.0 / 离群 4(提交),链第四次启动;并派 Codex 查 Gemma 4 attention 实现(eager softcap vs sdpa)导致的采样/打分不一致。
+- 9/11 07:36Z uni@82b4230 D15 根因 CPU 审计:两条路径同一 HF eager 模型、FP32 归一化,唯一差异是生成用 KV cache;CPU tiny 模型 1e-4 一致 → 生产差距(bf16 A100 + KV cache)未解决,只能作为记录在案的漂移;V0 第四次继续跑(阈值 0.15/2.0/4)。
+- 9/11 08:41Z V0 第四次(pid 链 3699151)运行 80 min:round 1 step 1 过 reference/selected/revealed,未再触发 D15;feedback rollouts 中;无分数。
+- 9/11 09:41Z GPU2 空出(sdl 作业结束),49 GB 且属 sdl,不用;GPU4 仍被占。GPU4 空后计划:守护占卡 → 第二条链 GPUIDX=4 UUID=GPU-aaebd5af… 跑 BFCL(CFG_V=configs/rtd/v1_1_bfcl_luna.yaml CFG_U=configs/rtd/unified_bfcl_gemma4_luna.yaml,OUT results/rtd_unified/p1_bfcl_luna,STAGES="V0 D3 V2")。V0(ALFWorld)round 1 step 1 feedback rollouts 已 2h20m。
+- 9/11 10:41Z GPU4 自 09:47Z 起由守护占住(劳友退出)→ 第二条链在 GPU4 启动:BFCL V0 → D3 → V2(luna bank,scratch p1_gpu_chain_v3.sh LOGTAG=bfcl;OUT results/rtd_unified/p1_bfcl_luna;日志 ../tc-alignment-uni/logs/p1_gpu4_chain_bfcl.log, uni_p1_bfcl_V0.log)。
+- ⟳ RESTART CHECKLIST addendum (9/11 10:45Z): GPU4 BFCL 链(同上参数,GPUIDX=4 LOGTAG=bfcl)与 GPU3 ALFWorld 链并行;重启后各自重挂监视器。
+- 9/11 10:52Z BFCL V0 首启失败:XDG_CACHE_HOME 指向 rtd-v11 缓存,里面没有 gemma-4 tokenizer(offline)→ v3 链脚本加 HF_HOME=~/.cache/huggingface,GPU4 BFCL 链重启。
+- 9/11 11:03Z BFCL V0 第二次被 D15 拦(mean 0.070,max 2.31,GPU4 Blackwell bf16)→ BFCL luna 配置阈值同样放到 0.15/2.0/4(提交),GPU4 链第三次启动。
+- 9/11 11:41Z 两条链并行:ALFWorld V0(GPU3,4h20m,round 1 step 1 revealed/feedback)、BFCL V0(GPU4,11:03Z 起,round 1 step 1 revealed)。
+- 9/11 11:42Z ALFWorld V0 进度(compute.jsonl):source_sampling/preconditioner/alpha_d 阶段 07:23–08:27 完成;08:36 起在 r1/s1/acquisition_reference_feedback,已 1,623 次生成(≈9/min),日志只在阶段切换时写;进程活跃(子进程 99% CPU)。
+- 9/11 12:04Z BFCL V0(GPU4)CUDA OOM:守护让位后我们的作业只占 31 GB,劳友(bolin)在空档起了两个 vLLM(30+33.5 GB),GPU4 现被占 63 GB,不够 60 GB 预算;GPU3 的 V0 同样暴露(现占 27 GB,55 GB 空)。Codex 给 gpu_hold 加 guard 模式(让位时保留 R=66 GB 给我们的作业,其余显存继续占住)(logs/codex_gpu_guard_launch.log)。BFCL 链停,等 GPU4 重新可用。
+- 9/11 12:12Z gpu_hold guard 模式提交(main@c70457a);守护热切换(旧 1680547 停,新起;release_3 存在 → GPU3 进入 guard)。
+- ⟳ RESTART CHECKLIST addendum (9/11 12:10Z): gpu_hold 守护 pid 853470(guard 模式);GPU4 被劳友占用中,BFCL 链待 GPU4 空后重启(参数见 10:45Z 条目)。
+- 9/11 12:13Z release_3 内容设为 40(冒烟各阶段峰值 ≤28.5 GB;guard 占满其余显存,压力时自动缩);v3 链脚本改为写 RESERVE_GB(默认 40)到 release 文件。
+- 9/11 12:35Z 用户确认:GPU3–4 这两周归本项目,继续实验。
+- 9/11 12:41Z ALFWorld V0 5h20m:acquisition_reference_feedback 3,776 次生成(+1,300/h);GPU3 guard 39 GB / job 27 GB;GPU4 仍被 bolin 占(65 GB),BFCL 链等 GPU4 空后重启(监视器 b3kos7b4i 盯 daemon.log)。
+- 9/11 13:11Z 每日探测:Azure P1/P2 仍 403;ollama 两把可用。
+- 9/11 13:19Z V0 慢的根因:feedback rollout 每步单条 prompt 串行 HF generate(1,694/1,710 次 sequences=1,~7 s/次);Codex 做锁步并行 feedback(K=8,结果不变,BFAS_FEEDBACK_LOCKSTEP 开关)+ tools/rtd_progress.py 估 ETA(logs/codex_lockstep_feedback_launch.log)。做完后按 V0 已完成比例决定续跑或重启。
+- 9/11 13:44Z uni@c85d10d 锁步 feedback 提交;rtd_progress 显示串行 V0 光一个 feedback 块(32 集)就要 ~3–4 h,全程需数天 → 杀掉串行 V0(6.5 h,归档到 results/rtd_unified/p1_alfworld_luna_serial_aborted_*),用锁步代码在 GPU3 重启 V0 → D3 → V2(v3 链脚本,RESERVE 40)。
+- 9/11 13:54Z 锁步 V0 13:45Z 起跑(round 1),GPU3 guard 39 GB / job 25 GB。
+- ⟳ RESTART CHECKLIST addendum (9/11 13:50Z): GPU3 链改为 scratch p1_gpu_chain_v3.sh(pid 995568;LOGTAG=alf GPUIDX=3 RESERVE 40;V0 → D3 → V2,OUT results/rtd_unified/p1_alfworld_luna);GPU4 待劳友退出后同脚本 LOGTAG=bfcl GPUIDX=4 起 BFCL 链;守护 pid 853470(guard 模式)。
+- 9/11 15:41Z 锁步 V0:acquisition_reference_feedback 16/32 集(~35 min,批 8;串行 4.7 h 才 7/32)≈8×;块 ETA ~50 min。
+- 9/11 16:41Z 锁步 V0:acquisition_reference_feedback 32/32 集完成(881 步,0 重试),仍 round 1 step 1;GPU4 仍被占。
+- 9/11 17:41Z 锁步 V0:第二块 same_batch_reference_feedback 8/32;仍 round 1 step 1。
+- 9/11 18:41Z 锁步 V0:第二块 feedback 32/32 完成;仍 round 1 step 1(5 h)。
+- 9/11 19:00Z GPU4 空出(劳友 vLLM 退出)→ BFCL 链第四次启动(v3 脚本,guard RESERVE 40):V0 → D3 → V2。
+- 9/11 19:02Z 用户:GPU4 跑同一 benchmark 的另一套方法 → 杀 BFCL 链(刚起),GPU4 起 ALFWorld V1(v1.1)streaming 跟随 GPU3 的 V0(D14 流式回放;--replay-mode streaming,poll 60 s,超时 48 h);V0 完成后 GPU3 → D3(unified)、GPU4 → V2。BFCL 推后。脚本 scratch v1_stream_gpu4.sh,日志 ../tc-alignment-uni/logs/v1_stream_gpu4.log, uni_p1_alf_V1.log。
+- 9/11 19:03Z 杀掉 BFCL V0 遗留的 --training-worker 孤儿(1508059,28 GB);V1 streaming 19:02Z 在 GPU4 起跑(guard 55 GB)。当前进程:V0 997115/1000092(GPU3)、V1 1513317(GPU4)。
+- 9/11 19:03Z 用户:选最高效并行 → Codex 扩展 D14 流式回放到 unified D 臂(logs/codex_d3_streaming_launch.log);做好后 GPU4 的 V1 stream 换成 D3 stream 跟随 V0;V1/V2 排后。
+- 9/11 19:19Z uni@4ad3e92 unified D 臂流式回放提交;GPU4:V1 stream 停(归档 V1_stream_aborted_*),D3 stream 跟随 V0 启动(scratch d3_stream_gpu4.sh,日志 ../tc-alignment-uni/logs/d3_stream_gpu4.log, uni_p1_alf_D3.log)。V0 完成后:GPU3 → V2,GPU4 → V1(或 D0)。
+- ⟳ RESTART CHECKLIST addendum (9/11 19:22Z): GPU4 现在跑 scratch d3_stream_gpu4.sh(pid 1545446;D3 流式跟随 V0,--replay-mode streaming);GPU3 链 p1_gpu_chain_v3.sh(pid 995568)在 V0 完成后会接 D3(complete 模式)——若 GPU4 的 D3 stream 先完成,应把 GPU3 链的后续改为 V2/V1(kill 链并按 STAGES="V2 V1" SKIP_SMOKE=1 重启,已完成 arm 由 .chain_done 跳过)。
+- 9/11 19:19Z 防止 GPU3 链在 V0 后 rm -rf 掉 GPU4 正在写的 D3 目录:杀链脚本 995568(V0 进程不受影响),改用 scratch after_v0_gpu3.sh(等 V0 进程退出且曝光表存在 → GPU3 依次 V2、V1 complete 回放;日志 ../tc-alignment-uni/logs/after_v0_gpu3.log)。
+- ⟳ RESTART CHECKLIST addendum (9/11 19:27Z): 当前编排:GPU3 V0(997115)→ after_v0_gpu3.sh(pid 1546844:V2 → V1);GPU4 d3_stream_gpu4.sh(pid 1545446:D3 流式跟随 V0)。重启后重挂三类监视器(after_v0 日志、d3_stream 日志、gpu_hold);切勿再起会 rm -rf $OUT/D3 的旧链脚本。
+- 9/11 19:41Z V0 step 1 两块 feedback 完成,后段进行中(6 h);D3 stream 在 GPU4 等 V0 曝光表。
+- 9/11 20:40Z V0 step 1 phase=actual(~20:05Z 起),曝光表未提交;D3 stream 等待中。
+- 9/11 21:41Z V0 step 1:post_commit_feedback 32/32 完成,提交中(step 1 ≈ 8 h);曝光表未落盘。
+- 9/11 22:08Z 用户问方法速度:RTD 每 step ≈ 8 h(三块 feedback 各 ~1 h + 采样/软梯度/QP/更新),比 SFT 类基线(1–3 h/arm)贵 10–50×;记录的提速方向(不改协议):三角色共享 rollout、vLLM 生成 feedback、D 臂复用 V0 feedback。等首批分数后再动。
+- 9/11 22:10Z 用户:从方法与工程两方面改进 → 已发方案(工程:vLLM 生成 + K=32 锁步 + 异步 env;方法:A 三角色共享 rollout / B 摊销 feedback / C 缩视野)。先启动工程 K=32 + 并行 env step(Codex,logs/codex_lockstep_k32_launch.log);vLLM 生成因 D15 数值差异风险放第二步;方法 A/B/C 等用户拍板。
+- 9/11 22:11Z 用户:先解决工程;确认 unified 尚无正式结果(仅冒烟通过,D3 stream 等 V0)。
+- 9/11 22:21Z 用户:GPU4 也要用起来 → D3 stream 空等期间,在 GPU4 同卡加跑 BFCL V0(v3 链 STAGES=V0,RESERVE 75 GB 给两个作业;OUT results/rtd_unified/p1_bfcl_luna)。
+- ⟳ RESTART CHECKLIST addendum (9/11 22:24Z): GPU4 现并存两作业:d3_stream_gpu4.sh(1545446)与 BFCL V0 链 p1_gpu_chain_v3.sh(1741431,STAGES=V0,RESERVE 75);release_4 内容 75。重启后各挂监视器。
+- 9/11 22:30Z uni@1124068 锁步 K 可配 + 并行 env RPC 提交;BFCL V0 刚起 2 min,杀掉后以 BFAS_FEEDBACK_LOCKSTEP_EPISODES=32 重启(GPU4,与 D3 stream 共存)。ALFWorld V0/D3 stream 仍用旧代码(V0 step 1 即将提交,先看步数再定是否重启)。
+- ⟳ RESTART CHECKLIST addendum (9/11 22:32Z): GPU4 BFCL V0 链 pid 1762302(env BFAS_FEEDBACK_LOCKSTEP_EPISODES=32,RESERVE 75);新起的 arm 一律带 BFAS_FEEDBACK_LOCKSTEP_EPISODES=32。
+- 9/11 22:31Z after_v0_gpu3.sh 以 BFAS_FEEDBACK_LOCKSTEP_EPISODES=32 重启(pid 见上),V2/V1 将用 K=32。
+- 9/11 22:40Z 22:23 汇报:V0 step 1 actual 阶段 2.5 h;BFCL V0(K=32)22:33Z 起 round 1;D3 stream 等待;GPU4 job 48 GB + guard 20 GB。
+- 9/11 22:41Z V0 当前阶段 r1/s1/v11_window_metrics(diagnostic_greedy_generation,单条串行生成,GPU util 0%,worker 98% CPU)——又一个未锁步的生成阶段,列为下一步提速目标(锁步/批量 greedy)。
+- 9/11 22:41Z Codex:v11_window_metrics 的 diagnostic greedy 生成改锁步批量 + 审计其余串行生成阶段(logs/codex_window_metrics_lockstep_launch.log)。
+- 9/11 22:51Z uni@2b98227 window metrics 的 greedy 诊断锁步化提交;新起 arm 自动使用。
+- 9/11 22:52Z 审计:BFCL 续采/诊断、轮末方差诊断仍串行 → Codex 锁步化(logs/codex_bfcl_lockstep_launch.log);GPU4 上正在跑的 BFCL V0 用的是旧串行 BFCL 路径,做好后视进度重启。
+- 9/11 23:03Z 用户附 GPT-6 story 建议(docs/2026-09-11-gpt6-story-suggestions-from-user.md);综合成 docs/2026-09-11-story-selective-replacement-zh.md(修正:不预设基线失败;对标加 SOPD/FutureBridge/GAD;核心量=教学更新对完整任务的净提升;延伸:组件级替换 D4、code-as-action 作为实现载体)。
+- 9/11 23:11Z 用户:对标只做 SmartAD/SAD/Kang + GAD;给出执行计划 v3(docs/2026-09-11-execution-plan-v3-zh.md):新增 HotpotQA-ReAct 为主表 benchmark,两卡排程至 9/21,D4/D5 变体。
+- 9/11 23:20Z 用户:同意 benchmark;GPU4 先把四个基线在三个 benchmark 上跑完(主表基线格),方法臂另议;必须用 budgeted few-shot 定义。→ 停 GPU4 的 D3 stream(空等)与 BFCL V0(归档 *_aborted_*),GPU4 交守护,待基线 runner 就绪。GPU3 V0 → V2 → V1 继续。
+- 9/11 23:21Z 新 worktree tc-alignment-base(分支 baselines-luna,自 rtd-unified HEAD);Codex 实现 tools/baseline_run.py(SmartAD/SAD/Kang/GAD,budgeted few-shot 购买规则,同 LoRA/评测协议)(logs/codex_baselines_launch.log)。GPU4 已清空由守护占住(仅 GPU3 V0 在跑)。
+- ⟳ RESTART CHECKLIST addendum (9/11 23:35Z): GPU4 空闲(守护占),等待基线 runner;GPU3 V0(997115)→ after_v0_gpu3.sh(1762881:V2 → V1)。不要重启 D3 stream / BFCL V0(用户改为先跑基线)。
+- 9/11 23:21Z 用户:基线先跑前三个(SmartAD/SAD/Kang),GAD 等三个都跑完再做。
+- 9/11 23:24Z uni@a3f1ded BFCL greedy 诊断锁步 + 估计器预取提交;随机 BFCL feedback 仍串行(共享 RNG)→ Codex 引入版本化逐集 RNG 流并锁步化(logs/codex_bfcl_rng_launch.log);完成后重启 GPU4 的 BFCL V0。
+- 9/11 23:24Z uni@214774a BFCL feedback RNG v2 + 锁步提交(新起的 BFCL arm 全部用 v2;与旧串行 BFCL 运行不可混回放)。
+- 9/11 23:34Z Codex(ws 树):HotpotQA-ReAct adapter/eval/teacher pool + envs/hotpotqa 数据(logs/codex_hotpotqa_launch.log);基线实现排在 uni 树 Codex 空闲后。
+- 9/11 23:34Z ws@96524e8 HotpotQA-ReAct 落地(adapter/eval/pool/prompt/split);数据下载在我的 shell 里跑(Codex 沙盒无 DNS)。
+- 9/11 23:34Z GPU4 空档:起 12B vLLM :8953(util 0.6)准备 HotpotQA 基座评测;基线 runner 就绪后让出。
+- 9/11 23:39Z HotpotQA 官方源 curtis.ml.cmu.edu 超时 → 改用 HF 镜像 hotpotqa/hotpot_qa distractor parquet(下载中,envs/hotpotqa/data),Codex 给 setup 脚本加 parquet→JSON 转换(logs/codex_hotpotqa_mirror_launch.log)。GPU4 :8953 12B 评测服务已就绪。
+- 9/11 23:41Z 23:23 汇报已发;V0 step 1 post_commit_feedback 完成、窗口诊断中(10 h)。
+- 9/11 23:46Z ws@3c872ce HotpotQA 数据就绪(HF 镜像转换);GPU4 :8953 上跑学生基座 500 题评测(logs/hotpotqa_eval_base.log);luna 教师池 200 题×≤3 开采(4 并行,cap $5;logs/hotpotqa_teacher_pool.log)。
+- ⟳ RESTART CHECKLIST addendum (9/11 23:55Z): ws 树进程:HotpotQA 基座评测 1851891(GPU4 vLLM :8953 pid 1834902,release_4=75)、luna 池 1851896;重启后重挂两者的监视器;基线 runner 就绪后停 :8953 并跑基线。
+- 9/11 23:50Z base@cdb3a12 基线 runner 提交;CPU 购买审计(25% 预算):ALFWorld B=29,698 → 5 个可用包(计费 29,229,含失败尝试);BFCL B=355 → 1 个包(106)。BFCL 25% 预算退化 → 另跑 fraction 1.0(20 包)供用户决定报哪格。基线链脚本 scratch baselines_gpu4.sh(等 HotpotQA 基座评测释放 GPU4 后启动)。
+- 9/12 00:00Z HotpotQA luna 池:首轮因 --max-tokens 400k 含提示 token 停在 27 次/4 题($0.05);以 12M cap 续采,现 31 次/8 题通过。hotpotqa_eval.py 走官方 API 时忽略 OPENAI_API_KEY(401)→ Codex 修并加 attempts.jsonl 审计(logs/codex_hotpotqa_fix_launch.log)。基座评测 44/500 时 EM 0.455。
+- 9/12 00:01Z HotpotQA:基座评测 125/500 EM 0.448 / F1 0.539;luna 池 67 次尝试、35 题触及、21 题通过(60%)。
+- 9/12 00:26Z ws@faf30b1 HotpotQA 修复提交;Codex(uni 树):HotpotQA 注册为 RTD 第三 benchmark(bank 构建、provider、配置、预检)(logs/codex_hotpotqa_rtd_launch.log)。
+- 9/12 00:26Z 用户:预算改绝对上限(生活里是具体预算)+ 实验加预算曲线 subsection。我提议 B_alf=30k / B_hotpot=20k / B_bfcl=5k(+B/2、2B),等用户确认数值;Codex 先给基线 runner 加 --budget-tokens(logs/codex_budget_tokens_launch.log);P1 配置改绝对检查点等 uni 树 Codex 空闲。
+- 9/12 00:26Z uni@56e2ecc HotpotQA 注册为 RTD benchmark(bank 为部分快照 25 通过/57 失败,池完成后需重建为新冻结 bank);注:比例预算 + 随机序 + 失败计费下,该快照 10%/25% 只买到失败包、零正例——进一步支持改绝对预算;购买单位=任务全部尝试。
+- 9/12 00:27Z base@d40e9e3 --budget-tokens 提交;审计:ALFWorld 15k/30k/60k → 5/5/9 条可用;BFCL 2.5k/5k/10k → 1/3/3 条(memory 前置链任务 4k+,规则'下一包放不下即停')。建议 B_alf=30k(15k/60k 曲线)、B_bfcl=5k(2.5k/10k)、B_hotpot=20k 待定;等用户定 BFCL。
+- 9/12 00:29Z 用户:B 对所有 benchmark 一致 → 定 B=30k token(ALFWorld 25% 点 29,698 购买集合等价);曲线 7.5k/15k/30k/60k;BFCL/HotpotQA P1 检查点改 [15000,30000](Codex 任务完成后改配置)。
+- 9/12 00:31Z 用户:预算曲线每个 benchmark 一张(同档位 7.5k/15k/30k/60k)。
+- 9/12 00:33Z HotpotQA 池续采被身份检查拒绝(faf30b1 改了采集器代码)→ 等 Codex 的 usage 重试修复落地后,用新目录 envs/hotpotqa/teacher_pool_v2 从头采(旧池 25 题/$0.15 保留作记录)。
+- 9/12 00:40Z HotpotQA 池因一次 usage 未知的请求整体停止(82 次/25 题);已续采(#3),Codex 改为逐请求重试+估计计费(logs/codex_hotpotqa_usage_launch.log)。
+- 9/12 00:40Z ws@504b2a8 池 usage 重试修复;HotpotQA 池 v2 从头采(envs/hotpotqa/teacher_pool_v2,4 并行,12M/$5)。
+- 9/12 00:40Z Codex(uni):P1 配置加 budget_checkpoints_tokens(BFCL [2500,5000]、HotpotQA [10000,20000];ALFWorld 保持比例=29,698≈30k)(logs/codex_budget_tokens_p1_launch.log);基线链脚本改为 --budget-tokens 30000。
+- 9/12 00:43Z P1 绝对 token 检查点落地(每轮一个 cap:rounds=2 → [15000,30000]);BFCL/HotpotQA luna 配置 = [15k, 30k];我们方法的 7.5k/60k 曲线点需额外运行([7500,15000] 与 [30000,60000])。
+- 9/12 00:44Z 用户:GPU3 做机制验证(GPT-6 方案 docs/2026-09-12-gpt6-mechanism-validation-from-user.md):C 普通局部练习 vs D 专项练习,同预算同蒸馏;先一个 benchmark 出首轮判定。→ ALFWorld V0 停(11 h,归档 p1_alfworld_luna_V0_paused_*),P1 主线暂停;新 worktree tc-alignment-mech(分支 mechanism-validation)。首个 benchmark:BFCL(256 题分层子集)。
+- ⟳ RESTART CHECKLIST addendum (9/12 00:50Z): GPU3 空闲(守护占),等机制验证流程;GPU4 :8953 12B 服务跑 HotpotQA 基座评测(1851891),之后跑基线曲线(scratch baselines_gpu4.sh);HotpotQA 池 v2(1922535)在采;不要重启 P1 链。
+- 9/12 00:46Z 00:23 汇报已发;HotpotQA 基座 449/500 EM 0.388 F1 0.486;池 v2 40 次/9 题。
+- 9/12 00:47Z 用户:用已有 insight 加速判定(须准确),GPU2 也可并行。计划:BFCL support 按弱类别分层、预算按已知过检率一次给够、评测先层 1+层 3(256 子集)、预注册阈值(配对差 >2 SE)、GPU2 放 vLLM 评测服务 + 第二个 benchmark 的训练。
+- 9/12 00:47Z GPU2 起 12B vLLM :8954(--enable-lora r16,gemma4 tool parser,util 0.85,16k ctx)作机制验证的评测服务。
+- 9/12 00:48Z GPU2 与 bolin 的 13.7 GB vLLM 共存,起 12B LoRA 评测服务 :8954(util 0.55)。
+- ⟳ RESTART CHECKLIST addendum (9/12 00:52Z): GPU2 :8954 12B LoRA 评测服务 pid 1944712(与 bolin 共存);机制验证 worktree tc-alignment-mech(Codex 构建中,logs/codex_mech_bfcl_launch.log)。
+- 9/12 00:53Z GPU2 :8954 LoRA 评测服务就绪(43 GB 含 bolin 13.7 GB)。
+- 9/12 00:56Z HotpotQA 基座:EM 38.2 / F1 47.8(500 题,4.75 步);GPU4 :8953 停,ALFWorld 基线曲线链启动(SmartAD/SAD/Kang × 7.5k/15k/30k/60k;scratch baselines_gpu4.sh;日志 ../tc-alignment-base/logs/baselines_gpu4_chain.log)。
+- ⟳ RESTART CHECKLIST addendum (9/12 00:57Z): GPU4 基线链 pid 1958701(scratch baselines_gpu4.sh,BENCH=alfworld METHODS=smartad sad kang BTOK=7500,15000,30000,60000);重启后重挂监视器(../tc-alignment-base/logs/baselines_gpu4_chain.log),已完成 arm 由 .done 跳过。
+- 9/12 01:17Z mech@ec9844a 机制验证流程提交;GPU3 链启动(scratch mech_bfcl_gpu3.sh:tests → splits → serve → rollout → diagnose → generate C/D → eval base×2 → train C → eval C → train D → eval D → report;日志 ../tc-alignment-mech/logs/mech_bfcl_gpu3_chain.log + logs/mech_<stage>.log)。
+- ⟳ RESTART CHECKLIST addendum (9/12 01:18Z): GPU3 机制验证链 pid 1987381(scratch mech_bfcl_gpu3.sh;各阶段日志 ../tc-alignment-mech/logs/mech_<stage>.log;服务端口 8901);重启后重挂监视器,不要重复启动(结果目录 results/mech_bfcl)。
+- 9/12 01:29Z 机制验证链在 rollout 阶段失败:memory 任务需前置链(memory_kv_141-notetaker-11 无轨迹);Codex 修 harness 的前置链展开(logs/codex_mech_memory_launch.log);GPU3 交回守护。
+- 9/12 01:29Z mech@395dbab memory 前置链修复;机制验证链在 GPU3 重启。
+- 9/12 01:35Z 机制链第二次在 rollout 被'未完成的 harness 目录'拒绝 → 旧 results/mech_bfcl 移入 _trash,第三次启动。
+- 9/12 01:41Z HotpotQA luna 池 v2 完成:113/200 通过,419 次,$0.93;bank 重建到 data/rtd/v1_1_hotpotqa_luna(旧部分快照移入 _trash)。
+- 9/12 01:44Z SmartAD 基线(B7500)加载权重后 45 min 卡在 CPU(99% CPU、0% GPU、train.log 无进展,py-spy 无 ptrace 权限)→ 杀掉链;GPU4 上另发现旧 :8953 服务遗留的 EngineCore 孤儿(41.6 GB)已杀。Codex 排查训练路径。
+- 9/12 01:44Z 01:23 汇报已发;机制链 rollout 进行中(GPU3 job 56.8 GB);GPU4 守护占住等基线修复。
+- 9/12 01:51Z HotpotQA bank 构建拒绝:'positive demos require unique success and exact usage'(池 v2 含估计计费行/多次成功)→ Codex 放宽为最早成功作包、全部尝试计费、估计行标记 estimated(logs/codex_hotpotqa_bank_fix_launch.log);uni 树 envs/hotpotqa/cache 已软链到 ws 缓存。
+- 9/12 01:52Z uni@ce47327 HotpotQA bank 建成:200 包 / 113 可用,基数 133,206(精确 125,173 + 估计 8,033);预检 V0/D3 通过。注意:16,384 token 的请求预留上限使 15k 检查点买不到第一个包(30k 可以)——P1 HotpotQA 起跑前需调预留上限或检查点。
+- 9/12 01:52Z 待办(base 树,等 Codex 空闲):baseline_run 加 hotpotqa(benchmark 选项、adapter/评测器移植、v1_1_hotpotqa_luna.yaml、manifest source_files;paper_train 把 HotpotQA 行映射为 agent_action;paper_losses 识别 'Thought n:/Action n:' 与 search/lookup/finish,finish 为最终决策)。
+- 9/12 02:02Z base@7642432 基线训练路径修复(原因:每次前向做全量 GC/清缓存 + 预条件器 18 min);GPU4 跑 SmartAD --smoke(2 步 + 3 题)验证速度(logs 见 ../tc-alignment-base/logs/baseline_smoke_smartad.log)。
+- 9/12 02:06Z Codex(uni):购买预留改按包的记录成本(修 HotpotQA 15k 检查点买不到包的问题)(logs/codex_reservation_cap_launch.log)。
+- 9/12 02:06Z uni@152c79b 预留按记录成本;冻结序购买数:HotpotQA 15k→18 包/30k→39 包,ALFWorld 29,698→24 包(26,180),BFCL 全 20 包(1,418)。⚠️ 与基线 reader 的口径不一致(基线 ALFWorld 30k 只买 5 条可用,因基线按任务全部尝试含失败计费,RTD bank 只按可用包记录成本)→ 必须统一为附录规则(任务整包、含失败、精确 token),Codex 处理。
+- 9/12 02:08Z SmartAD smoke:训练 2 步 8 s 正常(修复有效);评测阶段被 runner 的代码身份检查拒绝('baseline code changed after preparation'——同树 Codex 正在改 HotpotQA 支持)。等 Codex 完成后重跑 smoke。教训:同一树内 Codex 改代码期间不要起该树的 GPU 作业。
+- 9/12 02:15Z Codex(base):baseline_run 加 hotpotqa(logs/codex_baseline_hotpotqa_launch.log)。
+- 9/12 02:16Z base@531f5bd baseline_run 支持 HotpotQA(购买:7.5k→6 可用,15k→6,30k→7+4 失败包,60k→14);SmartAD smoke 在 GPU4 重跑(树内无 Codex)。
+- 9/12 02:25Z 用户:先验证新机制,RTD 放一边。机制链中间数:support 24 → 19 成功/5 失败 → 5 种子;诊断 5(共享 21 调用/4.4k out);C 22 条练习(2.3k out)、D 22 条(2.7k out),远低于目标 48–96/上限 24k;现评 base ×2 → 训评 C → 训评 D → 报告。计划:Codex 改出题为循环到目标/预算(对称),首轮结果后决定是否第二轮。
+- 9/12 02:30Z SmartAD smoke:训练 OK,评测起 vLLM 时报 'invalid Hub model ID: <snapshot path>' → Codex 修评测服务的模型参数(logs/codex_baseline_eval_fix_launch.log)。
+- 9/12 02:31Z base@40c9bae 评测服务参数修复;SmartAD smoke #3 在 GPU4(pid 2102181)。
+- 9/12 02:41Z 02:23 汇报已发;mech evalbase 进行中;SmartAD smoke #3 评测服务就绪。
+- 9/12 02:42Z SmartAD smoke #3 端到端通过(complete);GPU4 启动 ALFWorld 基线曲线链(SmartAD/SAD/Kang × 7.5k/15k/30k/60k,scratch baselines_gpu4.sh)。
+- ⟳ RESTART CHECKLIST addendum (9/12 02:43Z): GPU4 基线曲线链 pid 2120027(baselines_gpu4.sh,ALFWorld smartad/sad/kang × 7.5k/15k/30k/60k,已完成 arm 由 .done 跳过);GPU3 机制链 pid 2016509(evalbase 阶段);重启后重挂两者监视器。
+- 9/12 02:51Z uni@966c6b5 任务整包计费落地后审计:ALFWorld 30k → 1 任务/0 可用(整包 ~21k),退化;论文附录与基线 reader 的单位其实是'单次尝试'(随机序、失败照计)→ Codex 改 broker 为尝试级购买并与基线 reader 逐 id 对齐(logs/codex_purchase_rule2_launch.log)。另:BFCL bank 引用的 memory_kv_141-notetaker-11 在 harness 数据中缺失,待查。
+- 9/12 02:55Z uni@6b5713e: RTD 购买单位改为 attempt 级(与基线 reader 在 ALFWorld/BFCL/HotpotQA × 7.5k/15k/30k/60k 共 12 格上 attempt id / usable 数 / 花费完全一致;ALFWorld 30k = 13 attempts / 5 usable / 29,229 tokens;HotpotQA bank 重建,usable 分母 66,800);125 相关测试通过。RTD 仍按用户指令搁置。
+- 9/12 03:09Z 机制链 evalbase 失败(exit 1,41 min):官方 checker 跳过了 web_search(结果文件按裸类别 web_search 命名,评测器只认 web_search_base/no_snippet);且无 SERPAPI key 时 Web 对所有模型恒 0(9/9 定性),10/256 题不能区分 C/D。决定:第 3 层评测排除 web_search(记录在 run.json),不改已完成的 rollout/generate 产物;Codex 修 mech 树,修完重跑 evalbase。long_context 400(32768 上下文)与官方协议一致,保留。
+- 9/12 03:18Z mech@53706c0 提交(web_search 排除,64 测试通过);机制链从 evalbase 续跑(mech_bfcl_gpu3_resume.sh,pid 见上一行日志 logs/mech_bfcl_gpu3_chain.log),复用已完成的 rollout/diagnose/generate 产物。
+- ⟳ RESTART CHECKLIST addendum (9/12 03:19Z): GPU3 机制链现为 resume 版 pid 2158291(scratch mech_bfcl_gpu3_resume.sh:evalbase→evalbase2→trainC→evalC→trainD→evalD→report);旧 pid 2016509 已结束。
+- 9/12 03:23Z 续跑第一次被 evaluate 的 protocol.json 指纹守卫拒绝(旧 base/main 含上次失败的 layer-1 产物);整目录归档为 base/main.failed-20260912T032346Z,重新起链 pid 见 logs/mech_bfcl_gpu3_chain.log。
+- ⟳ RESTART CHECKLIST addendum (9/12 03:24Z): GPU3 机制链 pid 2164520(attempt 5,resume 脚本);监视 logs/mech_bfcl_gpu3_chain.log。
+- 9/12 04:05Z 机制验证 base 评测完成(38 min):layer3 161/246 = 65.4%(Mem 8/39、MT long_context 2/15、live_parallel_multiple 6/11 最弱);layer1 held-out 17/33,layer2 continuation 5/9(首轮 held-out 仅 42 项)。evalbase2(重复)进行中。
+- 9/12 04:31Z 基线首格:SmartAD ALFWorld B=7.5k → 53.6(75/140,valid_seen 140;base 56.4);购买 4 attempts / 2 usable / 6,535 tokens;训练 24 步 2.5 min;评测 12 min;整格 1 h 49 min(两次预条件刷新各 ~17 min 占大头)。下一格 B=15k 已起。
+- 9/12 04:45Z 机制链 evalbase2 通过(37 min);trainC 起步即被训练代码的 GPU 驻留检查拒绝(nvidia-smi 列全机所有 GPU 的进程,未按 CUDA_VISIBLE_DEVICES 过滤,也未忽略我们的 gpu_hold 守卫)→ Codex 修(logs/codex_mech_gpu_check.log);修完从 trainC 续跑(mech_bfcl_gpu3_resume2.sh)。GPU3 由 holder 占着。
+- 9/12 04:50Z mech 提交 GPU 驻留检查修复(87 测试通过);机制链 attempt 6 从 trainC 起(resume2,pid 见上);⟳ RESTART:GPU3 链 pid 以 logs/mech_bfcl_gpu3_chain.log 为准。
+- 9/12 04:53Z 机制链 attempt 6 手动停止:trainC 只做了 2 个 optimizer step(22 道练习的监督 span 合计仅 611 token,单 pass,lr 1e-5)——这样的 adapter 与 base 无异,评测 C/D 只会得到噪声。需要在两臂完全一致的前提下加大训练暴露(多 pass 至 ≤16k 监督 token 上限)再评。GPU3 交还 holder。
+- 9/12 04:57Z 决定(已告知用户,可否决):机制验证训练剂量改为 26 pass(≈15.9k 监督 token,≤16k 设计上限)+ lr 1e-4(与 SFT 类基线一致),C/D 完全一致;Codex 加 --passes/--learning-rate 并写入冻结 plan(logs/codex_mech_passes.log);续跑脚本 mech_bfcl_gpu3_resume3.sh(PASSES/LR 环境变量)。一次 pass 的 C/training 与 training_plan 已归档为 *.pass1-20260912T045422Z。
+- 9/12 05:02Z mech 提交 --passes/--learning-rate(108 测试通过);机制链 attempt 7 从 trainC 起(PASSES=26 LR=1e-4,resume3)。⟳ RESTART:链 pid 以 logs/mech_bfcl_gpu3_chain.log 为准。
+- 9/12 05:24Z trainC 完成(21 min):26 pass / 52 步 / 15,886 监督 token,loss 0.351→0.052;evalC 起(LoRA 服务)。
+- 9/12 06:16Z evalC 完成(47 min):C(通用局部练习)layer3 161/246 = 65.4(= base;Memory 10/39 +2、MT miss_func 8/15 −2、miss_param 7/14 −3、parallel 6/7 +2、java +1、js −1);layer1 17/33(= base);layer2 4/9(base 5/9)。trainD 06:15Z 起。
+- 9/12 06:35Z trainD 完成(18 min):同剂量 52 步 / 15,886 监督 token,loss 0.493→0.0009(D 练习更易拟合);evalD 起,~07:20Z 出表。
+- 9/12 06:52Z 基线:SmartAD ALFWorld B=15k → 55.0(77/140;base 56.4);9 attempts / 5 usable / 13,342 tokens;整格 2 h 20 min(预条件刷新 98 rollouts × 2 ≈ 55 min)。B=30k 起(同样 5 usable,预算规则下 30k 与 15k 购买集只多 4 次失败尝试)。
+- 9/12 07:35Z 机制验证首轮完成(报告 docs/2026-09-12-mech-bfcl-round1-zh.md,已发频道):L3 base 161 / C 161 / D 169 (of 246);C→D +8 题,翻转 15/7,parent Δ +1.3 pp CI [−2.7,+5.3];D 增益在 Memory +5、live_parallel_multiple +3;C 多轮退化;L1 三臂相同 17/33。判断:靶向机制初步支持、未确立。下一步建议 A(训练种子重复)/B(64 道练习)/C(A/B 臂);先起 A。
+- 9/12 07:46Z mech 提交 --train-seed(179 测试通过);GPU3 起训练种子重复链(mech_bfcl_gpu3_seed.sh,TSEED=1,C/D 同剂量各训一次+评全任务+report)。⟳ RESTART:链日志 logs/mech_bfcl_gpu3_chain.log。
+- 9/12 08:02Z 用户(GPT-6 备忘)决定:留在 BFCL;先做日志核查(loss 含义/多样性/诊断对应)→ R1 原池配对种子重复(已在 GPU3 跑,TSEED=1)→ R2 64 条三方向覆盖扩展(同总监督 token,少 pass,中点+终点 ckpt)+ 围绕条件关系的新确认练习集;四个训练后再决定 A/B。核查表 docs/2026-09-12-mech-bfcl-logcheck-zh.md(loss 分项待 audit-loss)。关键发现:multi_turn 两条诊断在两臂都无练习(快照不可用);D−C +8 里约 +5 是 C 在 multi_turn 损伤更大;去掉 multi_turn 后 D−C≈+3。worktree tc-alignment-mech2(mech-r2)供 Codex 开发 R2,不动正在跑 R1 的 mech 树。
+- ⟳ RESTART CHECKLIST addendum (9/12 08:08Z): GPU3 R1 种子重复链(mech 树,logs/mech_bfcl_gpu3_chain.log,TSEED=1);其后自动跑 loss 审计(mech2 树 logs/audit_loss_chain.log,scratch mech_loss_audit_after_r1.sh);Codex R2 任务在 mech2(logs/codex_mech2_r2.log,mech2@1557059 已含 audit-loss);GPU4 基线链 SmartAD 30k 训练中。重启后重挂:R1 链、审计链、基线链、Codex 日志等待。
+- 9/12 08:32Z R2 准备:prepare-r2 成功;确认集 16 项 / 8 个有效配对(目标 24;类别 live_parallel 6、live_relevance 3、live_multiple 3、multiple 3、simple_java 1);R2 链等待器已挂(audit DONE 后起:生成到 64 → base 评(重跑,R1 的 base 目录因指纹新增 confirmation_hash 不能复用)→ 训 C/D(budget 15.9k)→ 评 mid/end → report;mech2 logs/r2_chain.log)。教训:kill 用 ps|grep 时模式若出现在同一命令行里会杀掉自己(exit 144)。
+- 9/12 08:57Z R1 部分结果:C_s1(同 22 条池、训练种子 1)L3 = 169/246 — 与 D_s0 相同;C_s0→C_s1 翻 12 题(miss_func 8→11、miss_param 7→9、live_parallel_multiple 6→8);对 base +12/−4;L1 17/33、L2 5/9。=> 训练随机性本身可动 ±8 题,首轮 D−C +8 落在种子噪声内。等 D_s1(trainD_s 08:55Z 起)。
+- 9/12 09:21Z 基线:SmartAD ALFWorld B=30k → 55.7(78/140;base 56.4);13 attempts / 5 usable / 29,229 tokens;训练集与 15k 完全相同(492 行),差 1 题 = 训练/评测非确定性。B=60k 起(9 usable,174 rollouts/刷新,预计 ~12:30Z)。
+- 9/12 10:08Z R1 完成:D_s1 L3 = 161/246(= base);两种子 pooled C 165.0 vs D 165.0,D−C = 0(parent Δ −1.1 pp,CI [−4.2, +1.9]);D 两种子间翻 14 题;L1 全部 17/33。=> 首轮 D 优势在重复后消失(用户决策表:不稳定信号,不扩大叙事)。唯一两种子一致的类别:live_parallel_multiple D 9/9 vs C 6/8 vs base 6(n=11,预登记的并行缺口)。两臂对 base 平均 +4 题(噪声内)。R2(已排队)的意义转为 64 vs 22(多样性);追加 R2 种子 1(仅 end ckpt)。
+- ⟳ RESTART CHECKLIST addendum (9/12 10:10Z): GPU3 队列(全部 scratch 脚本、mech2 树 logs/):audit_loss_chain.log(进行中)→ r2_chain.log(mech_r2_gpu3.sh 等待 audit DONE)→ r2s1_chain.log(mech_r2_seed1_gpu3.sh 等待 r2 DONE)。GPU4:基线链 SmartAD 60k。重启后重挂这四个日志的监视。
+- 9/12 10:12Z loss 审计完成(4 个 adapter):base 训练前已对 ≈96% 监督 token(熵 ≈0.005 nats),训练只翻转 ~10–20 个 token 决策,KL 0.03–0.045;写入 logcheck 文档 §1(补)。R2 链 10:10Z 起(generateC)。
+- 9/12 10:18Z R2 生成完成(6 min):C 63/64(触 24k 输出上限:32 次调用 21,047 token,ready=False 因部分 seed/方向两侧覆盖未满);D 64/64(14 次调用 9,675 token,ready=True)。两臂都含 multi_turn seed(快照重建成功;C seed_1 7/seed_4 13,D 9/7)。train 阶段会因 C ready=False 拒绝 → Codex 紧急改为'触上限的 bank 可训练并记录覆盖缺口'(logs/codex_mech2_ready.log);evalbase 10:16Z 起(~40 min),需在其结束前落地。
+- 9/12 10:23Z mech2@cb7695d:触上限 bank 可训练(记录 coverage_complete/missing_sides/stop_reason/spend),116 测试通过;R2 链将在 evalbase 后按新代码进入 trainC。
+- 9/12 10:58Z R2 base 评测(40 min):L3 160/246(R1 161,1 翻);L1 18/33;L2 5/9;确认集已评(见 confirmation.jsonl)。trainC(64 条,budget 15.9k)10:56Z 起。
+- 9/12 11:42Z R2 剂量:common cap 1,585 监督 token/pass,10 pass × 4 步 = 40 步(budget 15,900);trainC 已过中点(adapter_mid 已存),每步更慢(64 条长上下文各自前向),预计 ~12:00Z 结束。
+- 9/12 12:25Z 基线:SmartAD ALFWorld B=60k → 56.4(base 56.4);9 usable;整格 3 h(两次预条件各 ~1 h)。SmartAD 曲线完成 7.5k/15k/30k/60k = 53.6/55.0/55.7/56.4。SAD 曲线 12:25Z 起(7.5k)。
+- 9/12 12:32Z R2 C_end(63 条,10 pass/40 步/15,850 监督 token,45 min,loss 0.347→0.034):L3 165/246(base 160,+12/−7;memory 7→11、miss_param 10→8);L1 17/33;L2 5/9;确认集 11/16(base 10/16)。与 R1 两种子均值 165 相同。evalCmid 12:30Z 起。
+- 9/12 13:11Z Azure 仍 403(p1/p2),无教师调用。
+- 9/12 13:20Z R2 C_mid 评测完成(见下一行数字);trainD 13:18Z 起。
+- 9/12 13:21Z R2 C_mid(20 步 / 7,925 监督 token):L3 161/246(end 165,mid↔end 翻 16 题);L1 20/33(base 18、end 17);L2 4/9;确认集 9/16(base 10、end 11)。中点/终点无单调趋势,均在噪声内。
+- 9/12 13:49Z R2 trainD 完成(30 min,61 条有效,40 步,15,850 监督 token,loss 0.362→0.0003);evalDend 起。
+- 9/12 14:11Z 基线:SAD ALFWorld B=7.5k → 57.9(81/140;base 56.4;2 usable;6,535 tokens;整格 1 h 46 min)。SAD 15k 起。
+- 9/12 14:41Z R2 D_end(64 条,seed 0):L3 168/246(base 160,+11/−3;C_end 165,D−C +3 = 10/7);live_parallel_multiple 9/11(D 三次运行全是 9,C 6/8/7,base 6);memory 10(C 11);L1 17/33;L2 5/9;确认集 11/16(= C)。evalDmid 14:36Z 起。
+- 9/12 15:15Z 用户:R2 出结果后要一份新机制汇总文档(docs/2026-09-12-mech-summary-zh.md,草稿已起,等种子 1 + pooled 填数)。
+- 9/12 15:21Z 用户:报给用户的时间一律用美国中部时间(America/Chicago);内部日志仍记 UTC。
+- 9/12 15:24Z R2 D_mid(20 步):L3 170/246(D_end 168,mid↔end 翻 6);L1 17/33;L2 5/9;确认集 10/16。R2 seed-0 链 DONE;种子 1 链接管 GPU3。
+- 9/12 16:18Z 新算力:LONI qbd.loni.org(用户 xueqic),rai 可直连 22 端口(无需隧道),服务器接受 publickey;已在 ~/.ssh/config 加 Host loni(ControlPersist 8h)。等用户把 rai 公钥加到 LONI 的 authorized_keys 后开始勘察(分区/H100/allocation/模块/存储)。密码出现在 Discord 中,已建议用户更换,本工作区不保存。
+- 9/12 16:22Z LONI 准备就绪待密钥:scripts/sync_to_loni.sh(/work/xueqic/hq)、scripts/job_loni.slurm(账号/分区占位)、scratch loni_survey.sh(分区/H100/allocation/配额/模块/容器,非破坏性);后台等待器一通即跑勘察。
+- 9/12 16:22Z LONI 勘察完成(docs/loni_setup.md):ssh loni 免密可用;gpu2 50×2 卡(30 空)/ gpu4 10×4 卡(7 空),64 核 514GB,3 天时限;/work 无容量配额(6.5PB Lustre),/home 仅 10GB;cuda 12.2、python3.11 模块、无 singularity、登录节点可上外网。阻塞:allocation loni_depedlab11 透支 -4538.83 SU,sbatch 直接拒(连 --test-only 都不行)→ 已请用户申请新 allocation。
+- 9/12 16:25Z 基线:SAD ALFWorld B=15k → 60.7(85/140;base 56.4;5 usable;13,342 tokens)。SAD 曲线 7.5k/15k = 57.9/60.7,首个明显超过 base 的格子(+4.3,140 题噪声 ±4)。SAD 30k 起。
+- 9/12 16:40Z 论文更新并推送(f016d1e):主表基线行改为 SmartAD/SAD/Agent Distillation/GAD,列 WebShop→HotpotQA(base 38.2 EM),caption 写明绝对预算 B=30k;新增 tab:budget(ALFWorld 预算曲线:SmartAD 53.6/55.0/55.7/56.4,SAD 57.9/60.7/·/·,usable 2/5/5/9)与解读段;exp_setting 基准与基线段同步(WebShop 排除理由=教师自身 1/5);appendix 基线实现段重写为四个实际跑的方法;补 yang2018hotpotqa 文献;合并 Overleaf 的 9a0db73 并恢复可执行位。
+- 9/12 16:45Z 仓库拆分完成(用户要求):代码/实验 → https://github.com/XueqiC/tc_code(本目录 origin 已改,全部分支已镜像推送,paper/ 已从代码仓移除,27ae01d);论文 → 原仓库 https://github.com/XueqiC/tc-alignment,只保留 paper/(新 clone ~/hq/projects/tc-paper,7d4be6d)。改论文走 tc-paper(pull Overleaf 提交后再 push);代码仓不再有 paper 远端。worktree 全部跟随 origin 改动,运行中的作业未受影响。

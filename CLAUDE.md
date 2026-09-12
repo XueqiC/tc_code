@@ -22,3 +22,11 @@ rails、数据安全)继续适用;下面是本会话的特化。
 ## 路径
 - rai 项目目录 = 本目录;`ops/` 脚本在 `~/hq/ops/`(gpu_free.sh、status_line.sh、watch_job.sh)。
 - 状态 footer:`-# ⚙️ <model> · <bash ~/hq/ops/status_line.sh>`。
+
+## 仓库拆分(2026-09-12)
+- **代码/实验** = 本目录及其 worktree,remote `origin` → https://github.com/XueqiC/tc_code
+  (PROJECT_STATE.md、notes/、src/、tools/、scripts/、configs/、docs/、tests/ 都在这里)。
+- **论文** = `~/hq/projects/tc-paper`(独立 clone),remote `origin` →
+  https://github.com/XueqiC/tc-alignment,**只放 `paper/`**,这是与 Overleaf 同步的那个仓库。
+  改论文在 tc-paper 里改、提交、push;先 `git pull` 合并 Overleaf 的提交,再推。
+- 两个仓库共享同一段历史(拆分前的提交在双方都在),拆分后各自独立演进。
