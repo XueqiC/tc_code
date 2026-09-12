@@ -1872,3 +1872,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/12 16:45Z 仓库拆分完成(用户要求):代码/实验 → https://github.com/XueqiC/tc_code(本目录 origin 已改,全部分支已镜像推送,paper/ 已从代码仓移除,27ae01d);论文 → 原仓库 https://github.com/XueqiC/tc-alignment,只保留 paper/(新 clone ~/hq/projects/tc-paper,7d4be6d)。改论文走 tc-paper(pull Overleaf 提交后再 push);代码仓不再有 paper 远端。worktree 全部跟随 origin 改动,运行中的作业未受影响。
 - 9/12 17:00Z R2 C_s1:L3 164/246(C_s0 165,两种子间翻 17 题但总分只差 1);L1 21/33(base 18、C_s0 17);L2 5/9;确认集 10/16。C 两种子均值 164.5 vs base 160。trainD_s1 16:58Z 起。
 - 9/12 18:18Z LONI 复查:allocation 仍 -4538.83 SU,sbatch --test-only 仍拒(No active CPU Allocation found);sacctmgr 下无其他账号。已告知用户去 allocations.loni.org 申请。
+- 9/12 18:55Z 分支收敛完成:tc_code 与 tc-alignment(论文)远端各只剩 main;19 个代码分支中 5 条活跃线真合并、14 条被淘汰的线用 merge -s ours 记录历史(代码零改动),论文仓的 7 个 overleaf-* 快照同样处理。合并造成的 26 个测试失败已由 Codex 分两轮修完(仅测试文件与夹具,生产代码未改),全量 3,995 通过 / 0 失败 / 30 跳过。tc_code 默认分支已设为 main。本地 worktree 仍在原分支上(mech2/base 有作业在跑),等作业结束再收敛目录。
