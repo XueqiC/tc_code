@@ -9,6 +9,7 @@ import socket
 import sys
 import threading
 from types import SimpleNamespace
+from urllib.error import HTTPError
 
 import pytest
 
@@ -532,18 +533,150 @@ def test_pool_zero_cap_makes_no_calls_or_attempts(small_pool, teacher, tmp_path,
     assert not (tmp_path / "attempts.jsonl").exists()
 
 
-def test_pool_unknown_usage_keeps_reservation_stops_resume(small_pool, teacher, tmp_path):
-    teacher.missing = True
-    summary = pool.collect(tmp_path, workers=1)
-    assert summary["uncertain_calls"] == 1 and summary["verified"] == 0
-    assert summary["tokens"] > TEACHER_MAX_TOKENS
-    row = ledger.read_records(tmp_path / "teacher_ledger.jsonl")[0]
-    assert row["usage_status"] == "estimated"
-    archive = json.loads((tmp_path / "attempts.jsonl").read_text())
-    assert archive["usage_status"] == "estimated" and archive["response_texts"]
-    assert archive["termination_reason"] == "error" and archive["tokens"] == summary["tokens"]
+@pytest.fixture
+def pool_client(monkeypatch):
+    # Run the real transport/usage callback, replacing only the HTTP client.
+    monkeypatch.setattr(appworld_teacher, "generate_reply", REAL_GENERATE_REPLY)
+    monkeypatch.setattr(appworld_teacher, "load_teacher_config", REAL_LOAD_CONFIG)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-only")
+    state = SimpleNamespace(calls=[], replies=iter(()), delays=[])
+    state.success = {"choices": [{"message": {"content": "finish[Paris]"}}],
+                     "usage": {"prompt_tokens": 1000, "completion_tokens": 37,
+                               "prompt_tokens_details": {"cached_tokens": 800}}}
+
+    def open_request(request, timeout):
+        state.calls.append(json.loads(request.data))
+        reply = next(state.replies, state.success)
+        if isinstance(reply, Exception):
+            raise reply
+        return io.BytesIO(json.dumps(reply).encode())
+
+    def wait_for_retry(budget, delay):
+        assert not budget.pending  # Settled before backoff; no worker holds a reservation open.
+        state.delays.append(delay)
+
+    monkeypatch.setattr(appworld_teacher.urllib.request, "build_opener", lambda: SimpleNamespace(open=open_request))
+    monkeypatch.setattr(Budget, "wait_for_retry", wait_for_retry)
+    return state
+
+
+@pytest.mark.parametrize("after_search", [False, True])
+def test_pool_missing_usage_once_then_success(small_pool, pool_client, tmp_path, after_search):
+    replies = [{"choices": pool_client.success["choices"]}]
+    if after_search:
+        search = deepcopy(pool_client.success)
+        search["choices"][0]["message"]["content"] = "search[clock]"
+        replies.insert(0, search)
+    pool_client.replies = iter(replies)
+    summary = pool.collect(tmp_path)
+    failed_index = int(after_search)
+    prompt = prompt_bound(pool_client.calls[failed_index]["messages"])
+    reported_calls = 4 + failed_index
+    assert summary["complete"] and summary["stop_reason"] == "complete"
+    assert summary["attempts"] == summary["verified"] == 4
+    assert summary["uncertain_calls"] == 1
+    assert summary["tokens"] == prompt + TEACHER_MAX_TOKENS + reported_calls * 1037
+    assert pool_client.delays == [1.0] and len(pool_client.calls) == reported_calls + 1
+    assert pool_client.calls[failed_index] == pool_client.calls[failed_index + 1]  # Retry the same request.
+    if after_search:
+        assert pool_client.calls[0] != pool_client.calls[1]  # Preserve the episode's earlier step.
+    rows = ledger.read_records(tmp_path / "teacher_ledger.jsonl")
+    assert rows[0]["verified"] and rows[0]["usage_status"] == "estimated"
+    assert rows[0]["usage"] == {"prompt_tokens": prompt + 1000 * (1 + failed_index),
+                               "completion_tokens": TEACHER_MAX_TOKENS + 37 * (1 + failed_index),
+                               "cached_tokens": 800 * (1 + failed_index)}
+    budget = Budget(tmp_path / "usage.jsonl", Limits())
+    assert [r["status"] for r in budget.calls.values()] == ["reported"] * failed_index + ["estimated"] + ["reported"] * 4
+    assert not budget.stopped and not budget.pending
+    assert summary["estimated_usd"] == float(Limits().cost(budget.usage()))
+    before = {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
     pool.collect(tmp_path, workers=2)
-    assert len(teacher.calls) == 1
+    assert len(pool_client.calls) == reported_calls + 1
+    assert before == {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
+
+
+@pytest.mark.parametrize("failure", ["missing", "timeout", 429, 503, 403])
+def test_pool_three_unknown_failures_release_worker_and_resume(small_pool, pool_client, tmp_path, failure):
+    if failure == "missing":
+        replies = [{"choices": pool_client.success["choices"]}] * 3
+    elif failure == "timeout":
+        replies = [TimeoutError("stub timeout") for _ in range(3)]
+    else:
+        replies = [HTTPError("https://stub", failure, "stub failure", {"Retry-After": "5"}, None)
+                   for _ in range(3)]
+    pool_client.replies = iter(replies)
+    summary = pool.collect(tmp_path, workers=1)
+    envelope = prompt_bound(hp.build_messages(Q["question"])) + TEACHER_MAX_TOKENS
+    assert summary["complete"] and summary["stop_reason"] == "complete"
+    assert summary["attempts"] == 4 and summary["verified"] == 3
+    assert summary["uncertain_calls"] == 3
+    assert summary["tokens"] == 3 * envelope + 3 * 1037
+    assert len(pool_client.calls) == 6
+    assert pool_client.calls[:3] == [pool_client.calls[0]] * 3
+    assert pool_client.delays == ([5.0, 5.0] if isinstance(failure, int) else [1.0, 2.0])
+    rows = ledger.read_records(tmp_path / "teacher_ledger.jsonl")
+    assert [r["task_id"] for r in rows] == [q["_id"] for q in small_pool]
+    assert not rows[0]["verified"] and rows[0]["usage_status"] == "estimated"
+    assert rows[0]["tokens_spent"] == 3 * TEACHER_MAX_TOKENS
+    assert rows[0]["usage"]["cached_tokens"] == 0
+    archives = [json.loads(line) for line in (tmp_path / "attempts.jsonl").read_text().splitlines()]
+    assert archives[0]["termination_reason"] == "error"
+    assert "RequestRetriesExhausted" in archives[0]["error"]
+    assert archives[0]["tokens"] == 3 * envelope
+    assert archives[0]["usage"] == rows[0]["usage"]
+    budget = Budget(tmp_path / "usage.jsonl", Limits())
+    assert not budget.pending and not budget.stopped and budget.exhausted("task-0")
+    assert [r["status"] for r in budget.calls.values()] == ["estimated"] * 3 + ["reported"] * 3
+    assert [r["retry_exhausted"] for r in list(budget.calls.values())[:3]] == [False, False, True]
+    assert [r["http_status"] for r in list(budget.calls.values())[:3]] == [failure if isinstance(failure, int) else None] * 3
+    assert summary["estimated_usd"] == float(Limits().cost(budget.usage()))
+    before = {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
+    pool.collect(tmp_path, workers=2)
+    assert len(pool_client.calls) == 6
+    assert before == {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
+
+
+@pytest.mark.parametrize("retry_after,delay", [
+    ("Thu, 01 Jan 1970 00:00:10 GMT", 10.0), ("0", 1.0), ("invalid", 1.0), ("NaN", 1.0),
+])
+def test_pool_retry_after_http_date_and_fallback(small_pool, pool_client, tmp_path, monkeypatch, retry_after, delay):
+    monkeypatch.setattr(appworld_teacher.time, "time", lambda: 0.0)
+    pool_client.replies = iter([HTTPError("https://stub", 429, "stub", {"Retry-After": retry_after}, None)])
+    assert pool.collect(tmp_path)["verified"] == 4
+    assert pool_client.delays == [delay]
+
+
+def test_pool_401_stops_without_retry(small_pool, pool_client, tmp_path):
+    pool_client.replies = iter([HTTPError("https://stub", 401, "stub", {}, None)])
+    summary = pool.collect(tmp_path)
+    assert not summary["complete"] and "401" in summary["stop_reason"]
+    assert summary["attempts"] == summary["uncertain_calls"] == len(pool_client.calls) == 1
+    assert not pool_client.delays
+    call = Budget(tmp_path / "usage.jsonl", Limits()).calls[0]
+    assert call["status"] == "estimated" and call["http_status"] == 401
+
+
+@pytest.mark.parametrize("bound", ["tokens", "money"])
+def test_pool_retries_respect_each_hard_cap(small_pool, pool_client, tmp_path, bound):
+    reserve = {"prompt_tokens": prompt_bound(hp.build_messages(Q["question"])),
+               "completion_tokens": TEACHER_MAX_TOKENS, "cached_tokens": 0}
+    envelope = reserve["prompt_tokens"] + reserve["completion_tokens"]
+    limits = (Limits(max_tokens=2 * envelope) if bound == "tokens" else
+              Limits(max_usd=2 * Limits().cost(reserve)))
+    pool_client.replies = iter([TimeoutError("stub timeout")] * 3)
+    summary = pool.collect(tmp_path, limits=limits)
+    assert len(pool_client.calls) == summary["uncertain_calls"] == 2
+    assert summary["tokens"] == 2 * envelope and not summary["complete"]
+    assert "hard cap" in summary["stop_reason"]
+    current = {}
+    for line in (tmp_path / "usage.jsonl").read_text().splitlines():
+        row = json.loads(line)
+        current[row["id"]] = row
+        usage = {k: sum(r["usage"][k] for r in current.values()) for k in reserve}
+        assert usage["prompt_tokens"] + usage["completion_tokens"] <= limits.max_tokens
+        assert limits.cost(usage) <= limits.max_usd
+    pool.collect(tmp_path, limits=limits)
+    assert len(pool_client.calls) == 2
 
 
 @pytest.mark.parametrize("bound", ["tokens", "money"])
@@ -566,15 +699,16 @@ def test_pool_concurrent_positive_hard_cap(small_pool, teacher, tmp_path, bound)
         assert limits.cost(usage) <= limits.max_usd
 
 
-def test_teacher_pool_offline_miss_charged_and_stops(small_pool, teacher, tmp_path, monkeypatch):
+def test_teacher_pool_offline_miss_charged_and_continues(small_pool, teacher, tmp_path, monkeypatch):
     monkeypatch.setattr(HotpotQAAdapter, "_wiki", lambda self: hp.Wikipedia(tmp_path / "cache", offline=True))
-    teacher.replies = iter(["search[uncached]"])
+    teacher.replies = iter(["search[uncached]"] * 12)
     summary = pool.collect(tmp_path / "pool", offline=True)
-    assert summary["attempts"] == len(teacher.calls) == 1
-    assert summary["tokens"] == 1037 and "not cached" in summary["stop_reason"]
+    assert summary["attempts"] == len(teacher.calls) == 12
+    assert summary["tokens"] == 12 * 1037 and summary["stop_reason"] == "complete"
+    assert summary["complete"] and summary["verified"] == 0
     row = ledger.read_records(tmp_path / "pool/teacher_ledger.jsonl")[0]
     assert not row["verified"] and row["usage_status"] == "reported"
-    archive = json.loads((tmp_path / "pool/attempts.jsonl").read_text())
+    archive = json.loads((tmp_path / "pool/attempts.jsonl").read_text().splitlines()[0])
     assert archive["termination_reason"] == "offline_cache_miss"
     assert archive["history"][0]["action"] == "search[uncached]"
     assert "not cached" in archive["history"][0]["observation"]
@@ -586,24 +720,66 @@ def test_budget_concurrent_reservations_and_crash_recovery(tmp_path, monkeypatch
     envelope = prompt_bound(messages) + TEACHER_MAX_TOKENS
     budget = Budget(tmp_path / "journal.jsonl", Limits(max_tokens=envelope))
     call = budget.reserve("task-0", 0, messages)
-    budget.finish(call)
-    with pytest.raises(BudgetStopped):
-        budget.reserve("task-1", 0, messages)
+    waiting = threading.Event()
+    original_wait = budget.condition.wait
+
+    def wait(timeout=None):
+        waiting.set()
+        return original_wait(timeout)
+
+    monkeypatch.setattr(budget.condition, "wait", wait)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(budget.reserve, "task-1", 0, messages)
+        try:
+            assert waiting.wait(2)
+            budget.finish(call)
+            with pytest.raises(BudgetStopped, match="hard cap"):
+                future.result(timeout=2)
+        finally:
+            budget.cancel("test cleanup")
     reopened = Budget(tmp_path / "journal.jsonl", Limits(max_tokens=100000))
-    assert reopened.stopped and reopened.usage()["completion_tokens"] == TEACHER_MAX_TOKENS
+    assert not reopened.stopped and reopened.usage()["completion_tokens"] == TEACHER_MAX_TOKENS
+    assert reopened.calls[0]["status"] == "estimated" and not reopened.pending
     out = tmp_path / "pool"
     out.mkdir()
     hp.write_json(out / "identity.json", pool.collection_identity(HotpotQAAdapter.teacher_name(), Limits()))
     (out / "usage.jsonl").write_bytes((tmp_path / "journal.jsonl").read_bytes())
     summary = pool.collect(out)
-    assert summary["attempts"] == 1 and not teacher.calls
+    assert summary["attempts"] == 5 and len(teacher.calls) == 4 and summary["complete"]
     before = (out / "attempts.jsonl").read_bytes()
-    archive = json.loads(before)
+    archive = json.loads(before.splitlines()[0])
     assert archive["task_id"] == "task-0" and archive["attempt_index"] == 0
     assert not archive["trajectory_available"] and archive["usage_status"] == "estimated"
-    assert archive["tokens"] == summary["tokens"]
+    assert archive["tokens"] == envelope
+    assert summary["tokens"] == envelope + 4 * 1037
     pool.collect(out)
-    assert not teacher.calls and (out / "attempts.jsonl").read_bytes() == before
+    assert len(teacher.calls) == 4 and (out / "attempts.jsonl").read_bytes() == before
+
+
+@pytest.mark.parametrize("exhausted", [False, True])
+def test_pool_recovers_multiple_orphan_tries(small_pool, teacher, tmp_path, exhausted):
+    hp.write_json(tmp_path / "identity.json", pool.collection_identity(HotpotQAAdapter.teacher_name(), Limits()))
+    budget = Budget(tmp_path / "usage.jsonl", Limits())
+    messages = hp.build_messages(Q["question"])
+    for index in range(3):
+        call = budget.reserve("task-0", 0, messages)
+        # A process can die after reservation or after recording exhaustion,
+        # but before either episode ledger/archive is written.
+        if exhausted:
+            budget.finish(call, error="stub timeout", retry_exhausted=index == 2)
+    summary = pool.collect(tmp_path)
+    assert summary["complete"]
+    assert summary["verified"] == len(teacher.calls) == (3 if exhausted else 4)
+    assert summary["attempts"] == (4 if exhausted else 5)
+    recovered = Budget(tmp_path / "usage.jsonl", Limits())
+    assert all(r["status"] == "estimated" for r in list(recovered.calls.values())[:3])
+    rows = ledger.read_records(tmp_path / "teacher_ledger.jsonl")
+    assert rows[0]["usage"] == {k: 3 * v for k, v in call["usage"].items()}
+    assert rows[0]["usage_status"] == "estimated" and not rows[0]["verified"]
+    before = {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
+    pool.collect(tmp_path)
+    assert len(teacher.calls) == (3 if exhausted else 4)
+    assert before == {p.name: p.read_bytes() for p in tmp_path.glob("*.jsonl")}
 
 
 def test_setup_download_atomic_idempotent_and_order_validation(tmp_path, monkeypatch):

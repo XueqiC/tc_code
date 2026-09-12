@@ -125,7 +125,8 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
             if (key in previous or key[0] not in ids or not 0 <= key[1] < TEACHER_ATTEMPTS
                     or row["teacher"] != teacher or row.get("prompt_version") != hp.PROMPT_VERSION):
                 raise ValueError("ledger contains duplicate, outside, or incompatible attempts")
-            if row["usage"] != budget.usage(*key) or row["tokens_spent"] != row["usage"]["completion_tokens"]:
+            if (row["usage"] != budget.usage(*key) or row["usage_status"] != budget.status(*key)
+                    or row["tokens_spent"] != row["usage"]["completion_tokens"]):
                 raise ValueError("ledger and durable request accounting disagree")
             previous[key] = row
         attempts_path = out / "attempts.jsonl"
@@ -143,7 +144,7 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
 
         def work(task_id):
             prior = [r for (tid, _), r in previous.items() if tid == task_id]
-            if any(r["verified"] for r in prior):
+            if any(r["verified"] for r in prior) or budget.exhausted(task_id):
                 return
             indices = sorted(r["attempt_index"] for r in prior)
             if indices != list(range(len(indices))):
@@ -170,7 +171,7 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
                             reasons.append("hard cap cannot reserve the next request")
                         return  # No request: do not consume an attempt.
                     append_result(path, teacher, task_id, attempt, budget, questions[task_id], episode)
-                    if episode.verified:
+                    if episode.verified or budget.exhausted(task_id):
                         return
                 except BaseException as exc:
                     budget.cancel(f"collection stopped: {type(exc).__name__}: {exc}")
@@ -201,7 +202,8 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
                                               "teacher": teacher, "demos": verified})
             usage = budget.usage()
             attempted = {r["task_id"] for r in rows}
-            complete = all(tid in verified or sum(r["task_id"] == tid for r in rows) == TEACHER_ATTEMPTS for tid in ids)
+            complete = all(tid in verified or budget.exhausted(tid)
+                           or sum(r["task_id"] == tid for r in rows) == TEACHER_ATTEMPTS for tid in ids)
             summary = {"teacher": teacher, "tasks": len(ids), "tasks_attempted": len(attempted),
                        "verified": len(verified), "attempts": len(rows), **usage,
                        "tokens": usage["prompt_tokens"] + usage["completion_tokens"],

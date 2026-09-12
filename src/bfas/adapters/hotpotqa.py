@@ -123,11 +123,9 @@ class HotpotQAAdapter(BenchmarkAdapter):
             rollout = self._episode(self.questions("train")[task_id], session.generate, temperature)
         except protocol.OfflineCacheMiss as exc:
             # The previous model request is still paid. Pool and shared gateway
-            # receive an unverified episode with all usage. The capped pool stops.
+            # receive an unverified episode with all usage and can continue.
             if not session.usage["prompt_tokens"]:
                 raise
-            if budget:
-                budget.cancel(str(exc))
             rollout = Rollout(task_id, False, (), exc.record)
         demo = None
         if rollout.verified:

@@ -84,6 +84,12 @@ class BridgeRemoteError(RuntimeError):
 class TeacherAPIError(RuntimeError):
     """The remote chat-completions request failed or returned invalid data."""
 
+    def __init__(self, message: str, *, status_code: int | None = None,
+                 retry_after: str | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after = retry_after
+
 
 @dataclass(frozen=True)
 class TeacherConfig:
@@ -532,16 +538,18 @@ def generate_reply(
             if status == 429:
                 raise TeacherAPIError(
                     f"chat completion returned HTTP 429 after "
-                    f"{rate_limit_attempts} attempts"
+                    f"{rate_limit_attempts} attempts", status_code=status, retry_after=retry_after,
                 ) from None
             if 500 <= status < 600 and request_attempt < total_attempts:
                 time.sleep(_retry_after_delay(retry_after, _retry_delay(request_attempt)))
                 continue
             if 500 <= status < 600:
                 raise TeacherAPIError(
-                    f"chat completion returned HTTP {status} after {request_attempt} attempts"
+                    f"chat completion returned HTTP {status} after {request_attempt} attempts",
+                    status_code=status, retry_after=retry_after,
                 ) from None
-            raise TeacherAPIError(f"chat completion returned HTTP {status}") from None
+            raise TeacherAPIError(f"chat completion returned HTTP {status}",
+                                  status_code=status, retry_after=retry_after) from None
         except (socket.timeout, TimeoutError):
             if request_attempt < total_attempts:
                 time.sleep(_retry_delay(request_attempt))
