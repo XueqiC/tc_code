@@ -13,6 +13,7 @@ _MODULES = {
     "Tau2Adapter": ".tau2",
     "HotpotQAAdapter": ".hotpotqa",
     "WebShopAdapter": ".webshop",
+    "HotpotQAAdapter": ".hotpotqa",
 }
 
 

@@ -10,9 +10,14 @@ import threading
 from .ledger import append_record
 
 TEACHER_MAX_TOKENS = 2048  # Includes hidden reasoning, unlike visible student tokens.
+REQUEST_ATTEMPTS = 3  # Initial request plus two retries; each has its own reservation.
 
 
 class BudgetStopped(RuntimeError):
+    pass
+
+
+class RequestRetriesExhausted(RuntimeError):
     pass
 
 
@@ -67,7 +72,8 @@ class Budget:
     """An output-level collection lock excludes other processes for our lifetime.
 
     The journal is append-only. On replay, the latest row per call wins; an
-    unfinished call retains its reservation and stops new purchases on resume.
+    unfinished call becomes an estimated failed call at its full reservation on
+    resume. Retrying always reserves a new call, never overwrites an old charge.
     """
     def __init__(self, path, limits):
         self.path, self.limits = Path(path), limits
@@ -78,8 +84,9 @@ class Budget:
             for line in self.path.read_text().splitlines():
                 row = json.loads(line)
                 self.calls[row["id"]] = row
-        if any(r["status"] != "reported" for r in self.calls.values()):
-            self.stopped = "unresolved request usage; reservations retained, no further purchases"
+        for call in list(self.calls.values()):
+            if call["status"] == "reserved":
+                self.finish(call, error="interrupted before exact usage was saved")
 
     def usage(self, task_id=None, attempt_index=None):
         with self.condition:
@@ -97,6 +104,16 @@ class Budget:
         with self.condition:
             self.stopped = self.stopped or reason
             self.condition.notify_all()
+
+    def exhausted(self, task_id):
+        with self.condition:
+            return any(r["task_id"] == task_id and r.get("retry_exhausted", False)
+                       for r in self.calls.values())
+
+    def wait_for_retry(self, delay):
+        with self.condition:
+            if self.condition.wait_for(lambda: self.stopped is not None, timeout=delay):
+                raise BudgetStopped(self.stopped)
 
     def reserve(self, task_id, attempt_index, messages):
         reserve = {"prompt_tokens": prompt_bound(messages), "completion_tokens": TEACHER_MAX_TOKENS,
@@ -129,11 +146,14 @@ class Budget:
                 self.cancel("provider exceeded reserved usage envelope")
                 raise BudgetStopped(self.stopped)
 
-    def finish(self, call):
+    def finish(self, call, *, error=None, http_status=None, retry_exhausted=False):
         with self.condition:
+            if self.calls[call["id"]]["status"] == "reserved":
+                row = dict(call, status="estimated", error=error, http_status=http_status,
+                           retry_exhausted=retry_exhausted)
+                append_record(self.path, row)  # Charge durably before releasing the worker.
+                self.calls[call["id"]] = row
             self.pending.discard(call["id"])
-            if self.calls[call["id"]]["status"] != "reported":
-                self.cancel("request usage is unknown; full reservation retained")
             self.condition.notify_all()
 
 
@@ -151,34 +171,51 @@ class TeacherSession:
 
     def generate(self, messages, stop, temperature):
         import appworld_teacher
-        call = self.budget.reserve(self.task_id, self.attempt_index, messages) if self.budget else None
-        usage = None
+        attempts = REQUEST_ATTEMPTS if self.budget else 1
+        for request_attempt in range(attempts):
+            call = self.budget.reserve(self.task_id, self.attempt_index, messages) if self.budget else None
+            usage, error, http_status, exhausted = None, None, None, False
 
-        def charge(raw):
-            nonlocal usage
-            usage = reported_usage(raw)
-            if self.budget:
-                self.budget.settle(call, usage)
+            def charge(raw):
+                nonlocal usage
+                usage = reported_usage(raw)
+                if self.budget:
+                    self.budget.settle(call, usage)
 
-        try:
-            # Reasoning models reject stop; truncate locally after accounting.
-            supports_stop = not self.config.model.split("/")[-1].startswith(("gpt-5", "o1", "o3", "o4"))
-            reply = appworld_teacher.generate_reply(
-                self.config, messages, temperature=temperature, retries=0,
-                max_completion_tokens=TEACHER_MAX_TOKENS,
-                stop=stop if supports_stop else None, usage_callback=charge)
-            self.response_texts.append(reply)
-            if usage is None:
-                raise ValueError("teacher returned no exact usage")
-            for marker in stop:
-                reply = reply.split(marker, 1)[0]
-            return reply
-        finally:
-            if usage is None:
-                self.usage_status = "estimated"
-                usage = {"prompt_tokens": prompt_bound(messages), "completion_tokens": TEACHER_MAX_TOKENS,
-                         "cached_tokens": 0}
-            for key, value in usage.items():
-                self.usage[key] += value
-            if self.budget:
-                self.budget.finish(call)
+            try:
+                # Reasoning models reject stop; truncate locally after accounting.
+                supports_stop = not self.config.model.split("/")[-1].startswith(("gpt-5", "o1", "o3", "o4"))
+                reply = appworld_teacher.generate_reply(
+                    self.config, messages, temperature=temperature, retries=0,
+                    max_completion_tokens=TEACHER_MAX_TOKENS,
+                    stop=stop if supports_stop else None, usage_callback=charge)
+                self.response_texts.append(reply)
+                if usage is None:
+                    raise ValueError("teacher returned no exact usage")
+                for marker in stop:
+                    reply = reply.split(marker, 1)[0]
+                return reply
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                http_status = getattr(exc, "status_code", None)
+                if http_status == 401 and self.budget:
+                    self.budget.cancel("API key rejected (HTTP 401)")
+                if usage is not None or not self.budget or self.budget.stopped:
+                    raise
+                exhausted = request_attempt + 1 == attempts
+                if exhausted:
+                    raise RequestRetriesExhausted(f"request failed after {attempts} tries: {error}") from exc
+                backoff = float(2 ** request_attempt)
+                delay = max(backoff, appworld_teacher._retry_after_delay(
+                    getattr(exc, "retry_after", None), backoff))
+            finally:
+                if usage is None:
+                    self.usage_status = "estimated"
+                    usage = call["usage"] if call else {
+                        "prompt_tokens": prompt_bound(messages), "completion_tokens": TEACHER_MAX_TOKENS,
+                        "cached_tokens": 0}
+                for key, value in usage.items():
+                    self.usage[key] += value
+                if self.budget:
+                    self.budget.finish(call, error=error, http_status=http_status, retry_exhausted=exhausted)
+            self.budget.wait_for_retry(delay)

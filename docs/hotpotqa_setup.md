@@ -129,10 +129,10 @@ change before a query's first fetch; the cache does not claim to reproduce a
 historical 2022 Wikipedia snapshot. `--offline` disables Wikipedia fetches,
 while still allowing the explicitly configured model endpoint. A missing query
 raises an error containing the query and cache path. Evaluation leaves that
-question pending and writes incomplete metrics. A teacher pool stops after
-recording any already incurred model usage. To replay a run elsewhere, copy
-the cache together with its query snapshots. No cache eviction or refresh is
-performed automatically.
+question pending and writes incomplete metrics. A teacher pool records the
+failed episode and any already incurred model usage, then continues. To replay
+a run elsewhere, copy the cache together with its query snapshots. No cache
+eviction or refresh is performed automatically.
 
 ## Evaluation and BFAS
 
@@ -148,7 +148,7 @@ PYTHONPATH=src .venv/bin/python -m bfas.run \
 
 The adapter is server-backed like WebShop. BFAS owns the student server;
 standalone evaluation addresses an existing OpenAI-compatible endpoint.
-The BFAS default student in this RTD worktree is `google/gemma-4-12B-it`, overridable with
+The BFAS default student is `Qwen/Qwen3.5-4B`, overridable with
 `BFAS_HOTPOTQA_MODEL`. `BFAS_HOTPOTQA_OFFLINE=1` enables offline Wikipedia in BFAS.
 Student authentication can be supplied with `BFAS_STUDENT_API_KEY`.
 
@@ -198,6 +198,15 @@ The next request must fit both caps at its full reservation. Idle workers wait
 for in-flight reservations to settle when they may release enough headroom.
 `BFAS_TEACHER_MIN_INTERVAL_S` optionally spaces episode attempts.
 
+When request usage is missing (including HTTP errors and timeouts), the pool
+allows three total tries of the same request, with 1- and 2-second backoffs or
+the server's `Retry-After`, whichever is longer. Every try reserves separately;
+each unknown call is charged its full upper bound as `estimated`, even if a
+later try succeeds. After three failures the task is exhausted and its worker
+continues with the next task. HTTP 401 stops collection immediately without a
+retry. Other request failures do not stop collection while the hard caps allow
+further requests. Interruptions and accounting/identity errors still fail closed.
+
 The simpler pool format follows the accounting and identity conventions in
 `tc-alignment-uni/tools/alfworld_teacher_pool.py`, without its sealed RTD bank:
 
@@ -206,14 +215,17 @@ The simpler pool format follows the accounting and identity conventions in
   resumes fail before requests. Raising explicit token/cost caps on resume is
   allowed; existing spend still counts.
 - `usage.jsonl`: append-only request journal. The latest row per call ID is
-  authoritative: either a reservation or exact reported usage. Cached input and
-  hidden reasoning are never double-counted.
+  authoritative: a reservation, exact `reported` usage, or an `estimated` failed
+  call with its error, HTTP status when available, and retry-exhaustion flag.
+  Cached input and hidden reasoning are never double-counted.
 - `teacher_ledger.jsonl`: standard BFAS episode rows keyed by task, teacher and
   zero-based attempt index. Both failures and successes retain usage and
   `tokens_spent` (completion tokens). `usage_status=reported` identifies exact
   counts. Missing/uncertain usage retains its full reservation, is marked
-  `estimated`, cannot produce a demo and stops further purchases, including on
-  resume. An orphan request is recovered as a paid failed attempt.
+  `estimated`, and is included alongside any exact retry usage. A successful
+  retry can produce a verified demo, with the combined usage still marked
+  `estimated`. Orphan reservations become estimated charges on resume and are
+  recovered as a paid failed episode without replaying its requests.
 - `attempts.jsonl`: append-only audit rows keyed by task and zero-based attempt
   index, including failed attempts. Each row retains the question, step history
   with thoughts/actions/observations, raw responses, predicted and gold answers,
@@ -226,9 +238,10 @@ The simpler pool format follows the accounting and identity conventions in
 
 There is one collection process per output directory, enforced with `flock`;
 `--workers` gives concurrent episodes with separate Wikipedia lookup cursors.
-Verified tasks and exhausted attempts are not repurchased on resume. Keep the
-same output directory to preserve accounting; distinct directories are distinct
-purchase inventories. A crash leaving a partial journal line fails closed.
+Verified tasks, exhausted requests and purchased attempts are not repurchased
+on resume. Keep the same output directory to preserve accounting; distinct
+directories are distinct purchase inventories. A crash leaving a partial
+journal line fails closed.
 
 To reuse that pool in BFAS without repurchasing its attempts:
 

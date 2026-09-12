@@ -7,6 +7,7 @@ Run with envs/webshop/venv/bin/python (Python 3.8, openai>=1.0), for example:
 
 Reuse an output directory only for the same model and evaluation settings.
 Completed sessions are skipped; metrics cover the requested session range.
+Select --prompt-version v1 (default) or v2, or set WEBSHOP_PROMPT_VERSION.
 """
 
 import argparse
@@ -48,6 +49,62 @@ Observation: Color selected: blue [SEP] Size selected: 24 oz [SEP] Price: $24.99
 Action: click[Buy Now]
 """
 
+# v1 constants above remain unchanged for existing callers and snapshots.
+# v2 follows docs/webshop_prompt_v2_draft.md in the main tree.
+SYSTEM_PROMPT_V2 = """You are shopping in WebShop. Follow the user's shopping instruction
+and buy the product that best matches all requested attributes, options, and price.
+You can take two forms of action:
+search[<query>] searches for products when a search bar is available.
+click[<button text>] clicks a visible product ID, button, or option. Use the text
+shown on the page. Select the required options before clicking Buy Now.
+Before clicking Buy Now, verify every required attribute, option, and price
+against the instruction on the item page. Select every required option.
+If the item page lacks a required option or the price exceeds the limit,
+use click[< Prev] or click[Back to Search] and try another candidate.
+Never buy from the search page; open an item page and check it first.
+Respond with a single search[...] or click[...] action on its own line.
+You may put one short Thought: line before the action. Do not invent observations.
+"""
+
+WORKED_EXAMPLE_V2 = """Worked example:
+Observation: WebShop [SEP] Instruction: i would like a 3 ounce bottle of bright citrus deodorant for sensitive skin, and price lower than 50.00 dollars [SEP] Search
+Thought: I need 3 ounce, bright citrus, for sensitive skin, and under $50.
+Action: search[3 ounce bright citrus deodorant sensitive skin]
+Observation: [Back to Search] [SEP] Page 1 (Total results: 50) [SEP] [Next >] [SEP] B078GWRC1J [SEP] Bright Citrus Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] $10.99 [SEP] B078GTKVXY [SEP] Ginger Fresh Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] $10.99 [SEP] B08KBVJ4XN [SEP] Barrel and Oak - Aluminum-Free Deodorant, Deodorant for Men, Essential Oil-Based Scent, 24-Hour Odor Protection, Cedar & Patchouli Blend, Gentle on Sensitive Skin (Mountain Sage, 2.7 oz, 2-Pack) [SEP] $15.95
+Thought: B078GWRC1J is bright citrus, 3 ounce, sensitive skin, $10.99 < $50. It matches everything; I will check its options.
+Action: click[B078GWRC1J]
+Observation: [Back to Search] [SEP] [< Prev] [SEP] scent [SEP] assorted scents [SEP] bright citrus [SEP] calming lavender [SEP] ginger fresh [SEP] simply non-scents [SEP] size [SEP] travel set (4-pack) [SEP] 3 ounce (pack of 1) [SEP] 3-ounce (2-pack) [SEP] Bright Citrus Deodorant by Earth Mama | Natural and Safe for Sensitive Skin, Pregnancy and Breastfeeding, Contains Organic Calendula 3-Ounce [SEP] Price: $10.99 [SEP] Rating: N.A. [SEP] Description [SEP] Features [SEP] Reviews [SEP] Buy Now
+Thought: The instruction needs scent bright citrus and size 3 ounce; both options exist, so I select them before buying.
+Action: click[bright citrus]
+Observation: You have clicked bright citrus.
+Action: click[3 ounce (pack of 1)]
+Observation: You have clicked 3 ounce (pack of 1).
+Thought: Scent, size and price all match the instruction. Buy.
+Action: click[Buy Now]
+"""
+
+PROMPT_VERSIONS = ("v1", "v2")
+
+
+def resolve_prompt_version(prompt_version: Optional[str] = None) -> str:
+    """Explicit selection wins over the environment; resolve once per run."""
+    version = (os.environ.get("WEBSHOP_PROMPT_VERSION", "v1")
+               if prompt_version is None else prompt_version)
+    if version not in PROMPT_VERSIONS:
+        raise ValueError("WEBSHOP_PROMPT_VERSION / --prompt-version must be v1 or v2")
+    return version
+
+
+def get_prompts(prompt_version: Optional[str] = None):
+    if resolve_prompt_version(prompt_version) == "v2":
+        return SYSTEM_PROMPT_V2, WORKED_EXAMPLE_V2
+    return SYSTEM_PROMPT, WORKED_EXAMPLE
+
+
+def default_obs_chars(prompt_version: Optional[str] = None) -> int:
+    return 6000 if resolve_prompt_version(prompt_version) == "v2" else OBS_CHARS
+
+
 ACTION_PATTERN = re.compile(r"(?:search|click)\[([^\[\]\r\n]+)\]")
 
 
@@ -65,17 +122,19 @@ def parse_action(response: Optional[str]) -> Optional[str]:
 
 def build_messages(history, observation: str, obs_chars: int,
                    history_obs_chars: int = HISTORY_OBS_CHARS,
-                   max_prompt_chars: int = MAX_PROMPT_CHARS):
+                   max_prompt_chars: int = MAX_PROMPT_CHARS,
+                   prompt_version: Optional[str] = None):
     """Rebuild bounded messages without modifying the caller's history."""
     messages, _ = _build_messages_with_drops(
-        history, observation, obs_chars, history_obs_chars, max_prompt_chars
+        history, observation, obs_chars, history_obs_chars, max_prompt_chars, prompt_version
     )
     return messages
 
 
 def _build_messages_with_drops(history, observation, obs_chars, history_obs_chars,
-                               max_prompt_chars):
-    prefix = WORKED_EXAMPLE.rstrip() + "\n\nLive episode:\n"
+                               max_prompt_chars, prompt_version=None):
+    system_prompt, worked_example = get_prompts(prompt_version)
+    prefix = worked_example.rstrip() + "\n\nLive episode:\n"
     turns = []
     for previous_observation, response in history:
         head = previous_observation[:history_obs_chars]
@@ -93,7 +152,7 @@ def _build_messages_with_drops(history, observation, obs_chars, history_obs_char
         prompt_chars -= len(turns.pop(1)) + 1
         dropped += 1
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": prefix + "\n".join(turns + [current])},
     ]
     return messages, dropped
@@ -136,10 +195,12 @@ def make_client(base_url: str):
 
 def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars: int,
                 history_obs_chars: int = HISTORY_OBS_CHARS,
-                max_prompt_chars: int = MAX_PROMPT_CHARS):
+                max_prompt_chars: int = MAX_PROMPT_CHARS,
+                prompt_version: Optional[str] = None):
     """Steps count model turns, including failed turns, but exclude API retries."""
     from openai import APIError, BadRequestError
 
+    prompt_version = resolve_prompt_version(prompt_version)
     started = time.monotonic()
     initial = env.reset(session=session)
     observation = initial[0] if isinstance(initial, tuple) else initial
@@ -153,7 +214,7 @@ def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars
     error = None
     for steps in range(1, max_steps + 1):
         messages, dropped = _build_messages_with_drops(
-            history, observation, obs_chars, history_obs_chars, max_prompt_chars
+            history, observation, obs_chars, history_obs_chars, max_prompt_chars, prompt_version
         )
         del history[1:1 + dropped]
         dropped_history += dropped
@@ -197,6 +258,7 @@ def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars
     reward = float(reward)
     return {
         "session": session,
+        "prompt_version": prompt_version,
         "reward": reward,
         "success": reward == 1.0,
         "steps": steps,
@@ -249,10 +311,20 @@ def compute_metrics(records, config):
 
 
 def evaluate(args):
+    prompt_version = resolve_prompt_version(getattr(args, "prompt_version", None))
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     records_path = out / "records.jsonl"
     records = load_records(records_path)
+    # Pre-versioning records used v1. Refuse a mixed resume before any API call,
+    # including completed/empty runs and records outside the requested range.
+    versions = {record.get("prompt_version", "v1") for record in records.values()}
+    metrics_path = out / "metrics.json"
+    if metrics_path.exists():
+        saved = json.loads(metrics_path.read_text(encoding="utf-8"))
+        versions.add(saved.get("config", {}).get("prompt_version", "v1"))
+    if versions - {prompt_version}:
+        raise ValueError("WebShop prompt_version mismatch; use a separate output directory")
     sessions = range(args.start, args.start + args.n)
     pending = [session for session in sessions if session not in records]
     # Opening the log also creates it for an empty run. A completed resume needs
@@ -266,6 +338,7 @@ def evaluate(args):
                         record = run_episode(
                             env, client, session, args.model, args.max_steps, args.obs_chars,
                             args.history_obs_chars, args.max_prompt_chars,
+                            prompt_version=prompt_version,
                         )
                         stream.write(json.dumps(record, ensure_ascii=False) + "\n")
                         stream.flush()
@@ -284,15 +357,15 @@ def evaluate(args):
                 finally:
                     env.close()
     config = dict(vars(args))
+    config["prompt_version"] = prompt_version
     config["out"] = str(out)
     metrics = compute_metrics((records[s] for s in sessions), config)
-    metrics_path = out / "metrics.json"
     temporary = out / "metrics.json.tmp"
     temporary.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
     temporary.replace(metrics_path)
     print(
-        "WebShop tag={} n={} score={:.2f} success_rate={:.4f} mean_steps={:.2f}".format(
-            args.tag, metrics["n"], metrics["score"],
+        "WebShop tag={} prompt_version={} n={} score={:.2f} success_rate={:.4f} mean_steps={:.2f}".format(
+            args.tag, prompt_version, metrics["n"], metrics["score"],
             metrics["success_rate"], metrics["mean_steps"],
         ),
         flush=True,
@@ -307,7 +380,10 @@ def parse_args(argv=None):
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--n", type=int, default=500)
     parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
-    parser.add_argument("--obs-chars", type=int, default=OBS_CHARS)
+    parser.add_argument("--prompt-version", choices=PROMPT_VERSIONS, default=None,
+                        help="Overrides WEBSHOP_PROMPT_VERSION (default: v1)")
+    parser.add_argument("--obs-chars", type=int, default=None,
+                        help="Current observation limit (default: v1=2500, v2=6000)")
     parser.add_argument("--history-obs-chars", type=int, default=HISTORY_OBS_CHARS,
                         help="Keep this many characters of each past observation, plus ' ...' if cut")
     parser.add_argument("--max-prompt-chars", type=int, default=MAX_PROMPT_CHARS,
@@ -318,6 +394,12 @@ def parse_args(argv=None):
     parser.add_argument("--tag", default="")
     parser.add_argument("--seed", type=int, default=0, help="Recorded only; unused")
     args = parser.parse_args(argv)
+    try:
+        args.prompt_version = resolve_prompt_version(args.prompt_version)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if args.obs_chars is None:
+        args.obs_chars = default_obs_chars(args.prompt_version)
     if args.start < 0 or args.n < 0:
         parser.error("--start and --n must be nonnegative")
     if min(args.max_steps, args.obs_chars, args.history_obs_chars, args.max_prompt_chars) < 1:

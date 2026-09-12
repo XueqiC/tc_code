@@ -2,6 +2,8 @@
 
 Only the subprocess imports WebShop's Python 3.8 dependencies. The existing
 tools/webshop_eval.py owns the prompt, parser, decoding and episode semantics.
+WEBSHOP_PROMPT_VERSION selects v1 (default) or v2 for both teacher and student;
+the constructor's prompt_version argument overrides the environment.
 """
 
 from __future__ import annotations
@@ -228,9 +230,11 @@ class WebShopAdapter(BenchmarkAdapter):
     server_backed = True
     served_model_name = SERVER_MODEL_NAME
 
-    def __init__(self, seed: int = 0, port: int = 8900):
+    def __init__(self, seed: int = 0, port: int = 8900, prompt_version: str | None = None):
         self.seed = seed
         self.port = port
+        self.prompt_version = webshop_eval.resolve_prompt_version(prompt_version)
+        self.obs_chars = webshop_eval.default_obs_chars(self.prompt_version)
         self._bridge: _EnvBridge | None = None
         self._tasks: list[TaskRef] | None = None
         self._tokenizer: Any = None
@@ -269,7 +273,9 @@ class WebShopAdapter(BenchmarkAdapter):
 
             self._tokenizer = AutoTokenizer.from_pretrained(str(policy_ref), trust_remote_code=False)
             self._loaded_policy = str(policy_ref)
-        self._render(webshop_eval.build_messages([], "", webshop_eval.OBS_CHARS))
+        self._render(webshop_eval.build_messages(
+            [], "", self.obs_chars, prompt_version=self.prompt_version,
+        ))
 
     def _render(self, messages: Sequence[Mapping[str, str]]) -> str:
         if self._tokenizer is None:
@@ -293,14 +299,19 @@ class WebShopAdapter(BenchmarkAdapter):
         session = int(task_id)
         if str(session) != task_id or session not in range(SUPPORT_SESSIONS.stop):
             raise ValueError(f"invalid WebShop goal index: {task_id!r}")
+        if demo is not None:
+            demo_raw = demo.raw if isinstance(demo.raw, Mapping) else {}
+            if demo_raw.get("prompt_version", "v1") != self.prompt_version:
+                raise ValueError("WebShop guided demo prompt_version mismatch")
         bridge = self._environment()
         category = self._category(session)
         capture = _EpisodeClient(self, temperature, client, teacher, demo)
         try:
             record = webshop_eval.run_episode(
                 bridge, capture, session, SERVER_MODEL_NAME,
-                webshop_eval.MAX_STEPS, webshop_eval.OBS_CHARS,
+                webshop_eval.MAX_STEPS, self.obs_chars,
                 webshop_eval.HISTORY_OBS_CHARS, webshop_eval.MAX_PROMPT_CHARS,
+                prompt_version=self.prompt_version,
             )
         except Exception as exc:
             if teacher is None or not (teacher.response_texts or teacher.tokens_spent or teacher.usage):
@@ -312,7 +323,8 @@ class WebShopAdapter(BenchmarkAdapter):
         verified = record["success"]
         if teacher is not None:
             verified = verified and bridge.done and record["steps"] <= webshop_eval.MAX_STEPS
-        raw = dict(record, checker_verified=bool(verified), category=category)
+        raw = dict(record, checker_verified=bool(verified), category=category,
+                   prompt_version=self.prompt_version)
         if demo is not None:
             raw["deployment_turns"] = capture.deployment_turns
         return Rollout(task_id, bool(verified), capture.turns, raw)
@@ -372,7 +384,8 @@ class WebShopAdapter(BenchmarkAdapter):
             self.close()
         metrics = webshop_eval.compute_metrics(records, {
             "split": "test", "start": 0, "n": 500, "policy": str(policy_ref),
-            "max_steps": webshop_eval.MAX_STEPS, "obs_chars": webshop_eval.OBS_CHARS,
+            "prompt_version": self.prompt_version,
+            "max_steps": webshop_eval.MAX_STEPS, "obs_chars": self.obs_chars,
             "history_obs_chars": webshop_eval.HISTORY_OBS_CHARS,
             "max_prompt_chars": webshop_eval.MAX_PROMPT_CHARS, "seed": self.seed,
         })
@@ -391,7 +404,9 @@ class WebShopAdapter(BenchmarkAdapter):
         with self._client() as client:
             client.chat.completions.create(
                 model=SERVER_MODEL_NAME,
-                messages=webshop_eval.build_messages([], "WebShop [SEP] Search", webshop_eval.OBS_CHARS),
+                messages=webshop_eval.build_messages(
+                    [], "WebShop [SEP] Search", self.obs_chars, prompt_version=self.prompt_version,
+                ),
                 temperature=0, max_tokens=128, stop=["\nObservation", "Observation:"],
             )
 

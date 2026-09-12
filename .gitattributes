@@ -1,0 +1,2 @@
+# Preserve the upstream ReAct prompt byte-for-byte, including trailing spaces.
+prompts/hotpotqa_react_6shot.txt -text whitespace=-blank-at-eol
