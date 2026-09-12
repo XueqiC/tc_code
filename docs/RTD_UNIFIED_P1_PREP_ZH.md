@@ -8,6 +8,12 @@
 
 ALFWorld 现有 bank 的 CPU 审计：107 个包，135 个父任务，36,294 estimated recorded output tokens 分母，整数累计 cap 3,629 / 9,074。它们是已有内容访问预算，不是新增 API 授权。新 bank 由 `tools/rtd_bank_build.py` 生成，启动会核验 certificate/student/support/harness；不得把 Qwen 渲染的旧 bank 当 Gemma bank。
 
+P1 预算配置必须且只能声明一种形式：`budget_checkpoints_bank_fraction: [0.1, 0.25]`，或绝对累计教师输出 token 上限 `budget_checkpoints_tokens: [B_half, B]`。两者同时出现或均未声明都会拒绝；token 形式要求每轮一个严格递增的正整数，不乘 bank 分母、不按 bank 大小缩放、不强制花满。fraction 保留对 certified usable recorded-output-token 分母的 half-up 整数舍入。两种形式使用相同 sealed-pool 采购顺序及计费规则：已产生计费输出的失败 attempt 仍计费，在首次溢出前停止（stop before the first overflow），不删失败项、不重排或跳过它来填满预算；hard reservation / replay ledger 规则不变，也不授权新增 API 调用。
+
+Luna 的 V0 与统一臂必须使用同一预算形式：BFCL 的 `v1_1_bfcl_luna.yaml` / `unified_bfcl_gemma4_luna.yaml` 设为 `[2500, 5000]`；HotpotQA 的 `v1_1_hotpotqa_luna.yaml` / `unified_hotpotqa_gemma4_luna.yaml` / D0 变体设为 `[10000, 20000]`。ALFWorld Luna 的配置与在跑 V0 保持 fraction：25% 的实际 cap 为 **29,698 tokens**，论文报告记为 **B=30k**，不将运行 cap 改为 30,000。上面的 36,294 分母属于历史 bank，不是 Luna bank。
+
+manifest 的 `budget_checkpoint_form` 记录 `bank_fraction` 或 `tokens`，`budget_ceilings` 记录解析后的绝对累计 caps，`config` 保留原声明；token 形式的 `budget_rounding=none_absolute_tokens`。即使解析出相同 caps，fraction 与 token 配置仍是不同 config/campaign/replay 身份，complete/streaming replay 不能混用。旧 fraction schedule 的身份结构保持兼容。
+
 D3 manifest 的 `KeyError: 'fold'` 已修复：现有 ALFWorld/BFCL bank 的 `public/support.json` 已有父任务 fold，原 manifest 适配层在重建 ALFWorld 父任务记录时丢失了该字段。现在直接保留 support fold；旧记录缺失时按 `int(parent_hash, 16) % 2` 补出，并在 `parent_group_fold_derivation` 记录规则和父任务 hash。两折用于训练/反馈轮换，calibration/probe 父任务另行排除。包只引用 `parent_hash`，无需重建 bank 或新增 teacher 调用；Luna 转换同样保留原 support。详见 [D16 fold contract](rtd_v1_1_d16.md#parent-fold-contract)。
 
 | --arm | 实际控制/训练语义 |

@@ -14,9 +14,7 @@ decision_steps_per_round:
 - 7
 - 10
 replay_is_explicit_choice: true
-budget_checkpoints_bank_fraction:
-- 0.1
-- 0.25
+budget_checkpoints_tokens: [15000, 30000]
 online_max_teacher_turns: 8
 replay_request_lengths: recorded_only
 source_refresh: round

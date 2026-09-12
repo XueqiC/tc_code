@@ -65,6 +65,92 @@ def test_score_consistency_luna_override_survives_frozen_p1_validation(name):
         cli.validate_config(config | {'score_consistency_tolerance': {'mean_abs': -1}})
 
 
+@pytest.mark.parametrize('name,caps', [
+    ('v1_1_bfcl_luna', [2500, 5000]), ('unified_bfcl_gemma4_luna', [2500, 5000]),
+    ('v1_1_hotpotqa_luna', [10000, 20000]), ('unified_hotpotqa_gemma4_luna', [10000, 20000]),
+    ('unified_hotpotqa_gemma4_luna_d0', [10000, 20000]),
+    ('unified_hotpotqa_gemma4_d0_luna', [10000, 20000]),
+])
+def test_luna_config_absolute_budget_and_mutually_exclusive_forms(name, caps):
+    from bfas.rtd.unified.config import runtime_config
+    raw = yaml.safe_load(open(f'configs/rtd/{name}.yaml'))
+    config = cli.validate_config(raw)
+    assert config['budget_checkpoints_tokens'] == caps
+    assert 'budget_checkpoints_bank_fraction' not in config
+    assert cli.validate_config(config) == config
+    if name.startswith('unified'):
+        assert runtime_config(config)['budget_checkpoints_tokens'] == caps
+        assert 'budget_checkpoints_bank_fraction' not in runtime_config(config)
+    fraction = deepcopy(raw)
+    fraction.pop('budget_checkpoints_tokens')
+    with pytest.raises(ValueError, match='exactly one of budget_checkpoints'):
+        cli.validate_config(fraction)
+    fraction['budget_checkpoints_bank_fraction'] = [.1, .25]
+    checked = cli.validate_config(fraction)
+    assert checked['budget_checkpoints_bank_fraction'] == [.1, .25]
+    assert 'budget_checkpoints_tokens' not in checked
+    with pytest.raises(ValueError, match='exactly one of budget_checkpoints'):
+        cli.validate_config(raw | {'budget_checkpoints_bank_fraction': [.1, .25]})
+
+
+@pytest.mark.parametrize('name', ['v1_1_bfcl_luna', 'unified_bfcl_gemma4_luna'])
+@pytest.mark.parametrize('caps', [None, 5000, [], [2500], [1, 2, 3], [0, 5000], [-1, 5000],
+                                  [2500, 2500], [5000, 2500], [True, 5000], [2500., 5000],
+                                  ['2500', 5000], [2500, float('inf')], [2500, float('nan')]])
+def test_config_rejects_invalid_absolute_budget(name, caps):
+    raw = yaml.safe_load(open(f'configs/rtd/{name}.yaml'))
+    with pytest.raises(ValueError, match='strictly increasing positive integer cap per round'):
+        cli.validate_config(raw | {'budget_checkpoints_tokens': caps})
+
+
+def test_v11_config_three_round_absolute_budget():
+    raw = yaml.safe_load(open('configs/rtd/v1_1_bfcl_luna.yaml'))
+    config = cli.validate_config(raw | {'rounds': 3, 'budget_checkpoints_tokens': [2500, 5000, 10000]})
+    assert config['budget_checkpoints_tokens'] == [2500, 5000, 10000]
+
+
+@pytest.mark.parametrize('name', ['v1_1_alfworld_luna', 'unified_alfworld_gemma4_luna',
+                                  'unified_alfworld_gemma4_d0_luna'])
+def test_alfworld_luna_keeps_fraction_budget(name):
+    config = cli.load_config(f'configs/rtd/{name}.yaml')
+    assert config['budget_checkpoints_bank_fraction'] == [.1, .25]
+    assert 'budget_checkpoints_tokens' not in config
+
+
+@pytest.mark.parametrize('form', ['bank_fraction', 'tokens'])
+def test_budget_caps_keep_failed_output_charges_and_stop_before_overflow(form):
+    from bfas.rtd.caps import resolve_budget_checkpoints
+    from bfas.rtd.ledger import BudgetError, Ledger
+    config = dict(rounds=2)
+    config['budget_checkpoints_' + form] = [.1, .25] if form == 'bank_fraction' else [10, 25]
+    caps = resolve_budget_checkpoints(config, 100)
+    ledger = Ledger(caps[0])
+    attempts = []
+
+    def purchase(query, cost, *, fail=False):
+        def receipt():
+            attempts.append(query)
+            return dict(cost=cost, confidence='exact', usage={'output_tokens': cost}, output='cached output')
+        def validate(output):
+            if fail:
+                raise ValueError('failed task with billed output')
+            return output
+        return ledger.online_request(query, cost, precheck=lambda: None, request=receipt, validate=validate)
+
+    # The request hook is a local receipt fixture; no network or teacher call.
+    with pytest.raises(ValueError, match='failed task'):
+        purchase('failed', 4, fail=True)
+    purchase('fits_exactly', 6)
+    assert ledger.spent == caps[0] and ledger.charges['failed'] == 4
+    with pytest.raises(BudgetError):
+        purchase('first_overflow', 1)
+    assert attempts == ['failed', 'fits_exactly'] and ledger.spent == 10
+    ledger.authorize(caps[1])
+    assert ledger.spent == 10 and ledger.remaining == 15
+    purchase('round_two', 15)
+    assert ledger.spent == caps[1]
+
+
 def test_D2_matches_full_D3_with_tied_coefficients_and_scalar_grid():
     p = from_directions([[1., .8], [0., .6]], h=[.7, -.3], epsilon=[.03, .01])
     d2, a, _ = solve_arm(p, 'D2')

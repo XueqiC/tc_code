@@ -13,7 +13,7 @@ import yaml
 from .bank import build_bfcl_bank
 from .broker import SealedReplayBroker
 from .caps import PUBLIC_CLASS_CAPS, affordability
-from .caps import V11_BUDGET_BASIS, recorded_budget_ceilings
+from .caps import V11_BUDGET_BASIS, resolve_budget_checkpoints, validate_budget_checkpoints
 from .config_v11 import v11_config, V11_DEFAULTS
 from .alpha_d import ALPHA_D_DEFAULTS, enabled as alpha_d_enabled, validate_config as validate_alpha_d_config, validate_arm
 from .ledger import Ledger
@@ -65,7 +65,7 @@ def validate_config(config, *, arm=None, replay_schedule=None, **replay_options)
         config, canonical = v11_config(config, canonical)
         if benchmark != 'bfcl':
             canonical.update(benchmark_protocol(benchmark))
-    elif (set(V11_DEFAULTS)-set(canonical)) & config.keys():
+    elif ((set(V11_DEFAULTS)-set(canonical)) | {'budget_checkpoints_tokens'}) & config.keys():
         raise ValueError('v1.1 batch settings require protocol_version 1.1.0')
     mutable = {'student', 'output_root', 'replay_bank_path', 'support_manifest', 'max_action_tokens',
                'max_context_tokens', 'pilot_eta_candidates', 'initial_eta', 'model_local_files_only',
@@ -74,7 +74,7 @@ def validate_config(config, *, arm=None, replay_schedule=None, **replay_options)
                'memory_peak_budget_gb', 'memory_reserve_gb', 'memory_state_estimate_gb',
                'source_samples_per_state'}
     if v11:
-        mutable |= {'rounds', 'budget_checkpoints_bank_fraction', 'exposure_slots_per_window',
+        mutable |= {'rounds', 'budget_checkpoints_bank_fraction', 'budget_checkpoints_tokens', 'exposure_slots_per_window',
                     'max_new_packages_per_window', 'slots_per_step', 'drift_reference_packages', 'value_noise_floor'}
         mutable |= set(ALPHA_D_DEFAULTS)
         from .metrics_v11 import options as metric_options
@@ -184,7 +184,7 @@ def bank_audit(config, *, build=False):
                 or summary['bank_public_cap_sum'] != sum(core['class_counts'][k]*v for k, v in core['class_caps'].items())):
             raise ValueError('v1.1 bank audit disagrees with certified content budget')
         result = dict(summary, bank_path=str(bank.resolve()), m=original['m'],
-            budget_ceilings=recorded_budget_ceilings(core['budget_denominator'], rounds=config['rounds']),
+            budget_ceilings=resolve_budget_checkpoints(config, core['budget_denominator']),
             budget_denominator=core['budget_denominator'], cap_certificate_sha256=file_hash(bank/CERTIFICATE),
             public_cost_assumption=core['public_cost_assumption'], cost_scope=core['cost_scope'])
         print(json.dumps(result, indent=2), flush=True)
@@ -265,8 +265,11 @@ def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
                        historical_demo_output_exact=1233607, historical_generator_output_estimated=142727),
         checkpoint_schedule='cumulative 10/25/50 percent after rounds 1/2/3; four windows per round')
     if config.get('protocol_version') == '1.1.0':
+        budget_form = validate_budget_checkpoints(config)
         manifest.update(version='rtd-v1.1.0-run', trajectory_schema_version=2, ledger_schema_version=2,
             acquisition_protocol='batch_common_reference_v1', budget_basis=V11_BUDGET_BASIS,
+            budget_checkpoint_form=budget_form,
+            budget_ceilings=resolve_budget_checkpoints(config, audit['budget_denominator']),
             budget_denominator=audit['budget_denominator'], budget_rounding='positive_integer_half_up',
             cost_scope=audit['cost_scope'], cap_certificate_sha256=audit['cap_certificate_sha256'],
             public_cost_assumption=audit['public_cost_assumption'],
@@ -275,6 +278,9 @@ def make_manifest(config, arm, audit, *, smoke=False, hardware=None):
             replay_semantics='unfilled slots use old data; no fixed empty prior',
             checkpoint_schedule=('cumulative 10/25 percent after rounds 1/2; four windows per round'
                                  if config['rounds'] == 2 else manifest['checkpoint_schedule']))
+        if budget_form == 'tokens':
+            manifest.update(budget_rounding='none_absolute_tokens',
+                checkpoint_schedule='cumulative recorded-output-token caps after each round; four windows per round')
     override = tolerance_override(config)
     if override is not None:
         manifest['score_consistency_tolerance_override'] = override

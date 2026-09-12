@@ -7,6 +7,7 @@ import yaml
 
 from ..persistence import digest, file_hash
 from ..conventions import replay_config
+from ..caps import BUDGET_CHECKPOINT_KEYS, validate_budget_checkpoints
 from .arms import ARMS
 from .engine import UnifiedConfig
 
@@ -50,6 +51,9 @@ def runtime_config(config):
     benchmark = config['benchmark']
     base = ({} if config.get('p1_runtime_defaults_frozen') else
             yaml.safe_load((ROOT/f"configs/rtd/v1_1_{'hotpotqa_luna' if benchmark == 'hotpotqa' else benchmark}.yaml").read_text()))
+    # A budget must come from this config, never from today's executor defaults.
+    for key in BUDGET_CHECKPOINT_KEYS:
+        base.pop(key, None)
     result = base | deepcopy(config)
     result.update(method='rtd_v1_1', protocol_version='1.1.0', source_estimator='alpha_d',
         loss='alpha_d_single_step_estimator', gate_mode='learned_alpha', d_mode='learned',
@@ -72,10 +76,11 @@ def validate_config(config, *, arm=None, replay_schedule=None, **options):
         grid = d0[key+'_grid']
         if not grid or any(type(v) not in (int, float) or not math.isfinite(v) or v <= 0 for v in grid) or d0[key] not in grid:
             raise ValueError('D0 coefficients must belong to the preregistered calibration grid')
-    if (config['rounds'] != 2 or config['budget_checkpoints_bank_fraction'] != [.1, .25]
+    if (config['rounds'] != 2
             or config['memory_peak_budget_gb'] != 60 or config['mode'] != 'sealed_replay'
             or config['training_seed'] != 0 or not math.isfinite(config['initial_eta']) or config['initial_eta'] <= 0):
         raise ValueError('P1 requires two rounds, 60 GB, seed 0 and positive frozen eta')
+    validate_budget_checkpoints(config)
     # Validate the shared sampling, ledger, harness, optimizer and LoRA contract
     # using the existing validator, without exposing a D arm to legacy presets.
     from ..cli import validate_config as validate_legacy
@@ -106,6 +111,8 @@ def manifest_fields(config, manifest):
         lora_target_modules=config['lora_target_modules'], steps=1 if manifest['smoke'] else 24,
         smoke=manifest['smoke'],
         protocol=config['p1'], **feedback_rng_identity(config, manifest))
+    if 'budget_checkpoints_tokens' in config:
+        matched['budget_checkpoints_tokens'] = list(config['budget_checkpoints_tokens'])
     return dict(version='rtd-unified-p1-run', distillation_protocol=config['arm'],
         arm_components=config['arm_preset'], p1_matching=matched,
         campaign_identity=digest(dict(matched=matched, arm=config['arm'], config=manifest['config_hash'])),

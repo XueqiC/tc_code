@@ -12,7 +12,7 @@ certificate_isolation: strict
 rounds: 2
 decision_steps_per_round: [1, 4, 7, 10]
 replay_is_explicit_choice: true
-budget_checkpoints_bank_fraction: [0.10, 0.25]
+budget_checkpoints_tokens: [15000, 30000]
 online_max_teacher_turns: 8
 replay_request_lengths: recorded_only
 
@@ -91,8 +91,6 @@ lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_p
 evaluate_after_round: true
 evaluation_temperature: 0.0
 
-# Cached-content budget: these are integer caps, not new API authorization.
-budget_caps_output_tokens: [142, 355]
 unified:
   m: 2
   # Generic initialization hyperparameter, uniform across states and sources.

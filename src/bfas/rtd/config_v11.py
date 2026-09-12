@@ -1,5 +1,5 @@
 """Versioned batch configuration; obsolete empty-prior keys are rejected."""
-from .caps import V11_CLASS_CAPS, V11_BUDGET_BASIS
+from .caps import V11_CLASS_CAPS, V11_BUDGET_BASIS, validate_budget_checkpoints
 from .alpha_d import ALPHA_D_DEFAULTS, enabled, validate_config
 
 REMOVED_KEYS = {'max_new_packages_per_decision', 'replay_prior_mass', 'insertion_fraction',
@@ -32,10 +32,7 @@ def v11_config(config, canonical):
     if type(rounds) is not int or rounds not in (2, 3):
         raise ValueError('v1.1 supports rounds 2 or 3')
     result['rounds'] = rounds
-    fractions = [0.10, 0.25, 0.50][:rounds]
-    result.setdefault('budget_checkpoints_bank_fraction', fractions)
-    if result['budget_checkpoints_bank_fraction'] != fractions:
-        raise ValueError('budget checkpoints must match the two/three-round schedule')
+    validate_budget_checkpoints(result)
     if type(result['drift_reference_packages']) is not int or result['drift_reference_packages'] < 1:
         raise ValueError('positive purchased drift reference count required')
     if not 0 < result['value_noise_floor'] <= 1:

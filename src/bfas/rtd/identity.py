@@ -341,6 +341,13 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
     ignored = {'initial_parameter_hash', 'harness_hash', 'evaluation_harness',
                'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash',
                'score_consistency_observed'}
+    # Old fraction manifests predate the explicit form label. Their config and
+    # resolved caps remain hard guards; token manifests get no such exception.
+    if ('budget_checkpoint_form' not in saved
+            and current.get('budget_checkpoint_form') == 'bank_fraction'
+            and all('budget_checkpoints_bank_fraction' in m['config']
+                    and 'budget_checkpoints_tokens' not in m['config'] for m in (saved, current))):
+        ignored.add('budget_checkpoint_form')
     from .streaming_replay import enabled as streaming_enabled
     if streaming_enabled(saved):
         # The engine checks the frozen schedule identity against its initialized

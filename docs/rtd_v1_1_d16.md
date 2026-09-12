@@ -8,10 +8,62 @@ rotation, and reserve/reveal/settle ledger accounting are unchanged.
 
 The shared `tools/rtd_experiment.py` runner now dispatches support, action limits,
 feedback, evaluation, and identities through the benchmark registry. All three
-production configurations use `google/gemma-4-12B-it`, two budget rounds at 10% and
-25%, and a 60 GB memory budget. No teacher acquisition is launched by bank building
+production configurations use `google/gemma-4-12B-it`, two cumulative budget rounds,
+and a 60 GB memory budget. The original configs use 10% and 25%; Luna overrides
+are specified below. No teacher acquisition is launched by bank building
 or training. The current checkout contains historical banks; the new GPT-5.4
 banks must be built from the corresponding paid pool and ledger.
+
+## P1 absolute teacher-output-token budgets
+
+Declare exactly one budget key: `budget_checkpoints_bank_fraction: [0.1, 0.25]`
+or `budget_checkpoints_tokens: [B_half, B]`. Both validators reject both keys or
+neither key. Token caps must be strictly increasing positive integers, one per
+round (P1 has two; v1.1 also permits three). They are cumulative recorded teacher
+output token caps, independent of bank size, with no scaling, rounding, or
+requirement to spend the full cap. Fractions retain half-up integer rounding of
+the certified usable recorded-output-token denominator.
+
+Both forms use the same sealed-pool purchase order and accounting: charge paid
+failed attempts, and stop before the first overflow. Do not drop failures,
+reorder purchases, or skip an overflowing item to fill the cap. Existing hard
+reservations and replay ledger checks still apply; these caps authorize access
+to cached content, with no new teacher API calls.
+
+| Luna benchmark | V0 / unified configs | Cumulative caps |
+|---|---|---|
+| BFCL | `v1_1_bfcl_luna.yaml`, `unified_bfcl_gemma4_luna.yaml` | `[2500, 5000]` tokens |
+| HotpotQA | `v1_1_hotpotqa_luna.yaml`, `unified_hotpotqa_gemma4_luna.yaml`, both D0 filename variants | `[10000, 20000]` tokens |
+| ALFWorld | All existing Luna configs and the running V0 remain unchanged | `[0.1, 0.25]` bank fractions |
+
+ALFWorld Luna's 25% cap is **29,698 tokens**, reported as **B=30k**; the actual
+running cap is not changed to 30,000. In each new manifest,
+`budget_checkpoint_form` is `bank_fraction` or `tokens`, `budget_ceilings` gives
+the resolved absolute caps, and `config` retains the declaration. Token manifests
+use `budget_rounding=none_absolute_tokens`. Fraction and token configs remain
+different config/campaign/replay identities even when their resolved caps match.
+Complete and streaming replay both enforce this distinction; historical fraction
+schedule identities remain compatible.
+
+CPU verification on the real Luna banks passed with `tools/rtd_preflight.py`
+for BFCL V0/D3 (20 available packages, 33 rendered support states) and HotpotQA
+V0/D3 (25 available packages, 200 rendered support states). Each audit resolved
+the caps above and each preflight reported zero ledger spend. These use the
+default preflight `smoke` mode, local tokenizer files, disabled CUDA, offline HF
+settings, and `BFCL_PROJECT_ROOT=/tmp/rtd-p1-budget-bfcl-runtime`; they perform
+startup checks without training, teacher calls, or writes to live run directories.
+
+```bash
+export CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export BFCL_PROJECT_ROOT=/tmp/rtd-p1-budget-bfcl-runtime
+export PYTHONPATH=src:. OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+RTD_PY=/home/xueqi/hq/projects/tc-alignment/.venv/bin/python
+"$RTD_PY" tools/rtd_preflight.py --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0
+"$RTD_PY" tools/rtd_preflight.py --config configs/rtd/unified_bfcl_gemma4_luna.yaml --arm D3
+"$RTD_PY" tools/rtd_preflight.py --config configs/rtd/v1_1_hotpotqa_luna.yaml --arm V0
+"$RTD_PY" tools/rtd_preflight.py --config configs/rtd/unified_hotpotqa_gemma4_luna.yaml --arm D3
+"$RTD_PY" -m pytest -q tests/ -k 'unified_p1 or preflight or config or budget'
+```
 
 ## Build the banks (CPU, cached tokenizer, no API)
 

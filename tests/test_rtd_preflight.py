@@ -111,6 +111,81 @@ def test_preflight_real_bank_manifest_tokenizer_cpu_only(local_startup, forbid_a
     assert not (c.path.parent/'teacher.jsonl').exists()
 
 
+@pytest.mark.parametrize('arm', ['V0', 'D3'])
+@pytest.mark.parametrize('form', ['bank_fraction', 'tokens'])
+def test_preflight_budget_manifest_and_ledger(local_startup, forbid_accelerators_and_network, arm, form):
+    from bfas.rtd.experiment import prepare_ledger
+    c = local_startup
+    config = deepcopy(c.config)
+    if form == 'tokens':
+        config.pop('budget_checkpoints_bank_fraction')
+        # Deliberately exceed this tiny bank's total: caps are not spend targets
+        # and must not be clamped or rescaled to the usable bank denominator.
+        config['budget_checkpoints_tokens'] = [2500, 5000]
+    if arm == 'V0':
+        config, _, _ = runtime.backend_config(config)
+    config = cli.validate_config(config, arm=arm)
+    expected = [2500, 5000] if form == 'tokens' else [2, 4]
+    audit = cli.bank_audit(config)
+    assert audit['budget_ceilings'] == expected
+    manifest = cli.make_manifest(config, arm, audit, smoke=True,
+                                 hardware=dict(hard={'device': 'cpu'}, metadata={}))
+    assert manifest['budget_checkpoint_form'] == form
+    assert manifest['budget_ceilings'] == expected
+    assert manifest['budget_rounding'] == ('none_absolute_tokens' if form == 'tokens' else 'positive_integer_half_up')
+    ledger, _ = prepare_ledger(manifest, c.support)
+    assert ledger.budget == expected[0] and ledger.spent == 0
+    assert preflight.preflight_config(config, arm)['status'] == 'OK'
+
+
+@pytest.mark.parametrize('mode', ['complete', 'streaming'])
+@pytest.mark.parametrize('source_form', ['bank_fraction', 'tokens'])
+def test_preflight_replay_budget_form_is_identity_even_at_equal_caps(local_startup, mode, source_form):
+    from bfas.rtd.conventions import schedule_identity, hashed_step
+    c = local_startup
+    fraction = deepcopy(c.config)
+    tokens = deepcopy(fraction)
+    tokens.pop('budget_checkpoints_bank_fraction')
+    tokens['budget_checkpoints_tokens'] = [2, 4]
+    configs = dict(bank_fraction=fraction, tokens=tokens)
+    manifests = {form: cli.make_manifest(config, 'D3', cli.bank_audit(config), smoke=True)
+                 for form, config in configs.items()}
+    assert manifests['tokens']['budget_ceilings'] == manifests['bank_fraction']['budget_ceilings']
+    assert manifests['tokens']['config_hash'] != manifests['bank_fraction']['config_hash']
+    assert manifests['tokens']['campaign_identity'] != manifests['bank_fraction']['campaign_identity']
+    identities = {form: schedule_identity(manifests[form], config, c.support)
+                  for form, config in configs.items()}
+    # Fraction exports retain the historical identity structure for live V0.
+    assert 'budget_checkpoints_tokens' not in identities['bank_fraction']
+    assert identities['tokens']['budget_checkpoints_tokens'] == [2, 4]
+    path = c.path.parent/'budget-schedule.json'
+    path.write_text(json.dumps(dict(version='rtd-v11-exposure-v1', arm='V0', complete=True,
+        smoke=True, identity=identities[source_form],
+        steps=[hashed_step(dict(round=1, step=1, decision=True, selected=[], window_budget=0))])))
+    for target_form, config in configs.items():
+        c.path.write_text(yaml.safe_dump(config))
+        target, arm = cli.startup_config(c.path, 'D3', path, replay_mode=mode)
+        if target_form == source_form:
+            assert preflight.preflight_config(target, arm)['status'] == 'OK'
+        else:
+            with pytest.raises(ValueError, match='identity'):
+                preflight.preflight_config(target, arm)
+            with pytest.raises(ValueError, match='config'):
+                cli.resume_config(c.path, manifests[source_form])
+
+
+def test_budget_manifest_legacy_fraction_resume_keeps_hard_guards(local_startup):
+    from bfas.rtd.identity import validate_resume
+    c = local_startup
+    current = cli.make_manifest(c.config, 'D3', cli.bank_audit(c.config), smoke=True)
+    saved = deepcopy(current)
+    saved.pop('budget_checkpoint_form')
+    validate_resume(c.path.parent, c.path.parent, saved, current)
+    for change in ({'budget_checkpoint_form': 'tokens'}, {'budget_ceilings': [3, 4]}):
+        with pytest.raises(ValueError, match='metadata changed'):
+            validate_resume(c.path.parent, c.path.parent, saved, current | change)
+
+
 @pytest.mark.parametrize('key,value,message', [
     ('generation_batch', {'prompts_per_batch': 0}, 'generation_batch requires positive integer'),
     ('score_consistency_tolerance', {'mean_abs': -1}, 'score tolerances'),

@@ -115,12 +115,17 @@ def exposure_step(state):
 def schedule_identity(manifest, config, support):
     from .feedback_rng import feedback_rng_identity
     bank = Path(manifest['bank_path'])
-    return dict(data_hash=manifest.get('data_hash'), base_checkpoint_hash=manifest.get('base_checkpoint_hash'),
+    identity = dict(data_hash=manifest.get('data_hash'), base_checkpoint_hash=manifest.get('base_checkpoint_hash'),
         bank_public_hash=file_hash(bank/'public/requests.json'), bank_integrity_hash=file_hash(bank/'sealed/integrity.json'),
         initial_parameter_hash=manifest.get('initial_parameter_hash'), budget_ceilings=manifest['budget_ceilings'],
         support_hash=digest(support.parents), rounds=config.get('rounds', 2),
         training_seed=config['training_seed'], slots=config.get('slots_per_step', 40),
         K=config.get('max_new_packages_per_window', 20), **feedback_rng_identity(config, manifest))
+    # Keep historical fraction schedules byte-stable, including live V0 exports.
+    # Equal resolved caps must never let an absolute config replay a fraction run.
+    if 'budget_checkpoints_tokens' in config:
+        identity['budget_checkpoints_tokens'] = list(config['budget_checkpoints_tokens'])
+    return identity
 
 
 def load_schedule(config, manifest, support, *, smoke=False, check_initial_parameters=True):

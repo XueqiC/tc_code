@@ -279,9 +279,12 @@ def test_hotpotqa_registry_and_frozen_p1_configs():
         config = cli.load_config(ROOT/f'configs/rtd/{hot}.yaml')
         reference = cli.load_config(ROOT/f'configs/rtd/{alf}.yaml')
         for key in ('slots_per_step', 'exposure_slots_per_window', 'max_new_packages_per_window',
-                    'rounds', 'budget_checkpoints_bank_fraction', 'memory_peak_budget_gb',
+                    'rounds', 'memory_peak_budget_gb',
                     'training_seed', 'score_consistency_tolerance', 'rollouts_per_meta_task'):
             assert config[key] == reference[key]
+        assert config['budget_checkpoints_tokens'] == [10000, 20000]
+        assert 'budget_checkpoints_bank_fraction' not in config
+        assert reference['budget_checkpoints_bank_fraction'] == [.1, .25]
         assert get_benchmark(config).support_protocol is HotpotQASupport
         assert config['support_parent_tasks_m'] == 200
         assert config['max_action_tokens_by_benchmark'] == {'hotpotqa': {'agent_action': 100}}

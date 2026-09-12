@@ -368,9 +368,10 @@ def test_hard2_config_manifest_and_reference_gradient_are_byte_identical(manifes
     normalized['harness_hash'] = digest(normalized['evaluation_harness'])
     normalized['rtd_source']['files']['tools/bfcl_std_campaign.sh'] = '4455a42657b81eb7fe24316c7c62b3b178ff1cdf8710e5c2dc9a231e84be1786'
     normalized['rtd_source']['hash'] = digest(normalized['rtd_source']['files'])
-    # The merged pre-D16 HEAD already differs from the older 428e... oracle;
-    # this value was reproduced in an untouched archive of that HEAD.
-    assert digest(normalized) == 'e251f010dd29e4800c3eaa152d060c39515c9485521a4e6fe0cfeac8be293648'
+    # Refresh the stale D16 oracle from an untouched archive of 56e2ecc, before
+    # absolute budgets. Retain current source bindings and feedback RNG v2;
+    # the budget change must leave the entire legacy manifest byte-identical.
+    assert digest(normalized) == '21342f59a1c74665920f97a522b72914e592cbe15992166c17dd718d575e361f'
     b, p, targets, chi, phi = legacy_problem()
     actual = streamed_gradient(targets, chi, phi, b, p, source_estimator='hard2')
     assert tensor_state_hash(actual) == '8ea394b94365283bf4b954871b5721715518307b174464d52878f245a89d5358'
