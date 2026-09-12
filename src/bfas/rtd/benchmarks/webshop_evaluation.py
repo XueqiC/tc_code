@@ -16,7 +16,7 @@ def frozen_environment(benchmark):
         settings.update(BFAS_ALFWORLD_EVAL_SPLIT='valid_seen', BFAS_ALFWORLD_EVAL_GAMES='140',
                         BFAS_ALFWORLD_MAX_STEPS='40', BFAS_ALFWORLD_STUDENT_REACT='1')
     if benchmark == 'hotpotqa':
-        settings.update(BFAS_HOTPOTQA_OFFLINE='1')
+        settings.update(BFAS_HOTPOTQA_OFFLINE='1', BFAS_HOTPOTQA_TEACHER_POOL='')
     old = {k: os.environ.get(k) for k in settings}
     os.environ.update(settings)
     try:

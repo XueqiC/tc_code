@@ -698,6 +698,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
         deployment_turns: list[Turn] = []
         teacher_commands: list[str] = []
         history: list[str] = []
+        executed_commands: list[str] = []
         try:
             state = bridge._read()
         except BaseException:
@@ -778,7 +779,10 @@ class ALFWorldAdapter(BenchmarkAdapter):
                             model, tokenizer, messages, 32, temperature
                         )
                     else:
-                        reply = self._server_reply(prompt, temperature)
+                        selector = getattr(self, "select_student_reply", None)
+                        reply = (self._server_reply(prompt, temperature) if selector is None else
+                                 selector(prompt, temperature, task_id=task_id, split=split,
+                                          commands=tuple(executed_commands), state=state))
                 else:
                     import appworld_teacher
 
@@ -823,6 +827,7 @@ class ALFWorldAdapter(BenchmarkAdapter):
                     self._render(deployment_messages), reply, deployment_messages
                 ))
                 state = bridge.step(command)
+                executed_commands.append(command)
                 history.append(f"> {command}\n{str(state['observation'])[:300]}")
                 if state["done"]:
                     won = state["won"] is True

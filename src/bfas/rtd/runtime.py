@@ -124,8 +124,13 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
                 raise ValueError('malformed generation: expected first EOS or configured action limit')
             if len(output.scores) != len(ids):
                 raise ValueError('HF generation scores do not cover complete sampled action')
-            token_logprobs = tuple(float(scores[0].to(torch.float64 if scores.dtype == torch.float64 else torch.float32)
-                                .log_softmax(-1)[token]) for token, scores in zip(ids, output.scores))
+            if getattr(self, 'score_position_chunk_size', 0):
+                from .source_scoring import generated_token_scores
+                token_logprobs = generated_token_scores(output.scores, ids, device=device,
+                    position_chunk_size=self.score_position_chunk_size)
+            else:
+                token_logprobs = tuple(float(scores[0].to(torch.float64 if scores.dtype == torch.float64 else torch.float32)
+                                    .log_softmax(-1)[token]) for token, scores in zip(ids, output.scores))
         import transformers
         cache = getattr(output, 'past_key_values', None)
         return ActionTrace(prompt_ids, ids, eos, self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False),
@@ -142,6 +147,14 @@ class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicy
             truncated=truncated)
 
     def score_tokens(self, prompt_ids, action_ids, parameters, *, eos_token_id, return_details=False, truncated=False):
+        if getattr(self, 'score_position_chunk_size', 0):
+            from .source_scoring import chunked_token_scores
+            with self.measured('teacher_forced_forward', prompt_tokens=len(prompt_ids),
+                               action_tokens=len(action_ids), position_chunk=self.score_position_chunk_size):
+                result = chunked_token_scores(self, prompt_ids, action_ids, parameters,
+                    eos_token_id=eos_token_id, truncated=truncated,
+                    position_chunk_size=self.score_position_chunk_size)
+                return result if return_details else result[0]
         if forward_enabled(self) and not torch.is_grad_enabled():
             _matching(lora_parameters(self.model), parameters)
             if self.model.training:
@@ -406,6 +419,7 @@ def load_backend(config, manifest, journal):
         **settings)
 
     backend.student_config = dict(config)
+    backend.score_position_chunk_size = config.get('score_position_chunk_size', 0)
     if config['benchmark'] != 'bfcl':
         from types import MethodType
         from .benchmarks.registry import get_benchmark

@@ -144,10 +144,11 @@ class StateStore:
 
 class ComputeJournal:
     """Hash-chained events retain failed/repeated work instead of rolling it back."""
-    def __init__(self, path, *, cuda=False, deadline=None, deadline_seconds=None):
+    def __init__(self, path, *, cuda=False, deadline=None, deadline_seconds=None, release_phase_cache=True):
         self.path = Path(path)
         self.cuda, self.deadline = cuda, deadline
         self.deadline_seconds = deadline_seconds
+        self.release_phase_cache = release_phase_cache
         self.events = []
         self._score_manifest = None
         self._score_summary = None
@@ -218,7 +219,8 @@ class ComputeJournal:
         from .memory import release_device_cache
         device = 'cuda:0' if self.cuda else 'cpu'
         self._capture_peaks()
-        release_device_cache(device)
+        if self.release_phase_cache:
+            release_device_cache(device)
         if self.cuda:
             torch.cuda.synchronize(device)
             torch.cuda.reset_peak_memory_stats(device)
@@ -234,7 +236,8 @@ class ComputeJournal:
             self._phase_peaks.pop()
             self.append('subphase_memory', operation=operation, status=status,
                         logical_device=device, **counts, **peaks)
-            release_device_cache(device)
+            if self.release_phase_cache:
+                release_device_cache(device)
             if self.cuda:
                 torch.cuda.reset_peak_memory_stats(device)
 
