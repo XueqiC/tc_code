@@ -11,20 +11,17 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import json
-import math
 import os
 from pathlib import Path
-import queue
 import random
 import subprocess
 import tempfile
 import threading
-import time
 
 from ...adapters import alfworld as adapter
 from ..evaluation_lock import evaluation_lock
 from ..hardware import checked_hardware
-from ..persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from ..persistence import manifest_digest, ComputeJournal, atomic_json, digest, file_hash, tree_hash
 from .alfworld_identity import (
     campaign_identity, checked_expectations, guard_manifest,
 )
@@ -107,7 +104,8 @@ class EvaluationEnvBridge(BoundedEnvBridge):
     misleading env variable or monkeypatching global modules. A relocated repo
     may use an envs/alfworld symlink to its explicit read-only installation.
     """
-    def __init__(self, task_id, *, data_root, environment_root, timeout=30., episode_timeout=900.):
+    def __init__(self, task_id, *, data_root, environment_root, timeout=None, reset_timeout=None,
+                 episode_timeout=900.):
         if Path(data_root).resolve() != adapter.DATA.resolve():
             raise ValueError("explicit data root must match the existing adapter DATA")
         if (Path(environment_root) / ".venv/bin/python").absolute() != adapter.ENV_PYTHON.absolute():
@@ -117,13 +115,10 @@ class EvaluationEnvBridge(BoundedEnvBridge):
                 raise ValueError("environment root must match the existing adapter installation")
         if not (adapter.DATA / "valid_seen" / task_id / "game.tw-pddl").is_file():
             raise ValueError("missing valid_seen task")
-        if any(not math.isfinite(x) or x <= 0 for x in (timeout, episode_timeout)):
-            raise ValueError("positive finite environment deadlines required")
-        self.timeout, self.deadline = timeout, time.monotonic() + episode_timeout
-        self.process, self._reader = None, None
+        self._configure_rpc(task_id, timeout=timeout, reset_timeout=reset_timeout,
+                            episode_timeout=episode_timeout)
         self._tmp = tempfile.TemporaryDirectory(prefix="rtd-alfworld-c26d-")
         self._stderr = open(Path(self._tmp.name) / "worker.stderr", "w+")
-        self._queue, self._request_id = queue.Queue(), 0
         env = dict(os.environ, PYTHONPATH=str(adapter.ROOT / "src"), PYTHONDONTWRITEBYTECODE="1",
             ALFWORLD_DATA=str(Path(data_root).resolve().parent), ALFRED_DATA=str(Path(data_root).resolve()),
             ALFWORLD_DATA_ROOT=str(Path(data_root).resolve().parent), CUDA_VISIBLE_DEVICES="",
@@ -139,7 +134,13 @@ class EvaluationEnvBridge(BoundedEnvBridge):
             self._reader = threading.Thread(target=self._read_lines, daemon=True)
             self._reader.start()
             if self._read().get("op") != "ready":
-                raise EnvironmentUnavailable("ALFWorld worker did not become ready")
+                raise self._rpc_failure(RuntimeError("ALFWorld worker did not become ready"))
+        except Exception as exc:
+            error = exc if isinstance(exc, adapter.ALFWorldRPCError) else self._rpc_failure(exc)
+            self.close()
+            if error is exc:
+                raise
+            raise error from exc
         except BaseException:
             self.close()
             raise
@@ -361,21 +362,21 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
                 aggregate=dict(verdicts={tid: False for tid in expected["task_ids"]})))
         if (directory / "campaign.json").exists():
             result = validate_evaluation(directory, identity, expected, audited_hashes=hashes,
-                                         manifest_hash=digest(manifest))
+                                         manifest_hash=manifest_digest(manifest))
             if base is not None:
                 comparison = compare_base(base, result)
                 if result.get("repairs_damage") != comparison:
                     raise ValueError("completed campaign base comparison differs")
             journal.append("evaluation_reuse_via_audited_identity" if
                 result["identity"]["evaluation_harness_hash"] != identity["evaluation_harness_hash"] else "evaluation_reused",
-                manifest_hash=digest(manifest), tag=tag,
+                manifest_hash=manifest_digest(manifest), tag=tag,
                 stored_harness_hash=result["identity"]["evaluation_harness_hash"],
                 current_harness_hash=identity["evaluation_harness_hash"],
                 supplement_hash=digest(supplement) if supplement else None,
                 gpu_seconds=0., gpu_reserved_seconds=0.)
             return result  # retain the scored identity and immutable completion bytes
         artifacts = directory / "artifacts"
-        binding = dict(identity=identity, expected=expected, manifest_hash=digest(manifest))
+        binding = dict(identity=identity, expected=expected, manifest_hash=manifest_digest(manifest))
         binding_path = artifacts / "binding.json"
         if binding_path.exists():
             if json.loads(binding_path.read_text()) != binding:
@@ -417,7 +418,7 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
         if aggregate_path.exists() and json.loads(aggregate_path.read_text()) != aggregate:
             raise ValueError("corrupted existing aggregate")
         atomic_json(aggregate_path, aggregate)
-        result = dict(identity=identity, expected=expected, manifest_hash=digest(manifest), hardware_class=hardware["hard"],
+        result = dict(identity=identity, expected=expected, manifest_hash=manifest_digest(manifest), hardware_class=hardware["hard"],
             hardware_class_hash=digest(hardware["hard"]), aggregate=aggregate,
             artifacts_hash=tree_hash(artifacts))
         if base is not None:

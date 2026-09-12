@@ -1,0 +1,105 @@
+{
+  "benchmark": "hotpotqa",
+  "bank_path": "data/rtd/v1_1_hotpotqa_luna",
+  "cap_certificate_sha256": "3078806c4da8981cc10bd2a06aa602f3a56cf946ac7637a9e0d738bddfa1e633",
+  "prompt_sha256": "e52ba17b32d98144c4ee3f95f3cd5a2fec2016629219427f8aa9ddcfbdcc3fdf",
+  "bank_summary": {
+    "available_cost_by_confidence": {
+      "exact": 10719
+    },
+    "available_packages": 25,
+    "bank_public_cap_sum": 51200,
+    "budget_basis": "usable_recorded_output_tokens",
+    "budget_ceilings": [
+      1072,
+      2680
+    ],
+    "budget_denominator": 10719,
+    "cap_certificate_sha256": "3078806c4da8981cc10bd2a06aa602f3a56cf946ac7637a9e0d738bddfa1e633",
+    "cost_scope": "cached-content cost; not the full teacher bill",
+    "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+    "recorded_bank_usage": 10719,
+    "teacher_accounting": {
+      "estimated_output_tokens": 6775,
+      "exact_output_tokens": 98316,
+      "failed_attempts": 57,
+      "failed_output_tokens": 94372,
+      "historical_attempts": 82,
+      "historical_output_tokens": 105091,
+      "new_teacher_calls": 0,
+      "new_teacher_tokens": 0,
+      "scope": "completed ledger prefix; failed attempts retained as unavailable paid packages",
+      "usage": {
+        "cached_tokens": 82397,
+        "completion_tokens": 105091,
+        "prompt_tokens": 1123290
+      },
+      "verified_episodes": 25
+    },
+    "version": "rtd-v1.1.0-state-bank"
+  },
+  "tests": {
+    "interpreter": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python",
+    "command": "-m pytest -q tests/ -k 'hotpotqa or bank_build or registry or preflight'",
+    "passed": 151,
+    "deselected": 3128,
+    "shared_regression_tests_passed": 31
+  },
+  "preflight": {
+    "V0": {
+      "arm": "V0",
+      "available_packages": 25,
+      "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+      "config_protocol_version": "1.1.0",
+      "deferred": [],
+      "generation_batch": {
+        "max_batch_tokens": 16384,
+        "prompts_per_batch": 8
+      },
+      "gpu_required": [
+        "hardware binding",
+        "model/LoRA initialization and replay parameter identity",
+        "generation/scoring numerical consistency, gradients and peak memory"
+      ],
+      "ledger_spent": 0,
+      "protocol_version": "1.1.0",
+      "rendered_states": 200,
+      "status": "OK",
+      "support_states": 200,
+      "tokenizer": "local cache"
+    },
+    "D3": {
+      "arm": "D3",
+      "available_packages": 25,
+      "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+      "config_protocol_version": "unified-p0-1",
+      "deferred": [],
+      "generation_batch": {
+        "max_batch_tokens": 16384,
+        "prompts_per_batch": 8
+      },
+      "gpu_required": [
+        "hardware binding",
+        "model/LoRA initialization and replay parameter identity",
+        "generation/scoring numerical consistency, gradients and peak memory"
+      ],
+      "ledger_spent": 0,
+      "protocol_version": "1.1.0",
+      "rendered_states": 200,
+      "status": "OK",
+      "support_states": 200,
+      "tokenizer": "local cache"
+    }
+  },
+  "paid_attempts": 82,
+  "student_rendered_turns": 128,
+  "native_eos_equivalent_empty_targets": 2,
+  "gpu_used": false,
+  "network_used": false,
+  "new_teacher_calls": 0,
+  "staging": {
+    "status": "blocked",
+    "reason": "linked worktree Git index is on a read-only filesystem"
+  },
+  "committed": false
+}

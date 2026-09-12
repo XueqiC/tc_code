@@ -40,7 +40,8 @@ fi
 # Retries within this invocation retain them; no later run may reuse them.
 RES_SUB=${BFCLSTD_RESULT_SUB:?missing campaign result namespace}
 SCORE_SUB=${BFCLSTD_SCORE_SUB:?missing campaign score namespace}
-MODEL_DIR=Qwen_Qwen3.5-4B-FC
+MODEL_NAME=${BFCLSTD_MODEL_NAME:-Qwen/Qwen3.5-4B-FC}
+MODEL_DIR=${MODEL_NAME//\//_}
 mkdir -p "$PROJ/logs" "$PROJ/results/bfcl_std" "$PROJ/_trash"
 cleanup_harness_outputs() {
   rm -rf -- "$LEADERBOARD/$SCORE_SUB/$MODEL_DIR" \
@@ -125,7 +126,7 @@ run_tag() (
     fi
   fi
   cd "$LEADERBOARD" || { echo "[bfclstd] $tag GENERATE FAILED"; return 1; }
-  generate_args=(--model Qwen/Qwen3.5-4B-FC --backend vllm --num-gpus 1
+  generate_args=(--model "$MODEL_NAME" --backend vllm --num-gpus 1
     --temperature "${BFCLSTD_TEMPERATURE:-0.001}"
     --gpu-memory-utilization "${GPU_UTIL:-0.85}"
     --num-threads 8 --result-dir "$RES_SUB")
@@ -170,7 +171,7 @@ run_tag() (
       fi
     done <<< "$incomplete"
   done
-  if ! "$BFCL" evaluate --model Qwen/Qwen3.5-4B-FC \
+  if ! "$BFCL" evaluate --model "$MODEL_NAME" \
     --result-dir "$RES_SUB" --score-dir "$SCORE_SUB" \
     > "$PROJ/logs/bfclstd_eval_${tag}.log" 2>&1; then
     echo "[bfclstd] $tag EVALUATE FAILED"

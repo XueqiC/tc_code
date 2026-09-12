@@ -20,6 +20,10 @@ from typing import Optional
 
 
 WEBSHOP_REPO = Path(__file__).resolve().parents[1] / "envs/webshop/repo"
+MAX_STEPS = 15
+OBS_CHARS = 6000
+HISTORY_OBS_CHARS = 600
+MAX_PROMPT_CHARS = 60000
 SYSTEM_PROMPT = """You are shopping in WebShop. Follow the user's shopping instruction
 and buy the product that best matches all requested attributes, options, and price.
 You can take two forms of action:
@@ -60,7 +64,8 @@ def parse_action(response: Optional[str]) -> Optional[str]:
 
 
 def build_messages(history, observation: str, obs_chars: int,
-                   history_obs_chars: int = 600, max_prompt_chars: int = 60000):
+                   history_obs_chars: int = HISTORY_OBS_CHARS,
+                   max_prompt_chars: int = MAX_PROMPT_CHARS):
     """Rebuild bounded messages without modifying the caller's history."""
     messages, _ = _build_messages_with_drops(
         history, observation, obs_chars, history_obs_chars, max_prompt_chars
@@ -130,7 +135,8 @@ def make_client(base_url: str):
 
 
 def run_episode(env, client, session: int, model: str, max_steps: int, obs_chars: int,
-                history_obs_chars: int = 600, max_prompt_chars: int = 60000):
+                history_obs_chars: int = HISTORY_OBS_CHARS,
+                max_prompt_chars: int = MAX_PROMPT_CHARS):
     """Steps count model turns, including failed turns, but exclude API retries."""
     from openai import APIError, BadRequestError
 
@@ -300,11 +306,11 @@ def parse_args(argv=None):
     parser.add_argument("--model", required=True)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--n", type=int, default=500)
-    parser.add_argument("--max-steps", type=int, default=15)
-    parser.add_argument("--obs-chars", type=int, default=6000)
-    parser.add_argument("--history-obs-chars", type=int, default=600,
+    parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
+    parser.add_argument("--obs-chars", type=int, default=OBS_CHARS)
+    parser.add_argument("--history-obs-chars", type=int, default=HISTORY_OBS_CHARS,
                         help="Keep this many characters of each past observation, plus ' ...' if cut")
-    parser.add_argument("--max-prompt-chars", type=int, default=60000,
+    parser.add_argument("--max-prompt-chars", type=int, default=MAX_PROMPT_CHARS,
                         help="User-message budget; always retain the first and last three history pairs")
     parser.add_argument("--out", required=True)
     parser.add_argument("--num-products", type=int, choices=[100, 1000, 100000], default=None,

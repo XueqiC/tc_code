@@ -10,8 +10,10 @@ from .checkpointing import enable_gradient_checkpointing
 from .return_gradient import ActionTrace, IncompleteRolloutError, TorchPolicyBackend
 from .transport import positive_mixture_loss
 from .persistence import digest
-from .scoring import ScoreTolerance
+from .scoring import ScoreTolerance, attention_implementation
 from .memory import MemoryPolicy, memory_batches
+from .generation_batch import GenerationBatch, HFGenerationBatchMixin, RNG_RULE
+from .forward_batch import HFForwardBatchMixin, forward_enabled, token_row
 
 
 @contextmanager
@@ -35,20 +37,25 @@ def installed_parameters(model, parameters):
                 p.copy_(saved[n])
 
 
-class HFGenerateBackend(TorchPolicyBackend):
+class HFGenerateBackend(HFForwardBatchMixin, HFGenerationBatchMixin, TorchPolicyBackend):
     """HF generate with KV cache, no warpers, and CE over all sampled tokens.
 
     BF16 logits are sampled in FP32 by HF. Return scores are recorded during
     generation and independently checked by teacher forcing. Single GPU only.
     """
-    def __init__(self, *args, journal=None, memory_policy=None, **kwargs):
+    def __init__(self, *args, journal=None, memory_policy=None, generation_batch=None, **kwargs):
         kwargs.setdefault('score_tolerance', ScoreTolerance())
         super().__init__(*args, **kwargs)
         self.backend_id = digest(dict(parent=self.backend_id, implementation='hf-generate-kv-v1',
-                                      top_k=0, repetition_penalty=1., attention='eager'))
+                                      top_k=0, repetition_penalty=1., attention=attention_implementation(self.model)))
         self.journal = journal
         self.context = 'unspecified'
         self.memory_policy = memory_policy or MemoryPolicy()
+        self.generation_batch = generation_batch
+        if generation_batch is not None:
+            import transformers
+            self.backend_id = digest(dict(parent=self.backend_id, generation_batch=generation_batch.sampling_config(),
+                rng_rule=RNG_RULE, transformers_version=transformers.__version__, torch_version=torch.__version__))
 
     def batches(self, items, operation):
         device = next(iter(lora_parameters(self.model).values())).device
@@ -65,6 +72,8 @@ class HFGenerateBackend(TorchPolicyBackend):
                 yield
 
     def sample_action(self, prompt, parameters, generator, *, temperature=1., top_p=1.):
+        if self.generation_batch is not None:
+            return self.sample_actions(prompt, 1, parameters, generator, temperature=temperature, top_p=top_p)[0]
         from transformers import GenerationConfig
         if self.model.training or temperature != 1 or top_p != 1:
             raise ValueError('frozen eval policy with temperature=1/top_p=1 required')
@@ -74,11 +83,13 @@ class HFGenerateBackend(TorchPolicyBackend):
         if not prompt_ids or room < 1:
             raise IncompleteRolloutError('complete prompt exceeds context; no truncation')
         eos = self.tokenizer.eos_token_id
+        from .student import termination_ids
+        stops = termination_ids(self)
         if type(eos) is not int:
             raise ValueError('one configured EOS token required')
         settings = GenerationConfig(do_sample=True, temperature=1., top_p=1., top_k=0,
             typical_p=1., repetition_penalty=1., num_beams=1, num_return_sequences=1,
-            max_new_tokens=min(room, self.max_action_tokens), eos_token_id=eos,
+            max_new_tokens=min(room, self.max_action_tokens), eos_token_id=list(stops),
             pad_token_id=eos, bos_token_id=self.tokenizer.bos_token_id,
             use_cache=True, return_dict_in_generate=True, output_scores=True)
         devices = [device.index or 0] if device.type == 'cuda' else []
@@ -104,7 +115,8 @@ class HFGenerateBackend(TorchPolicyBackend):
                     hook.remove()
                 generator.set_state((torch.cuda.get_rng_state(device) if devices else torch.get_rng_state()).cpu())
             ids = tuple(output.sequences[0, len(prompt_ids):].tolist())
-            truncated = bool(ids and ids[-1] != eos)
+            truncated = bool(ids and ids[-1] not in stops)
+            eos = eos if truncated or not ids else ids[-1]
             if self.journal:
                 self.journal.append('generated_tokens', context=self.context, action_tokens=len(ids),
                                     complete=bool(ids and ids[-1] == eos), truncated=truncated, policy_id=identity)
@@ -115,6 +127,7 @@ class HFGenerateBackend(TorchPolicyBackend):
             token_logprobs = tuple(float(scores[0].to(torch.float64 if scores.dtype == torch.float64 else torch.float32)
                                 .log_softmax(-1)[token]) for token, scores in zip(ids, output.scores))
         import transformers
+        cache = getattr(output, 'past_key_values', None)
         return ActionTrace(prompt_ids, ids, eos, self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False),
             sum(token_logprobs), self.backend_id, identity, token_logprobs,
             dict(implementation='hf-generate-kv-categorical-v1', use_cache=True,
@@ -122,12 +135,22 @@ class HFGenerateBackend(TorchPolicyBackend):
                  logprob_dtype='torch.float64' if output.scores[0].dtype == torch.float64 else 'torch.float32',
                  reduction_dtype='python.float', parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                  model_class=type(generation_model).__name__, torch_version=torch.__version__,
-                 transformers_version=transformers.__version__, attention='eager',
+                 transformers_version=transformers.__version__, attention=attention_implementation(self.model),
+                 cache_type=type(cache).__name__ if cache is not None else None,
                  temperature=temperature, top_p=top_p, top_k=0, repetition_penalty=1.,
                  max_action_tokens=self.max_action_tokens, effective_action_limit=settings.max_new_tokens),
             truncated=truncated)
 
     def score_tokens(self, prompt_ids, action_ids, parameters, *, eos_token_id, return_details=False, truncated=False):
+        if forward_enabled(self) and not torch.is_grad_enabled():
+            _matching(lora_parameters(self.model), parameters)
+            if self.model.training:
+                raise ValueError('dropout/training mode changes the sampling policy')
+            action = token_row(prompt_ids, action_ids, eos_token_id, truncated)
+            result = (self._prefetched_score(action, parameters)
+                      if getattr(self, '_pending_forward_scores', None) is not None else
+                      self._score_token_rows((action,), parameters)[0])
+            return result if return_details else result[0]
         with self.measured('teacher_forced_forward', prompt_tokens=len(prompt_ids), action_tokens=len(action_ids)):
             return super().score_tokens(prompt_ids, action_ids, parameters,
                                         eos_token_id=eos_token_id, return_details=return_details, truncated=truncated)
@@ -137,6 +160,8 @@ class HFGenerateBackend(TorchPolicyBackend):
             return super().initial_hidden(prompt, initial_parameters, initial_snapshot_id=initial_snapshot_id)
 
     def source_kl(self, source_actions, source_parameters, updated_parameters):
+        if forward_enabled(self) and not torch.is_grad_enabled():
+            return self._source_kl_batch(tuple(source_actions), source_parameters, updated_parameters)
         with self.measured('pilot_conditional_kl', forward_passes=2*len(source_actions),
             prompt_tokens=2*sum(len(a.prompt_ids) for a in source_actions),
             action_tokens=2*sum(len(a.action_ids) for a in source_actions)):
@@ -160,12 +185,18 @@ def slot_loss(target, chi, phi, backend, parameters, *, gate='linear_sigmoid'):
     return positive_mixture_loss(source_score, teacher_score, a.reshape(1))
 
 
-def streamed_gradient(targets, chi, phi, backend, parameters, *, gate='linear_sigmoid'):
+def streamed_gradient(targets, chi, phi, backend, parameters, *, gate='linear_sigmoid',
+                      source_estimator='hard2', source_parameters=None, cv_cs_mode='loo',
+                      source_controls=None, diagnostic_gradients=None):
     """One complete-action graph at a time, including the two sides of a slot.
 
     Retain only detached LoRA gradients. Weight each side before backward (as
     in slot_loss), then accumulate the slot mean in parameter precision.
     """
+    if source_estimator != 'hard2':
+        return _estimated_gradient(targets, chi, phi, backend, parameters, gate=gate,
+            source_estimator=source_estimator, source_parameters=source_parameters,
+            cv_cs_mode=cv_cs_mode, source_controls=source_controls, diagnostic_gradients=diagnostic_gradients)
     if len(targets) != len(chi) or not targets:
         raise ValueError('aligned nonempty slots required')
     _matching(lora_parameters(backend.model), parameters)
@@ -202,7 +233,8 @@ def _side_gradient(score, parameters, weight):
     return {n: g.detach() for n, g in gradients(loss, parameters).items()}
 
 
-def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate='linear_sigmoid'):
+def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate='linear_sigmoid',
+                      source_estimator='hard2', source_parameters=None, cv_cs_mode='loo', source_controls=None):
     """Exact equation (5) contracted with the frozen sigmoid feature Jacobian.
 
     Phi only weights the loss, never the LM. Thus d_phi g_theta is exactly
@@ -210,6 +242,10 @@ def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *,
     fused attention/linear-attention backward kernels is needed. This remains
     matrix-free and agrees with the general autograd gate_vjp oracle.
     """
+    if source_estimator != 'hard2':
+        return _estimated_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, gate=gate,
+            source_estimator=source_estimator, source_parameters=source_parameters,
+            cv_cs_mode=cv_cs_mode, source_controls=source_controls)
     value = torch.zeros_like(phi)
     if len(targets) != len(chi) or not targets:
         raise ValueError('aligned nonempty slots required')
@@ -239,10 +275,111 @@ def streamed_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *,
     return value.detach()
 
 
+def _estimator_sides(targets, backend, parameters, source_parameters):
+    from .source_scoring import source_gradient_pair
+    if source_parameters is None:
+        raise ValueError('frozen source_parameters required for soft/CV scoring')
+    for source, teacher in targets:
+        hard, soft, metadata = source_gradient_pair(backend, source, parameters, source_parameters)
+        teacher_g = ({n: torch.zeros_like(p) for n, p in parameters.items()} if teacher is None else
+                     _side_gradient(backend.score_behavior(teacher, parameters), parameters,
+                                    next(iter(parameters.values())).new_ones(())))
+        yield hard, soft, teacher_g, metadata
+
+
+def _estimated_gradient(targets, chi, phi, backend, parameters, *, gate, source_estimator,
+                        source_parameters, cv_cs_mode, source_controls, diagnostic_gradients):
+    from .source_estimator import estimator_coefficients, gradient_norm
+    weights, cs = estimator_coefficients(targets, chi, phi.detach(), gate=gate,
+        source_estimator=source_estimator, cs_mode=cv_cs_mode, controls=source_controls)
+    result = {n: torch.zeros_like(p) for n, p in parameters.items()}
+    totals = ({key: {n: torch.zeros_like(p) for n, p in parameters.items()} for key in ('hard2', 'soft', 'cv')}
+              if diagnostic_gradients is not None else None)
+    for i, (hard, soft, teacher, metadata) in enumerate(_estimator_sides(targets, backend, parameters, source_parameters)):
+        h, c, a = weights[i]
+        actual = {n: h*hard[n] + c*soft[n] + a*teacher[n] for n in parameters}
+        comparisons = {'hard2': {n: (1-a)*hard[n]+a*teacher[n] for n in parameters},
+                       'soft': {n: (1-a)*soft[n]+a*teacher[n] for n in parameters}, 'cv': actual}
+        for n in parameters:
+            result[n].add_(actual[n] / len(targets))
+        if totals is not None:
+            for key in totals:
+                for n in parameters:
+                    totals[key][n].add_(comparisons[key][n] / len(targets))
+        if getattr(backend, 'journal', None):
+            backend.journal.append('source_estimator_slot', context=backend.context, slot_index=i,
+                source_estimator=source_estimator, cv_cs_mode=cv_cs_mode, c_s=float(cs[i]),
+                state_hash=targets[i][0].behavior.state.state_hash, source_id=targets[i][0].frozen_snapshot_id,
+                hard_gradient_norm=gradient_norm(comparisons['hard2']),
+                soft_gradient_norm=gradient_norm(comparisons['soft']), cv_gradient_norm=gradient_norm(actual),
+                hard_source_gradient_norm=gradient_norm(hard), soft_source_gradient_norm=gradient_norm(soft),
+                reduction_weight=1/len(targets), **metadata)
+    if diagnostic_gradients is not None:
+        diagnostic_gradients.append(totals)
+    return result
+
+
+def _estimated_gate_vjp(targets, chi, phi, backend, parameters, step, feedback, *, gate,
+                       source_estimator, source_parameters, cv_cs_mode, source_controls):
+    """Differentiate the NEW update weights, including auxiliary c_s gates.
+
+    LM-side gradients are independent of phi. Contract them first, then use
+    autograd on the small coefficient graph; no LM second derivatives needed.
+    This also includes cross-draw LOO terms absent from the v1 VJP.
+    """
+    from .source_estimator import estimator_coefficients
+    control = phi.detach().clone().requires_grad_(True)
+    weights, _ = estimator_coefficients(targets, chi, control, gate=gate,
+        source_estimator=source_estimator, cs_mode=cv_cs_mode, controls=source_controls)
+    contractions = []
+    for hard, soft, teacher, _ in _estimator_sides(targets, backend, parameters, source_parameters):
+        # Match FrozenStep.update's eta*P multiplication before promotion to
+        # the gradient dtype (also matters for mixed-precision CPU oracles).
+        contractions.append(torch.stack([sum((g[n]*(step.eta*step.diagonal[n].detach())*
+                                              feedback.gradient[n].detach()).sum()
+                                              for n in parameters) for g in (hard, soft, teacher)]))
+    outer = -(weights * torch.stack(contractions).detach()).sum() / len(targets)
+    value, = torch.autograd.grad(outer, control)
+    if getattr(backend, 'journal', None):
+        backend.journal.append('gate_vjp_evaluation', context=backend.context, slots=len(targets),
+            source_estimator=source_estimator, cv_cs_mode=cv_cs_mode, create_graph=False,
+            implementation='v1.1 autograd through estimator weights including c_s')
+    return value.detach()
+
+
+def backend_config(config):
+    """Construct the exact CPU-side backend settings before touching CUDA.
+
+    Unified manifests retain their P0/P1 identity; D12--D16 execute with the
+    frozen v1.1 adapter, just like P1Experiment and make_manifest.
+    """
+    from peft import LoraConfig
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        config = runtime_config(config)
+    settings = dict(score_tolerance=ScoreTolerance.from_config(config),
+        max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
+        action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
+            {'single_turn': 512, 'multi_turn': 1024}
+            if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
+        memory_policy=MemoryPolicy.from_config(config), generation_batch=GenerationBatch.from_config(config))
+    if settings['max_context_tokens'] < 2:
+        raise ValueError('backend requires max_context_tokens >= 2')
+    lora = LoraConfig(r=config['lora_rank'], lora_alpha=config['lora_alpha'],
+        lora_dropout=0., bias='none', task_type='CAUSAL_LM', target_modules=config['lora_target_modules'])
+    return config, lora, settings
+
+
+def load_tokenizer(manifest):
+    from transformers import AutoTokenizer
+    return AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True, trust_remote_code=False)
+
+
 def load_backend(config, manifest, journal):
     """Called only by run/smoke/resume, never by CPU audit/report/tests."""
-    from peft import LoraConfig, get_peft_model
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    config, lora, settings = backend_config(config)
+    from peft import get_peft_model
+    from transformers import AutoModelForCausalLM
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise RuntimeError('set CUDA_VISIBLE_DEVICES to exactly one available GPU')
     device = torch.device('cuda:0')  # relative to the verbatim inherited visibility
@@ -250,11 +387,10 @@ def load_backend(config, manifest, journal):
     torch.manual_seed(config['training_seed'])
     torch.cuda.manual_seed_all(config['training_seed'])
     with journal.measure('model_load'):
-        tokenizer = AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True, trust_remote_code=False)
+        tokenizer = load_tokenizer(manifest)
         model = AutoModelForCausalLM.from_pretrained(manifest['model_path'], local_files_only=True,
             trust_remote_code=False, torch_dtype=torch.bfloat16, attn_implementation='eager').to(device)
-        model = get_peft_model(model, LoraConfig(r=config['lora_rank'], lora_alpha=config['lora_alpha'],
-            lora_dropout=0., bias='none', task_type='CAUSAL_LM', target_modules=config['lora_target_modules']))
+        model = get_peft_model(model, lora)
         # Keep update coordinates in FP32; base matmuls remain BF16. Eager
         # attention gives one explicit scoring implementation on both machines.
         for p in lora_parameters(model).values():
@@ -265,11 +401,13 @@ def load_backend(config, manifest, journal):
             gradient_checkpointing='non_reentrant_eval_functional_lora', checkpoint_layers=checkpoint_layers,
             max_live_action_graphs=1, parameter_space='lora_trainables',
             trainable_numel=sum(p.numel() for p in lora_parameters(model).values()))
-    return HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
+    backend = HFGenerateBackend(model, tokenizer, base_checkpoint_hash=manifest['base_checkpoint_hash'],
         harness_hash=manifest['harness_hash'], tokenizer_hash=manifest['tokenizer_hash'], journal=journal,
-        score_tolerance=ScoreTolerance.from_config(config),
-        max_action_tokens=config.get('max_action_tokens', 512), max_context_tokens=config['max_context_tokens'],
-        action_caps=config.get('max_action_tokens_by_benchmark', {}).get(config['benchmark'],
-            {'single_turn': 512, 'multi_turn': 1024}
-            if config['benchmark'] == 'bfcl' and 'max_action_tokens' not in config else {}),
-        memory_policy=MemoryPolicy.from_config(config))
+        **settings)
+
+    backend.student_config = dict(config)
+    if config['benchmark'] != 'bfcl':
+        from types import MethodType
+        from .benchmarks.registry import get_benchmark
+        backend.action_limit = MethodType(get_benchmark(config).action_limit, backend)
+    return backend

@@ -57,6 +57,13 @@ class TeacherEpisode:
     demo: Demo | None
     response_texts: tuple[str, ...] | list[str] = ()
     tokens_spent: int | None = None
+    # Bind accounting to the actual request config, not a later env lookup.
+    teacher: str | None = None
+    # Recorded API counters; usage_status=estimated identifies conservative bounds.
+    usage: Mapping[str, int] | None = None
+    usage_status: str | None = None
+    # Failed trajectories remain available independently of verified demos.
+    raw: Any = None
 
 
 COLLECTION_SCHEMA_VERSION = 1

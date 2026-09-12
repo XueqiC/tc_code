@@ -1,0 +1,313 @@
+{
+  "demo_demand_tasks": 40,
+  "fold_counts": {
+    "0": 22,
+    "1": 18
+  },
+  "fold_rule": "int(cc_pairs.digest(official task content excluding id/truth),16) % 2",
+  "generator_new_parents": [],
+  "generator_seed_tasks": 28,
+  "m": 40,
+  "parents": [
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "irrelevance_16",
+      "parent_hash": "fdfbe76ec2577c4737496747fb266b28739e0978a78501e80d187b123b917b5f"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "irrelevance_212",
+      "parent_hash": "57ab3ca03bff4a5e7efe71e858a3f8e417ad9c45fdfc778a2a58d6a42a5b13b0"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "live_irrelevance_321-76-19",
+      "parent_hash": "f2b70f584f0579c6f340875d41d9f5c51297ab4a460ff891f8047dbcf1604c1d"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_irrelevance_433-107-1",
+      "parent_hash": "2f6d5712e34e2c9a47488162e7cc52bb13d799de1d97fdd96658a59e9ea966fe"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_irrelevance_686-223-1",
+      "parent_hash": "228db8e32c972531ec4bf0dfba59a1e6951429bb3a0a2066e41a6f107efcc894"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_multiple_207-91-1",
+      "parent_hash": "e22799a5f6c5303287d0a8896c0a8610d3caba08791d08bcbedc04e3f19cf5de"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_multiple_659-162-1",
+      "parent_hash": "90526be7704c51cdba2e6c2100b9384d4f9cabe28e54ded3d08518680936dc3e"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_multiple_923-191-11",
+      "parent_hash": "37a495bf990befd5f84e0f3cc87c24e6cadf3c4fcb6c3a120209b21a4efdb740"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_parallel_9-5-0",
+      "parent_hash": "cd71fb35d29db50ba9dc456631adb23c8dc1648a449399e48176788fc5773b76"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "live_parallel_multiple_10-9-0",
+      "parent_hash": "8418b335ebd8ef14a788953ef5190b05fd44b711ebbac447e8d377b68601558b"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "live_relevance_1-1-0",
+      "parent_hash": "4107b612f3ee8746a46c700b09c301e73532df39e7e50a878f2b8fc775145e6d"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "live_relevance_5-5-0",
+      "parent_hash": "83a37e45e1e65b95dc969392d959fab89a019f33e5d9c88cec93de48cb9972a5"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_relevance_7-7-0",
+      "parent_hash": "201bf38583812ee61e7c144163e9bf78ae1a38f8581f10305881d4cc3a17956e"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_simple_20-4-0",
+      "parent_hash": "cef6d45857c7a119737bfcfd29237fbaf611eba5a77189df69461ae8c908cd00"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "live_simple_245-127-0",
+      "parent_hash": "2b6ca7a4d5a8b2b63be4e47f819263ae9dab56e17431592d0342ed4b26e1b04a"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "live_simple_26-6-0",
+      "parent_hash": "b61a3830904c44060f75dae7ab5e37790e3d1f97ddf43e8a1d7f7d10aa40fd49"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "memory_kv_141-notetaker-11",
+      "parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "memory_rec_sum_58-finance-3",
+      "parent_hash": "5eeac407cb2da76686819be849f5924ae0394e5203fd2f47f8b470b8e622f2d6"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": false,
+      "official_id": "memory_rec_sum_99-student-19",
+      "parent_hash": "7ac30b5c77cffbc5fa09e97cf29201f46ffb9cbbbdd7a129c6be5d181d5210c7"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": false,
+      "official_id": "memory_vector_112-student-32",
+      "parent_hash": "1fb480470de98f834e63dc09424637e6f9efa8c10ec7ea2302c55de23aa5d907"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "memory_vector_118-student-38",
+      "parent_hash": "f2db27658c623405eaa3e1c9b59a995bc201fa7e09bc2b8147e1beec8aa01c8e"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "multi_turn_base_58",
+      "parent_hash": "6d15727664e56155d09f010c8d12aa27fb5fd2d1541d5b2ae1b3a33eee8ed508"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": false,
+      "official_id": "multi_turn_long_context_78",
+      "parent_hash": "90fa47cbba3bc559e5e5127b70a4c48ad6742f50eaeb021be34b266fd43fdbdf"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "multi_turn_miss_func_198",
+      "parent_hash": "18a12b5049a90ed218484bdea60d020478a59d1db7e5a45edafa71dd67b6d3e2"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "multi_turn_miss_func_67",
+      "parent_hash": "4f7e63b1d95de0ade8780ee6dd98e975954c1c2ba9becc3d66b8ca71ccf753ac"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "multi_turn_miss_param_1",
+      "parent_hash": "181629ea53cf662bb97e3dd172604ed1171d4f8ffd93878c0ebf8565f48cab5e"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "multiple_16",
+      "parent_hash": "44a99deabb82b8b1e19f94539dc70ac7367582d6ad783d5ac9d5ac01053aa2b0"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "multiple_176",
+      "parent_hash": "be67c3770bd19db790bf3cced364a3d6a4e1157b161f6c1d8079cf54ace1c1a5"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "parallel_199",
+      "parent_hash": "b67f184cd7f9cfaeb1e8f7b5e558ed7088b75543a6bb7a8bb23fa6d4f7ef4cd3"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "parallel_80",
+      "parent_hash": "476b24923ac4902aa4f11106735eb776eff9b0dca20db7d9d58d7a204f909b13"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "parallel_multiple_122",
+      "parent_hash": "c60ac21b6b103fde566d6bc625097921fb6e41b4530d1c707138c005c3eef4f1"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "parallel_multiple_144",
+      "parent_hash": "3e9bbd1200817af003a63c03c04d0d3135be4c408fdd1f3a2385d03e7988d939"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "simple_java_4",
+      "parent_hash": "dc6665459258e9c0227be50432ef319ecc2a533ad32b95946de4cc6582940835"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "simple_java_6",
+      "parent_hash": "7b1d3828c7d8dbbd4d29dd2903cf65200e16a5adebf1ec8c087dff83af47fc74"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "simple_javascript_42",
+      "parent_hash": "95d802a8419a067cc8be258d4b179bea9d8d42eb798081992f2d174514c9292b"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": true,
+      "official_id": "simple_javascript_49",
+      "parent_hash": "c1cf12e70abfaba2c1fc8e7a9ad7c629137010325ad5d971ff4c00481fe2075d"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "simple_python_156",
+      "parent_hash": "12938679499ff0a4ba33c02bf532042b2c39e9d7fad47d6aae9fe5acd3e02bf2"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": true,
+      "official_id": "simple_python_31",
+      "parent_hash": "af48b0cd189788b5aa6dca5834821babc7b00ba25f68c5bc6db29507515940bc"
+    },
+    {
+      "demo_demand": true,
+      "fold": 0,
+      "generator_seed": false,
+      "official_id": "web_search_4",
+      "parent_hash": "99f772fe82015fc73776a6dab276ea0449707a20351e5dc93bad32f2d50b6fa0"
+    },
+    {
+      "demo_demand": true,
+      "fold": 1,
+      "generator_seed": false,
+      "official_id": "web_search_80",
+      "parent_hash": "a257c46a5cfb98cbdb62af30fcbe3325a1f00f25c221dcbbe16e9b109cc396c5"
+    }
+  ],
+  "round_roles": [
+    {
+      "feedback_fold": 1,
+      "inner_fold": 0,
+      "round": 1
+    },
+    {
+      "feedback_fold": 0,
+      "inner_fold": 1,
+      "round": 2
+    },
+    {
+      "feedback_fold": 1,
+      "inner_fold": 0,
+      "round": 3
+    }
+  ],
+  "scope": "exploratory",
+  "source_manifest_sha256": "764e3283d830c02126ef9c8856f907718f112d1c17f10c5830f4015914240686",
+  "version": "rtd-v1-bfcl-bank"
+}

@@ -37,6 +37,8 @@ DEFAULT_MODELS = {
     "bfcl": "Qwen/Qwen3.5-4B",
     "alfworld": "Qwen/Qwen3.5-4B",  # paper protocol: one fixed 4B student (2B base scored 0/134, 2026-09-02)
     "tau2": "Qwen/Qwen3.5-4B",
+    "webshop": "google/gemma-4-12B-it",
+    "hotpotqa": "google/gemma-4-12B-it",
 }
 PHASE_CACHE_SCHEMA_VERSION = 1
 
@@ -51,7 +53,7 @@ def positive_seed_count(value: str) -> int:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--benchmark", required=True, choices=("appworld", "bfcl", "alfworld", "tau2")
+        "--benchmark", required=True, choices=tuple(DEFAULT_MODELS)
     )
     parser.add_argument("--arm", required=True, choices=ARM_NAMES)
     parser.add_argument("--seeds", type=positive_seed_count, default=3)
@@ -79,6 +81,14 @@ def make_adapter(name: str, seed: int, port: int) -> BenchmarkAdapter:
         from .adapters.alfworld import ALFWorldAdapter
 
         return ALFWorldAdapter(seed, port=port)
+    if name == "hotpotqa":
+        from .adapters.hotpotqa import HotpotQAAdapter
+        return HotpotQAAdapter(seed=seed, port=port)
+
+    if name == "webshop":
+        from .adapters.webshop import WebShopAdapter
+
+        return WebShopAdapter(seed, port=port)
     from .adapters.tau2 import Tau2Adapter
 
     return Tau2Adapter(seed, port=port)
@@ -661,7 +671,7 @@ def _wait_for_teacher_quota(waited: float) -> tuple[bool, float]:
         )
         time.sleep(sleep_s)
         waited += sleep_s
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         config = appworld_teacher.load_teacher_config(teacher_name)
         try:
             appworld_teacher.generate_reply(
@@ -1004,6 +1014,9 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
     )
     if not policy:
         raise RuntimeError(f"no base policy configured for {args.benchmark}")
+    if args.benchmark == "webshop":
+        # Retain the bounded deployment transcript during training as well.
+        os.environ.setdefault("AW_MAX_PROMPT_TOKENS", "32768")
     if args.benchmark == "tau2":
         # Native tau2 policies and tool schemas are much longer than the
         # AppWorld-oriented default training cap.  Keep the full serving

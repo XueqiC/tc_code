@@ -1,0 +1,432 @@
+"""Run the official BFCL agent loop/checkers, capturing every native FC state."""
+import copy
+from contextvars import ContextVar
+from dataclasses import replace
+from datetime import datetime, timezone
+import json
+import os
+import random
+from pathlib import Path
+import subprocess
+import sys
+import time
+from types import SimpleNamespace
+import uuid
+
+from .common import (HARNESS, REGISTRY, ROOT, STUDENT, append_row, digest,
+                     read_rows, setup_harness, write_json)
+
+_active = ContextVar("mech_bfcl_capture", default=None)
+
+
+def pack(value):
+    if value is None or type(value) in (str, int, float, bool):
+        return value
+    if isinstance(value, Path):
+        return {"__mech_path__": str(value)}
+    if isinstance(value, random.Random):
+        return {"__mech_random__": pack(value.getstate())}
+    if isinstance(value, tuple):
+        return {"__mech_tuple__": [pack(v) for v in value]}
+    if isinstance(value, set):
+        return {"__mech_set__": [pack(v) for v in value]}
+    if isinstance(value, list):
+        return [pack(v) for v in value]
+    if isinstance(value, dict):
+        return {"__mech_dict__": [[pack(k), pack(v)] for k, v in value.items()]}
+    raise TypeError(f"Unserializable executor state: {type(value).__name__}")
+
+
+def unpack(value):
+    if isinstance(value, list):
+        return [unpack(v) for v in value]
+    if isinstance(value, dict):
+        if "__mech_path__" in value:
+            return Path(value["__mech_path__"])
+        if "__mech_random__" in value:
+            rng = random.Random()
+            rng.setstate(unpack(value["__mech_random__"]))
+            return rng
+        if "__mech_tuple__" in value:
+            return tuple(map(unpack, value["__mech_tuple__"]))
+        if "__mech_set__" in value:
+            return set(map(unpack, value["__mech_set__"]))
+        if "__mech_dict__" in value:
+            return {unpack(k): unpack(v) for k, v in value["__mech_dict__"]}
+    return value
+
+
+def multiturn_snapshot(frame, entry, ground_truth):
+    """Official prior-turn gold replay plus the observed current-turn prefix.
+
+    Compare prior student state with gold state before combining the two. An
+    incompatible natural history is excluded, never silently relabelled.
+    All executor instances are private and removed even if replay fails.
+    """
+    from bfcl_eval.eval_checker.multi_turn_eval import multi_turn_utils as util
+    from bfcl_eval.eval_checker.multi_turn_eval.multi_turn_checker import state_checker
+    from bfcl_eval.model_handler.utils import convert_to_function_call
+    from .exercises import demonstration
+    messages = frame["messages"]
+    user_positions = [i for i, m in enumerate(messages) if m["role"] == "user"]
+    turn = len(user_positions) - 1
+    questions = [m for t in entry["question"] for m in t if m["role"] == "user"]
+    if turn < 0 or turn >= len(ground_truth) or turn >= len(questions):
+        raise ValueError("Cannot align failure frame with official multi-turn question")
+    if any(messages[p]["content"] != q["content"] for p, q in zip(user_positions, questions)):
+        raise ValueError("Captured user turns differ from official multi-turn question")
+    classes = entry["involved_classes"]
+    if "WebSearchAPI" in classes or any(c.startswith("MemoryAPI") for c in classes):
+        raise ValueError("Replay excludes live web and filesystem memory prerequisite executors")
+    tid = uuid.uuid4().hex
+    models = ("mech_gold", "mech_observed")
+    long_context = "long_context" in entry["id"] or "composite" in entry["id"]
+
+    def execute(calls, model):
+        return util.execute_multi_turn_func_call(calls, copy.deepcopy(entry["initial_config"]),
+            classes, model, tid, long_context=long_context)
+
+    def observed(prefix):
+        calls, outputs = [], []
+        for message in prefix:
+            if message["role"] == "assistant":
+                for call in message.get("tool_calls", []):
+                    function = copy.deepcopy(call["function"])
+                    if isinstance(function["arguments"], str):
+                        function["arguments"] = json.loads(function["arguments"])
+                    demonstration(dict(kind="call", calls=[function]))
+                    calls.extend(convert_to_function_call([{function["name"]: function["arguments"]}]))
+            elif message["role"] == "tool":
+                outputs.append(message["content"])
+        return calls, outputs
+
+    def comparable(value):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return value
+
+    try:
+        _, gold = execute([], models[0])
+        for calls in ground_truth[:turn]:
+            outputs, gold = execute(calls, models[0])
+            if any("error" in o.lower() for o in outputs):
+                raise ValueError("Official prior-turn ground-truth replay returned an error")
+        previous_calls, _ = observed(messages[:user_positions[-1]])
+        _, actual = execute(previous_calls, models[1])
+        check = state_checker(actual, gold)
+        random_equal = all(pack(vars(actual[c]).get("_random")) == pack(vars(gold[c]).get("_random"))
+                           for c in classes)
+        if not check["valid"] or not random_equal:
+            raise ValueError("Prior student history diverges from ground-truth executor state")
+        current_calls, expected = observed(messages[user_positions[-1]+1:])
+        outputs, gold = execute(current_calls, models[0])
+        if list(map(comparable, outputs)) != list(map(comparable, expected)):
+            raise ValueError("Failure-turn replay outputs differ from captured observations")
+        return {c: pack(vars(instance)) for c, instance in gold.items()}, dict(
+            method="official initial_config + prior-turn ground truth + observed current-turn calls",
+            turn_index=turn, prior_ground_truth_calls=ground_truth[:turn],
+            current_turn_calls=current_calls, entry_hash=digest(entry),
+            ground_truth_hash=digest(ground_truth), observed_history_consistent=True)
+    finally:
+        for model in models:
+            for cls in classes:
+                name = f"{model}_{tid}_{cls}_instance"
+                if hasattr(util, name):
+                    delattr(util, name)
+
+
+def restore_multiturn_context(context, frame):
+    """Repair legacy captures in memory; retain precise failure evidence."""
+    context = copy.deepcopy(context)
+    classes = context.get("involved_classes") or []
+    if not context["task_id"].startswith("multi_turn_") or (
+            not context.get("snapshot_error") and context.get("snapshot") and
+            all(c in context["snapshot"] for c in classes)):
+        return context
+    try:
+        setup_harness()
+        from bfcl_eval.utils import load_dataset_entry, load_ground_truth_entry
+        category = context["task_id"].rsplit("_", 1)[0]
+        entry = next(e for e in load_dataset_entry(category) if e["id"] == context["task_id"])
+        truth = next(e for e in load_ground_truth_entry(category) if e["id"] == context["task_id"])
+        snapshot, provenance = multiturn_snapshot(frame, entry, truth["ground_truth"])
+        context.update(snapshot=snapshot, snapshot_error=None, snapshot_reconstruction=provenance)
+    except (ValueError, KeyError, TypeError, AssertionError, StopIteration, ImportError) as exc:
+        context.update(snapshot=None, snapshot_error=f"Multi-turn reconstruction excluded: {type(exc).__name__}: {exc}")
+    return context
+
+
+class NoThinking:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __getattr__(self, key):
+        return getattr(self.tokenizer, key)
+
+    def apply_chat_template(self, *args, **kwargs):
+        kwargs["enable_thinking"] = False
+        return self.tokenizer.apply_chat_template(*args, **kwargs)
+
+
+class CompletionProxy:
+    def __init__(self, client):
+        self.client = client
+        self.completions = self
+
+    def create(self, **kwargs):
+        kwargs["model"] = os.environ["MECH_SERVED_MODEL"]
+        kwargs["temperature"] = 0.001
+        kwargs["seed"] = int(os.environ.get("MECH_SEED", "0"))
+        kwargs.setdefault("extra_body", {})["top_k"] = 1
+        return self.client.with_options(max_retries=0).completions.create(**kwargs)
+
+
+def register_capture():
+    """Opt-in extension called by tools/bfcl_cli.py only for this pipeline."""
+    # overrides resolves superclass names from globals, even for a locally
+    # defined opt-in handler. Keep heavyweight harness imports lazy.
+    global Gemma4FCHandler
+    from bfcl_eval.constants.model_config import MODEL_CONFIG_MAPPING
+    from bfcl_eval.model_handler import base_handler
+    from bfcl_eval.model_handler.local_inference.gemma4_fc import Gemma4FCHandler
+    from overrides import override
+
+    original_execute = base_handler.execute_multi_turn_func_call
+
+    def execute(*args, **kwargs):
+        outputs, instances = original_execute(*args, **kwargs)
+        active = _active.get()
+        if active is not None:
+            try:
+                active["snapshot"] = {k: pack(vars(v)) for k, v in instances.items()}
+                active["snapshot_error"] = None
+            except TypeError as exc:
+                active["snapshot"] = None
+                active["snapshot_error"] = str(exc)
+            if active.get("last_frame"):
+                append_row(active["path"], dict(event="execution", frame_id=active["last_frame"],
+                    outputs=outputs, snapshot_after=active["snapshot"], snapshot_error=active["snapshot_error"]))
+        return outputs, instances
+
+    base_handler.execute_multi_turn_func_call = execute
+
+    class CapturedGemma(Gemma4FCHandler):
+        @override(check_signature=False)
+        def inference(self, test_entry, include_input_log, exclude_state_log):
+            context = dict(task_id=test_entry["id"], entry=copy.deepcopy(test_entry),
+                           snapshot={}, snapshot_error=None, index=0,
+                           path=Path(os.environ["MECH_CAPTURE_DIR"]) / (test_entry["id"] + ".jsonl"))
+            token = _active.set(context)
+            try:
+                return super().inference(test_entry, True, False)
+            finally:
+                _active.reset(token)
+
+        @override(check_signature=False)
+        def _query_prompting(self, inference_data):
+            active = _active.get()
+            frame_id = f"{active['task_id']}:{active['index']}"
+            active["index"] += 1
+            active["last_frame"] = frame_id
+            frame = dict(event="query", frame_id=frame_id, task_id=active["task_id"],
+                         messages=copy.deepcopy(inference_data["message"]),
+                         functions=copy.deepcopy(inference_data["function"]),
+                         snapshot=copy.deepcopy(active["snapshot"]),
+                         snapshot_error=active["snapshot_error"],
+                         initial_config=pack(active["entry"].get("initial_config", {})),
+                         involved_classes=active["entry"].get("involved_classes", []))
+            proxy = SimpleNamespace(tokenizer=NoThinking(self.tokenizer),
+                                    client=CompletionProxy(self.client), temperature=0.001,
+                                    max_context_length=int(os.environ.get("MECH_MAX_CONTEXT", "32768")),
+                                    model_path_or_id=self.model_path_or_id)
+            proxy._format_prompt = lambda m, f: Gemma4FCHandler._format_prompt(proxy, m, f)
+            append_row(active["path"], dict(frame, event="query_started"))
+            response, latency = Gemma4FCHandler._query_prompting(proxy, inference_data)
+            append_row(active["path"], dict(frame, response=response.choices[0].text,
+                finish_reason=response.choices[0].finish_reason,
+                usage=response.usage.model_dump(), prompt=inference_data["inference_input_log"]["formatted_prompt"]))
+            return response, latency
+
+    MODEL_CONFIG_MAPPING[REGISTRY] = replace(MODEL_CONFIG_MAPPING[REGISTRY], model_handler=CapturedGemma)
+
+
+def frames(directory):
+    result = []
+    for path in sorted(Path(directory).glob("*.jsonl")):
+        by_id = {}
+        for row in read_rows(path):
+            if row["event"] == "query":
+                by_id[row["frame_id"]] = row
+            elif row["event"] == "execution" and row["frame_id"] in by_id:
+                by_id[row["frame_id"]].update(execution=row)
+        result.extend(by_id.values())
+    return result
+
+
+def expand_memory_ids(ids, entries):
+    """Order the official dependency closure, sharing each prerequisite once."""
+    ordered, visited, visiting = [], set(), set()
+
+    def visit(tid):
+        if tid in visited:
+            return
+        if tid in visiting:
+            raise ValueError(f"Cyclic BFCL memory dependency: {tid}")
+        if tid not in entries:
+            raise ValueError(f"BFCL dependency missing from official inventory: {tid}")
+        visiting.add(tid)
+        if tid.startswith("memory_"):
+            for dependency in entries[tid].get("depends_on", []):
+                visit(dependency)
+        visiting.remove(tid)
+        visited.add(tid)
+        ordered.append(tid)
+
+    for tid in ids:
+        visit(tid)
+    return ordered
+
+
+def generation_cost(states):
+    """Charge every completed query, including queries in failed episodes."""
+    return dict(generations=len(states),
+                input_tokens=sum(f["usage"]["prompt_tokens"] for f in states),
+                output_tokens=sum(f["usage"]["completion_tokens"] for f in states))
+
+
+def preserve_incomplete_run(destination):
+    """Archive a recognizable unfinished attempt; never overwrite old evidence."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    archive = destination.with_name(f"{destination.name}.failed-{stamp}")
+    suffix = 0
+    while archive.exists():
+        suffix += 1
+        archive = destination.with_name(f"{destination.name}.failed-{stamp}-{suffix}")
+    destination.rename(archive)
+    print(f"Incomplete harness run preserved at {archive}; starting a new attempt", file=sys.stderr)
+
+
+def official_run(args, ids, destination, adapter, splits, *, evaluation_scope=None):
+    from bfas.adapters.bfcl import extract_verdicts, read_score_summaries
+    from bfas.bfcl_teacher import read_results
+    entries, categories = adapter._load_entries()
+    ids = list(dict.fromkeys(ids))
+    expanded = expand_memory_ids(ids, entries)
+    requested = set(ids)
+    prerequisite_ids = [tid for tid in expanded if tid not in requested]
+    destination = Path(destination).resolve()
+    metadata = dict(version=2, ids=ids, expanded_ids=expanded, prerequisite_ids=prerequisite_ids,
+                    source_hash=digest({tid: entries[tid] for tid in expanded}),
+                    split_hash=digest(splits), base_url=args.base_url,
+                    served_model=args.served_model, temperature=0.001, top_k=1, seed=splits["seed"])
+    if evaluation_scope is not None:
+        metadata.update(evaluation_scope)
+        if getattr(args, "arm", "base") != "base":
+            from .common import resolved_train_seed
+            metadata["train_seed"] = resolved_train_seed(args, splits["seed"])
+            if getattr(args, "checkpoint", "end") == "mid":
+                metadata["checkpoint"] = "mid"
+    if (destination / "items.json").exists():
+        from .common import read_json
+        previous = read_json(destination / "run.json")
+        if "train_seed" in metadata:
+            previous.setdefault("train_seed", splits["seed"])
+        if previous != metadata:
+            raise ValueError("Cannot reuse a harness run with changed inputs")
+        return read_json(destination / "items.json")
+    if (destination / "run.json").is_file():
+        preserve_incomplete_run(destination)
+    elif destination.exists():
+        raise ValueError(f"Incomplete harness run preserved at {destination}; use a new run directory")
+    destination.mkdir(parents=True)
+    write_json(destination / "run.json", metadata)
+    # One batch lets the official scheduler materialise each persona/backend's
+    # stores in dependency order, including prerequisites shared by requests.
+    write_json(destination / "test_case_ids_to_generate.json", adapter._selective_file(expanded))
+    env = os.environ.copy()
+    env.update(BFCL_PROJECT_ROOT=str(destination), REMOTE_OPENAI_BASE_URL=args.base_url,
+               REMOTE_OPENAI_TOKENIZER_PATH=args.tokenizer, MECH_SERVED_MODEL=args.served_model,
+               MECH_CAPTURE_DIR=str(destination / "trajectories"), MECH_BFCL_CAPTURE="1",
+               MECH_SEED=str(splits["seed"]), PYTHONDONTWRITEBYTECODE="1")
+    command = [args.bfcl_python, str(ROOT / "tools/bfcl_cli.py")]
+    start = time.monotonic()
+    with (destination / "generate.log").open("w") as log:
+        subprocess.run(command + ["generate", "--model", REGISTRY, "--run-ids",
+            "--skip-server-setup", "--backend", "vllm", "--temperature", "0.001",
+            "--num-threads", "1", "--include-input-log", "--result-dir", "result"],
+            env=env, cwd=ROOT, check=True, stdout=log, stderr=subprocess.STDOUT)
+    with (destination / "evaluate.log").open("w") as log:
+        outcome = subprocess.run(command + ["evaluate", "--model", REGISTRY,
+            "--result-dir", "result", "--score-dir", "score", "--partial-eval"],
+            env=env, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    results = {r["id"]: r for r in read_results(destination / "result")}
+    captured = frames(destination / "trajectories")
+    by_task = {}
+    for frame in captured:
+        by_task.setdefault(frame["task_id"], []).append(frame)
+    write_json(destination / "cost.json", dict(layer=3, **generation_cost(captured),
+        requested=generation_cost([f for f in captured if f["task_id"] in requested]),
+        prerequisites=generation_cost([f for f in captured if f["task_id"] not in requested])))
+    write_json(destination / "prerequisites.json", [dict(id=tid, role="prerequisite", layer=3,
+        category=categories[tid], trajectory_path=f"trajectories/{tid}.jsonl",
+        frame_ids=[f["frame_id"] for f in by_task.get(tid, [])],
+        checker_result=results.get(tid), cost=generation_cost(by_task.get(tid, [])))
+        for tid in prerequisite_ids])
+    write_json(destination / "timing.json", dict(wall_seconds=time.monotonic()-start,
+                                                 evaluator_returncode=outcome.returncode))
+    # Inspect the whole batch before reporting omissions; an error result alone
+    # does not establish that the student ever completed a query for that ID.
+    missing_results = sorted(set(expanded) - results.keys())
+    missing_trajectories = sorted(set(expanded) - by_task.keys())
+    if missing_results or missing_trajectories:
+        raise RuntimeError("BFCL batch finished after memory prerequisite expansion; "
+            f"missing result ids: {missing_results}; "
+            f"missing completed student trajectory ids: {missing_trajectories}. "
+            f"Inspect {destination / 'generate.log'} and {destination / 'evaluate.log'}")
+    # Reconcile all scored questions, even if a question itself was a dependency.
+    # Official write-phase prerequisites are unscored but remain fully charged.
+    expected = {tid: categories[tid] for tid in expanded if tid not in adapter._prereq_ids}
+    summaries = read_score_summaries(destination / "score")
+    expected_categories, scored_categories = set(expected.values()), set(summaries)
+    missing_categories = expected_categories - scored_categories
+    if missing_categories:
+        raise RuntimeError(f"Official checker omitted categories: {sorted(missing_categories)}; "
+            f"expected categories: {sorted(expected_categories)}; "
+            f"scored categories: {sorted(scored_categories)}. Inspect {destination / 'evaluate.log'}")
+    verdicts = extract_verdicts(destination / "score", expected)
+    items = []
+    for tid in ids:
+        own = by_task[tid]
+        row = dict(id=tid, **splits["items"][tid], correct=verdicts[tid], layer=3,
+                   checker_result=results[tid], metrics=trajectory_metrics(own, verdicts[tid]))
+        if evaluation_scope is not None:
+            row["evaluation_scope"] = copy.deepcopy(evaluation_scope)
+        items.append(row)
+    write_json(destination / "items.json", items)
+    return items
+
+
+def trajectory_metrics(states, correct):
+    from bfcl_eval.model_handler.local_inference.gemma4_fc import _parse_response
+    calls, illegal, repeated, no_calls, truncated = 0, 0, 0, 0, 0
+    seen = set()
+    for f in states:
+        try:
+            parsed = _parse_response(f["response"])[0]
+        except ValueError:
+            parsed = []
+            illegal += 1
+        no_calls += int(not parsed)
+        truncated += int(f.get("finish_reason") == "length")
+        calls += len(parsed)
+        for call in parsed:
+            key = digest(call)
+            repeated += int(key in seen)
+            seen.add(key)
+            illegal += int(call["name"] not in {d["name"] for d in f["functions"]})
+        illegal += sum("error" in str(o).lower() for o in f.get("execution", {}).get("outputs", []))
+    return dict(tool_calls=calls, illegal_actions=illegal, repeated_actions=repeated,
+                no_call_turns=no_calls, truncated_generations=truncated,
+                early_stops=int(not correct and bool(states) and not parsed),
+                early_stop_definition="failed item whose final action contains no call (proxy)")

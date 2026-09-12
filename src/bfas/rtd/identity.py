@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 import subprocess
 
-from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from .persistence import manifest_digest, ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
 from .scoring import ScoreTolerance
 from .scoring_scope import scoring_hash
 
@@ -68,13 +68,18 @@ def _content_manifest(paths):
 def evaluation_harness_identity(root, config):
     """Only relative names and file/config contents; no git or install state."""
     root = Path(root)
+    if config.get('benchmark', 'bfcl') != 'bfcl':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(config).harness_identity(root, config)
     files, data = _evaluation_harness_paths(root)
     checkout, data_manifest = _content_manifest(files), _content_manifest(data)
     return dict(version=CONTENT_VERSION, leaderboard=LEADERBOARD,
                 checkout_files=checkout, checkout_hash=digest(checkout),
                 data_manifest=data_manifest, data_hash=digest(data_manifest),
                 tools={p: scoring_hash(p, (root/p).read_bytes().decode('utf-8')) for p in EVALUATION_TOOLS},
-                config={k: v for k, v in config.items() if k.startswith('evaluation_')})
+                config=({k: v for k, v in config.items() if k.startswith('evaluation_')} |
+                    (dict(student=config['student'], student_call_format='gemma4', evaluation_temperature=0.001)
+                     if config.get('student_call_format') == 'gemma4' else {})))
 
 
 def _content_v2_identity(root, config, tool_names):
@@ -88,7 +93,9 @@ def _content_v2_identity(root, config, tool_names):
                 checkout_files=checkout, checkout_hash=digest(checkout),
                 data_manifest=data_manifest, data_hash=digest(data_manifest),
                 tools={p: file_hash(Path(root)/p) for p in tool_names},
-                config={k: v for k, v in config.items() if k.startswith('evaluation_')})
+                config=({k: v for k, v in config.items() if k.startswith('evaluation_')} |
+                    (dict(student=config['student'], student_call_format='gemma4', evaluation_temperature=0.001)
+                     if config.get('student_call_format') == 'gemma4' else {})))
 
 
 def evaluation_harness_metadata(root):
@@ -179,7 +186,7 @@ def audit_legacy(root, directory):
             or not isinstance(manifest.get('config'), dict)
             or digest(manifest['config']) != manifest.get('config_hash')):
         raise ValueError('legacy manifest needs a combined harness hash and a valid saved config hash')
-    path = root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+    path = root/'configs/rtd/legacy_identities'/f'{manifest_digest(manifest)}.json'
     if path.exists():
         saved = saved_identities(root, directory, manifest)
         if saved['evaluation_harness']['version'] == 'bfcl-evaluation-harness-v1':
@@ -198,7 +205,7 @@ def audit_legacy(root, directory):
         raise ValueError('manifest changed during legacy audit')
     supplement = dict(
         version='rtd-c25e-audited-legacy-identity-v1',
-        manifest_hash=digest(manifest), legacy_harness_hash=manifest['harness_hash'],
+        manifest_hash=manifest_digest(manifest), legacy_harness_hash=manifest['harness_hash'],
         evaluation_harness=harness, harness_hash=digest(harness),
         evaluation_harness_metadata=evaluation_harness_metadata(root),
         rtd_source=dict(kind='legacy-mixed-harness', hash=manifest['harness_hash'], files=None),
@@ -225,7 +232,7 @@ def audit_legacy(root, directory):
 
 
 def saved_identities(root, directory, manifest):
-    path = Path(root)/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+    path = Path(root)/'configs/rtd/legacy_identities'/f'{manifest_digest(manifest)}.json'
     if 'evaluation_harness' in manifest:
         if digest(manifest['evaluation_harness']) != manifest['harness_hash']:
             raise ValueError('manifest evaluation harness hash mismatch')
@@ -236,7 +243,7 @@ def saved_identities(root, directory, manifest):
     if not path.is_file():
         raise ValueError('legacy run needs an audited, manifest-bound evaluation identity supplement')
     saved = json.loads(path.read_text())
-    if saved['manifest_hash'] != digest(manifest) or saved['legacy_harness_hash'] != manifest['harness_hash']:
+    if saved['manifest_hash'] != manifest_digest(manifest) or saved['legacy_harness_hash'] != manifest['harness_hash']:
         raise ValueError('legacy identity supplement binding mismatch')
     if saved['harness_hash'] != digest(saved['evaluation_harness']):
         raise ValueError('legacy evaluation harness hash mismatch')
@@ -259,7 +266,7 @@ def saved_identities(root, directory, manifest):
             mixed = (index == 0 and 'evaluation_harness' not in manifest
                      and previous.get('evaluation_harness') is None
                      and previous.get('harness_hash') == manifest['harness_hash'])
-            if (note.get('manifest_hash') != digest(manifest)
+            if (note.get('manifest_hash') != manifest_digest(manifest)
                     or (not mixed and previous.get('harness_hash') != digest(previous.get('evaluation_harness')))
                     or (index and previous['harness_hash'] != updates[index-1]['new_harness_hash'])):
                 raise ValueError('identity update history binding mismatch')
@@ -288,7 +295,7 @@ def audited_harness_hashes(manifest, identities):
     hashes = [identities['harness_hash']]
     if identities == manifest:
         return hashes  # fresh split identity, without an audited supplement
-    if (identities.get('manifest_hash') != digest(manifest)
+    if (identities.get('manifest_hash') != manifest_digest(manifest)
             or identities.get('legacy_harness_hash') != manifest['harness_hash']):
         raise ValueError('historical evaluation identity supplement binding mismatch')
     for note in reversed(identities.get('identity_updates', [])):
@@ -317,7 +324,7 @@ def record_code_drift(root, directory, manifest, *, context, training=False,
         files = (sorted(p for p in set(old['files']) | set(current['files'])
                         if old['files'].get(p) != current['files'].get(p))
                  if old.get('files') is not None else None)
-        record = dict(manifest_hash=digest(manifest), old_hash=old['hash'], new_hash=current['hash'],
+        record = dict(manifest_hash=manifest_digest(manifest), old_hash=old['hash'], new_hash=current['hash'],
                       old_identity_kind=old['kind'], new_identity_kind=current['kind'],
                       files=files, context=context, acknowledged=bool(training and acknowledge))
         if files is None:
@@ -332,7 +339,24 @@ def record_code_drift(root, directory, manifest, *, context, training=False,
 def validate_resume(root, directory, saved, current, *, acknowledge=False, training=True):
     from .hardware import bound_hardware, guard_hardware
     ignored = {'initial_parameter_hash', 'harness_hash', 'evaluation_harness',
-               'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash'}
+               'evaluation_harness_metadata', 'rtd_source', 'hardware', 'hardware_hash',
+               'score_consistency_observed'}
+    # Old fraction manifests predate the explicit form label. Their config and
+    # resolved caps remain hard guards; token manifests get no such exception.
+    if ('budget_checkpoint_form' not in saved
+            and current.get('budget_checkpoint_form') == 'bank_fraction'
+            and all('budget_checkpoints_bank_fraction' in m['config']
+                    and 'budget_checkpoints_tokens' not in m['config'] for m in (saved, current))):
+        ignored.add('budget_checkpoint_form')
+    from .streaming_replay import enabled as streaming_enabled
+    if streaming_enabled(saved):
+        # The engine checks the frozen schedule identity against its initialized
+        # model/support and revalidates journal-bound progress before training.
+        ignored |= {'replay_schedule_identity', 'replay_consumed_steps', 'replay_schedule_hash'}
+        if saved['config'].get('method') == 'rtd_unified':
+            ignored.add('replay_mode')
+    elif saved['config'].get('method') == 'rtd_unified' and 'replay_schedule_identity' in saved:
+        ignored |= {'replay_schedule_identity', 'replay_consumed_steps', 'replay_mode'}
     if ({k: v for k, v in saved.items() if k not in ignored}
             != {k: v for k, v in current.items() if k not in ignored}):
         raise ValueError('resume config/data/base metadata changed')
@@ -344,7 +368,7 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
                       acknowledge=acknowledge, current=current['rtd_source'], identities=identities)
     # Record every accepted resume, even when source drift has already been acknowledged.
     ComputeJournal(Path(directory)/'code_drift.jsonl').append('resume_score_consistency',
-        context='training_resume' if training else 'evaluation_resume', manifest_hash=digest(saved),
+        context='training_resume' if training else 'evaluation_resume', manifest_hash=manifest_digest(saved),
         rtd_source_hash=current['rtd_source']['hash'],
         tolerance=asdict(ScoreTolerance.from_config(saved['config'])))
 
@@ -352,7 +376,7 @@ def validate_resume(root, directory, saved, current, *, acknowledge=False, train
 def verified_checkpoint(directory, manifest, round_number):
     checkpoint = Path(directory)/f'round-{round_number}'
     meta = json.loads((checkpoint/'checkpoint.json').read_text())
-    if (meta['round'] != round_number or meta['manifest_hash'] != digest(manifest)
+    if (meta['round'] != round_number or meta['manifest_hash'] != manifest_hash(manifest)
             or meta['config_hash'] != manifest['config_hash']
             or digest(manifest['config']) != manifest['config_hash']
             or meta['adapter_hash'] != tree_hash(checkpoint/'lora')

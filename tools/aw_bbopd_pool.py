@@ -26,7 +26,7 @@ at.MAX_COMPLETION_TOKENS = 1024
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rollout-tag", default="aw7_base_rollout")
-    ap.add_argument("--teacher", default="deepseek-v4-pro")
+    ap.add_argument("--teacher", default="gpt-5.4")
     ap.add_argument("--budget", type=int, default=20000)
     ap.add_argument("--out", default="data/appworld_sft/pool_bbopd.jsonl")
     args = ap.parse_args()

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 
-from .persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
+from .persistence import manifest_digest, ComputeJournal, atomic_json, digest, file_hash, tree_hash, manifest_hash
 from .evaluation_lock import evaluation_lock, reserve_port, tag_lock_path
 from .identity import (audited_harness_hashes, evaluation_harness_metadata, guard_harness,
                        record_code_drift, verified_checkpoint)
@@ -90,6 +90,10 @@ def _flatten_adapter(manifest, checkpoint, destination):
     merged = model.merge_and_unload(safe_merge=True)
     merged.save_pretrained(destination, safe_serialization=True, max_shard_size='100GB')
     AutoTokenizer.from_pretrained(manifest['model_path'], local_files_only=True).save_pretrained(destination)
+    for name in ('preprocessor_config.json', 'processor_config.json', 'feature_extractor_config.json', 'video_preprocessor_config.json'):
+        source = Path(manifest['model_path'])/name
+        if source.is_file():
+            shutil.copy2(source, destination/name)
     if not (destination / 'model.safetensors').exists():
         raise ValueError('campaign requires the flattened model.safetensors export')
 
@@ -117,6 +121,10 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
              lock_timeout=None, lock_log_interval=None):
     root, directory = Path(root).resolve(), Path(directory).resolve()
     manifest = json.loads((directory / 'manifest.json').read_text())
+    if manifest['config'].get('benchmark', 'bfcl') != 'bfcl':
+        from .benchmarks.registry import get_benchmark
+        return get_benchmark(manifest['config']).official_evaluation(root, directory, round_number,
+            port=port, base_evaluation=base_evaluation, lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
     checkpoint = directory / f'round-{round_number}'
     meta = verified_checkpoint(directory, manifest, round_number)
     if tree_hash(manifest['model_path']) != manifest['base_checkpoint_hash']:
@@ -144,7 +152,10 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                     # manifests; guard_hardware checks the effective class above.
                     hardware_hash=manifest['hardware_hash'], expected_hash=digest(expected),
                     evaluation_harness_hash=identities['harness_hash'],
-                    evaluation_temperature=manifest['config']['evaluation_temperature'])
+                    evaluation_temperature=(0.001 if manifest['config'].get('student_call_format') == 'gemma4'
+                                            else manifest['config']['evaluation_temperature']))
+    if manifest['config'].get('method') == 'rtd_unified':
+        identity.update(arm=manifest['arm'], p1_campaign=manifest['campaign_identity'])
     tag, campaign_identity = _completed_campaign_identity(root, manifest, identity, identities, round_number)
     out = root / 'results/bfcl_std' / tag
     completed = directory / f'evaluation-{round_number}.json'
@@ -177,7 +188,7 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
                 result.update(hardware_class=hardware_binding['hard'], hardware_class_hash=class_hash)
                 atomic_json(completed, result)
             if stored_hash != current_hash:
-                supplement = root/'configs/rtd/legacy_identities'/f'{digest(manifest)}.json'
+                supplement = root/'configs/rtd/legacy_identities'/f'{manifest_digest(manifest)}.json'
                 journal.append('evaluation_reuse_via_audited_identity', round=round_number, tag=tag,
                                stored_harness_hash=stored_hash, current_harness_hash=current_hash,
                                supplement_path=str(supplement), gpu_seconds=0., gpu_reserved_seconds=0.)
@@ -238,7 +249,9 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             env = dict(os.environ, BFCLSTD_PREMERGED=str(merged), BFCLSTD_PRESERVE_GENERATION='1',
                        BFCLSTD_BASE_MODEL=manifest['model_path'],
                        BFCLSTD_TAG_LOCK_FD=str(tag_fd), BFCLSTD_PORT_LOCK_FD=str(port_fd),
-                       BFCLSTD_TEMPERATURE=str(manifest['config']['evaluation_temperature']))
+                       BFCLSTD_TEMPERATURE=str(0.001 if manifest['config'].get('student_call_format') == 'gemma4' else manifest['config']['evaluation_temperature']))
+            if manifest['config'].get('student'):
+                env['BFCLSTD_MODEL_NAME'] = manifest['config']['student'] + '-FC'
             env.pop('BFCLSTD_LOCKED', None)  # always enter the validating wrapper
             log = stage / f'campaign-{time.time_ns()}.log'
             start = time.monotonic()
@@ -273,9 +286,13 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
             merged_hash=export['merged_hash'], expected=expected, code_drift=drift,
             evaluation_harness_metadata=evaluation_harness_metadata(root),
             artifacts_hash=tree_hash(out), overall_accuracy_percent=score, validation=validation,
+            checkpoint_spend=meta.get('actual_spend'), authorized_budget=meta.get('authorized_budget'),
             campaign_log=str(log) if log else None, campaign_seconds=elapsed, reused_campaign=reused,
             evaluation_lock_idle_seconds=wait_seconds,
             port=port, output_directory=str(out))
+        if manifest['config'].get('protocol_version') == '1.1.0':
+            result.update(evaluation_label='development evaluation',
+                          score_objective='official_greedy_score; separate from stochastic J')
         if base is not None:
             before = base['validation']['verdicts']
             result['repairs_damage'] = {tid: dict(before=before[tid], after=ok,
@@ -288,9 +305,12 @@ def evaluate(root, directory, round_number, *, port=None, base_evaluation=None,
 def report(directories, output):
     from .ledger import Ledger
     from .persistence import ComputeJournal
+    from .feedback_rng import feedback_rng_identity, guard_feedback_rng_comparison
+    runs = [(directory, json.loads((directory/'manifest.json').read_text()))
+            for directory in map(Path, directories)]
+    guard_feedback_rng_comparison([manifest for _, manifest in runs])
     rows = []
-    for directory in map(Path, directories):
-        manifest = json.loads((directory / 'manifest.json').read_text())
+    for directory, manifest in runs:
         ledger = Ledger.resume(manifest['budget_ceilings'][0], directory / 'teacher.jsonl')
         trajectory = json.loads((directory / 'trajectory.json').read_text())
         journal = ComputeJournal(directory / 'compute.jsonl')
@@ -302,7 +322,7 @@ def report(directories, output):
         for checkpoint in trajectory['checkpoints']:
             r = checkpoint['round']
             checkpoint_dir = directory / f'round-{r}'
-            if (checkpoint['manifest_hash'] != digest(manifest)
+            if (checkpoint['manifest_hash'] != manifest_hash(manifest)
                     or json.loads((checkpoint_dir/'checkpoint.json').read_text()) != checkpoint
                     or tree_hash(checkpoint_dir/'lora') != checkpoint['adapter_hash']
                     or file_hash(checkpoint_dir/'round_state.pt') != checkpoint['round_state_hash']):
@@ -315,7 +335,11 @@ def report(directories, output):
                 out = Path(result['output_directory'])
                 if result['artifacts_hash'] != tree_hash(out):
                     raise ValueError('evaluation artifacts changed')
-                validate_evaluation(result['expected'], out / 'resultdir', out / 'scoredir')
+                if manifest['config'].get('benchmark', 'bfcl') == 'bfcl':
+                    validate_evaluation(result['expected'], out / 'resultdir', out / 'scoredir')
+                else:
+                    from .benchmarks.webshop_evaluation import validate_records
+                    validate_records(manifest['config']['benchmark'], out, result['metrics'], result['expected'])
             ids = set(checkpoint['owned'])
             charges = [e for e in ledger.events if e['kind'] == 'reveal' and e['query_id'] in ids]
             if not ids <= ledger.owned_ids or sum(e['cost'] for e in charges) != checkpoint['actual_spend']:
@@ -370,7 +394,16 @@ def report(directories, output):
                 code_drift=result.get('code_drift', []) if result else [],
                 official_accuracy_percent=result['overall_accuracy_percent'] if result else None,
                 checkpoint_hash=checkpoint['parameter_hash'], config_hash=manifest['config_hash'],
-                hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory)))
+                hardware_hash=comparison_hash(Path(__file__).resolve().parents[3], manifest), run=str(directory),
+                **feedback_rng_identity(manifest['config'], manifest)))
+            if manifest['config'].get('benchmark', 'bfcl') != 'bfcl' or manifest['config'].get('student_call_format') == 'gemma4':
+                rows[-1].pop('historical_demo_output_exact')
+                rows[-1].pop('historical_generation_output_estimated')
+                rows[-1]['benchmark'] = manifest['config']['benchmark']
+            if manifest['config'].get('protocol_version') == '1.1.0':
+                from .conventions import DEVELOPMENT, ADAPTIVE_EFFECT, CORE_CONTROL
+                rows[-1].update(evaluation_label=DEVELOPMENT, adaptive_distillation_comparison=ADAPTIVE_EFFECT,
+                                core_mechanism_control=CORE_CONTROL)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     comparable = len({r['hardware_hash'] for r in rows}) <= 1
@@ -378,10 +411,13 @@ def report(directories, output):
         same_hardware=comparable, comparison_status='matched' if comparable else 'hardware mismatch; no matched-arm comparison', rows=rows))
     if rows:
         with (output / 'budget_curve.csv').open('w') as stream:
-            writer = csv.DictWriter(stream, fieldnames=list(rows[0])); writer.writeheader(); writer.writerows(rows)
+            writer = csv.DictWriter(stream, fieldnames=list(dict.fromkeys(k for r in rows for k in r))); writer.writeheader(); writer.writerows(rows)
     lines = ['# RTD budget curves', '', 'The x-axis is actual recorded output-token spend; caps authorize purchases.', '',
              '| Arm | Round | Actual spend | Cap budget | Packages | Official accuracy (%) | Truncated rollouts (sampled / committed) | Malformed rollouts (sampled / committed) | Evaluation |',
              '|---|---:|---:|---:|---:|---:|---:|---:|---|']
+    if any('evaluation_label' in row for row in rows):
+        lines[2:2] = ['V1−V0：自适应蒸馏整体效果（α 与 d 都变）；同 α 的 d vs 0 对照隔离核心机制。',
+                      'Per-round official scores: development evaluation. J: temperature-1 stochastic-policy expected return.', '']
     for r in rows:
         score = '—' if r['official_accuracy_percent'] is None else str(r['official_accuracy_percent'])
         lines.append(f"| {r['arm']} | {r['round']} | {r['actual_spend_x']} | {r['authorized_cap_budget']} | "

@@ -1,0 +1,26 @@
+{
+  "cost": 382,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 382
+  },
+  "provenance": {
+    "task_id": "multi_turn_miss_param_1",
+    "ledger_row": 49
+  },
+  "historical_response": {
+    "task_id": "multi_turn_miss_param_1",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 382,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T05:05:16.854604Z",
+    "demo": {
+      "turns": [],
+      "worked_example": "[[[{\"pwd\":\"{}\"}],[{\"ls\":\"{\\\"a\\\":true}\"}],\"Yes. The current directory is `/alex`, which is under your name.\\n\\nVisible and hidden contents:\\n\\n- `workspace`\"],[[{\"cd\":\"{\\\"folder\\\":\\\"workspace\\\"}\"}],[{\"find\":\"{\\\"path\\\":\\\".\\\",\\\"name\\\":\\\"log.txt\\\"}\"}],[{\"mkdir\":\"{\\\"dir_name\\\":\\\"archive\\\"}\"}],[{\"mv\":\"{\\\"source\\\":\\\"log.txt\\\",\\\"destination\\\":\\\"archive\\\"}\"}],\"Moved `log.txt` into the existing `archive` directory:\\n\\n`workspace/archive/log.txt`\"],[[{\"cd\":\"{\\\"folder\\\":\\\"archive\\\"}\"}],[{\"grep\":\"{\\\"file_name\\\":\\\"log.txt\\\",\\\"pattern\\\":\\\"Error\\\"}\"}],\"The keyword **“Error”** occurs in `log.txt`:\\n\\n> This is a log file. No errors found. Another line. Yet another line. **Error: Something went wrong.** Final line.\"],[[{\"tail\":\"{\\\"file_name\\\":\\\"log.txt\\\",\\\"lines\\\":10}\"}],\"The last several lines of `log.txt` are:\\n\\n> This is a log file. No errors found. Another line. Yet another line. Error: Something went wrong. Final line.\"],[[{\"tail\":\"{\\\"file_name\\\":\\\"log.txt\\\",\\\"lines\\\":20}\"}],\"The last 20 lines of `log.txt` are:\\n\\n> This is a log file. No errors found. Another line. Yet another line. Error: Something went wrong. Final line.\\n\\nThe file contains fewer than 20 lines, so all available content is shown.\"]]"
+    }
+  },
+  "behaviors": []
+}

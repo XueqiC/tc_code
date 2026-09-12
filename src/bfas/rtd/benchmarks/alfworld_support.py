@@ -12,13 +12,11 @@ from dataclasses import asdict, replace
 import json
 import os
 from pathlib import Path
-import queue
 import re
 import signal
 import subprocess
 import tempfile
 import threading
-import time
 
 from ...adapters import alfworld as adapter
 from ...cc_pairs import digest
@@ -87,7 +85,7 @@ def environment_identity(root, tokenizer_directory):
         scaffold=scaffold, scaffold_hash=canonical_hash(scaffold),
         environment_data_version="json_2.1.1", worker_config=adapter._worker_config(Path("<task-directory>")),
         renderer=dict(react=True, observation_tail=2000, history_entries=8, feedback_head=300,
-                      chat_template="local Qwen tokenizer through ALFWorldAdapter._render",
+                      chat_template="configured student tokenizer through ALFWorldAdapter._render",
                       thinking="existing cc_pairs.thinking_off", prior_examples="six fixed harness examples"),
         max_episode_steps=40, worker_horizon=50, domain_randomization=False,
         cpu_only=True, python_hash_seed=0, environment_seed="existing adapter default",
@@ -280,25 +278,21 @@ class ALFWorldSupport:
         return tuple(self._manifest["parents"][h]["selected_task_id"] for h in rng.sample(parents, count))
 
 
-class EnvironmentUnavailable(RuntimeError):
+class EnvironmentUnavailable(adapter.ALFWorldRPCError):
     """Infrastructure failed; never interpreted as reward zero."""
 
 
 class BoundedEnvBridge(adapter._EnvBridge):
     """Preserve adapter JSON/step protocol, replacing spawn/read/cleanup only."""
-    def __init__(self, task_id, *, timeout=30.0, episode_timeout=120.0):
+    _rpc_error_type = EnvironmentUnavailable
+
+    def __init__(self, task_id, *, timeout=None, reset_timeout=None, episode_timeout=None):
         bank._privileged()
         parent_hash(task_id)
-        if timeout <= 0 or episode_timeout <= 0:
-            raise ValueError("positive worker deadlines required")
-        self.timeout = timeout
-        self.deadline = time.monotonic() + episode_timeout
-        self.process = None
+        self._configure_rpc(task_id, timeout=timeout, reset_timeout=reset_timeout,
+                            episode_timeout=episode_timeout)
         self._tmp = tempfile.TemporaryDirectory(prefix="rtd-alfworld-c26b-")
         self._stderr = open(Path(self._tmp.name) / "worker.stderr", "w+")
-        self._queue = queue.Queue()
-        self._request_id = 0
-        self._reader = None
         env = os.environ.copy()
         env.update(PYTHONPATH=str(adapter.ROOT / "src"), PYTHONDONTWRITEBYTECODE="1",
                    ALFWORLD_DATA=str(adapter.DATA.parent), ALFRED_DATA=str(adapter.DATA),
@@ -315,37 +309,16 @@ class BoundedEnvBridge(adapter._EnvBridge):
             self._reader = threading.Thread(target=self._read_lines, daemon=True)
             self._reader.start()
             if self._read().get("op") != "ready":
-                raise EnvironmentUnavailable("ALFWorld worker did not become ready")
+                raise self._rpc_failure(RuntimeError("ALFWorld worker did not become ready"))
+        except Exception as exc:
+            error = exc if isinstance(exc, adapter.ALFWorldRPCError) else self._rpc_failure(exc)
+            self.close()
+            if error is exc:
+                raise
+            raise error from exc
         except BaseException:
             self.close()
             raise
-
-    def _read_lines(self):
-        try:
-            for line in self.process.stdout:
-                try:
-                    value = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(value, dict) and value.get("bfas_worker") is True:
-                    self._queue.put(value)
-        finally:
-            self._queue.put(None)
-
-    def _read(self):
-        wait = min(self.timeout, self.deadline - time.monotonic())
-        try:
-            if wait <= 0:
-                raise queue.Empty
-            value = self._queue.get(timeout=wait)
-        except queue.Empty as exc:
-            raise EnvironmentUnavailable(f"ALFWorld worker timeout (read={self.timeout}s, episode deadline)") from exc
-        if value is None:
-            self._stderr.flush()
-            self._stderr.seek(0)
-            detail = self._stderr.read()[-3000:]
-            raise EnvironmentUnavailable(f"ALFWorld worker exited ({self.process.poll()}): {detail}")
-        return value
 
     def step(self, command):
         bank._privileged()
@@ -378,8 +351,10 @@ class BoundedEnvBridge(adapter._EnvBridge):
 
 
 class RealStepper:
-    def __init__(self, *, timeout=30.0, episode_timeout=120.0, environment_hash):
-        self.timeout, self.episode_timeout = timeout, episode_timeout
+    def __init__(self, *, timeout=None, reset_timeout=None, episode_timeout=None, environment_hash):
+        # Default limits bound RPCs only: policy generation is outside the
+        # environment's control. Explicit episode_timeout remains supported.
+        self.timeout, self.reset_timeout, self.episode_timeout = timeout, reset_timeout, episode_timeout
         self.environment_hash = environment_hash
         self.bridge = None
         self.request = None
@@ -408,7 +383,8 @@ class RealStepper:
             raise ValueError("environment/horizon differs from frozen request")
         self._world(request)
         self.request = deepcopy(request)
-        self.bridge = BoundedEnvBridge(request["task_id"], timeout=self.timeout, episode_timeout=self.episode_timeout)
+        self.bridge = BoundedEnvBridge(request["task_id"], timeout=self.timeout,
+            reset_timeout=self.reset_timeout, episode_timeout=self.episode_timeout)
         raw = self.bridge._read()
         goal = adapter._goal_line(raw["observation"])
         if not goal:

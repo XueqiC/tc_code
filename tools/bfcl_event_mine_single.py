@@ -149,9 +149,9 @@ def main() -> int:
                              "else a minimal flip: a fabricated call on abstain tasks / an abstention on call tasks)")
     parser.add_argument("--anchor-cap", type=int, default=40, help="max anchors per seed category")
     parser.add_argument("--out", default="data/bfcl_sft/events_single_v1.jsonl")
-    parser.add_argument("--teacher-demos", default="envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_demos_deepseek_v4_pro_FC",
-                        help="merged verified teacher demo result dir; official tasks take y^T from here (teacher = deepseek-v4-pro-FC); official tasks without a verified demo are skipped. Pass '' to fall back to oracle GT for support tasks (accounting-inconsistent, for ablation only); official_list events always require a demo, anchors do not")
-    parser.add_argument("--teacher-name", default="deepseek-v4-pro-FC")
+    parser.add_argument("--teacher-demos", default="envs/bfcl/gorilla/berkeley-function-call-leaderboard/result_demos_gpt_5_4",
+                        help="merged verified teacher demo result dir; official tasks take y^T from here (teacher = gpt-5.4 by default); official tasks without a verified demo are skipped. Pass '' to fall back to oracle GT for support tasks (accounting-inconsistent, for ablation only); official_list events always require a demo, anchors do not")
+    parser.add_argument("--teacher-name", default="gpt-5.4")
     args = parser.parse_args()
 
     from bfas.adapters.bfcl import BFCLAdapter

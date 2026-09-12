@@ -1,0 +1,168 @@
+{
+  "actual_hash": "ef182cdaa7f6a905a1e12a0d9ce045560cd5f1f8c43e0a441fdf0bd3da8ee125",
+  "actual_spend": 11,
+  "audit_passed": true,
+  "authorized_budget": 100000,
+  "decision": true,
+  "eta": 0.001,
+  "exact_noop": false,
+  "fixed_evidence": false,
+  "inner_fold": 0,
+  "label": {
+    "label_type": "pending_new",
+    "query_id": "d057333e90f92b2c725208f960ddf5847ce11a5e31943762a9c5dc342d1cae07",
+    "reference_hash": "abf76502a7dfef872cd4388647f5d553271ba4e9aa6a9e261f0cff5ffb648c88",
+    "round_id": "r1",
+    "start_hash": "abf76502a7dfef872cd4388647f5d553271ba4e9aa6a9e261f0cff5ffb648c88",
+    "value": 4.98042115407592e-07
+  },
+  "malformed_feedback": {
+    "actual": {
+      "malformed_actions": 0,
+      "malformed_rollouts": 0,
+      "rollouts": 2
+    },
+    "actual_feedback_reused": false,
+    "malformed_actions": 0,
+    "malformed_exception_types": {},
+    "malformed_rollouts": 0,
+    "reference": {
+      "malformed_actions": 0,
+      "malformed_rollouts": 0,
+      "rollouts": 2
+    },
+    "rollouts": 4
+  },
+  "new_exposure": {
+    "prompt_tokens": 8,
+    "source_action_tokens": 2,
+    "teacher_action_tokens": 4,
+    "teacher_slots": 2
+  },
+  "old_exposure": {
+    "prompt_tokens": 0,
+    "source_action_tokens": 0,
+    "teacher_action_tokens": 0,
+    "teacher_slots": 0
+  },
+  "raw_new_slots": 2,
+  "raw_old_slots": 0,
+  "round": 1,
+  "selected": "d057333e90f92b2c725208f960ddf5847ce11a5e31943762a9c5dc342d1cae07",
+  "selection": {
+    "beta": [
+      0.10490011715303971,
+      -0.535669373161111,
+      0.36159505490948474,
+      1.3040000451301372,
+      0.9470809631292422,
+      -0.7037352358069926,
+      -1.2654214710460525,
+      -0.6232744625373522,
+      0.0413259793472436,
+      -2.3250307746388343,
+      -0.21879166393254573,
+      -1.2459109472530652,
+      -0.7322673547034516,
+      -0.5442589828573099,
+      -0.31630015636915454,
+      0.4116305363741328,
+      1.0425133694426776,
+      -0.12853466294403426,
+      1.3664634705496859,
+      -0.6651946734866135,
+      0.3515100700930197,
+      0.9034701816518086,
+      0.09401229776087457,
+      -0.7434992493538084,
+      -0.9217253762584194,
+      -0.45772582566733916,
+      0.2201951234700494,
+      -1.009618183538736,
+      -0.20917557487171307,
+      -0.15922500991447772,
+      0.5408455846858077,
+      0.2146591225063409,
+      0.3553727090399214,
+      -0.6538286094183394,
+      -0.12961363369276946,
+      0.7839754700613295,
+      1.4934311452207607,
+      -1.2590655321041202,
+      1.5139237747390626
+    ],
+    "cost_observations_by_confidence": {
+      "estimated": 0,
+      "exact": 0
+    },
+    "cost_scale": 8192.0,
+    "decision_windows": 1,
+    "epsilon": 0.25,
+    "expected_cost": 4502.214422445217,
+    "expected_costs": [
+      0.0,
+      8192.0,
+      8192.0
+    ],
+    "lambda_c": 0.0,
+    "noise_estimation": "fixed_prior_noise",
+    "noise_variance": 1.0,
+    "pending_new_observations": 0,
+    "per_window_budget": 100000.0,
+    "prior": [
+      0.5,
+      0.25,
+      0.25
+    ],
+    "prior_precision": 1.0,
+    "probabilities": [
+      0.45041327851010526,
+      0.2747933607449473,
+      0.2747933607449473
+    ],
+    "public_cost_caps": [
+      0,
+      8192,
+      8192
+    ],
+    "query_ids": [
+      null,
+      "d057333e90f92b2c725208f960ddf5847ce11a5e31943762a9c5dc342d1cae07",
+      "fa87c2f80c9d0aa41b0db801e66367046653e0131e7830b56e68a85f6671f96d"
+    ],
+    "remaining_windows": 1,
+    "reweight_observations_separate": 0,
+    "round_id": "r1",
+    "sampled_values": [
+      0.0,
+      2.2841295676302185,
+      2.2841295676302185
+    ],
+    "selected": "d057333e90f92b2c725208f960ddf5847ce11a5e31943762a9c5dc342d1cae07",
+    "tau": 1.0,
+    "value_scale": 2.869494765740108,
+    "zero_budget_limit": false
+  },
+  "slots": 2,
+  "source_truncated_slots": 0,
+  "start_hash": "abf76502a7dfef872cd4388647f5d553271ba4e9aa6a9e261f0cff5ffb648c88",
+  "step": 1,
+  "truncation": {
+    "actual": {
+      "rollouts": 2,
+      "truncated_actions": 0,
+      "truncated_rollouts": 0
+    },
+    "actual_feedback_reused": false,
+    "reference": {
+      "rollouts": 2,
+      "truncated_actions": 0,
+      "truncated_rollouts": 0
+    },
+    "rollouts": 4,
+    "truncated_actions": 0,
+    "truncated_rollouts": 0
+  },
+  "weighted_new_slots": 0.5,
+  "weighted_old_slots": 0
+}

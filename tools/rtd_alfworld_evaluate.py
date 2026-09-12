@@ -26,7 +26,7 @@ from bfas.rtd.benchmarks.alfworld_evaluation import comparison_anchors, evaluate
 from bfas.rtd.benchmarks.alfworld_identity import (
     OFFICIAL_CONFIG, campaign_identity, guard_manifest, make_manifest,
 )
-from bfas.rtd.persistence import atomic_json, digest
+from bfas.rtd.persistence import manifest_digest, atomic_json, digest
 
 
 def read(path):
@@ -84,7 +84,7 @@ def main(argv=None):
         else:
             current, hashes = guard_manifest(args.root, manifest, hardware=manifest["hardware"], supplement=supplement)
             result = validate_evaluation(args.output_root / args.tag, campaign_identity(current),
-                current["evaluation_harness"]["expected"], audited_hashes=hashes, manifest_hash=digest(manifest))
+                current["evaluation_harness"]["expected"], audited_hashes=hashes, manifest_hash=manifest_digest(manifest))
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
     return 0
 

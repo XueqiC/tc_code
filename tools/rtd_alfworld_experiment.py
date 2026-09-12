@@ -56,7 +56,7 @@ def smoke_plan(root, config):
         steps=[
             'Apply reviewed C26-F edits in an isolated checkout; run CPU acceptance tests and audit.',
             'On rai, replay both listed train demos twice; compare every reset/prefix/state hash, then exercise both failure paths.',
-            'Bind one free rai GPU UUID and a fresh output directory; initialize Qwen3.5-4B LoRA and freeze source/P/train-only eta.',
+            f"Bind one free rai GPU UUID and a fresh output directory; initialize {config['student']} LoRA and freeze source/P/train-only eta.",
             'Run existing RTDExperiment round 1 step 1: reference -> selected -> revealed -> actual -> feedback -> committed.',
             'Retain M=4/K=2, eight slots, positive mixture and LOO; reference/actual reuse follows the existing no-op rule.',
             'Check score tolerance, owned/fold/ledger, RNG checkpoint/resume and identities; release model before greedy campaign.',

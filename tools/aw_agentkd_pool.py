@@ -33,7 +33,7 @@ PROMPT = (
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--teacher", default="deepseek-v4-pro")
+    ap.add_argument("--teacher", default="gpt-5.4")
     ap.add_argument("--src", default="data/appworld_sft/pool.jsonl")
     ap.add_argument("--out", default="data/appworld_sft/pool_agentkd.jsonl")
     args = ap.parse_args()

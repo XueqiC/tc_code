@@ -101,7 +101,7 @@ def main() -> int:
         return 0
 
     # dDPO: teacher ranks the student's samples per demand task
-    cfg = at.load_teacher_config("deepseek-v4-pro")
+    cfg = at.load_teacher_config("gpt-5.4")
     ranked = 0
     ddpo_path = out_dir / f"pool_bfcl_{args.tag}_ddpo.jsonl"
     existing_pref: dict[str, dict] = {}

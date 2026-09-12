@@ -290,6 +290,29 @@ TeachingProblem 必须版本化且不可变，包含 θ/p_t/P/H、损失定义�
 
 ### P1：固定教师池验证蒸馏
 
+2026-09-11 D15 数值审计补记：ALFWorld Luna 的生产 V0 在首轮 source
+scoring 的 43-token action 上触发 mean guard：mean |delta|=0.05232027349、
+max |delta|=0.54536819458 nats/token，无结构错误、无超过 1.0 的 outlier。
+该失败批为两个相同的 629-token prompt，没有 padding。39 次检查共 2,136
+tokens 的加权 mean=0.02507123649，最大单 token delta=0.70945930481。
+D3 smoke 通过不能保证生产 V0 的全部来源动作通过同一阈值。
+
+本地代码及 CPU tiny Gemma 4 检查核对了采样 logits、FP32 概率、位置、
+mask、原生 softcap 和 KV 路径；未发现温度、错位或 multimodal padding
+不一致。证据支持 bf16 12B 的 batch shape / decode-vs-prefill 舍入漂移，
+不把它表述成已完成 A100 复现。全部三个 ALFWorld `*_luna.yaml` 的
+`score_consistency_tolerance.mean_abs` 统一设为 0.08；库默认及非 Luna
+配置仍为 0.05，max_abs=1.0、最多两个 outlier、hard max=8.0 和 D15
+短动作规则保持不变。比较臂必须采用同一声明；P1 的其余冻结条件不变。
+
+显式非默认阈值保存在 manifest 的 `score_consistency_tolerance_override`；
+`score_consistency_observed` 持续记录 token-weighted mean、最大 action mean、
+最大 token delta、检查/失败/token 数及 journal hash。失败检查先持久化再抛错，
+恢复从 journal 重建；重复计算作为已发生的尝试计入。只有观测摘要排除于
+不可变身份 hash，阈值仍受恢复验证约束，改阈值需新 run。论文应报告阈值、
+三种 delta 统计及覆盖范围，不将放宽容差当成性能改善。详见
+[D16 的 D15 follow-up](rtd_v1_1_d16.md#d15-follow-up-alfworld-luna-bf16-score-consistency-2026-09-11)。
+
 先 BFCL 与 ALFWorld。采用同一初始化、同一合法已购池、同一曝光计划、同一机器和 matched 优化/调参预算。机制探索先遵循项目当前单种子协议；最终复现按用户最新冻结的种子设置执行并分开报告训练方差和评测重复方差。
 
 最低核心比较：

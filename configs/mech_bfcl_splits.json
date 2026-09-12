@@ -1,0 +1,3109 @@
+{
+  "version": 1,
+  "seed": 0,
+  "support": [
+    "irrelevance_212",
+    "irrelevance_80",
+    "live_irrelevance_321-76-19",
+    "live_irrelevance_433-107-1",
+    "live_irrelevance_686-223-1",
+    "live_multiple_659-162-1",
+    "live_multiple_923-191-11",
+    "live_parallel_11-7-0",
+    "live_parallel_multiple_3-2-1",
+    "live_relevance_5-5-0",
+    "live_simple_20-4-0",
+    "memory_kv_141-notetaker-11",
+    "memory_kv_35-healthcare-5",
+    "multi_turn_base_58",
+    "multi_turn_base_79",
+    "multi_turn_long_context_175",
+    "multi_turn_long_context_78",
+    "multi_turn_miss_func_198",
+    "multi_turn_miss_func_67",
+    "multi_turn_miss_param_150",
+    "multiple_176",
+    "parallel_80",
+    "parallel_multiple_122",
+    "simple_java_6"
+  ],
+  "calibration": [
+    "irrelevance_16",
+    "live_multiple_207-91-1",
+    "live_parallel_4-1-0",
+    "live_parallel_9-5-0",
+    "live_parallel_multiple_10-9-0",
+    "live_relevance_7-7-0",
+    "live_simple_26-6-0",
+    "memory_kv_113-student-33",
+    "memory_vector_112-student-32",
+    "memory_vector_118-student-38",
+    "multi_turn_miss_param_1",
+    "multiple_16",
+    "parallel_199",
+    "parallel_multiple_144",
+    "simple_java_4",
+    "simple_javascript_42"
+  ],
+  "evaluation": [
+    "irrelevance_0",
+    "irrelevance_113",
+    "irrelevance_12",
+    "irrelevance_131",
+    "irrelevance_142",
+    "irrelevance_15",
+    "irrelevance_154",
+    "irrelevance_155",
+    "irrelevance_175",
+    "irrelevance_177",
+    "irrelevance_194",
+    "irrelevance_216",
+    "irrelevance_234",
+    "irrelevance_29",
+    "irrelevance_32",
+    "irrelevance_42",
+    "irrelevance_50",
+    "irrelevance_51",
+    "irrelevance_54",
+    "irrelevance_56",
+    "irrelevance_69",
+    "irrelevance_73",
+    "irrelevance_79",
+    "irrelevance_83",
+    "irrelevance_94",
+    "live_irrelevance_103-3-0",
+    "live_irrelevance_153-17-0",
+    "live_irrelevance_159-19-1",
+    "live_irrelevance_180-30-1",
+    "live_irrelevance_245-48-0",
+    "live_irrelevance_401-83-1",
+    "live_irrelevance_409-91-0",
+    "live_irrelevance_479-135-1",
+    "live_irrelevance_540-168-3",
+    "live_irrelevance_554-169-7",
+    "live_irrelevance_581-182-1",
+    "live_irrelevance_590-185-0",
+    "live_irrelevance_641-203-1",
+    "live_irrelevance_674-215-2",
+    "live_irrelevance_748-259-0",
+    "live_irrelevance_765-274-1",
+    "live_irrelevance_799-305-3",
+    "live_irrelevance_800-305-4",
+    "live_irrelevance_806-305-10",
+    "live_irrelevance_814-312-0",
+    "live_irrelevance_841-331-0",
+    "live_irrelevance_845-335-0",
+    "live_irrelevance_860-349-0",
+    "live_irrelevance_866-352-0",
+    "live_multiple_1005-234-0",
+    "live_multiple_114-44-1",
+    "live_multiple_141-54-1",
+    "live_multiple_364-134-9",
+    "live_multiple_418-141-7",
+    "live_multiple_53-22-0",
+    "live_multiple_550-152-12",
+    "live_multiple_575-156-1",
+    "live_multiple_629-160-9",
+    "live_multiple_638-161-6",
+    "live_multiple_643-161-11",
+    "live_multiple_683-163-8",
+    "live_multiple_813-176-4",
+    "live_multiple_892-185-2",
+    "live_multiple_964-207-0",
+    "live_multiple_98-42-2",
+    "live_multiple_996-227-0",
+    "live_parallel_10-6-0",
+    "live_parallel_15-11-0",
+    "live_parallel_8-4-0",
+    "live_parallel_multiple_0-0-0",
+    "live_parallel_multiple_11-10-0",
+    "live_parallel_multiple_13-11-0",
+    "live_parallel_multiple_14-12-0",
+    "live_parallel_multiple_15-13-0",
+    "live_parallel_multiple_17-15-0",
+    "live_parallel_multiple_21-18-0",
+    "live_parallel_multiple_23-20-0",
+    "live_parallel_multiple_6-5-0",
+    "live_parallel_multiple_8-7-0",
+    "live_parallel_multiple_9-8-0",
+    "live_relevance_0-0-0",
+    "live_relevance_10-10-0",
+    "live_relevance_11-11-0",
+    "live_relevance_12-12-0",
+    "live_relevance_13-13-0",
+    "live_relevance_15-15-0",
+    "live_relevance_2-2-0",
+    "live_relevance_3-3-0",
+    "live_relevance_4-4-0",
+    "live_relevance_6-6-0",
+    "live_relevance_9-9-0",
+    "live_simple_114-70-0",
+    "live_simple_117-73-0",
+    "live_simple_123-79-0",
+    "live_simple_150-95-7",
+    "live_simple_156-95-13",
+    "live_simple_169-99-3",
+    "live_simple_22-5-0",
+    "live_simple_221-117-13",
+    "live_simple_224-117-16",
+    "live_simple_226-118-0",
+    "live_simple_227-118-1",
+    "live_simple_241-125-4",
+    "live_simple_31-8-1",
+    "live_simple_66-30-0",
+    "live_simple_68-32-0",
+    "live_simple_76-37-0",
+    "live_simple_80-41-0",
+    "memory_rec_sum_0-customer-0",
+    "memory_rec_sum_1-customer-1",
+    "memory_rec_sum_10-customer-10",
+    "memory_rec_sum_11-customer-11",
+    "memory_rec_sum_12-customer-12",
+    "memory_rec_sum_13-customer-13",
+    "memory_rec_sum_14-customer-14",
+    "memory_rec_sum_15-customer-15",
+    "memory_rec_sum_17-customer-17",
+    "memory_rec_sum_18-customer-18",
+    "memory_rec_sum_2-customer-2",
+    "memory_rec_sum_22-customer-22",
+    "memory_rec_sum_23-customer-23",
+    "memory_rec_sum_24-customer-24",
+    "memory_rec_sum_25-customer-25",
+    "memory_rec_sum_27-customer-27",
+    "memory_rec_sum_28-customer-28",
+    "memory_rec_sum_29-customer-29",
+    "memory_rec_sum_5-customer-5",
+    "memory_rec_sum_55-finance-0",
+    "memory_rec_sum_57-finance-2",
+    "memory_rec_sum_6-customer-6",
+    "memory_rec_sum_60-finance-5",
+    "memory_rec_sum_62-finance-7",
+    "memory_rec_sum_63-finance-8",
+    "memory_rec_sum_64-finance-9",
+    "memory_rec_sum_65-finance-10",
+    "memory_rec_sum_66-finance-11",
+    "memory_rec_sum_67-finance-12",
+    "memory_rec_sum_68-finance-13",
+    "memory_rec_sum_7-customer-7",
+    "memory_rec_sum_70-finance-15",
+    "memory_rec_sum_72-finance-17",
+    "memory_rec_sum_73-finance-18",
+    "memory_rec_sum_75-finance-20",
+    "memory_rec_sum_76-finance-21",
+    "memory_rec_sum_78-finance-23",
+    "memory_rec_sum_79-finance-24",
+    "memory_rec_sum_9-customer-9",
+    "multi_turn_base_100",
+    "multi_turn_base_106",
+    "multi_turn_base_107",
+    "multi_turn_base_119",
+    "multi_turn_base_125",
+    "multi_turn_base_130",
+    "multi_turn_base_132",
+    "multi_turn_base_133",
+    "multi_turn_base_134",
+    "multi_turn_base_135",
+    "multi_turn_base_136",
+    "multi_turn_base_140",
+    "multi_turn_base_144",
+    "multi_turn_base_146",
+    "multi_turn_base_148",
+    "multi_turn_long_context_104",
+    "multi_turn_long_context_105",
+    "multi_turn_long_context_106",
+    "multi_turn_long_context_110",
+    "multi_turn_long_context_115",
+    "multi_turn_long_context_118",
+    "multi_turn_long_context_119",
+    "multi_turn_long_context_120",
+    "multi_turn_long_context_122",
+    "multi_turn_long_context_123",
+    "multi_turn_long_context_124",
+    "multi_turn_long_context_125",
+    "multi_turn_long_context_128",
+    "multi_turn_long_context_130",
+    "multi_turn_long_context_132",
+    "multi_turn_miss_func_100",
+    "multi_turn_miss_func_102",
+    "multi_turn_miss_func_104",
+    "multi_turn_miss_func_105",
+    "multi_turn_miss_func_106",
+    "multi_turn_miss_func_117",
+    "multi_turn_miss_func_119",
+    "multi_turn_miss_func_122",
+    "multi_turn_miss_func_124",
+    "multi_turn_miss_func_126",
+    "multi_turn_miss_func_127",
+    "multi_turn_miss_func_133",
+    "multi_turn_miss_func_134",
+    "multi_turn_miss_func_135",
+    "multi_turn_miss_func_146",
+    "multi_turn_miss_param_102",
+    "multi_turn_miss_param_107",
+    "multi_turn_miss_param_110",
+    "multi_turn_miss_param_115",
+    "multi_turn_miss_param_116",
+    "multi_turn_miss_param_118",
+    "multi_turn_miss_param_122",
+    "multi_turn_miss_param_123",
+    "multi_turn_miss_param_127",
+    "multi_turn_miss_param_129",
+    "multi_turn_miss_param_130",
+    "multi_turn_miss_param_132",
+    "multi_turn_miss_param_136",
+    "multi_turn_miss_param_142",
+    "multiple_108",
+    "multiple_144",
+    "multiple_197",
+    "multiple_28",
+    "multiple_37",
+    "multiple_70",
+    "multiple_79",
+    "parallel_100",
+    "parallel_154",
+    "parallel_155",
+    "parallel_158",
+    "parallel_166",
+    "parallel_174",
+    "parallel_4",
+    "parallel_multiple_1",
+    "parallel_multiple_103",
+    "parallel_multiple_192",
+    "parallel_multiple_28",
+    "parallel_multiple_36",
+    "parallel_multiple_44",
+    "parallel_multiple_61",
+    "simple_java_12",
+    "simple_java_21",
+    "simple_java_37",
+    "simple_java_39",
+    "simple_java_40",
+    "simple_java_54",
+    "simple_java_83",
+    "simple_javascript_22",
+    "simple_javascript_25",
+    "simple_javascript_33",
+    "simple_javascript_46",
+    "simple_javascript_5",
+    "simple_javascript_9",
+    "simple_python_106",
+    "simple_python_158",
+    "simple_python_274",
+    "simple_python_298",
+    "simple_python_309",
+    "simple_python_353",
+    "web_search_35",
+    "web_search_46",
+    "web_search_5",
+    "web_search_56",
+    "web_search_63",
+    "web_search_68",
+    "web_search_69",
+    "web_search_78",
+    "web_search_82",
+    "web_search_88"
+  ],
+  "source_sha256": "4eb92c20344a271e96b0dc2fbb64c2f6e31016b7f678e6dc1050ce5305dce513",
+  "label": "BFCL mechanism-validation subset; not official Overall",
+  "source_pool_ids": [
+    "irrelevance_16",
+    "irrelevance_212",
+    "irrelevance_80",
+    "live_irrelevance_321-76-19",
+    "live_irrelevance_433-107-1",
+    "live_irrelevance_686-223-1",
+    "live_multiple_207-91-1",
+    "live_multiple_659-162-1",
+    "live_multiple_923-191-11",
+    "live_parallel_11-7-0",
+    "live_parallel_4-1-0",
+    "live_parallel_9-5-0",
+    "live_parallel_multiple_10-9-0",
+    "live_parallel_multiple_12-10-1",
+    "live_parallel_multiple_3-2-1",
+    "live_relevance_1-1-0",
+    "live_relevance_5-5-0",
+    "live_relevance_7-7-0",
+    "live_simple_20-4-0",
+    "live_simple_245-127-0",
+    "live_simple_26-6-0",
+    "memory_kv_113-student-33",
+    "memory_kv_141-notetaker-11",
+    "memory_kv_35-healthcare-5",
+    "memory_rec_sum_58-finance-3",
+    "memory_rec_sum_99-student-19",
+    "memory_vector_112-student-32",
+    "memory_vector_118-student-38",
+    "multi_turn_base_58",
+    "multi_turn_base_79",
+    "multi_turn_long_context_175",
+    "multi_turn_long_context_78",
+    "multi_turn_miss_func_198",
+    "multi_turn_miss_func_67",
+    "multi_turn_miss_param_1",
+    "multi_turn_miss_param_150",
+    "multiple_16",
+    "multiple_176",
+    "parallel_199",
+    "parallel_80",
+    "parallel_multiple_122",
+    "parallel_multiple_144",
+    "simple_java_4",
+    "simple_java_6",
+    "simple_javascript_42",
+    "simple_javascript_49",
+    "simple_python_156",
+    "simple_python_31",
+    "web_search_4",
+    "web_search_80"
+  ],
+  "family_rule": "executor class; stateless normalized API namespace/name",
+  "parent_rule": "memory persona across backends; initial-config hash; otherwise official task ID",
+  "reserved_evaluation_families": [
+    "MemoryAPI_rec_sum",
+    "WebSearchAPI"
+  ],
+  "excluded_families": [
+    "api:B",
+    "api:Buses_BuyBusTicket",
+    "api:Buses_FindBus",
+    "api:ControlAppliance",
+    "api:DB2ViewBaseDepCache",
+    "api:Events_BuyEventTickets",
+    "api:Events_FindEvents",
+    "api:Flights_SearchOnewayFlight",
+    "api:Flights_SearchRoundtripFlights",
+    "api:HNA_NEWS",
+    "api:HNA_WQA",
+    "api:Hotels_BookHouse",
+    "api:Hotels_ReserveHotel",
+    "api:Hotels_SearchHotel",
+    "api:Hotels_SearchHouse",
+    "api:OpenWeatherMap",
+    "api:SpreadsheetPresentation",
+    "api:archival_memory_insert",
+    "api:archival_memory_search",
+    "api:calculate_projectile_range",
+    "api:change_food",
+    "api:contact",
+    "api:cookbook",
+    "api:core_memory_append",
+    "api:core_memory_replace",
+    "api:detail_experience_and_education",
+    "api:detail_project",
+    "api:ecology",
+    "api:experiences_and_education",
+    "api:find_card_in_deck",
+    "api:forest_growth_forecast",
+    "api:games",
+    "api:get_aws_pricing",
+    "api:get_cooking_time",
+    "api:get_copyright_info",
+    "api:get_current_weather",
+    "api:get_response",
+    "api:get_scientist_for_discovery",
+    "api:get_service_providers",
+    "api:get_tech_stack",
+    "api:help",
+    "api:hotel_booking",
+    "api:http_request",
+    "api:list_projects",
+    "api:log_food",
+    "api:math",
+    "api:message_chatgpt",
+    "api:pause_heartbeats",
+    "api:population_genetics",
+    "api:recall_memory_search",
+    "api:requests",
+    "api:send_message",
+    "api:species_distribution_modeling",
+    "api:sports_team",
+    "api:stock_ticker",
+    "api:uber",
+    "api:vegan_restaurant",
+    "api:view_service_provider_profile",
+    "executor:GorillaFileSystem",
+    "executor:MemoryAPI_kv",
+    "executor:MemoryAPI_vector",
+    "executor:MessageAPI",
+    "executor:TravelAPI",
+    "executor:TwitterAPI",
+    "executor:VehicleControlAPI"
+  ],
+  "items": {
+    "irrelevance_0": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_0",
+      "families": [
+        "api:determine_body_mass_index"
+      ],
+      "source_hash": "08f330820c6aeafbfcef91617002a15465296c2c11f8c6c07ac2b5c635e98601"
+    },
+    "irrelevance_113": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_113",
+      "families": [
+        "api:find_pois"
+      ],
+      "source_hash": "af9741ad7718a53d29167b5a4e7b4024c9bcd57b268b04e117fb64b77dec3d72"
+    },
+    "irrelevance_12": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_12",
+      "families": [
+        "api:prime_numbers_in_range"
+      ],
+      "source_hash": "476b5c19326766588d687fbff58b395a28640314ccfd9976140cf139ac2505ff"
+    },
+    "irrelevance_131": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_131",
+      "families": [
+        "api:psychology"
+      ],
+      "source_hash": "2fcd376d7d2427c6b492bbb706654d0771198b39b2a8b47ea8bd348a81933e89"
+    },
+    "irrelevance_142": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_142",
+      "families": [
+        "api:get_element_properties"
+      ],
+      "source_hash": "faf6fc23e8eb7b3e5ef017a1a4330cde480adbb1ac58bb134ff7d158ea66bc4d"
+    },
+    "irrelevance_15": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_15",
+      "families": [
+        "api:calculate_velocity"
+      ],
+      "source_hash": "920956aa479efdf5019540dad6c87ea245f7ba267c791a24ba4f9c0902282b9b"
+    },
+    "irrelevance_154": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_154",
+      "families": [
+        "api:sculpture_info"
+      ],
+      "source_hash": "ff8420ad37a4de5817199ed8165b1a3d38931244ecd65215c0950603349dd271"
+    },
+    "irrelevance_155": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_155",
+      "families": [
+        "api:architecture_capacity"
+      ],
+      "source_hash": "38c1320fde8224c93cc82230590313fadf61c91c2d30e64e714a3268fec914e9"
+    },
+    "irrelevance_16": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_16",
+      "families": [
+        "api:calculate_projectile_range"
+      ],
+      "source_hash": "1b20c92bf7652221cb8b822a6ce5b0e9edbc14bd7edb2eafec4e26817c8e5b77"
+    },
+    "irrelevance_175": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_175",
+      "families": [
+        "api:music_theory"
+      ],
+      "source_hash": "31ec576317bc27871374c1fe5ed521a8fa95c9c18f0c9373cbc3310580e23ee6"
+    },
+    "irrelevance_177": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_177",
+      "families": [
+        "api:get_song_chord_progression"
+      ],
+      "source_hash": "6c5369551b82b356d94b85e3865b84db0e0a295ca396a4e267b75cc071079298"
+    },
+    "irrelevance_194": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_194",
+      "families": [
+        "api:fetch_game_stats"
+      ],
+      "source_hash": "77db521bfa057eca4437ea7865c0a855b6514e8f1ba901e43618f399db51a687"
+    },
+    "irrelevance_212": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_212",
+      "families": [
+        "api:get_cooking_time"
+      ],
+      "source_hash": "5cd4681ec7794c7172c6be5924e7c408640f476c8d7aaa56a8a7c5000b62f98e"
+    },
+    "irrelevance_216": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_216",
+      "families": [
+        "api:convert_currency"
+      ],
+      "source_hash": "b296a644fda5636d7e6d45a7a4bf4d34932d8c23bf06238bce25081fee8d3a9e"
+    },
+    "irrelevance_234": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_234",
+      "families": [
+        "api:convert_currency"
+      ],
+      "source_hash": "9a2ba29a4fac2409d7b40a13fd3d17292eb16170ad4e3201bfd3c5dba791cb81"
+    },
+    "irrelevance_29": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_29",
+      "families": [
+        "api:get_cell_function"
+      ],
+      "source_hash": "066d7744c4575ca0e320ede0df9ca1330bab3ec8541482aa75eeeb4f5a05ff54"
+    },
+    "irrelevance_32": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_32",
+      "families": [
+        "api:cellBiology"
+      ],
+      "source_hash": "f6e4a99b5f3fce11d51d883979b388a6d0f014d903220c0539f9877049fe0ca0"
+    },
+    "irrelevance_42": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_42",
+      "families": [
+        "api:calculate_biodiversity_index"
+      ],
+      "source_hash": "cd551a7bcae82c27dd14b97ca2afc9f1e8f921c99efb1a8ab53526100e7ff610"
+    },
+    "irrelevance_50": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_50",
+      "families": [
+        "api:convert_celsius_to_fahrenheit"
+      ],
+      "source_hash": "b27871d47403d5544a964450b73a96a40a609f50ea507da5fbd6a69658c84c5a"
+    },
+    "irrelevance_51": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_51",
+      "families": [
+        "api:cryptocurrency_price"
+      ],
+      "source_hash": "56287c4e41eb4d323209f173daa263df464c928b5c5c6be40e2839aba10354d7"
+    },
+    "irrelevance_54": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_54",
+      "families": [
+        "api:movies"
+      ],
+      "source_hash": "5a30181f653e76069372f8af54ae9bc9562114db8971af80214aaf3c4c4c759a"
+    },
+    "irrelevance_56": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_56",
+      "families": [
+        "api:database_connect"
+      ],
+      "source_hash": "35e561560da156b3c2ea9e7906fb6328258c1828a67b45af474071eb6e1358d5"
+    },
+    "irrelevance_69": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_69",
+      "families": [
+        "api:regression_model"
+      ],
+      "source_hash": "2419bac49f23499127d3684c20596f574c2b869abf7709f0953a19bc1a0bec3a"
+    },
+    "irrelevance_73": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_73",
+      "families": [
+        "api:finance"
+      ],
+      "source_hash": "ac91ca9e4fc0addab189b5d0a778dec85c7102815b805e0e5129838d8ef4497d"
+    },
+    "irrelevance_79": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_79",
+      "families": [
+        "api:stock_market_prediction"
+      ],
+      "source_hash": "08e6bdb3825a6887433d94e072102c9b80ca729a08a48ece6bc96ddc75214dc8"
+    },
+    "irrelevance_80": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_80",
+      "families": [
+        "api:stock_ticker"
+      ],
+      "source_hash": "20fd30bab3b15567c69c75084074b8ed28f3483c3581b6da23d03e923336fa61"
+    },
+    "irrelevance_83": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_83",
+      "families": [
+        "api:calculate_mortgage_payment"
+      ],
+      "source_hash": "886f3dab96f170cc0a64835c0bd867827137b0064cf11564f95f2bd370040245"
+    },
+    "irrelevance_94": {
+      "category": "irrelevance",
+      "parent_id": "irrelevance_94",
+      "families": [
+        "api:case_info"
+      ],
+      "source_hash": "7479fda3c31d49da225dc6bbd99c744dcbaa4be683a0481de2dcc3fb59ea5169"
+    },
+    "live_irrelevance_103-3-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_103-3-0",
+      "families": [
+        "api:ChaScr",
+        "api:DecEnv",
+        "api:DelPerm",
+        "api:DelScr",
+        "api:DelTemp",
+        "api:KeyStat",
+        "api:ReaScr",
+        "api:ReqSav",
+        "api:ReqScr",
+        "api:SavScr",
+        "api:end_request",
+        "api:list_scripts"
+      ],
+      "source_hash": "d0cc5eefd49934e62384bcc73e0e354d37ad4ca89ee9800ead7aa1751945b3ce"
+    },
+    "live_irrelevance_153-17-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_153-17-0",
+      "families": [
+        "api:get_product_details",
+        "api:search_products"
+      ],
+      "source_hash": "f6088091e3a85b2a0996a746393a1f069bde1bdf94893e14ea2985f969c01307"
+    },
+    "live_irrelevance_159-19-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_159-19-1",
+      "families": [
+        "api:multiply"
+      ],
+      "source_hash": "81cee7fc2327a1132e12261599e73b7b895cc6a90a142fe857801ac8ce4b426f"
+    },
+    "live_irrelevance_180-30-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_180-30-1",
+      "families": [
+        "api:get_product_details",
+        "api:inventory_management",
+        "api:order_status_check",
+        "api:product_search"
+      ],
+      "source_hash": "c39e7d890bda81832cff2ba38b6556a8479a4fb312def55675cd0a8b89b85472"
+    },
+    "live_irrelevance_245-48-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_245-48-0",
+      "families": [
+        "api:render_ui_date_picker_widget",
+        "api:render_ui_finish",
+        "api:render_ui_multi_select_widget",
+        "api:render_ui_single_select_widget"
+      ],
+      "source_hash": "ec8656f3551f2cf829a69d83a8722bc8298d0ff2d11a59f9e0ebfa6de0f4be12"
+    },
+    "live_irrelevance_321-76-19": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_321-76-19",
+      "families": [
+        "api:requests"
+      ],
+      "source_hash": "7c2bef4404a0ac7563b7ffbe0fc5b564ddb88102f1c985dbe5d6859a68ab1377"
+    },
+    "live_irrelevance_401-83-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_401-83-1",
+      "families": [
+        "api:calculate_sum"
+      ],
+      "source_hash": "be212ecf481b981d6f80e7c2bbb2d8f9be89f036ccda7911139787d3de563f25"
+    },
+    "live_irrelevance_409-91-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_409-91-0",
+      "families": [
+        "api:connectBluetooth"
+      ],
+      "source_hash": "710d4be8826e1e2de333c3812b9d2773389a712a72b8bb3c788271a2ecb23cf6"
+    },
+    "live_irrelevance_433-107-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_433-107-1",
+      "families": [
+        "api:get_response"
+      ],
+      "source_hash": "c218d66192506e9cdb47c4347bb251ff6314cc0dc8569cc6e9c8f740c3db44ac"
+    },
+    "live_irrelevance_479-135-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_479-135-1",
+      "families": [
+        "api:get_weather_forecast"
+      ],
+      "source_hash": "30b8091e95f94d686c831a67df9a828fba6010fd416093901c946ef6be99cd69"
+    },
+    "live_irrelevance_540-168-3": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_540-168-3",
+      "families": [
+        "api:cmd_controller"
+      ],
+      "source_hash": "4e8497739fbe01d04778815487ed7f658997b15c8c58cbf2b80d9d0bacf62306"
+    },
+    "live_irrelevance_554-169-7": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_554-169-7",
+      "families": [
+        "api:generate_image_tool",
+        "api:get_url_content",
+        "api:search_web_tool",
+        "api:tts_tool",
+        "api:write_html_tool",
+        "api:write_markdown_tool"
+      ],
+      "source_hash": "66afb4d10f4867cbff536a9e5149464cbe6219d3071ebbc3747150cc18f64ad5"
+    },
+    "live_irrelevance_581-182-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_581-182-1",
+      "families": [
+        "api:getDataForProfessional"
+      ],
+      "source_hash": "141690f6e40bd909f72ff8c28559b6145fab84d667117029a844d52e17fb709a"
+    },
+    "live_irrelevance_590-185-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_590-185-0",
+      "families": [
+        "api:Movies_FindMovies",
+        "api:Services_BookAppointment",
+        "api:Services_FindProvider"
+      ],
+      "source_hash": "1b465dda793e96af681843736e7665e64d77b9f07a9ac1e6586a18ec1ad76204"
+    },
+    "live_irrelevance_641-203-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_641-203-1",
+      "families": [
+        "api:Alarm_AddAlarm",
+        "api:Alarm_GetAlarms",
+        "api:Homes_FindHomeByArea",
+        "api:Homes_ScheduleVisit"
+      ],
+      "source_hash": "f85693ad82197efe0875b1867605bdafc0c5fd4bf026e510c26dc9c824482eb8"
+    },
+    "live_irrelevance_674-215-2": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_674-215-2",
+      "families": [
+        "api:Homes_FindHomeByArea",
+        "api:Homes_ScheduleVisit",
+        "api:Messaging_ShareLocation",
+        "api:RideSharing_GetRide"
+      ],
+      "source_hash": "4c8c6ec6225c9d43a64b946e93904d59ad8c7695474f5d4b327a7485826353a5"
+    },
+    "live_irrelevance_686-223-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_686-223-1",
+      "families": [
+        "api:Buses_BuyBusTicket",
+        "api:Buses_FindBus",
+        "api:Hotels_ReserveHotel",
+        "api:Hotels_SearchHotel"
+      ],
+      "source_hash": "361dd20f828480f7d33ee47a5d16430c4c8c045fd8bd427c3177a6c05d4cefd6"
+    },
+    "live_irrelevance_748-259-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_748-259-0",
+      "families": [
+        "api:LicenseApi",
+        "api:ldap_api",
+        "api:license_api",
+        "api:license_group_api"
+      ],
+      "source_hash": "5d63114aa58b0477a796d470f569166e6c763e108672beeb15ce723f6e0b6f19"
+    },
+    "live_irrelevance_765-274-1": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_765-274-1",
+      "families": [
+        "api:__book_meeting_room",
+        "api:__get_all_user_list",
+        "api:__get_meeting_room_schedule",
+        "api:__query_meeting_room_list"
+      ],
+      "source_hash": "9c4e9f5ceb02fb486aa8b993cfdac5f93ff2e9daafb6d1b57c38aa4706e4853d"
+    },
+    "live_irrelevance_799-305-3": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_799-305-3",
+      "families": [
+        "api:get_business_unit_mapping",
+        "api:product_list",
+        "api:product_selector",
+        "api:product_volume",
+        "api:sce_api"
+      ],
+      "source_hash": "f7ed2edaf8396fb0a338b3cf9c0fd86a01b85caa6abd3909a025212ec1276658"
+    },
+    "live_irrelevance_800-305-4": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_800-305-4",
+      "families": [
+        "api:get_business_unit_mapping",
+        "api:product_list",
+        "api:product_selector",
+        "api:product_volume",
+        "api:sce_api"
+      ],
+      "source_hash": "13e72aaf754a6a5ea9511fccd7177cd2161cc1dcc0413cf534d45909bbc8a23e"
+    },
+    "live_irrelevance_806-305-10": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_806-305-10",
+      "families": [
+        "api:get_business_unit_mapping",
+        "api:product_list",
+        "api:product_selector",
+        "api:product_volume",
+        "api:sce_api"
+      ],
+      "source_hash": "ca4f92b573165c39de9706717f05b225adac6627e119274b91fc6613de6163e9"
+    },
+    "live_irrelevance_814-312-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_814-312-0",
+      "families": [
+        "api:EventSettingsApi"
+      ],
+      "source_hash": "b8391857d6787b2cd2c303551c958bb2a4d7589e3e9e4116f184cf0779d0e7f9"
+    },
+    "live_irrelevance_841-331-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_841-331-0",
+      "families": [
+        "api:determine_body_mass_index"
+      ],
+      "source_hash": "0ebc75412b08a1291f92939b6458257c8757eaae036be6b20c65b9cab50fc0b2"
+    },
+    "live_irrelevance_845-335-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_845-335-0",
+      "families": [
+        "api:cleanup_logs"
+      ],
+      "source_hash": "70ffc37f2c5651274c6ae7b03eb767483abd11240ecaeb6652b008ebdaacad0a"
+    },
+    "live_irrelevance_860-349-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_860-349-0",
+      "families": [
+        "api:calculate_tax"
+      ],
+      "source_hash": "fcb285f5e5c8ced284fb4e2453d4a3971b1d4157567fe9d28dbbac3848def1dc"
+    },
+    "live_irrelevance_866-352-0": {
+      "category": "live_irrelevance",
+      "parent_id": "live_irrelevance_866-352-0",
+      "families": [
+        "api:send_get_request"
+      ],
+      "source_hash": "9f5aa3db30b80624e5e33cf47c83c5f16892740a775554eceaa14fd87106e8a5"
+    },
+    "live_multiple_1005-234-0": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_1005-234-0",
+      "families": [
+        "api:get_agent_support_information",
+        "api:host_agent_api"
+      ],
+      "source_hash": "726348ffe324746e0efcf572161db50644b06fba1f43d44011a2474483d69814"
+    },
+    "live_multiple_114-44-1": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_114-44-1",
+      "families": [
+        "api:add_mtnards_server",
+        "api:add_postgres_server",
+        "api:close_project",
+        "api:connect_to_server",
+        "api:dartfx_help",
+        "api:list_files",
+        "api:list_servers",
+        "api:open_project",
+        "api:rename_server"
+      ],
+      "source_hash": "2e2c9cd2c8e66efd67918c597dc7f6b5df0d3b1271c73b15465781a557f48135"
+    },
+    "live_multiple_141-54-1": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_141-54-1",
+      "families": [
+        "api:stock_price",
+        "api:weather"
+      ],
+      "source_hash": "13ef10eed227ab4032f56d15da60b9c353891d1ad6a6de0fb5c05f07f483334f"
+    },
+    "live_multiple_207-91-1": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_207-91-1",
+      "families": [
+        "api:contact",
+        "api:detail_experience_and_education",
+        "api:detail_project",
+        "api:experiences_and_education",
+        "api:get_tech_stack",
+        "api:help",
+        "api:list_projects"
+      ],
+      "source_hash": "c76cb457a503f6f492f242701af3cbf777979e20b75ec0019e91187734c5c6b3"
+    },
+    "live_multiple_364-134-9": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_364-134-9",
+      "families": [
+        "api:Movies_FindMovies",
+        "api:Music_LookupMusic",
+        "api:Music_PlayMedia"
+      ],
+      "source_hash": "3f7c7a38093153a9ba7e5b42c10afeb661e45ec132fc84fe00c398f3899fd087"
+    },
+    "live_multiple_418-141-7": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_418-141-7",
+      "families": [
+        "api:Movies_BuyMovieTickets",
+        "api:Movies_FindMovies",
+        "api:Movies_GetTimesForMovie"
+      ],
+      "source_hash": "af6ef4088aacbe302e9e12bbac3d88ef6f6c31e9d2f5021ad5c9965421822ee0"
+    },
+    "live_multiple_53-22-0": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_53-22-0",
+      "families": [
+        "api:get_product_details",
+        "api:inventory_management",
+        "api:order_status_check",
+        "api:product_search"
+      ],
+      "source_hash": "69f1968c0fbce28333ac2a57f0849c446bf30d04151aa5bafc637b804b82896d"
+    },
+    "live_multiple_550-152-12": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_550-152-12",
+      "families": [
+        "api:Alarm_AddAlarm",
+        "api:Alarm_GetAlarms",
+        "api:Homes_FindHomeByArea",
+        "api:Homes_ScheduleVisit"
+      ],
+      "source_hash": "7c46e9d45559f20f3ae80e29da6343ef92be1af3fc084e23a1cc64dde293a71f"
+    },
+    "live_multiple_575-156-1": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_575-156-1",
+      "families": [
+        "api:Movies_BuyMovieTickets",
+        "api:Movies_FindMovies",
+        "api:Movies_GetTimesForMovie",
+        "api:Services_BookAppointment",
+        "api:Services_FindProvider"
+      ],
+      "source_hash": "976ac2b5373b561f74a86deb168b490e5735cbf78122c15678762fb24e7bdab6"
+    },
+    "live_multiple_629-160-9": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_629-160-9",
+      "families": [
+        "api:Payment_MakePayment",
+        "api:Payment_RequestPayment"
+      ],
+      "source_hash": "7423ff9135d6211a109a912655a952cc098f3e4c86bc361ba416eec96d858421"
+    },
+    "live_multiple_638-161-6": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_638-161-6",
+      "families": [
+        "api:Alarm_AddAlarm",
+        "api:Alarm_GetAlarms",
+        "api:Media_FindMovies",
+        "api:Media_PlayMovie",
+        "api:Music_LookupMusic",
+        "api:Music_PlayMedia"
+      ],
+      "source_hash": "02142d66b43bac0ef793488e45d692435d43f6944b5ec5f463e05ed0dbf4ffb1"
+    },
+    "live_multiple_643-161-11": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_643-161-11",
+      "families": [
+        "api:Alarm_AddAlarm",
+        "api:Alarm_GetAlarms",
+        "api:Media_FindMovies",
+        "api:Media_PlayMovie",
+        "api:Music_LookupMusic",
+        "api:Music_PlayMedia"
+      ],
+      "source_hash": "382ed6ae4111e93451d838574c2277f49475f17c9282f077e68cc91a2c9b245f"
+    },
+    "live_multiple_659-162-1": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_659-162-1",
+      "families": [
+        "api:Buses_BuyBusTicket",
+        "api:Buses_FindBus",
+        "api:Events_BuyEventTickets",
+        "api:Events_FindEvents",
+        "api:Flights_SearchOnewayFlight",
+        "api:Flights_SearchRoundtripFlights",
+        "api:Hotels_ReserveHotel",
+        "api:Hotels_SearchHotel"
+      ],
+      "source_hash": "9cbf43cdc21c3f706336f3e2e58c9bc2ad40eaee37676b21283c3551b5a3519c"
+    },
+    "live_multiple_683-163-8": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_683-163-8",
+      "families": [
+        "api:RideSharing_GetRide",
+        "api:Travel_FindAttractions",
+        "api:Weather_GetWeather"
+      ],
+      "source_hash": "a4e49e0be5ec7a8e2692339a8d094b365adaf5a7ccd7a82186c98fe73a94cba6"
+    },
+    "live_multiple_813-176-4": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_813-176-4",
+      "families": [
+        "api:Alarm_AddAlarm",
+        "api:Alarm_GetAlarms"
+      ],
+      "source_hash": "c862360a8525b5a8c5c6e10c7ca560ada640625e53d7d5fd0449e899372d4e80"
+    },
+    "live_multiple_892-185-2": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_892-185-2",
+      "families": [
+        "api:Payment_MakePayment",
+        "api:Payment_RequestPayment",
+        "api:Restaurants_FindRestaurants",
+        "api:Restaurants_ReserveRestaurant"
+      ],
+      "source_hash": "1686220d052162c31ca142397e5d9433345ae15369bdda78b0d3613f823011ab"
+    },
+    "live_multiple_923-191-11": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_923-191-11",
+      "families": [
+        "api:get_service_providers",
+        "api:view_service_provider_profile"
+      ],
+      "source_hash": "f91fa9aa4481329e27ef0eb2a625368c03d9d7bd4fb1a2e42904c28b47c0f97a"
+    },
+    "live_multiple_964-207-0": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_964-207-0",
+      "families": [
+        "api:get_parcel_state",
+        "api:transfer_to_human_agent"
+      ],
+      "source_hash": "1c4644e967fa3397bb9770915f684c0b86b36baead39db5d1a1e33fee3804046"
+    },
+    "live_multiple_98-42-2": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_98-42-2",
+      "families": [
+        "api:add_mtnards_server",
+        "api:add_postgres_server",
+        "api:close_project",
+        "api:connect_to_server",
+        "api:dartfx_help",
+        "api:default_function",
+        "api:list_files",
+        "api:list_servers",
+        "api:open_project"
+      ],
+      "source_hash": "339f525232191b2072e71e4e8f3ce39e7ec4fd5440800c60bd8e274d00e43267"
+    },
+    "live_multiple_996-227-0": {
+      "category": "live_multiple",
+      "parent_id": "live_multiple_996-227-0",
+      "families": [
+        "api:ApplicationSettingsApi",
+        "api:add_service_config"
+      ],
+      "source_hash": "f973fe7ef1fc889c54e79dc98c8fd832bfc1d05e0966765672f1fbdbd177fcca"
+    },
+    "live_parallel_10-6-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_10-6-0",
+      "families": [
+        "api:hotel_booking_book"
+      ],
+      "source_hash": "73270406af01a761cbe4d4f7fa36a21ab65ea304db44772a9723caba47d51d57"
+    },
+    "live_parallel_11-7-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_11-7-0",
+      "families": [
+        "api:log_food"
+      ],
+      "source_hash": "f440d616837556b0cc56c1110702ff7eae5f53b1db1311ebbbba3cab27c38c95"
+    },
+    "live_parallel_15-11-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_15-11-0",
+      "families": [
+        "api:cmd_controller"
+      ],
+      "source_hash": "53acd3393fa1dc2b3188659cb6fa28d23085a0074aaae2606f009ca0aa4c3f71"
+    },
+    "live_parallel_4-1-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_4-1-0",
+      "families": [
+        "api:get_current_weather"
+      ],
+      "source_hash": "14522d977255b944e6c2bd01587d476496d76d9918d0574e99527ee33dbdbac0"
+    },
+    "live_parallel_8-4-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_8-4-0",
+      "families": [
+        "api:todo"
+      ],
+      "source_hash": "82218c49c31cfee87b5242007101fda9fd68abaa653d3051f64a32bb32abfd5e"
+    },
+    "live_parallel_9-5-0": {
+      "category": "live_parallel",
+      "parent_id": "live_parallel_9-5-0",
+      "families": [
+        "api:get_aws_pricing"
+      ],
+      "source_hash": "0f3369ab861bb1750aad4a8230a5d2b94c3e5046483f7dedd6c45880b1b47712"
+    },
+    "live_parallel_multiple_0-0-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_0-0-0",
+      "families": [
+        "api:ChaDri",
+        "api:ChaFod"
+      ],
+      "source_hash": "67df53f01235a95c4d1e99885e0b0f3dc8219322947627f05d206253a1ee4011"
+    },
+    "live_parallel_multiple_10-9-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_10-9-0",
+      "families": [
+        "api:archival_memory_insert",
+        "api:archival_memory_search",
+        "api:core_memory_append",
+        "api:core_memory_replace",
+        "api:http_request",
+        "api:message_chatgpt",
+        "api:pause_heartbeats",
+        "api:recall_memory_search",
+        "api:send_message"
+      ],
+      "source_hash": "a7d37c8c896da518b11fcb2f56dbcbd5c586a315905d07c09044b3ba43264b44"
+    },
+    "live_parallel_multiple_11-10-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_11-10-0",
+      "families": [
+        "api:get_class_info",
+        "api:get_imports",
+        "api:get_relevant_classes",
+        "api:get_signature"
+      ],
+      "source_hash": "6b43d83e208b6d41ce4873fac1bf960fe0fb5cb4f0561e3a5c392a6cc149c47a"
+    },
+    "live_parallel_multiple_13-11-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_13-11-0",
+      "families": [
+        "api:estimate_derivative",
+        "api:math_gcd"
+      ],
+      "source_hash": "2e19cb30bca78137f2e39bfe2c48a8740fcae6e469aef8bdcad876e873bc6d8a"
+    },
+    "live_parallel_multiple_14-12-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_14-12-0",
+      "families": [
+        "api:estimate_derivative",
+        "api:math_gcd"
+      ],
+      "source_hash": "5410cc3fa2d963cb83a424c0fbf0904b31921ce6d7d3781d10e22d1dc7c415b7"
+    },
+    "live_parallel_multiple_15-13-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_15-13-0",
+      "families": [
+        "api:CalcProduct",
+        "api:getCurrentTime",
+        "api:sum"
+      ],
+      "source_hash": "d17060c15d6a7f4604d77b1f7720801f06dfd72e5db5d81563a5690d9ebddfdd"
+    },
+    "live_parallel_multiple_17-15-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_17-15-0",
+      "families": [
+        "api:flipImageAction",
+        "api:getRecommendationsAction",
+        "api:removeBackgroundAction",
+        "api:resizeImageAction",
+        "api:rotateImageAction"
+      ],
+      "source_hash": "ac5681ee25209f5f4a37298e8772388392f067530128aafb16e7b35c9fa5b699"
+    },
+    "live_parallel_multiple_21-18-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_21-18-0",
+      "families": [
+        "api:Services_BookAppointment",
+        "api:Services_FindProvider",
+        "api:Weather_GetWeather"
+      ],
+      "source_hash": "c13f4d5be9020131e87199ffa6143ea07b62261a1cb26b3c397ddd760c88fa00"
+    },
+    "live_parallel_multiple_23-20-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_23-20-0",
+      "families": [
+        "api:partner",
+        "api:user"
+      ],
+      "source_hash": "e31359a14fdfb2f4e3ee8e20c7a12d019a96f348ef910aa223de414d26b34951"
+    },
+    "live_parallel_multiple_3-2-1": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_3-2-1",
+      "families": [
+        "api:ControlAppliance",
+        "api:HNA_NEWS",
+        "api:HNA_WQA",
+        "api:OpenWeatherMap",
+        "api:cookbook"
+      ],
+      "source_hash": "95501c2a95f52ae6d79a1a6810e57d86f86da5399d510169b69af67c10b9c2e4"
+    },
+    "live_parallel_multiple_6-5-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_6-5-0",
+      "families": [
+        "api:get_interviewer_list",
+        "api:review_of_interviewer"
+      ],
+      "source_hash": "59f363a2ed63a76193997a1818c682d866206f20fe5db2e8dfff5eca381ac7b0"
+    },
+    "live_parallel_multiple_8-7-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_8-7-0",
+      "families": [
+        "api:analyse_repo_contents",
+        "api:clone_repo",
+        "api:create_a_docker_file",
+        "api:create_kubernetes_yaml_file",
+        "api:push_git_changes_to_github"
+      ],
+      "source_hash": "be8d06f8ff396ca4315998f39d1526541a0d9a62839c47554fc9db312e5ad651"
+    },
+    "live_parallel_multiple_9-8-0": {
+      "category": "live_parallel_multiple",
+      "parent_id": "live_parallel_multiple_9-8-0",
+      "families": [
+        "api:english_llm",
+        "api:generate_human_image",
+        "api:generate_image",
+        "api:multilingual_llm",
+        "api:search_engine"
+      ],
+      "source_hash": "f93c669ee472371ac83ab9273d4e42dd034f8f0b32d774cb6dea710c2a341308"
+    },
+    "live_relevance_0-0-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_0-0-0",
+      "families": [
+        "api:generate_human_image",
+        "api:generate_image",
+        "api:search_engine"
+      ],
+      "source_hash": "a8065a9b8c517067a38332dd81f2452371451e4f74df804dd518ba892ef8d1a4"
+    },
+    "live_relevance_10-10-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_10-10-0",
+      "families": [
+        "api:Movies_BuyMovieTickets",
+        "api:Movies_FindMovies",
+        "api:Movies_GetTimesForMovie"
+      ],
+      "source_hash": "804a66ad238a7f113c8732f2492ce1fc0ba9750670658875b1186a391235edd0"
+    },
+    "live_relevance_11-11-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_11-11-0",
+      "families": [
+        "api:Services_BookAppointment",
+        "api:Services_FindProvider"
+      ],
+      "source_hash": "147e4835cab75f20fc43e812c4e508808e5b9a8441a61cbcb462e00a6279547e"
+    },
+    "live_relevance_12-12-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_12-12-0",
+      "families": [
+        "api:RentalCars_GetCarsAvailable",
+        "api:RentalCars_ReserveCar"
+      ],
+      "source_hash": "533d0a16f28c6cc2cd3980e11c8c3d966a9055d58953448d53b9f22ff1a15c25"
+    },
+    "live_relevance_13-13-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_13-13-0",
+      "families": [
+        "api:Movies_BuyMovieTickets",
+        "api:Movies_FindMovies",
+        "api:Movies_GetTimesForMovie",
+        "api:Restaurants_FindRestaurants",
+        "api:Restaurants_ReserveRestaurant"
+      ],
+      "source_hash": "e9721009e28605ab19a83cc3d004d84123d9eb7f62650749684dbcbb3a695093"
+    },
+    "live_relevance_15-15-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_15-15-0",
+      "families": [
+        "api:interior_design_analysis"
+      ],
+      "source_hash": "543ced708e2d721a6aa63fbc9ec1514dae7a9f0594e93ccd4128a0ebda22c9f5"
+    },
+    "live_relevance_2-2-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_2-2-0",
+      "families": [
+        "api:search_web"
+      ],
+      "source_hash": "14bbdba2fcbf9248c2c9afc86fce3d5081bce12a1c8c0bc25be4a930b2c2b479"
+    },
+    "live_relevance_3-3-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_3-3-0",
+      "families": [
+        "api:open_meteo_api"
+      ],
+      "source_hash": "6f1cf0a7bcc2ad6c377c35d228e9058bffdf1eec8d2f6ba7371c20a84f499f0d"
+    },
+    "live_relevance_4-4-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_4-4-0",
+      "families": [
+        "api:tavily_search_results_json"
+      ],
+      "source_hash": "2aa7d2b71aaf39d1cd95bd152bdb751b18b117dd2dbb2738363c3062cae00ecd"
+    },
+    "live_relevance_5-5-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_5-5-0",
+      "families": [
+        "api:get_copyright_info"
+      ],
+      "source_hash": "3a70f9fd0858876b3a4f0d930d783255a1c099fc11397fe668ac340a6f6f6218"
+    },
+    "live_relevance_6-6-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_6-6-0",
+      "families": [
+        "api:GET_COMPLAINT_STATE",
+        "api:GET_PARCEL_STATE",
+        "api:handover_to_agent",
+        "api:submit_complaint"
+      ],
+      "source_hash": "8ddd7d48a34a2d7bf6a7e7ccf0203b3250a206f6db0b25a622e2717bdc8f4774"
+    },
+    "live_relevance_7-7-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_7-7-0",
+      "families": [
+        "api:Hotels_BookHouse",
+        "api:Hotels_SearchHouse"
+      ],
+      "source_hash": "5e65c7440eea39f81757c21efaae0ed7dbbc66802f449e394d2ae21ceeae47f7"
+    },
+    "live_relevance_9-9-0": {
+      "category": "live_relevance",
+      "parent_id": "live_relevance_9-9-0",
+      "families": [
+        "api:Movies_BuyMovieTickets",
+        "api:Movies_FindMovies",
+        "api:Movies_GetTimesForMovie"
+      ],
+      "source_hash": "9129561a97cca1571057032e07cc79ad854d8fe961c272f924f1373ac774bb52"
+    },
+    "live_simple_114-70-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_114-70-0",
+      "families": [
+        "api:update_user_profile"
+      ],
+      "source_hash": "22d659b037121758865fa68b6afc7ad8e9f7fc338960ae5865c75bd348fdf215"
+    },
+    "live_simple_117-73-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_117-73-0",
+      "families": [
+        "api:reverse_input"
+      ],
+      "source_hash": "516ca54b6cfefd8b8ea4c5feb445a9ab25f880da806db99771cb92c2e9e6d9d0"
+    },
+    "live_simple_123-79-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_123-79-0",
+      "families": [
+        "api:pipeline"
+      ],
+      "source_hash": "85fd355ecfb9669557b40ef6a2b6078a0ccb42f9c2cf79decdb90e830d86dddb"
+    },
+    "live_simple_150-95-7": {
+      "category": "live_simple",
+      "parent_id": "live_simple_150-95-7",
+      "families": [
+        "api:cmd_controller"
+      ],
+      "source_hash": "f83b45dade01d78b9dbc8dcf5ee498749a47710712743072f159a43f07a2331f"
+    },
+    "live_simple_156-95-13": {
+      "category": "live_simple",
+      "parent_id": "live_simple_156-95-13",
+      "families": [
+        "api:cmd_controller"
+      ],
+      "source_hash": "1993ca64811d622d13a725f183df591a96243307ca11b102dd3fa018a708849c"
+    },
+    "live_simple_169-99-3": {
+      "category": "live_simple",
+      "parent_id": "live_simple_169-99-3",
+      "families": [
+        "api:cmd_controller"
+      ],
+      "source_hash": "33dd5d15907cf0f65af8f86c59006c980fab27ecfd153946df932e02b1ff2398"
+    },
+    "live_simple_20-4-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_20-4-0",
+      "families": [
+        "api:change_food"
+      ],
+      "source_hash": "349e61b675c28825497c3ebfa5caaf1513e1810d60819addf1ad2b3f3fc62ab4"
+    },
+    "live_simple_22-5-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_22-5-0",
+      "families": [
+        "api:ChaFod"
+      ],
+      "source_hash": "f9131ba661f84af210fddfe6941d82e475e889e5fe41cd9ed98d45d41399e7ac"
+    },
+    "live_simple_221-117-13": {
+      "category": "live_simple",
+      "parent_id": "live_simple_221-117-13",
+      "families": [
+        "api:Movies_FindMovies"
+      ],
+      "source_hash": "2d2f5219072c7e86ae31d7ea466c32695d6d3de0701201a2a9778df3e27bdef5"
+    },
+    "live_simple_224-117-16": {
+      "category": "live_simple",
+      "parent_id": "live_simple_224-117-16",
+      "families": [
+        "api:Movies_FindMovies"
+      ],
+      "source_hash": "b73558a2e7039c5440d4bb8587417baf8cdfa46af422ca18e1cd5cd0807916a0"
+    },
+    "live_simple_226-118-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_226-118-0",
+      "families": [
+        "api:text_to_speech"
+      ],
+      "source_hash": "be119ee66a8688e2b034f55cbe9f40d03be7a3af4c125f99a6ab0a774da0a3fb"
+    },
+    "live_simple_227-118-1": {
+      "category": "live_simple",
+      "parent_id": "live_simple_227-118-1",
+      "families": [
+        "api:text_to_speech"
+      ],
+      "source_hash": "53caf1dcb205e32216758390e4fd3e074a7354bf24465105a8dd8a8759f7db95"
+    },
+    "live_simple_241-125-4": {
+      "category": "live_simple",
+      "parent_id": "live_simple_241-125-4",
+      "families": [
+        "api:play_spotify_song"
+      ],
+      "source_hash": "e95ab78ea3a0ce5d067645ec1a038116f4092d65414aeced237528c12550c9aa"
+    },
+    "live_simple_26-6-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_26-6-0",
+      "families": [
+        "api:uber"
+      ],
+      "source_hash": "6b64f9e135e37e2265f2ad33fb61a8459e61facab3099eace7fae59496845964"
+    },
+    "live_simple_31-8-1": {
+      "category": "live_simple",
+      "parent_id": "live_simple_31-8-1",
+      "families": [
+        "api:aws"
+      ],
+      "source_hash": "e5096a7ab52663321f3bb56ec5ccd35ba922b9c1a5dd34172c4a2bbdd0df1188"
+    },
+    "live_simple_66-30-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_66-30-0",
+      "families": [
+        "api:inventory"
+      ],
+      "source_hash": "223bde1a7f95d08993ca0c029a6af79b67b475726f92bb4d8ff5278abbdeb770"
+    },
+    "live_simple_68-32-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_68-32-0",
+      "families": [
+        "api:sum"
+      ],
+      "source_hash": "d9a58e3c27d30dae087edb75cdc44b7cd82f277f6e75ae6daabba8c197541d85"
+    },
+    "live_simple_76-37-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_76-37-0",
+      "families": [
+        "api:language_translator"
+      ],
+      "source_hash": "24e7e59f8cc62a504b17533739a43e4978eb78ee8de3312adda790660bb0501e"
+    },
+    "live_simple_80-41-0": {
+      "category": "live_simple",
+      "parent_id": "live_simple_80-41-0",
+      "families": [
+        "api:sitefinity_create_contentitem"
+      ],
+      "source_hash": "34acf874832741a55f924338f4e997c9bdcab2d316ca3ff19b4bf5e3ce703fc9"
+    },
+    "memory_kv_113-student-33": {
+      "category": "memory_kv",
+      "parent_id": "memory_scenario:student",
+      "families": [
+        "executor:MemoryAPI_kv"
+      ],
+      "source_hash": "4a90f20680e8f42dc9ef29e43404f6d990ed7bab71346b6c90129b09783314a0"
+    },
+    "memory_kv_141-notetaker-11": {
+      "category": "memory_kv",
+      "parent_id": "memory_scenario:notetaker",
+      "families": [
+        "executor:MemoryAPI_kv"
+      ],
+      "source_hash": "fe4317284745d1d3a47ede5f66b4039842b0ffecab19e33df65901b456428b49"
+    },
+    "memory_kv_35-healthcare-5": {
+      "category": "memory_kv",
+      "parent_id": "memory_scenario:healthcare",
+      "families": [
+        "executor:MemoryAPI_kv"
+      ],
+      "source_hash": "6a70a2871a58b1a6cc44969d927eadd82e8f99e269b5e32bfd17d191a3fba3e6"
+    },
+    "memory_rec_sum_0-customer-0": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "4ba35bde5be6bca6046c7f8e2966fb6795742405b94cd3677c3f5ff9cb3ae2fb"
+    },
+    "memory_rec_sum_1-customer-1": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "37a742afd3e51c0e3f94d7ceb53100c1537e3e2a0553bca4f08dc0a475484741"
+    },
+    "memory_rec_sum_10-customer-10": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "fcad9eae1ccbb1a56eb32a91bd9596250571b6abf27c84a3a0d3e92012cc57a0"
+    },
+    "memory_rec_sum_11-customer-11": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "cde56b8fc558d9622c65e945c0cb94b9b61d2620796b495f80a2b6b8901e8ec7"
+    },
+    "memory_rec_sum_12-customer-12": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "741dd0a4b1f5fb59e1a60c2e93c3be90d522a1f4dae34f05a1e64df4a147a965"
+    },
+    "memory_rec_sum_13-customer-13": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "0cd9f704a8202f142500d783ab8eeb05ff9d4db78178737f929b45dc9f1406d1"
+    },
+    "memory_rec_sum_14-customer-14": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "8e4162b38a5b6ef4611b3c4fd42131e62da8e1df209c1a395b0bbc6203460978"
+    },
+    "memory_rec_sum_15-customer-15": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "51870a3ec99fe689cc8c24003d62ba2d791c8473deedf5ef4fd02aa208891e9f"
+    },
+    "memory_rec_sum_17-customer-17": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "900f7feb9b60fd068f0632637aed09f89f804cd1a0c6df19ddcc6b328af83d34"
+    },
+    "memory_rec_sum_18-customer-18": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "2a955362877299e537b26d9bb7889656d548f6866c5fdf0b5fabd162a5bc40d1"
+    },
+    "memory_rec_sum_2-customer-2": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "ac486e5906940cc3ffc832ab6884098c6169bb420685f15e46aea5c4c1d66b49"
+    },
+    "memory_rec_sum_22-customer-22": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "6cab1ac6a0446d7aad1625b5e16af3a0a130f1fcc0095f0425afd5680bb2df35"
+    },
+    "memory_rec_sum_23-customer-23": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "89f78b0004d41abd03d721a2f89ba40fe40177be539a85e0c5e659922724c386"
+    },
+    "memory_rec_sum_24-customer-24": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "07451fd5b3bcbaf2690aca7592c045d1569f118b25695a107efdd570877298b7"
+    },
+    "memory_rec_sum_25-customer-25": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "bf1443d8cb11f4f5bc6ee3bae356e9d9853b7fcdc79f0ecee1a153237f32cfc8"
+    },
+    "memory_rec_sum_27-customer-27": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "eda4f228f433ffb655a4a1790e3179a596f23758a13c40cfffcb214212e6e58a"
+    },
+    "memory_rec_sum_28-customer-28": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "b6a15c62ce150da447e3b870593472ce19c199ecc4f183117d0615f72fda8d71"
+    },
+    "memory_rec_sum_29-customer-29": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "fe435dec8df6203b34c92bee655a3371a0ad9c48ea2ebc092b48649b3b35f9c8"
+    },
+    "memory_rec_sum_5-customer-5": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "3280b2401a8c6405a1a13a94a1305e753cf11148ceb5bc7091cdabec8db89992"
+    },
+    "memory_rec_sum_55-finance-0": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "56e94f75cbfb70cc3dce21299347ea7d0dff828d1bc62d51533671fa4dbad368"
+    },
+    "memory_rec_sum_57-finance-2": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "09184c46c512ef18caff5be0f0de0a34393f6bfe9806c1e96957b0b18b52ab6a"
+    },
+    "memory_rec_sum_6-customer-6": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "f3551670c141f895dae21f39c83c6c4f8d014a36f8ab308c265fb6aa59b38c40"
+    },
+    "memory_rec_sum_60-finance-5": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "88004a8155d22a1e237ea7ff21119ad5fae6f8782cb11a19521d18a4e39f7453"
+    },
+    "memory_rec_sum_62-finance-7": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "92c5e758f74a939ccedd3013410dc9cc6e307e8a29f86dc56ff0045121bb4b1c"
+    },
+    "memory_rec_sum_63-finance-8": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "480c9a9e56b987f6714fd36c918f342909c022e5db7c63c48ae1f9c321267fd5"
+    },
+    "memory_rec_sum_64-finance-9": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "d707cac74685773a7cd68f832332dd3a55ea1eed46f17e328024d65cb30afcf8"
+    },
+    "memory_rec_sum_65-finance-10": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "fa4363614cd95e472811ece0ec0bdcfd03e5835a2cd8040f314ab7001e561596"
+    },
+    "memory_rec_sum_66-finance-11": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "07f7026f671c7cedca5691ccb96a3078ccc75fdc31be5ede35bfcbbd06c8e85c"
+    },
+    "memory_rec_sum_67-finance-12": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "23ee38ed270919496f4108c3d5cc345cb33f865bacc20902c95b2c05885ac771"
+    },
+    "memory_rec_sum_68-finance-13": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "a19600a565bc65ee3c9082799b6437f6e9d1c3fc7cd4f32c610864c26f21d173"
+    },
+    "memory_rec_sum_7-customer-7": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "de6f9e83fac9e08dc1c86dffa355a3e945bca418795cca4cec4a443f93466bb8"
+    },
+    "memory_rec_sum_70-finance-15": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "4a26484cefdab9288e64d767b1f08773fc9d8a2593531854917d23228378349f"
+    },
+    "memory_rec_sum_72-finance-17": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "d7b881c2c73a6a7a70783bfe2be1972e7e43e9c59bcc4fa4f10fa6b7b49402d4"
+    },
+    "memory_rec_sum_73-finance-18": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "56c6d1c30eda667ff114eb79119f822f0ef702b586e6599e2aee9e7fb9e5285c"
+    },
+    "memory_rec_sum_75-finance-20": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "913f42938db41358f0edfb1d9392b58ac4902fc272b36927247b0d079aba1561"
+    },
+    "memory_rec_sum_76-finance-21": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "267a606f7a78bd8de8775ed872b8e6b5beb8c122d7832c409a4b0122a36a9cf9"
+    },
+    "memory_rec_sum_78-finance-23": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "615bc884d5e9f135542fc63d385fea60ae9f7a71fb359e33c11f8a0fcbd52a8e"
+    },
+    "memory_rec_sum_79-finance-24": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:finance",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "bca02113a8ec4b73e6e076491a953407177fe290eb8829ba3e7c1a1901c573c6"
+    },
+    "memory_rec_sum_9-customer-9": {
+      "category": "memory_rec_sum",
+      "parent_id": "memory_scenario:customer",
+      "families": [
+        "executor:MemoryAPI_rec_sum"
+      ],
+      "source_hash": "86512942e85d39954573384a52f746195daef46406fd8fdf0555a1e3ad1fd1c1"
+    },
+    "memory_vector_112-student-32": {
+      "category": "memory_vector",
+      "parent_id": "memory_scenario:student",
+      "families": [
+        "executor:MemoryAPI_vector"
+      ],
+      "source_hash": "20a61075a47950ee00347b5e6967f09f1aef55c33771fc481b9d039c99a0c83c"
+    },
+    "memory_vector_118-student-38": {
+      "category": "memory_vector",
+      "parent_id": "memory_scenario:student",
+      "families": [
+        "executor:MemoryAPI_vector"
+      ],
+      "source_hash": "007ec9daaf75f9d496545d774034ff5ac09bb32c62fbfbabd96a3de7b2d5c539"
+    },
+    "multi_turn_base_100": {
+      "category": "multi_turn_base",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "a653d032b7f9fb06115e344abde1cb39afb9322b621b0603076a1aeee65bfac6"
+    },
+    "multi_turn_base_106": {
+      "category": "multi_turn_base",
+      "parent_id": "state:0391eaa0aa73fe8b00006493a2d5cf264a6da852c3ae253683e553dc685551aa",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "9f009f18192f4eef575dc4e6a890e7641e9b9091da6a22dd8d1877cce3d04d79"
+    },
+    "multi_turn_base_107": {
+      "category": "multi_turn_base",
+      "parent_id": "state:da288aee519e248f4d36a2186b6ba767dfd38ee493067d47936d08d4e60d1a31",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "8939c6ea05bb61480a8048d701c2731106b9bdcc58e313b01a17b15f752413aa"
+    },
+    "multi_turn_base_119": {
+      "category": "multi_turn_base",
+      "parent_id": "state:01cfbac25bfc96924f35d0a1479611b6dbc23c7e574bd468f6abe56e47c814db",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "192a15b07894c6840184db4f683fcb1a5bc658c6170c7f4d836d270d60d2eb9c"
+    },
+    "multi_turn_base_125": {
+      "category": "multi_turn_base",
+      "parent_id": "state:5a09db9efb8fb932ff82f11dc7f79f3227fa357b356c207bf482ce3bb6fdf795",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "f9604c3b2e867f3db52b80f382d3db95494a12faefbd1dbc6ce131f0aa4ecb3e"
+    },
+    "multi_turn_base_130": {
+      "category": "multi_turn_base",
+      "parent_id": "state:4e0581bb8718fa9f7f9226de031109602150227895bd3841224f464c441ac154",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "d797fedb1ecd56bd1afb4e38be0a4393965f06b4e3221cc006be2c6df1bd9dd1"
+    },
+    "multi_turn_base_132": {
+      "category": "multi_turn_base",
+      "parent_id": "state:3ae7e39e2942bcef1fe142036964894bb29f494ec854973ac025417eac45ca6f",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "f44ae83be09806215fd87ce56e86b8a18556ba7aff20ee1be2cad6c35f2ae4ef"
+    },
+    "multi_turn_base_133": {
+      "category": "multi_turn_base",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "11d114fb413fccc4d855efb8dd525a89483cfd17c0f5839cf636fe08dd6dedbc"
+    },
+    "multi_turn_base_134": {
+      "category": "multi_turn_base",
+      "parent_id": "state:67033b53a4c5ebc59010aa4e1e29584e024e7542fe764e6fb56c852eb934882d",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "1f0f449612252323165d75cc0ff48a953c4e330a0a7974e82055685acc0ec3c1"
+    },
+    "multi_turn_base_135": {
+      "category": "multi_turn_base",
+      "parent_id": "state:7cf647dc41530cbbf6a1d95204c941e6bb7dff4339f3553f70c8fac77a4c9e42",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "3fca5e209f593669b2fbcbbc50755aa80113ec988ac36c28aa9b5047ab2784fe"
+    },
+    "multi_turn_base_136": {
+      "category": "multi_turn_base",
+      "parent_id": "state:e635ab504fdaa7783895db3af81160f00af755a8f6a28d087fef6694450b9248",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "466270c6cb553546ea6025e85da519f6ba25a95518b1ef77614269442ed06bee"
+    },
+    "multi_turn_base_140": {
+      "category": "multi_turn_base",
+      "parent_id": "state:1d30b7b22dc5af3dc5d97531e9c694163db11010a11fd2c406fc95a39bc4ac30",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "5494f53c361cc3cc87ea6e6ce5742ff6aa6967a39f783f35f2b4b30ab61a89b1"
+    },
+    "multi_turn_base_144": {
+      "category": "multi_turn_base",
+      "parent_id": "state:1b0b4e74d14c3391a9ddde58bb245ce3fb0e3b4876807056b47e93808de0549c",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "9f11ac2922fa47d253bcb7b49fda3998be38a7a59f5fc7e1c9e39fd1e656436f"
+    },
+    "multi_turn_base_146": {
+      "category": "multi_turn_base",
+      "parent_id": "state:741a175d49ee28757976ea993fc5aef5cbe172d93f01ba5cad460b904dd828b7",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "f609594a2f907c06e6ac34a81f57d9ac83c5bcf1d54a0d74e70b3cc0065b292c"
+    },
+    "multi_turn_base_148": {
+      "category": "multi_turn_base",
+      "parent_id": "state:e0f00f42107512c531a14fe5285ebbf2fdd6d510e9f9d2bdee164f33bb6e41fa",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "a8ff273b7ce7c970d5d3fb6d9c9658d7b889a4ecbcc4927e3c990612646bebcc"
+    },
+    "multi_turn_base_58": {
+      "category": "multi_turn_base",
+      "parent_id": "state:f4c6a48b9dcfe8dd4acf221844dca066d819407180e54c1073cd73cc39b0cd2f",
+      "families": [
+        "executor:TwitterAPI",
+        "executor:VehicleControlAPI"
+      ],
+      "source_hash": "8296144ae9ff3a208ff6f1e851126b8b705e083fdccbca658cc28d28bcd05738"
+    },
+    "multi_turn_base_79": {
+      "category": "multi_turn_base",
+      "parent_id": "state:720d9abf9a6744184c98089e62e6422273497657bce3d45c0b98ec918e5ce132",
+      "families": [
+        "executor:VehicleControlAPI"
+      ],
+      "source_hash": "607888329c4305191398259ce8db186a1859c28b204bb8ea24fc1d94378ca8e4"
+    },
+    "multi_turn_long_context_104": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "1a2bb48d3191353d89c0767bbab37789c3fd356b84e42a5364d4cca7b3822744"
+    },
+    "multi_turn_long_context_105": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:109cecd2519691d2c009870cc8f92e79ffa044044227323ca3dd74614c833399",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "bf12c9180ee80949dc25376132b4631b2caf3eefa472dd33a2d09debd75b1971"
+    },
+    "multi_turn_long_context_106": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:0391eaa0aa73fe8b00006493a2d5cf264a6da852c3ae253683e553dc685551aa",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "ecf8b7d024a5a317bde484bac67ccb63f7ec6c16ec4281ee9271644eace23dde"
+    },
+    "multi_turn_long_context_110": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:fe8e4ade6d0f52f6b04955d68a62cc0489b8b26f66e299a3bbcf03d2ffd8ffa3",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "a3925fff3a0759af0bea49042c6dc5f78e7b3391ce47e92093b626a11b547c14"
+    },
+    "multi_turn_long_context_115": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:d59906673b681623cc9b13238f83f57f537bca3d652d1f3db1faf9b5b8755e9e",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "3428648af199af8c9d35687e9754b947507e783179465166efcdefd00d802d81"
+    },
+    "multi_turn_long_context_118": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:7e8f0c6e0deb3f16f252f0c4904dbfe8e60f34021e33a71837f339e7f067464c",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "4d6f291c00d62001e53b82402a149be02de323a58635ce32891102ffd18a0acd"
+    },
+    "multi_turn_long_context_119": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:01cfbac25bfc96924f35d0a1479611b6dbc23c7e574bd468f6abe56e47c814db",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "f322904d1da6306162fe20d1885da83b81e59dfe35913bddce85f339cd8370ba"
+    },
+    "multi_turn_long_context_120": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:43625c1851fd4b1cbb5836294c8c32c2f09ae6dabd8345be09c5ca945131f07a",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "01c4cf6fc456b34d09714192b4af51d1a1e226d967ff51c7b84f156dd945f298"
+    },
+    "multi_turn_long_context_122": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:9fa2b2663bac28dfc8e3466f573f80fa789acef6a26afff87b2836c864944c80",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "c2eba7fd523217e688730d440183126da29037e560f53e1fc60d59a7420b3943"
+    },
+    "multi_turn_long_context_123": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:f5f217c5f13f91ff283f67877f6b374459167648349ebd4d8383fbad7847d465",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "eb1b7760bd4d1b1f972bd543bad4c5925c34d849ba28702e61a536e154016927"
+    },
+    "multi_turn_long_context_124": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:c8887557f6cb42413fc951180b60e03cec879d7a8c88714cd6687f951fad82c8",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "6dac41139bcb97bd7e4dfdd3a82cd013be5611a65c34da248812f1fb68c95816"
+    },
+    "multi_turn_long_context_125": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:5a09db9efb8fb932ff82f11dc7f79f3227fa357b356c207bf482ce3bb6fdf795",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "39675afc3fd78728dabd097d099ef85c82b764dcdf06f0f71f4d881e9861ac16"
+    },
+    "multi_turn_long_context_128": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:4cb78f2d1f1cff0d0c88663e1dfe55fc74e963ad21933f75277d7a8066a42a7e",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "983e8b8c00b9bb025f391b437a8a91089c6cd1ef8ce3df514b279024012f5373"
+    },
+    "multi_turn_long_context_130": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:4e0581bb8718fa9f7f9226de031109602150227895bd3841224f464c441ac154",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "25e622cc8529fd821ee91ac86424c3abb07e18b447399b5e048a6f9e8ceb9f08"
+    },
+    "multi_turn_long_context_132": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:3ae7e39e2942bcef1fe142036964894bb29f494ec854973ac025417eac45ca6f",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "9b0600638350ad56ebe82f8d9ad6b5e9601bcf02e836b860f23db11b412dc375"
+    },
+    "multi_turn_long_context_175": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:4ba9d9ad646f814bae56c248d0524587c7dcb18f39d8575f4dc670ea4dbe8855",
+      "families": [
+        "executor:TravelAPI",
+        "executor:TwitterAPI"
+      ],
+      "source_hash": "baeacc1d5e737c570264dd251d9dcc0badc154475686b8f9929e6e4ba1849f14"
+    },
+    "multi_turn_long_context_78": {
+      "category": "multi_turn_long_context",
+      "parent_id": "state:3c777f93a96a0b2a13299a6fa20a9ca6e84fef67e94664b00c8dd8c02c721bf6",
+      "families": [
+        "executor:TwitterAPI",
+        "executor:VehicleControlAPI"
+      ],
+      "source_hash": "ac3cdefbbbdc7c5f29406573cacda522b36a5c2d3f24427807cccda22bf60abb"
+    },
+    "multi_turn_miss_func_100": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "73e4493b45376f7b0e062b35e3e29402763ce316d3cedb710f181221c5eb241b"
+    },
+    "multi_turn_miss_func_102": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:94e51c8919c90162836853ce8b4192a145abd5a918fc120c145635cbb1d1d5a4",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "e9fce6a208481bf881f0b5464288068cecfffa67f049c1a847bf1916c3881fdc"
+    },
+    "multi_turn_miss_func_104": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "d3880e92e341b88517a96c426dc5369e5ef13d27685aac2718822e8f61450e69"
+    },
+    "multi_turn_miss_func_105": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:109cecd2519691d2c009870cc8f92e79ffa044044227323ca3dd74614c833399",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "d2aa8160f0077bee864616d37c87b6bc4f3ca9f05f5b4fbcc1b20168a2d465e2"
+    },
+    "multi_turn_miss_func_106": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:0391eaa0aa73fe8b00006493a2d5cf264a6da852c3ae253683e553dc685551aa",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "cd633ecaef534a0c2e81b13aed2361e120ea9fa9911844eec90808fc0a65d3fc"
+    },
+    "multi_turn_miss_func_117": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:748fe7b727a4edd69038d7429523cf2c83918a02a27e6e5fb3587042acbd9871",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "84f92b215a3b8aaabca900c0dfb29c0478de4ec70b8d300a45708693e948324d"
+    },
+    "multi_turn_miss_func_119": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:01cfbac25bfc96924f35d0a1479611b6dbc23c7e574bd468f6abe56e47c814db",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "91bba8fcc0fa13a20a3adfede94d6e2e0363118db6da0303a80f03dc31fa5995"
+    },
+    "multi_turn_miss_func_122": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:9fa2b2663bac28dfc8e3466f573f80fa789acef6a26afff87b2836c864944c80",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "b3e1c00d430fbc5def9a01c566354067f73a273253f46e280a0631846ab3b677"
+    },
+    "multi_turn_miss_func_124": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:c8887557f6cb42413fc951180b60e03cec879d7a8c88714cd6687f951fad82c8",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "09c603e8711fe5365a70324bc8c55cc07d0e25a2d610badff847000d6eb5ac24"
+    },
+    "multi_turn_miss_func_126": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:8520e7f27055b580fe0d504d990880755b039026dd1b8e2c43c4450910ab96f8",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "9ccf12af122350e5707a55cbec404beaa25699ce984ab8fd6926b489346669c1"
+    },
+    "multi_turn_miss_func_127": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:61ed089c83c4fed81f0a81402385bf65c861077d95ccd8155c0a654b01c8c637",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "6ad505cd0de6282828e71f071c3a30e55ad057265f9bdecd37a5d22f8e1b5e19"
+    },
+    "multi_turn_miss_func_133": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:5d260179519a7082c86c9f073a275c6bf84a9f2cd394a6ac0708531e452318f1",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "d7c789527d0cb65dc6f412b1d2d8fed1643e1443117ea1a7e5e485bd010968a0"
+    },
+    "multi_turn_miss_func_134": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:67033b53a4c5ebc59010aa4e1e29584e024e7542fe764e6fb56c852eb934882d",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "2749f9b831eba9219d11400456783ed331e62657068636a9fc368c46a138ad2e"
+    },
+    "multi_turn_miss_func_135": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:7cf647dc41530cbbf6a1d95204c941e6bb7dff4339f3553f70c8fac77a4c9e42",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "52ba80a73337f9d7169cb974c79bacc9425fe7bdae45c6e88f68761bc3d43b39"
+    },
+    "multi_turn_miss_func_146": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:741a175d49ee28757976ea993fc5aef5cbe172d93f01ba5cad460b904dd828b7",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "96ac84338443f8ac4674e361d0056e1544eef859a6cf104847d3ea569ef9fde7"
+    },
+    "multi_turn_miss_func_198": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:683eb420971d69dd388cee7f21e4690a4efc87b1bab4cca7887daecfe3d79aef",
+      "families": [
+        "executor:TravelAPI",
+        "executor:TwitterAPI"
+      ],
+      "source_hash": "c0f6e5937e01a38aae6d25a7533618559b3a47c4f92dbc651e46a7d3c90d3c42"
+    },
+    "multi_turn_miss_func_67": {
+      "category": "multi_turn_miss_func",
+      "parent_id": "state:4ffec176242ac99fe7bbef41cfd07392acb4b6b76b96782bf08c45fd13e85611",
+      "families": [
+        "executor:MessageAPI",
+        "executor:VehicleControlAPI"
+      ],
+      "source_hash": "eaebc89aad885f9ef6e744d890f00ef2546a2318af9ffb6a47319881021f805c"
+    },
+    "multi_turn_miss_param_1": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:a816c21153c64c2ea58ad0db63b9a78f2b616d83d246f7ad1fd12a08564887d1",
+      "families": [
+        "executor:GorillaFileSystem"
+      ],
+      "source_hash": "3f1e0ae3b49a6c4d77193cd0bc02c9df145eef62d919208a02145fa516a277d7"
+    },
+    "multi_turn_miss_param_102": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:94e51c8919c90162836853ce8b4192a145abd5a918fc120c145635cbb1d1d5a4",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "1f6803cb01e313c83f6e46d6befb32faac7f09104416594a44f67d2e11639d6f"
+    },
+    "multi_turn_miss_param_107": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:da288aee519e248f4d36a2186b6ba767dfd38ee493067d47936d08d4e60d1a31",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "e351ceabd086c05b797325000c15f33f80bde4b7ecc24d8325f116dc3fee2514"
+    },
+    "multi_turn_miss_param_110": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:fe8e4ade6d0f52f6b04955d68a62cc0489b8b26f66e299a3bbcf03d2ffd8ffa3",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "88ee36ca8c35e344f82aabf4b7e65c9337e7930a62fbf7cf534e4d35f1c57815"
+    },
+    "multi_turn_miss_param_115": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:d59906673b681623cc9b13238f83f57f537bca3d652d1f3db1faf9b5b8755e9e",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "7416708fc5253cf8e7578ea4bdff62426b9ab526434b36ebad6c5290e804eef5"
+    },
+    "multi_turn_miss_param_116": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:cf097239c12f85bf9692178a84c9369006e2b9d54f592962a9293c3ee367a23f",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "e8d9aa21eff2bab7450bfc123055b6ce1a5f98efa8ba3301b163f95c58a6c44b"
+    },
+    "multi_turn_miss_param_118": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:7e8f0c6e0deb3f16f252f0c4904dbfe8e60f34021e33a71837f339e7f067464c",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "442276afab886cba2db4b34fcd6078649fd215367fb12c9ac255271d95b63843"
+    },
+    "multi_turn_miss_param_122": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:9fa2b2663bac28dfc8e3466f573f80fa789acef6a26afff87b2836c864944c80",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "f722ea8274c5afc69732fd117328a5ab96c3e6b72946f036fb7d3a2b847ee5fc"
+    },
+    "multi_turn_miss_param_123": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:f5f217c5f13f91ff283f67877f6b374459167648349ebd4d8383fbad7847d465",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "bd5a90fac2fe81b23b24315da9c09393953433703f6b90a15c09ff0c90fd18d9"
+    },
+    "multi_turn_miss_param_127": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:61ed089c83c4fed81f0a81402385bf65c861077d95ccd8155c0a654b01c8c637",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "dfa232d56ddd05aec5b21087934b3104f398d4ad784ba0823293c523bc509560"
+    },
+    "multi_turn_miss_param_129": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:74ee29508c1ffbe534ca07ee16b5c961035e09a49a6c36db230d6fc15646075c",
+      "families": [
+        "executor:TicketAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "3bd9ea8b153f35c399355f198e87dc87e21751d8c16679f8b7322d869328458c"
+    },
+    "multi_turn_miss_param_130": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:4e0581bb8718fa9f7f9226de031109602150227895bd3841224f464c441ac154",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "53b65136862568983539ffa67e5d885544b2484bafdd7d4837eab7f046a385a6"
+    },
+    "multi_turn_miss_param_132": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:3ae7e39e2942bcef1fe142036964894bb29f494ec854973ac025417eac45ca6f",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "c67d5ab3e1a1c30f882a4d30084962d50fe070135f2094b197e1b635a603fc6c"
+    },
+    "multi_turn_miss_param_136": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:e635ab504fdaa7783895db3af81160f00af755a8f6a28d087fef6694450b9248",
+      "families": [
+        "executor:MathAPI",
+        "executor:TradingBot"
+      ],
+      "source_hash": "ebbc728f31a9d198668ab889f59b1611d87780f387c7aa611b474321268f1cde"
+    },
+    "multi_turn_miss_param_142": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:a358fa3de747088b41dcc36ee74b38ddb0f06d57f9ad38b7614933da556ba768",
+      "families": [
+        "executor:TradingBot"
+      ],
+      "source_hash": "e8c357557bac831602d4d73e3b0c0d5d8023c810f47b1054fbed76ec92bf005e"
+    },
+    "multi_turn_miss_param_150": {
+      "category": "multi_turn_miss_param",
+      "parent_id": "state:0adca432ee8ca00b4c3d59d84b731ac5fa59924777dd630149944e25f1c9057e",
+      "families": [
+        "executor:TravelAPI"
+      ],
+      "source_hash": "1683a4de33388fb4087b66daeabff4cdb91e68d596a26d3956eac56bca8781ec"
+    },
+    "multiple_108": {
+      "category": "multiple",
+      "parent_id": "multiple_108",
+      "families": [
+        "api:calc_heat_capacity",
+        "api:calculate_discounted_cash_flow"
+      ],
+      "source_hash": "7bebd2550ceca654f4e012e49e6fa773226fd6d2004945c58d37fa15666be0df"
+    },
+    "multiple_144": {
+      "category": "multiple",
+      "parent_id": "multiple_144",
+      "families": [
+        "api:air_quality",
+        "api:sports_ranking"
+      ],
+      "source_hash": "612a6d38d6cfd6e42f6bd3cc80dd3c7b2d6245234002ae53b398f27affa0f8cd"
+    },
+    "multiple_16": {
+      "category": "multiple",
+      "parent_id": "multiple_16",
+      "families": [
+        "api:ecology",
+        "api:population_genetics",
+        "api:species_distribution_modeling"
+      ],
+      "source_hash": "0857f352152db97caa9faaeae55f6cc01fc45e790ff9a99f848bd4a07ac942db"
+    },
+    "multiple_176": {
+      "category": "multiple",
+      "parent_id": "multiple_176",
+      "families": [
+        "api:find_card_in_deck",
+        "api:hotel_booking",
+        "api:sports_team",
+        "api:vegan_restaurant"
+      ],
+      "source_hash": "bfa8b4ba96d487b487256359b420a3f365a6bba9da61101832194a66e520db6f"
+    },
+    "multiple_197": {
+      "category": "multiple",
+      "parent_id": "multiple_197",
+      "families": [
+        "api:create_player_profile",
+        "api:find_restaurants",
+        "api:mutation_type",
+        "api:walmart"
+      ],
+      "source_hash": "2f705b4f0123ddd22f38ac960d4a9cc0d8d0155784efa6e1a7a75620888e34f5"
+    },
+    "multiple_28": {
+      "category": "multiple",
+      "parent_id": "multiple_28",
+      "families": [
+        "api:convert",
+        "api:perform",
+        "api:solve"
+      ],
+      "source_hash": "7c6cdd23822e5d9e3b80927e131d02b0ed381e267c8ae459eec346bfeb541c1d"
+    },
+    "multiple_37": {
+      "category": "multiple",
+      "parent_id": "multiple_37",
+      "families": [
+        "api:kinematics",
+        "api:physics"
+      ],
+      "source_hash": "d3e8c0e34e662450809cbdd0c71a425bf29aaa78aa55008669c067e235eee373"
+    },
+    "multiple_70": {
+      "category": "multiple",
+      "parent_id": "multiple_70",
+      "families": [
+        "api:european_history"
+      ],
+      "source_hash": "ca7c0129fc65b435d4bd943711981ab0159255fcb762c27d654a3b88edfb94fb"
+    },
+    "multiple_79": {
+      "category": "multiple",
+      "parent_id": "multiple_79",
+      "families": [
+        "api:exhibition_info",
+        "api:restaurant_info"
+      ],
+      "source_hash": "4d8a2465b156b4504d759c5802709d9381b87a57ebe564763773719906f376f8"
+    },
+    "parallel_100": {
+      "category": "parallel",
+      "parent_id": "parallel_100",
+      "families": [
+        "api:get_boiling_melting_points"
+      ],
+      "source_hash": "5cad1602cf7908311e9d3b7abf94c41d65ff365ea1fe2018214191fb50c0aeee"
+    },
+    "parallel_154": {
+      "category": "parallel",
+      "parent_id": "parallel_154",
+      "families": [
+        "api:calculate_bmi"
+      ],
+      "source_hash": "978ccd58160d0b7ff2e0da6c1c152e4cf43efcb337295365bf771a28bfaa1cc4"
+    },
+    "parallel_155": {
+      "category": "parallel",
+      "parent_id": "parallel_155",
+      "families": [
+        "api:run_linear_regression"
+      ],
+      "source_hash": "a5b2ef79f93e96a4717430361169b53e91b52a50a3f112eb3292e6c10d456729"
+    },
+    "parallel_158": {
+      "category": "parallel",
+      "parent_id": "parallel_158",
+      "families": [
+        "api:random"
+      ],
+      "source_hash": "b3349ea168f58a4363f43fb675d62c2f7a9ef4a591e52e9083c4e00f24ba1d92"
+    },
+    "parallel_166": {
+      "category": "parallel",
+      "parent_id": "parallel_166",
+      "families": [
+        "api:predict_house_price"
+      ],
+      "source_hash": "947ff45595e41d2ca9cbe8f90869e1522402fb32bc947e0fca13e4ff23c5aafc"
+    },
+    "parallel_174": {
+      "category": "parallel",
+      "parent_id": "parallel_174",
+      "families": [
+        "api:calculate_return_on_investment"
+      ],
+      "source_hash": "25d8f3faa28f2c8a8b69a715b9f36be0b137e9e082b751db4e9617f7d188f244"
+    },
+    "parallel_199": {
+      "category": "parallel",
+      "parent_id": "parallel_199",
+      "families": [
+        "api:get_current_weather"
+      ],
+      "source_hash": "ab489cbb03fa6d8d12b20c67dca983fa6f7e84523dbe17a8d7ce5e1ffbe0fa83"
+    },
+    "parallel_4": {
+      "category": "parallel",
+      "parent_id": "parallel_4",
+      "families": [
+        "api:calculate_bmi"
+      ],
+      "source_hash": "f20217d342a2fc1c9ddc6764ef9a59ea75de3485b2cc6bf3371ac06bbcb60462"
+    },
+    "parallel_80": {
+      "category": "parallel",
+      "parent_id": "parallel_80",
+      "families": [
+        "api:math"
+      ],
+      "source_hash": "770b2e9af0c589d8522fcae5f003a58e5d79c982726e40a98d3aa01e3078eb8f"
+    },
+    "parallel_multiple_1": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_1",
+      "families": [
+        "api:area_circle",
+        "api:area_rectangle",
+        "api:volume_cylinder"
+      ],
+      "source_hash": "8b132a0753a6f288fbdfdf423de305a0d670d2e2f4c28305dd87f4d0690a9653"
+    },
+    "parallel_multiple_103": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_103",
+      "families": [
+        "api:doctor",
+        "api:lawyer"
+      ],
+      "source_hash": "836d51f407f6baa09f0206f5951e90516bb2c027936496c8dfc304fab8c2a11d"
+    },
+    "parallel_multiple_122": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_122",
+      "families": [
+        "api:games"
+      ],
+      "source_hash": "d59f88d562082fe177a437e3f6c7410d7df64d0910d3f7a4026c4117b4d72756"
+    },
+    "parallel_multiple_144": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_144",
+      "families": [
+        "api:forest_growth_forecast",
+        "api:get_scientist_for_discovery"
+      ],
+      "source_hash": "13143fd3ecc287247f19056f758db08eee9c76e1b734b03a87dabe043fa23e0f"
+    },
+    "parallel_multiple_192": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_192",
+      "families": [
+        "api:find_recipe",
+        "api:hospital",
+        "api:poker_probability"
+      ],
+      "source_hash": "6a255cfa89ad86bf81255077347903225ed9fb25c6b08962f8d89f78ac70035e"
+    },
+    "parallel_multiple_28": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_28",
+      "families": [
+        "api:criminal_record"
+      ],
+      "source_hash": "bcf192b9bd43d10d848b502183b03aa0fd5df004488e663b08bbc545f5abe570"
+    },
+    "parallel_multiple_36": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_36",
+      "families": [
+        "api:euro_history"
+      ],
+      "source_hash": "783adfeff33d203d4d3fde19bad27c85256199ab96001e58d8ac285bee4d7655"
+    },
+    "parallel_multiple_44": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_44",
+      "families": [
+        "api:house_designer",
+        "api:office_designer"
+      ],
+      "source_hash": "c40a4391a0e49018be85e77edf2abf00363c366ddf073d794298363c495ec18b"
+    },
+    "parallel_multiple_61": {
+      "category": "parallel_multiple",
+      "parent_id": "parallel_multiple_61",
+      "families": [
+        "api:EuclideanDistance",
+        "api:angleToXAxis"
+      ],
+      "source_hash": "fe18671713b24de34d5a652f4e58a562a2f593b3cbf4216658a6bc2315ce8f50"
+    },
+    "simple_java_12": {
+      "category": "simple_java",
+      "parent_id": "simple_java_12",
+      "families": [
+        "api:ExasolExecutionContext"
+      ],
+      "source_hash": "1dafc7c8d228de350c095a8e7f6a90a51607362a63da0777f4907973fa7ec00c"
+    },
+    "simple_java_21": {
+      "category": "simple_java",
+      "parent_id": "simple_java_21",
+      "families": [
+        "api:SessionHandler"
+      ],
+      "source_hash": "904963c4b3ed5f9bfa9aa21bb6d5d6d217c9ee7762a7d20efa9145624e88e1a6"
+    },
+    "simple_java_37": {
+      "category": "simple_java",
+      "parent_id": "simple_java_37",
+      "families": [
+        "api:ConsoleAnnotator"
+      ],
+      "source_hash": "0c5262473d00cb88df16d11e7176e7ae1555ee81c9f3de1dc4cae7bebed28f92"
+    },
+    "simple_java_39": {
+      "category": "simple_java",
+      "parent_id": "simple_java_39",
+      "families": [
+        "api:NodeIdConverter"
+      ],
+      "source_hash": "e8f8a3c4edd5d8ddd5a825042e0d4d2a9c367c6a529146ec80f6c548fab86c2c"
+    },
+    "simple_java_4": {
+      "category": "simple_java",
+      "parent_id": "simple_java_4",
+      "families": [
+        "api:DB2ViewBaseDepCache"
+      ],
+      "source_hash": "538a5e0d98d34b4c243de5728b7f3f8583f34606d949990dc15ce8c787b05c3c"
+    },
+    "simple_java_40": {
+      "category": "simple_java",
+      "parent_id": "simple_java_40",
+      "families": [
+        "api:RoutingNodesChangedObserver"
+      ],
+      "source_hash": "5858d63289998fc5ef47cbe28937dcdbf3e5dc072f5f6444d777fc291e94ccdd"
+    },
+    "simple_java_54": {
+      "category": "simple_java",
+      "parent_id": "simple_java_54",
+      "families": [
+        "api:AbstractTransportSearchableSnapshotsAction"
+      ],
+      "source_hash": "6f4688dfcee01a273a9546bf4a4da147f34d92a379884b6bcaa785998dbcfafb"
+    },
+    "simple_java_6": {
+      "category": "simple_java",
+      "parent_id": "simple_java_6",
+      "families": [
+        "api:SpreadsheetPresentation"
+      ],
+      "source_hash": "a329d38e0022c4d64a1c5a4ac41048590e7402f4b908c03936b4c763fde54f0f"
+    },
+    "simple_java_83": {
+      "category": "simple_java",
+      "parent_id": "simple_java_83",
+      "families": [
+        "api:thrcputime002"
+      ],
+      "source_hash": "c3399c6f3c8f12083a826c4093083d8017a522918024b187deff0ae851f1c553"
+    },
+    "simple_javascript_22": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_22",
+      "families": [
+        "api:resetStateProperty"
+      ],
+      "source_hash": "dd8a56d98c39bfaf8f279fd81a1b5daf9517de08f9f4e1e30528230b4f157312"
+    },
+    "simple_javascript_25": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_25",
+      "families": [
+        "api:trackSubmitWithValidation"
+      ],
+      "source_hash": "2347822c5258142f3e124e879e2b6e1b291535dbbdfdc6d0a9a54769d7b49ce9"
+    },
+    "simple_javascript_33": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_33",
+      "families": [
+        "api:emitNewLineBeforeLeadingComments"
+      ],
+      "source_hash": "472203e9ad9acc04627271df0cf9452477765937378250da963531de5d94089b"
+    },
+    "simple_javascript_42": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_42",
+      "families": [
+        "api:B"
+      ],
+      "source_hash": "d0ff13d828965bf1fcdb5ee5e9b7279ead92be22794edc7db4ea8b0de5a874ac"
+    },
+    "simple_javascript_46": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_46",
+      "families": [
+        "api:vOe"
+      ],
+      "source_hash": "fe0b14c51dbd395227e908b97d7a414f82b3f135af6d1c7dd60654ef8cf336da"
+    },
+    "simple_javascript_5": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_5",
+      "families": [
+        "api:manageReactState"
+      ],
+      "source_hash": "003f0e5bd5a740dc05bf38a4c8de745f8be6155cdff8222e4aa72f394037ab0a"
+    },
+    "simple_javascript_9": {
+      "category": "simple_javascript",
+      "parent_id": "simple_javascript_9",
+      "families": [
+        "api:validateApiResponse"
+      ],
+      "source_hash": "00b7280c8b2053132c3134a54fdf8d656d1d2bd2634f12a9d543f3a5b353297a"
+    },
+    "simple_python_106": {
+      "category": "simple_python",
+      "parent_id": "simple_python_106",
+      "families": [
+        "api:train_random_forest_classifier"
+      ],
+      "source_hash": "fd8da848d39aa2ba189ad3176c848e4ebbfe57620c996b2ebba73541baddb8ad"
+    },
+    "simple_python_158": {
+      "category": "simple_python",
+      "parent_id": "simple_python_158",
+      "families": [
+        "api:get_criminal_records"
+      ],
+      "source_hash": "0c57d02dcdae8d8c39c668c5b4b63c734d553e132ac65ad0f35fe18e98bbe5de"
+    },
+    "simple_python_274": {
+      "category": "simple_python",
+      "parent_id": "simple_python_274",
+      "families": [
+        "api:museum_info"
+      ],
+      "source_hash": "51f884be636391a86c325b7519a0141be8cdc158b6ab4f1793d5e6826554e9ab"
+    },
+    "simple_python_298": {
+      "category": "simple_python",
+      "parent_id": "simple_python_298",
+      "families": [
+        "api:music_theory"
+      ],
+      "source_hash": "9a37f1859e84881959de8442f9b3530da3980f2be2bab2c87c8ae236fdc75c24"
+    },
+    "simple_python_309": {
+      "category": "simple_python",
+      "parent_id": "simple_python_309",
+      "families": [
+        "api:nfl_data"
+      ],
+      "source_hash": "8a249f4c947b566be1fbaf79d923ea3a255f5912feb0890fa748f68af97a0d8b"
+    },
+    "simple_python_353": {
+      "category": "simple_python",
+      "parent_id": "simple_python_353",
+      "families": [
+        "api:find_recipes"
+      ],
+      "source_hash": "77c781a9e9cf73d836c5e3033f8eedefe2e30946d1c247d7e73414de2373e972"
+    },
+    "web_search_35": {
+      "category": "web_search",
+      "parent_id": "web_search_35",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "84b8ef060571b8319ecbc7defed0279cbfc7714a4a0950aa67dafb90075e374e"
+    },
+    "web_search_46": {
+      "category": "web_search",
+      "parent_id": "web_search_46",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "96261c5db3b495e48c1cc9bfa9adb4dc8a05bbc7e4b4385f25a427c5db37bf4d"
+    },
+    "web_search_5": {
+      "category": "web_search",
+      "parent_id": "web_search_5",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "c42a97d3d35667d61bdd35e010a5891891f6ce98066037679484b3258a661a5d"
+    },
+    "web_search_56": {
+      "category": "web_search",
+      "parent_id": "web_search_56",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "c28db98f5d2e548d40c70eaf8d52a0b92fc5712e63d2f28a1a6d45e5c5e92f22"
+    },
+    "web_search_63": {
+      "category": "web_search",
+      "parent_id": "web_search_63",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "a4cecb2388eef4fa7ebb10afcee136cf75d90d16758ef71f1b2c5b684d354129"
+    },
+    "web_search_68": {
+      "category": "web_search",
+      "parent_id": "web_search_68",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "9d2a9d071df350354297f140f1131033338a1d3733bdebc30e893a04fea4bda1"
+    },
+    "web_search_69": {
+      "category": "web_search",
+      "parent_id": "web_search_69",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "3982333c21c58d21228dbb954ab88170c048da12f037c4c84842006517584277"
+    },
+    "web_search_78": {
+      "category": "web_search",
+      "parent_id": "web_search_78",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "f8413cb5f4f3ab55d0ee5a26d2419dc465d97f17805e75e288feeb6a2327db20"
+    },
+    "web_search_82": {
+      "category": "web_search",
+      "parent_id": "web_search_82",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "028b70a44624503aad2b2e3489476e03eb372552eb24bbd6eb61eccc2e5328d4"
+    },
+    "web_search_88": {
+      "category": "web_search",
+      "parent_id": "web_search_88",
+      "families": [
+        "executor:WebSearchAPI"
+      ],
+      "source_hash": "9cdfecf6454eb9d9bdc8d5ff821538d4e8b5b9bbd521bdf13ad3541d880c931c"
+    }
+  },
+  "counts": {
+    "support": {
+      "irrelevance": 2,
+      "live_irrelevance": 3,
+      "live_multiple": 2,
+      "live_parallel": 1,
+      "live_parallel_multiple": 1,
+      "live_relevance": 1,
+      "live_simple": 1,
+      "memory_kv": 2,
+      "multi_turn_base": 2,
+      "multi_turn_long_context": 2,
+      "multi_turn_miss_func": 2,
+      "multi_turn_miss_param": 1,
+      "multiple": 1,
+      "parallel": 1,
+      "parallel_multiple": 1,
+      "simple_java": 1
+    },
+    "calibration": {
+      "irrelevance": 1,
+      "live_multiple": 1,
+      "live_parallel": 2,
+      "live_parallel_multiple": 1,
+      "live_relevance": 1,
+      "live_simple": 1,
+      "memory_kv": 1,
+      "memory_vector": 2,
+      "multi_turn_miss_param": 1,
+      "multiple": 1,
+      "parallel": 1,
+      "parallel_multiple": 1,
+      "simple_java": 1,
+      "simple_javascript": 1
+    },
+    "evaluation": {
+      "irrelevance": 25,
+      "live_irrelevance": 24,
+      "live_multiple": 17,
+      "live_parallel": 3,
+      "live_parallel_multiple": 11,
+      "live_relevance": 11,
+      "live_simple": 17,
+      "memory_rec_sum": 39,
+      "multi_turn_base": 15,
+      "multi_turn_long_context": 15,
+      "multi_turn_miss_func": 15,
+      "multi_turn_miss_param": 14,
+      "multiple": 7,
+      "parallel": 7,
+      "parallel_multiple": 7,
+      "simple_java": 7,
+      "simple_javascript": 6,
+      "simple_python": 6,
+      "web_search": 10
+    }
+  },
+  "eligible_evaluation_counts": {
+    "web_search": 98,
+    "live_multiple": 669,
+    "live_simple": 211,
+    "live_irrelevance": 481,
+    "simple_python": 380,
+    "parallel": 184,
+    "parallel_multiple": 181,
+    "irrelevance": 233,
+    "simple_java": 98,
+    "simple_javascript": 48,
+    "multi_turn_long_context": 34,
+    "multiple": 178,
+    "multi_turn_miss_func": 34,
+    "memory_rec_sum": 54,
+    "multi_turn_base": 34,
+    "multi_turn_miss_param": 34,
+    "live_relevance": 11,
+    "live_parallel": 3,
+    "live_parallel_multiple": 11
+  },
+  "historical_base_context": {
+    "Overall": 45.6,
+    "NL": 82,
+    "Live": 80,
+    "MT": 53,
+    "Memory": 30,
+    "Irrel": 75
+  }
+}

@@ -5,10 +5,12 @@ translate arguments/results only; the sole training state machine remains
 experiment.RTDExperiment and the sole return estimator is reinforce_gradient.
 The old entrypoints do not consult this registry until C26-F.
 """
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import import_module
 import json
+import os
 from pathlib import Path
 from types import MappingProxyType
 
@@ -43,6 +45,10 @@ class ALFWorldFeedbackContext:
     env_factory: object
     journal: object
 
+    def check_syntax(self, text):
+        from ...adapters.alfworld import ALFWorldAdapter
+        return dict(valid=bool(ALFWorldAdapter._teacher_command_text(text).strip()))
+
 
 def alfworld_bank_builder(root, directory, *, entries=None, renderer=render_prompt):
     """Explicit C26-A inventory builder, never passed off as a verified B bank.
@@ -62,10 +68,21 @@ class ALFWorldExperimentSupport:
     """BFCLSupport-shaped view of C26-B's frozen parent/reset protocol."""
     def __init__(self, root, config):
         _privileged()
+        if config.get('method') == 'rtd_unified':
+            from ..unified.config import runtime_config
+            config = runtime_config(config)
         from .alfworld_config import bank_audit
         from .alfworld_support import ALFWorldSupport
         from ..transport import FullState
-        audit = bank_audit(root, config)
+        if config.get('protocol_version') == '1.1.0':
+            from ..bank_build import validate_state_certificate
+            bank_path = Path(root)/config['replay_bank_path']
+            validate_state_certificate(bank_path, benchmark='alfworld', student=config['student'])
+            if json.loads((Path(root)/config['support_manifest']).read_text()) != json.loads((bank_path/'public/support.json').read_text()):
+                raise ValueError('external support differs from ALFWorld bank')
+            audit = {'bank_path': str(bank_path)}
+        else:
+            audit = bank_audit(root, config)
         bank = Path(audit['bank_path'])
         self.config = dict(config)
         self.protocol = ALFWorldSupport(json.loads((bank / 'public/support.json').read_text()))
@@ -86,6 +103,10 @@ class ALFWorldExperimentSupport:
                 raise ValueError('support must start at a full reset')
             self.states[h] = state
 
+    def syntax_success(self, text, state):
+        from .alfworld_rollout import parse_action
+        return not parse_action(text, json.loads(state.history_json)[-1]['admissible'])[1]
+
     def feedback_context(self, round_number, backend, journal):
         """C26-F feedback dispatch supplies a fresh explicit per-window context."""
         _privileged()
@@ -94,7 +115,9 @@ class ALFWorldExperimentSupport:
         from ...cc_pairs import thinking_off
         adapter = ALFWorldAdapter()
         adapter._tokenizer = backend.tokenizer
-        renderer = lambda request, history: thinking_off(adapter._render(prompt_messages(request, history)))
+        def renderer(request, history):
+            prompt = adapter._render(prompt_messages(request, history))
+            return prompt if self.config.get('protocol_version') == '1.1.0' else thinking_off(prompt)
         environment_hash = self.protocol.manifest['environment']['environment_hash']
         return ALFWorldFeedbackContext(self.protocol, round_number, renderer,
             lambda: RealStepper(environment_hash=environment_hash), journal)
@@ -103,9 +126,76 @@ class ALFWorldExperimentSupport:
         _privileged()
         if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
             raise ValueError('ALFWorld feedback needs its bound support/window context')
+        if getattr(backend, 'diagnostic_only', False):
+            from .interactive_diagnostics import alfworld_greedy
+            return alfworld_greedy(self.states[parent], backend, parameters, generator, checker)
         tid = self.parents[parent]
         return alfworld_feedback_rollout(self.states[parent], self.categories[tid], [],
             backend, parameters, generator, checker=checker)
+
+    def diagnostic_batch(self, parents, backend, parameters, generator, checker):
+        _privileged()
+        if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
+            raise ValueError('ALFWorld feedback needs its bound support/window context')
+        from .interactive_diagnostics import alfworld_greedy_batch
+        parents = tuple(parents)
+        rollouts = alfworld_greedy_batch([self.states[parent] for parent in parents],
+                                        backend, parameters, generator, checker)
+        yield from zip(parents, rollouts, strict=True)
+
+    def feedback_batch(self, tasks, backend, parameters, generator, checker):
+        """Keep serial task/ticket/seed order; co-schedule bounded episode cohorts."""
+        _privileged()
+        if not isinstance(checker, ALFWorldFeedbackContext) or checker.support is not self.protocol:
+            raise ValueError('ALFWorld feedback needs its bound support/window context')
+        import torch
+        from .alfworld_rollout import alfworld_task_rollouts_lockstep
+        tasks = tuple(tasks)
+        for parent, _ in tasks:
+            _alfworld_feedback_request(self.states[parent], checker)
+        # RTD v1.1 can have more selected episodes than the configured natural
+        # batch. Preserve all selected tasks while bounding the live workers.
+        natural = self.config['meta_tasks_per_feedback'] * self.config['rollouts_per_meta_task']
+        try:
+            limit = int(os.environ.get('BFAS_FEEDBACK_LOCKSTEP_EPISODES', str(natural)))
+        except ValueError:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer') from None
+        if limit < 1:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer')
+        entries, groups = [], []
+        with alfworld_action_limit(backend, 'agent_action'):
+            for parent, count in tasks:
+                planned = backend.feedback_start_groups(self.states[parent].prompt, count, generator)
+                groups.extend(planned)
+                # Exactly the durable draws made by registry.feedback after the
+                # original parent's batched task starts. Episode continuations
+                # and retry replay never consume this experiment generator.
+                for _ in range(count):
+                    seed = int(torch.randint(0, 2**63-1, (), generator=generator, device=generator.device))
+                    entries.append((parent, self.states[parent], seed))
+            groups, pending = iter(groups), deque()
+            for offset in range(0, len(entries), limit):
+                live = entries[offset:offset+limit]
+                logical, available = [], len(pending)
+                while available < len(live):
+                    group = next(groups)
+                    logical.append(group)
+                    available += len(group)
+                # K bounds workers independently of the padded token budget.
+                # A task-start RNG group straddling cohorts is sampled intact;
+                # retain only its unused actions until the next cohort.
+                if logical:
+                    pending.extend(backend.generate_feedback_groups(logical, parameters,
+                        prompts_per_batch=limit))
+                starts = tuple(pending.popleft() for _ in live)
+                episodes = alfworld_task_rollouts_lockstep([entry[1] for entry in live], backend,
+                    parameters, env_factory=checker.env_factory, renderer=checker.renderer,
+                    journal=checker.journal, rollout_indices=[entry[2] for entry in live],
+                    first_actions=starts)
+                # Restore parent-major order even when an episode
+                # terminates before its neighbours.
+                for (parent, _, _), episode in zip(live, episodes):
+                    yield parent, episode.as_task_rollout()
 
 
 @contextmanager
@@ -131,13 +221,25 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
     One seed draw from the experiment's saved generator supplies an independent
     C26-C episode stream. Its derived seed is journaled by C26-C; resume restores
     the pre-phase generator, so an interrupted phase repeats identical draws.
-    Infrastructure errors propagate through as_task_rollout; no zero imputation.
+    RPC failures retry once with that same stream and fresh reset. Exhausted
+    infrastructure errors propagate through as_task_rollout; no zero imputation.
     """
     _privileged()
     if category != 'agent_action' or truth != [] or not isinstance(checker, ALFWorldFeedbackContext):
         raise ValueError('ALFWorld feedback requires agent_action, no truth labels, and bound context')
-    from ..transport import FullState
     task_ref = entry
+    _alfworld_feedback_request(entry, checker)
+    import torch
+    from .alfworld_rollout import alfworld_task_rollout_with_retry
+    seed = int(torch.randint(0, 2**63 - 1, (), generator=generator, device=generator.device).item())
+    with alfworld_action_limit(backend, category):
+        episode = alfworld_task_rollout_with_retry(task_ref, backend, parameters, env_factory=checker.env_factory,
+            renderer=checker.renderer, journal=checker.journal, rollout_index=seed, base_seed=0)
+    return episode.as_task_rollout()
+
+
+def _alfworld_feedback_request(entry, checker):
+    from ..transport import FullState
     entry = json.loads(entry.task_json) if isinstance(entry, FullState) else entry
     checker.support.guard_tasks([entry['task_id']], checker.round_number, use='feedback')
     manifest = checker.support.manifest
@@ -145,13 +247,6 @@ def alfworld_feedback_rollout(entry, category, truth, backend, parameters, gener
     if (entry != manifest['tasks'][entry['task_id']]['request'] or
             manifest['parents'][parent_hash(entry['task_id'])]['selected_task_id'] != entry['task_id']):
         raise ValueError('feedback differs from frozen selected trial')
-    import torch
-    from .alfworld_rollout import alfworld_task_rollout
-    seed = int(torch.randint(0, 2**63 - 1, (), generator=generator, device=generator.device).item())
-    with alfworld_action_limit(backend, category):
-        episode = alfworld_task_rollout(task_ref, backend, parameters, env_factory=checker.env_factory,
-            renderer=checker.renderer, journal=checker.journal, rollout_index=seed, base_seed=0)
-    return episode.as_task_rollout()
 
 
 def alfworld_cap_policy(request_class, *, limits=None, evidence=()):
@@ -164,9 +259,15 @@ def alfworld_cap_policy(request_class, *, limits=None, evidence=()):
 
 def alfworld_harness_identity(root, config):
     _privileged()
+    if config.get('method') == 'rtd_unified' or config.get('p1'):
+        from .webshop_identity import evaluation_harness_identity as identity
+        return identity(root, config)
     from .alfworld_config import model_directory, validate_config
     from .alfworld_identity import evaluation_harness_identity
     config = validate_config(config)
+    if config.get('protocol_version') == '1.1.0':
+        from .webshop_identity import evaluation_harness_identity as identity
+        return identity(root, config)
     model = model_directory(root, config)
     return evaluation_harness_identity(root, config,
         data_root=Path(root) / config['alfworld_data_root'], model_path=model, tokenizer_path=model,
@@ -189,6 +290,10 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
     from .alfworld_evaluation import evaluate
     root, directory = Path(root), Path(directory)
     saved = json.loads((directory / 'manifest.json').read_text())
+    if saved['config'].get('protocol_version') == '1.1.0' or saved['config'].get('method') == 'rtd_unified':
+        from .webshop_evaluation import evaluate_adapter
+        return evaluate_adapter(root, directory, round_number, port=port, base_evaluation=base_evaluation,
+            lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
     config = validate_config(saved['config'])
     if digest(config) != saved['config_hash']:
         raise ValueError('training config identity mismatch')
@@ -222,6 +327,28 @@ REGISTRY = MappingProxyType({
         cap_policy=('bfas.rtd.caps', 'public_cap'),
         affordability=('bfas.rtd.caps', 'affordability'),
         scoring_projection=('bfas.rtd.scoring_scope', 'scoring_projection'))),
+    'hotpotqa': MappingProxyType(dict(
+        bank_builder=('bfas.rtd.benchmarks.hotpotqa_bank', 'build_hotpotqa_bank'),
+        broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),
+        support_protocol=('bfas.rtd.benchmarks.hotpotqa_support', 'HotpotQASupport'),
+        action_limit=('bfas.rtd.benchmarks.hotpotqa_caps', 'action_limit'),
+        feedback_rollout=('bfas.rtd.benchmarks.hotpotqa_rollout', 'hotpotqa_task_rollout'),
+        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate_adapter'),
+        harness_identity=('bfas.rtd.benchmarks.hotpotqa_identity', 'evaluation_harness_identity'),
+        cap_policy=('bfas.rtd.benchmarks.hotpotqa_caps', 'public_cap'),
+        affordability=('bfas.rtd.benchmarks.hotpotqa_caps', 'affordability'),
+        scoring_projection=('bfas.rtd.benchmarks.hotpotqa_identity', 'scoring_projection'))),
+    'webshop': MappingProxyType(dict(
+        bank_builder=('bfas.rtd.benchmarks.webshop_bank', 'build_webshop_bank'),
+        broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),
+        support_protocol=('bfas.rtd.benchmarks.webshop_support', 'WebShopSupport'),
+        action_limit=('bfas.rtd.benchmarks.webshop_caps', 'action_limit'),
+        feedback_rollout=('bfas.rtd.benchmarks.webshop_rollout', 'webshop_task_rollout'),
+        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate'),
+        harness_identity=('bfas.rtd.benchmarks.webshop_identity', 'evaluation_harness_identity'),
+        cap_policy=('bfas.rtd.benchmarks.webshop_caps', 'public_cap'),
+        affordability=('bfas.rtd.benchmarks.webshop_caps', 'affordability'),
+        scoring_projection=('bfas.rtd.benchmarks.webshop_identity', 'scoring_projection'))),
     'alfworld': MappingProxyType(dict(
         bank_builder=(__name__, 'alfworld_bank_builder'),
         broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),

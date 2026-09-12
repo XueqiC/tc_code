@@ -41,7 +41,7 @@ BFCL = ROOT / "envs/bfcl/gorilla/berkeley-function-call-leaderboard"
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(BFCL))
 
-TEACHER = os.environ.get("BFAS_BFCL_TEACHER", "deepseek-v4-pro")
+TEACHER = os.environ.get("BFAS_BFCL_TEACHER", "gpt-5.4")
 # The AST checker resolves this name in the benchmark's registry, and for models
 # flagged underscore_to_dot it rewrites dots in the GROUND TRUTH function name
 # (uber.ride -> uber_ride) to match what those APIs accept. We prompt the teacher

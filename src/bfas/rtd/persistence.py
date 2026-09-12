@@ -14,6 +14,31 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 
+def manifest_identity(manifest):
+    """Observed diagnostics are a journal projection, not a run identity knob."""
+    return {k: v for k, v in manifest.items() if k != 'score_consistency_observed'}
+
+
+def manifest_digest(manifest):
+    return digest(manifest_identity(manifest))
+
+
+def manifest_hash(manifest):
+    """Streaming binds immutable identity; its journal binds replay progress.
+
+    Historical manifests without observations retain their original digest.
+    """
+    from .streaming_replay import enabled as streaming_enabled
+    if streaming_enabled(manifest):
+        manifest = {k: v for k, v in manifest.items()
+                    if k not in {'replay_consumed_steps', 'replay_schedule_hash'}}
+        manifest = dict(manifest, replay_mode='streaming')
+    elif (manifest.get('config', {}).get('method') == 'rtd_unified'
+            and 'replay_schedule_identity' in manifest):
+        manifest = {k: v for k, v in manifest.items() if k != 'replay_consumed_steps'}
+    return manifest_digest(manifest)
+
+
 def file_hash(path):
     h = hashlib.sha256()
     with Path(path).open('rb') as stream:
@@ -60,7 +85,7 @@ class StateStore:
     def __init__(self, directory, manifest):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.binding = digest(manifest)
+        self.binding = manifest_hash(manifest)
         self.pointer = self.directory / 'latest.json'
 
     def save(self, state, ledger):
@@ -90,10 +115,28 @@ class StateStore:
             raise ValueError('checkpoint ledger prefix mismatch')
         state = torch.load(path, map_location=device, weights_only=False)
         tail = ledger.events[count:]
-        allowed_q = set(state.get('fixed_ids', ())) if state['phase'] == 'initialize_fixed' else {state.get('selected')}
+        if state.get('batch_schema_version'):
+            allowed_q = {state.get('transaction_query')}
+        else:
+            allowed_q = {state.get('selected')}
+        if state['phase'] == 'initialize_fixed':
+            allowed_q = set(state.get('fixed_ids', ()))
         for event in tail:
             if event['kind'] == 'authorize' and state['phase'] in {'round_start', 'initialize_fixed'}:
                 continue
+            if state.get('batch_schema_version') and event['kind'] == 'window_open':
+                if (state['phase'] != 'selected' or event['window_id'] != state['window_id']
+                        or event['budget'] != state['window_budget']
+                        or event['max_packages'] != state['selection']['max_new_packages']):
+                    raise ValueError('ledger opened outside the durably selected window')
+                continue
+            if state.get('batch_schema_version') and event['kind'] == 'window_close':
+                if state['phase'] != 'committed' or event['window_id'] != state['window_id']:
+                    raise ValueError('ledger closed outside the durably committed window')
+                continue
+            if state.get('batch_schema_version') and (event['kind'] not in {'reserve', 'reveal', 'release'}
+                    or event['query_id'] is None):
+                raise ValueError('ledger advanced outside a durably selected transaction')
             if state['phase'] not in {'selected', 'initialize_fixed'} or event['query_id'] not in allowed_q:
                 raise ValueError('ledger advanced outside a durably selected transaction')
         return state
@@ -101,10 +144,13 @@ class StateStore:
 
 class ComputeJournal:
     """Hash-chained events retain failed/repeated work instead of rolling it back."""
-    def __init__(self, path, *, cuda=False, deadline=None):
+    def __init__(self, path, *, cuda=False, deadline=None, deadline_seconds=None):
         self.path = Path(path)
         self.cuda, self.deadline = cuda, deadline
+        self.deadline_seconds = deadline_seconds
         self.events = []
+        self._score_manifest = None
+        self._score_summary = None
         self._measure_stack = []
         self._step_peaks = None
         self._phase_peaks = []
@@ -125,6 +171,21 @@ class ComputeJournal:
                     raise ValueError('compute journal hash mismatch')
                 self.events.append(e)
 
+    def bind_score_manifest(self, manifest, path):
+        """Rebuild from the verified journal, repairing a stale/crash-lagged summary."""
+        from .scoring import ScoreConsistencySummary
+        self._score_manifest = (manifest, Path(path))
+        self._score_summary = ScoreConsistencySummary()
+        for event in self.events:
+            if event['kind'] == 'score_consistency':
+                self._score_summary.add(event)
+        self._publish_score_summary()
+
+    def _publish_score_summary(self):
+        manifest, path = self._score_manifest
+        manifest['score_consistency_observed'] = self._score_summary.record()
+        atomic_json(path, manifest)
+
     def append(self, kind, **values):
         event = dict(sequence=len(self.events), kind=kind, timestamp=datetime.now(timezone.utc).isoformat(),
                      previous_hash=self.events[-1]['hash'] if self.events else None, **values)
@@ -132,6 +193,9 @@ class ComputeJournal:
         with self.path.open('a') as stream:
             stream.write(json.dumps(event, allow_nan=False) + '\n'); stream.flush(); os.fsync(stream.fileno())
         self.events.append(event)
+        if kind == 'score_consistency' and self._score_manifest is not None:
+            self._score_summary.add(event)
+            self._publish_score_summary()  # Durable before enforce_score_diagnostic raises.
         return event['sequence']
 
     def gpu_memory(self):
@@ -200,7 +264,9 @@ class ComputeJournal:
     @contextmanager
     def measure(self, operation, *, _peaks=None, **counts):
         if self.deadline is not None and time.monotonic() >= self.deadline:
-            raise TimeoutError('smoke exceeded its 15 minute compute budget')
+            message = ('compute deadline exceeded' if self.deadline_seconds is None else
+                       f'smoke exceeded {self.deadline_seconds} seconds')
+            raise TimeoutError(f'{message}; resume state retained')
         if self.cuda:
             torch.cuda.synchronize()
         start = time.monotonic()

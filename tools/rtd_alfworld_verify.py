@@ -24,7 +24,15 @@ from bfas.rtd.benchmarks.alfworld_support import (
 from bfas.rtd.transport import FullState
 
 ROOT = Path(__file__).resolve().parents[1]
-TOKENIZER = Path.home() / ".cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots" / bank.TOKENIZER_SNAPSHOT
+
+
+def __getattr__(name):
+    # Archived CPU replay callers retain their import; the model now comes
+    # from the legacy run configuration, without a pinned tokenizer snapshot.
+    if name == 'TOKENIZER':
+        from bfas.rtd.benchmarks.alfworld_config import load_config, model_directory
+        return model_directory(ROOT, load_config(ROOT / 'configs/rtd/v1_alfworld_c26.yaml'))
+    raise AttributeError(name)
 
 
 def _new(path, value):
@@ -141,17 +149,22 @@ def main(argv=None):
     p.add_argument("--out", type=Path, default=ROOT / "data/rtd/v1_alfworld_c26")
     p.add_argument("--report", type=Path, default=ROOT / "results/rtd_v1/alfworld_bank_audit/run_c26b")
     p.add_argument("--support", type=Path, default=ROOT / "configs/rtd/v1_alfworld_support_c26.json")
-    p.add_argument("--tokenizer", type=Path, default=TOKENIZER)
+    p.add_argument("--config", type=Path, default=ROOT / "configs/rtd/v1_alfworld_c26.yaml")
+    p.add_argument("--tokenizer", type=Path)
     p.add_argument("--timeout", type=float, default=30.0)
     p.add_argument("--episode-timeout", type=float, default=120.0)
     p = sub.add_parser("support", help="freeze parent/world/environment manifest without environment calls")
     p.add_argument("--root", type=Path, default=ROOT)
-    p.add_argument("--tokenizer", type=Path, default=TOKENIZER)
+    p.add_argument("--config", type=Path, default=ROOT / "configs/rtd/v1_alfworld_c26.yaml")
+    p.add_argument("--tokenizer", type=Path)
     p.add_argument("--out", type=Path, default=ROOT / "configs/rtd/v1_alfworld_support_c26.json")
     p = sub.add_parser("audit", help="verify sealed files and FullState semantics")
     p.add_argument("--bank", type=Path, default=ROOT / "data/rtd/v1_alfworld_c26")
     p.add_argument("--expected-manifest-sha256")
     args = parser.parse_args(argv)
+    if args.command in {'verify', 'support'} and args.tokenizer is None:
+        from bfas.rtd.benchmarks.alfworld_config import load_config, model_directory
+        args.tokenizer = model_directory(args.root, load_config(args.config))
     if args.command == "verify":
         return verify(args)
     if args.command == "support":

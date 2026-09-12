@@ -113,6 +113,7 @@ def test_teacher_episode_builds_demo_and_charges_tokens(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     adapter = _adapter()
+    monkeypatch.setenv("BFAS_TEACHER", "deepseek-v4-pro")
     monkeypatch.setenv("OLLAMA_BASE_URL", "https://teacher.example/")
     monkeypatch.setenv("OLLAMA_API_KEY", "secret")
     captured: dict[str, Any] = {}
@@ -195,3 +196,15 @@ def test_azure_teacher_goes_through_litellm_with_env_only_credentials(
         dataset_name="d", max_steps=5, client_name="litellm",
     )
     assert episode.verified is True
+
+
+def test_default_teacher_endpoint_uses_gpt54(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    monkeypatch.setenv("AZURE_LLM_ENDPOINT", "https://azure.example/")
+    monkeypatch.setenv("AZURE_LLM_KEY", "azure-test-key")
+    model, base_url, api_key, client_name, extra_env = aw.AppWorldOfficialAdapter._teacher_endpoint()
+    assert model == "azure/gpt-5.4"
+    assert base_url == api_key == ""
+    assert client_name == "litellm"
+    assert extra_env["AZURE_API_BASE"] == "https://azure.example"
+    assert extra_env["AZURE_API_KEY"] == "azure-test-key"

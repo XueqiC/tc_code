@@ -128,6 +128,9 @@ def default_config():
 
 
 def validate_config(value):
+    if isinstance(value, dict) and value.get('protocol_version') == '1.1.0':
+        from ..cli import validate_config as validate_v11
+        return validate_v11(value)
     if not isinstance(value, dict) or any(not isinstance(k, str) for k in value):
         raise ValueError("configuration must be a string-keyed mapping")
     if value.get("benchmark") != "alfworld":
@@ -164,7 +167,8 @@ def validate_config(value):
     if type(limits["alfworld"]["agent_action"]) is not int:
         raise ValueError("positive integer action cap required")
     identity.checked_config(config)
-    config["score_consistency_tolerance"] = vars(ScoreTolerance.from_config(config))
+    # Preserve the frozen declaration; diagnostics record effective code defaults.
+    ScoreTolerance.from_config(config)
     MemoryPolicy.from_config(config)
     if config["memory_reserve_gb"] >= config["memory_peak_budget_gb"]:
         raise ValueError("memory reserve must be smaller than peak budget")
@@ -273,7 +277,9 @@ def manifest_section(root, config):
     from .alfworld_support import environment_identity
     if environment_identity(root, model) != support["environment"]:
         raise ValueError("current environment/tokenizer differs from frozen support")
+    from ..conventions import fold_roles
     return dict(config=config, config_hash=digest(config), model_path=str(model),
+        parent_group_roles_by_fold=fold_roles(support['parents']),
         base_checkpoint_hash=harness["model"]["base_checkpoint_hash"],
         tokenizer_hash=harness["tokenizer"]["hash"], evaluation_harness=harness,
         harness_hash=digest(harness), data_hash=data_identity(root, config, audit["bank_path"]),

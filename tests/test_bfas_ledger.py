@@ -146,6 +146,41 @@ def test_user_sim_usage_is_separate_from_teacher_attempts(tmp_path: Path) -> Non
     assert state["tokens_total"] == 23
 
 
+def test_optional_usage_counters_preserve_legacy_rows(tmp_path: Path) -> None:
+    path = tmp_path / "mixed.jsonl"
+    legacy = {
+        "task_id": "task", "teacher": "teacher-v1", "attempt_index": 0,
+        "temperature": 0.0, "verified": False, "tokens_spent": 3,
+        "timestamp": "2026-08-29T00:00:00Z",
+    }
+    path.write_text(json.dumps(legacy) + "\n")
+    counters = [
+        {"completion_tokens": 5, "prompt_tokens": 21},
+        {"completion_tokens": 7, "prompt_tokens": 31, "cached_tokens": 16},
+        {"completion_tokens": 0, "prompt_tokens": 12, "cached_tokens": 0},
+    ]
+    for attempt_index, usage in enumerate(counters, 1):
+        ledger.append_episode(
+            path,
+            task_id="task",
+            teacher="openai/gpt-5.6-luna",
+            attempt_index=attempt_index,
+            temperature=0.7,
+            verified=False,
+            tokens_spent=usage["completion_tokens"],
+            usage=usage,
+        )
+
+    rows = ledger.read_records(path)
+    assert rows[0] == dict(legacy, purpose="teacher")
+    assert "usage" not in rows[0]
+    assert [row["usage"] for row in rows[1:]] == counters
+    state = ledger.load_ledger(path, attempts=4)["task"]
+    assert state["attempts_used"] == 4
+    assert state["tokens_total"] == 15  # Input and cache counts never inflate output.
+    assert state["infeasible"] is True
+
+
 def test_acquire_skips_verified_without_teacher_call(tmp_path: Path) -> None:
     path = tmp_path / "verified.jsonl"
     ledger.append_episode(

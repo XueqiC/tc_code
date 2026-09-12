@@ -2,6 +2,13 @@
 
 > Claude: 每完成一段工作就更新本文件。重启或上下文压缩后,先读这里再干活。
 
+## RTD unified P1 preparation — 2026-09-10
+
+- 分支 `rtd-unified`：新增 ALFWorld/WebShop Gemma4 unified configs；D0/D1/D2/D3、nocross/raw/shuffle/fixedmean presets；P1 recorded-exposure runner 与九阶段 smoke profiling。
+- D1 原 α/d 程序与 total NLL 保留；D0 经 appworld_train 的 SFT+soft KL 窗口入口，统一 eta=1e-5、24 commits、r16；cT/cKL 仅 calibration split 可调，尚未声称调优完成。
+- CPU 只读核验现有 ALFWorld bank：107 packages / 135 parents / 36,294 recorded tokens，cap 3,629 / 9,074。没有 GPU/API 实验。
+- 复现命令、限制与验证记录：`docs/RTD_UNIFIED_P1_PREP_ZH.md`。P1 性能实验与 P2/P3 仍 PLANNED。最终全 CPU suite：2,436 passed / 4 skipped / 6 warnings，931.44 s，exit 0；P1/QP/execution focused suite 55 passed。
+
 ## Research question / goal
 **(2026-08-09 用户重构后的核心问题,目标 ICLR)**
 

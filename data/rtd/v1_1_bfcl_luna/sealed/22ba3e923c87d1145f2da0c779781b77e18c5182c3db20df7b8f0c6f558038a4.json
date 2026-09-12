@@ -1,0 +1,22 @@
+{
+  "cost": 26773,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 26773
+  },
+  "provenance": {
+    "task_id": "memory_vector_112-student-32",
+    "ledger_row": 34
+  },
+  "historical_response": {
+    "task_id": "memory_vector_112-student-32",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 1,
+    "temperature": 0.7,
+    "verified": false,
+    "tokens_spent": 26773,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:48:28.669537Z"
+  },
+  "behaviors": []
+}

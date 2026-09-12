@@ -1,0 +1,45 @@
+{
+  "core": {
+    "all_actual_within_class_cap": true,
+    "audit_sha256": "d9367b7903bebc6756b0992e20c7327ccd58cdf12641b1f29f1a986494ff4975",
+    "available_packages": 20,
+    "benchmark": "bfcl",
+    "budget_basis": "usable_recorded_output_tokens",
+    "budget_denominator": 1418,
+    "cap_basis": "sealed_bank_class_content_envelope",
+    "cap_rule": "next_power_of_two_of_usable_class_maximum",
+    "class_caps": {
+      "demo_attempt": 256
+    },
+    "class_counts": {
+      "demo_attempt": 20
+    },
+    "cost_scope": "cached-content cost; not the full teacher bill",
+    "inputs": {
+      "ledger": "4cd86bb17bc2ae9aabcfef4467b63653a1de581f5a3b8cc7f22828a30ff59c91",
+      "ledger_provenance": "f0d7b9e032934b6191ac163cc6c35329a23d7060c0f6cca3ebfe2ca2408ba4c4",
+      "pool": "ec5afd2fc0af7036c120b547f2f727e4abec09808fa86b300bd0d6574f664de1"
+    },
+    "online_authorized": false,
+    "protocol_version": "1.1.0",
+    "public_artifacts": {
+      "support.json": "a9139a2ee4b1dda283bc652e55584bd75ab5786109da41d841b16781ba9599fc"
+    },
+    "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+    "rounding": "positive_integer_half_up",
+    "sealed_integrity_sha256": "954d26987b02208599d518f565e9a672a090a202c964d3fb2be38824be760641",
+    "student": "google/gemma-4-12B-it",
+    "teacher_accounting": {
+      "adapter_rerun_exact_output_tokens": 0,
+      "adapter_rerun_extra_calls": 0,
+      "historical_cost_status": "recorded-gateway-ledger; raw-harness-retention-partial",
+      "pool_cost_status": "exact-gateway-ledger",
+      "recorded_output_tokens": 228545,
+      "unknown_usage_attempts": 0
+    },
+    "usable_set_hash": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+    "version": "rtd-v1.1.0-state-bank"
+  },
+  "core_hash": "398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f",
+  "public_sha256": "2529b5e9de7fc80e78840f3562c908e6e99bcbb9b8be134afb4dbb976dc0d255"
+}

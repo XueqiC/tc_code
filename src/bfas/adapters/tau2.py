@@ -406,7 +406,7 @@ class Tau2Adapter(BenchmarkAdapter):
     def teacher_name(self) -> str:
         return os.environ.get(
             "BFAS_TAU2_TEACHER",
-            os.environ.get("BFAS_TEACHER", "deepseek-v4-pro"),
+            os.environ.get("BFAS_TEACHER", "gpt-5.4"),
         )
 
     @staticmethod
@@ -462,7 +462,7 @@ class Tau2Adapter(BenchmarkAdapter):
         }
 
     def _user_args(self, temperature: float) -> tuple[str, dict[str, Any]]:
-        user_model = os.environ.get("BFAS_TAU2_USER_MODEL", "deepseek-v4-pro")
+        user_model = os.environ.get("BFAS_TAU2_USER_MODEL", "gpt-5.4")
         if user_model.startswith("azure/"):
             return user_model, {"temperature": float(temperature)}
         base_url, _ = self._teacher_endpoint()
@@ -737,7 +737,7 @@ class Tau2Adapter(BenchmarkAdapter):
             append_episode(
                 self.name,
                 task_id=encode_task_id(domain, str(native_id)),
-                teacher="deepseek-v4-pro",
+                teacher=os.environ.get("BFAS_TAU2_USER_MODEL", "gpt-5.4"),
                 attempt_index=self._run_serial,
                 temperature=temperature,
                 verified=False,

@@ -231,7 +231,16 @@ def experiment(directory, toy_bank, *, resume=False, after_save=None, arm='R1', 
     manifest = dict(config_hash=digest(config), config=config, arm=arm, bank_path=str(bank),
                     budget_ceilings=[100000,200000,300000] if budget_ceilings is None else budget_ceilings,
                     bank_public_cap_sum=32768, hardware_hash='toy-cpu')
-    return RTDExperiment(config, manifest, directory, tiny_backend(), TinySupport(states),
+    backend = tiny_backend()
+    if config.get('source_estimator', 'hard2') != 'hard2':
+        model = backend.model
+        model.head = torch.nn.Identity()
+        model.get_output_embeddings = lambda: model.head
+        original = model.forward
+        def forward(*a, **kw):
+            out = original(*a, **kw); out.logits = model.head(out.logits); return out
+        model.forward = forward
+    return RTDExperiment(config, manifest, directory, backend, TinySupport(states),
                          resume=resume, after_save=after_save, smoke=smoke)
 
 

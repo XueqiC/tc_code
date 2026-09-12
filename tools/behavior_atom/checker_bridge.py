@@ -62,6 +62,20 @@ def _language_name(category):
     return "python"
 
 
+def _response_handler(request):
+    call_format = request.get('student_call_format', 'qwen')
+    model = request['checker_model']
+    if call_format == 'gemma4':
+        from bfcl_eval.model_handler.local_inference.gemma4_fc import Gemma4FCHandler
+        handler = Gemma4FCHandler(model, 1., model, True)
+    elif call_format == 'qwen':
+        from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
+        handler = QwenFCHandler(model, 1., model, True)
+    else:
+        raise ValueError('student_call_format must be gemma4 or qwen')
+    return handler
+
+
 def _check_multi_turn(request):
     """Official evaluator in a fresh simulator namespace, including repeated tasks."""
     from copy import deepcopy
@@ -69,7 +83,7 @@ def _check_multi_turn(request):
     from bfcl_eval.eval_checker.multi_turn_eval import multi_turn_utils
     from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
     model = request["checker_model"]
-    handler = QwenFCHandler(model, 1., model, True)
+    handler = _response_handler(request)
     run_model = model + "_rtd_" + uuid.uuid4().hex
     prefix = re.sub(r'[-./:]', '_', run_model) + "_"
     try:
@@ -85,9 +99,25 @@ def _check_relevance(request):
     from bfcl_eval.eval_checker.eval_runner import _evaluate_single_relevance_entry
     from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
     model = request["checker_model"]
-    handler = QwenFCHandler(model, 1., model, True)
+    handler = _response_handler(request)
     return _evaluate_single_relevance_entry(handler, request["entry"]["id"], request["result"],
                                             request["entry"], model, request["category"])
+
+
+def _check_syntax(request):
+    """Use the RTD Qwen decoding guard, without truth or task execution."""
+    if str(ROOT / 'src') not in sys.path:
+        sys.path.insert(0, str(ROOT / 'src'))
+    from bfas.rtd.bfcl_decode import DECODE_ERRORS, guard_rtd_decoding
+    from bfcl_eval.model_handler.local_inference.qwen_fc import QwenFCHandler
+    model = request['checker_model']
+    handler = _response_handler(request)
+    guard_rtd_decoding(handler, lambda *_: None, student_call_format=request.get('student_call_format', 'qwen'))
+    try:
+        handler._extract_tool_calls(request['text'])
+    except DECODE_ERRORS as exc:
+        return dict(valid=False, error=type(exc).__name__)
+    return dict(valid=True, error=None)
 
 
 class CheckerBridgeError(RuntimeError):
@@ -125,7 +155,10 @@ class CheckerBridge:
     closes the worker when the bridge is discarded or the interpreter exits.
     """
 
-    def __init__(self, checker_model="Qwen/Qwen3.5-4B-FC", *, python=None, timeout=120.0):
+    def __init__(self, checker_model="Qwen/Qwen3.5-4B-FC", *, python=None, timeout=120.0, student_call_format="qwen"):
+        if student_call_format not in {'qwen', 'gemma4'}:
+            raise ValueError('student_call_format must be gemma4 or qwen')
+        self.student_call_format = student_call_format
         self.checker_model = checker_model
         self.python = str(Path(python or os.environ.get(
             "BFCL_VENV_PYTHON", ROOT / "envs/bfcl/.venv/bin/python")).expanduser())
@@ -231,7 +264,7 @@ class CheckerBridge:
             if self._closed:
                 raise CheckerBridgeError("checker bridge is closed")
             request = dict(kind="multi_turn", entry=entry, result=result, truth=truth,
-                           category=category, checker_model=self.checker_model)
+                           category=category, checker_model=self.checker_model, student_call_format=self.student_call_format)
             if self._checker is not None:
                 return _check_multi_turn(request)
             return self._request(request)
@@ -241,7 +274,7 @@ class CheckerBridge:
             if self._closed:
                 raise CheckerBridgeError("checker bridge is closed")
             request = dict(kind="relevance", entry=entry, result=result, category=category,
-                           checker_model=self.checker_model)
+                           checker_model=self.checker_model, student_call_format=self.student_call_format)
             if self._checker is not None:
                 return _check_relevance(request)
             return self._request(request)
@@ -249,8 +282,22 @@ class CheckerBridge:
     def check_many(self, probes_and_calls):
         return [self.check(probe, calls) for probe, calls in probes_and_calls]
 
+    def check_syntax(self, text):
+        with self._lock:
+            if self._closed:
+                raise CheckerBridgeError('checker bridge is closed')
+            request = dict(kind='syntax', text=text, checker_model=self.checker_model, student_call_format=self.student_call_format)
+            if self._checker is not None:
+                return _check_syntax(request) | dict(checker_version=self.checker_version)
+            # Separate diagnostic endpoint: official verdict dispatch stays frozen.
+            if not hasattr(self, '_syntax_bridge'):
+                self._syntax_bridge = _SyntaxBridge(self.checker_model, python=self.python, timeout=self.timeout)
+            return self._syntax_bridge._request(request)
+
     def close(self):
         with self._lock:
+            if hasattr(self, '_syntax_bridge'):
+                self._syntax_bridge.close()
             self._stop()
             self._closed = True
 
@@ -312,8 +359,44 @@ def worker_main():
     return 0
 
 
+class _SyntaxBridge(CheckerBridge):
+    """Separate process for syntax diagnostics; inherits envelope/hash checks."""
+    def _start(self):
+        self._proc = subprocess.Popen(
+            [self.python, '-u', str(Path(__file__).resolve()), '--syntax-worker'],
+            cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            text=True, encoding='utf-8', bufsize=1)
+        self._buffer = b''
+        self._finalizer = weakref.finalize(self, _stop_process, self._proc)
+
+
+def syntax_worker_main():
+    protocol_out = sys.stdout
+    # Syntax needs the existing Qwen parser, not every provider's AST checker
+    # dependencies. Keep this diagnostic worker usable in the student venv too.
+    for path in (ROOT, ROOT / 'tools', ROOT / 'src', BFCL):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
+    for line in sys.stdin:
+        version = None
+        try:
+            request = json.loads(line)
+            with redirect_stdout(sys.stderr):
+                if request.get('kind') != 'syntax':
+                    raise ValueError('syntax endpoint accepts only syntax diagnostics')
+                version = _checker_version(request['checker_model'])
+                result = _check_syntax(request) | dict(checker_version=version)
+        except Exception as exc:
+            result = dict(valid=None, error=f'{type(exc).__name__}: {exc}', checker_version=version)
+        protocol_out.write(json.dumps(result) + '\n')
+        protocol_out.flush()
+    return 0
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--worker", action="store_true", required=True)
-    parser.parse_args()
-    raise SystemExit(worker_main())
+    modes = parser.add_mutually_exclusive_group(required=True)
+    modes.add_argument("--worker", action="store_true")
+    modes.add_argument("--syntax-worker", action="store_true")
+    args = parser.parse_args()
+    raise SystemExit(syntax_worker_main() if args.syntax_worker else worker_main())

@@ -7,7 +7,7 @@ import torch
 
 from ...behavior.deltas import tensor_state_hash
 from ..functional_step import FrozenStep, commit_step, gradients, kl_pilot, lora_parameters, rms_diagonal, snapshot
-from ..persistence import atomic_json, digest, file_hash, tree_hash
+from ..persistence import manifest_digest, atomic_json, digest, file_hash, tree_hash
 from ..return_gradient import ActionTrace, GateController
 from ..transport import Behavior, FullState, SourceSample
 from .exposure import ExposureDistribution, budget_match
@@ -142,7 +142,7 @@ class BaselineRunner:
                 optimizer_commits=len(self.steps), references=self.references), directory/"round_state.pt")
             meta = dict(round=r, parameter_hash=tensor_state_hash(self.parameters),
                 adapter_hash=tree_hash(directory/"lora"), round_state_hash=file_hash(directory/"round_state.pt"),
-                manifest_hash=digest(self.manifest), config_hash=self.manifest["config_hash"],
+                manifest_hash=manifest_digest(self.manifest), config_hash=self.manifest["config_hash"],
                 source_id=self.backend.identity(source), owned=self.evidence["owned"],
                 actual_spend=self.evidence["budgets"]["teacher_tokens"],
                 authorized_budget=self.evidence["budgets"]["authorized_cap"],

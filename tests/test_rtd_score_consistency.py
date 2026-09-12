@@ -1,5 +1,5 @@
 """C25b/C25q: cached BF16 vs native CE and recorded outlier checks, on CPU."""
-from dataclasses import replace
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import sys
@@ -15,7 +15,7 @@ from bfas.rtd.functional_step import gradients, lora_parameters, snapshot
 from bfas.rtd.persistence import ComputeJournal, digest
 from bfas.rtd.return_gradient import ActionTrace, TaskRollout, reinforce_gradient
 from bfas.rtd.runtime import HFGenerateBackend
-from bfas.rtd.scoring import ScoreTolerance
+from bfas.rtd.scoring import ScoreTolerance, enforce_score_diagnostic, score_diagnostic
 from bfas.rtd.transport import Behavior, FullState, SourceSample
 
 
@@ -34,6 +34,76 @@ class Tokenizer:
 
 
 PROMPT = 'prompt<|im_start|>assistant\n<think>\n\n</think>\n\n'
+
+
+def diagnostic_for_deltas(deltas, tolerance=ScoreTolerance(), **kwargs):
+    rescored = torch.full((len(deltas),), -2., dtype=torch.float64)
+    generated = tuple((rescored - torch.tensor(deltas, dtype=torch.float64)).tolist())
+    action = ActionTrace((0, 1), (1,)*(len(deltas)-1)+(3,), 3, 'toy',
+        sum(generated), 'test-backend', 'test-policy', generation_token_logprobs=generated)
+    return score_diagnostic(action, rescored, rescored.sum(), {}, tolerance, **kwargs)
+
+
+@pytest.mark.parametrize('deltas,passed', [
+    ([.16, .48], True),  # D15: the two-token BF16 campaign failure.
+    ([.16, 1.], True),
+    ([.16, 1.01], False),  # No outlier allowance for short actions.
+    ([.48], True),
+    ([.16, .48, .16], True),
+    ([.06]*7, True),
+    ([.06]*8, False),  # The mean criterion starts at the exact threshold.
+    ([.06]*20, False),
+    ([.023]*20, True),
+])
+def test_short_action_score_consistency(deltas, passed, tmp_path):
+    diagnostic = diagnostic_for_deltas(deltas)
+    journal = ComputeJournal(tmp_path/'compute.jsonl', cuda=False)
+    journal.append('score_consistency', **diagnostic)
+    saved = json.loads(journal.path.read_text())
+    assert saved['passed'] is passed
+    assert saved['mean_criterion'] == ('short_action_max_abs' if len(deltas) < 8 else 'mean_abs')
+    assert saved['tolerance'] == dict(mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2,
+                                    max_abs_hard=8., min_tokens_for_mean=8)
+    assert saved['version'] == 'rtd-score-consistency-v1.1'
+    assert saved['mean_abs_difference'] == pytest.approx(sum(deltas)/len(deltas))
+    assert saved['max_abs_difference'] == pytest.approx(max(deltas))
+    if passed:
+        enforce_score_diagnostic(saved)
+    else:
+        with pytest.raises(ValueError, match='likelihood differs'):
+            enforce_score_diagnostic(saved)
+
+
+@pytest.mark.parametrize('minimum,passed', [(0, False), (2, False), (3, True)])
+def test_short_action_mean_threshold_override(minimum, passed):
+    tolerance = ScoreTolerance(min_tokens_for_mean=minimum)
+    diagnostic = diagnostic_for_deltas([.16, .48], tolerance)
+    assert diagnostic['passed'] is passed
+    assert diagnostic['tolerance']['min_tokens_for_mean'] == minimum
+    assert diagnostic['mean_criterion'] == ('short_action_max_abs' if passed else 'mean_abs')
+
+
+@pytest.mark.parametrize('deltas,passed', [
+    ([.06]*43, True),
+    ([.081]*43, False),
+    ([1.1]*2+[0.]*254, True),
+    ([1.1]*3+[0.]*253, False),
+    ([8.01]+[0.]*255, False),
+    ([1.01, 0.], False),
+])
+def test_d15_luna_mean_override_keeps_max_outlier_and_short_action_rules(deltas, passed):
+    diagnostic = diagnostic_for_deltas(deltas, ScoreTolerance(mean_abs=.08))
+    assert diagnostic['passed'] is passed
+    if deltas == [.06]*43:
+        assert not diagnostic_for_deltas(deltas)['passed']  # Default remains .05.
+
+
+def test_short_action_preserves_hard_max_sequence_and_structural_checks():
+    assert not diagnostic_for_deltas([.16, .48], ScoreTolerance(max_abs_hard=.4))['passed']
+    assert not diagnostic_for_deltas([.16, .48], score_atol=.1)['passed']
+    diagnostic = diagnostic_for_deltas([.16, .48], expected_prompt_ids=(0,))
+    assert not diagnostic['passed']
+    assert diagnostic['structural_errors'] == ['prompt token boundary/template mismatch']
 
 
 def qwen_backend(journal=None):
@@ -132,6 +202,7 @@ def test_failed_checks_are_durable_and_tolerance_cannot_hide_structural_errors(s
 
 @pytest.mark.parametrize('value', [None, {'mean_abs': .001, 'max_abs': .02},
     {'max_abs_outlier_tokens': 0, 'max_abs_hard': 3.},
+    {'min_tokens_for_mean': 0}, {'min_tokens_for_mean': 16},
     {'mean_abs': .1, 'max_abs': .5, 'max_abs_outlier_tokens': 4, 'max_abs_hard': 6.}])
 def test_tolerance_config_defaults_and_overrides(tmp_path, value):
     import yaml
@@ -141,7 +212,8 @@ def test_tolerance_config_defaults_and_overrides(tmp_path, value):
     if value is not None:
         config['score_consistency_tolerance'] = value
     path.write_text(yaml.safe_dump(config))
-    expected = dict(mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8.) | (value or {})
+    expected = dict(mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2,
+                    max_abs_hard=8., min_tokens_for_mean=8) | (value or {})
     assert load_config(path)['score_consistency_tolerance'] == expected
     assert vars(ScoreTolerance.from_config(config)) == expected
 
@@ -158,11 +230,12 @@ def test_tolerance_config_rejects_invalid_numeric_bounds(tmp_path, key, value):
         load_config(path)
 
 
-@pytest.mark.parametrize('value', [-1, 1.5, 2., True, float('inf'), float('nan')])
-def test_tolerance_config_requires_nonnegative_integer_outlier_count(tmp_path, value):
+@pytest.mark.parametrize('key', ['max_abs_outlier_tokens', 'min_tokens_for_mean'])
+@pytest.mark.parametrize('value', [-1, 1.5, 2., True, False, '8', None, float('inf'), float('nan')])
+def test_tolerance_config_requires_nonnegative_integer_token_counts(tmp_path, key, value):
     import yaml
     config = load_config(ROOT/'configs/rtd/v1_bfcl_c25.yaml')
-    config['score_consistency_tolerance']['max_abs_outlier_tokens'] = value
+    config['score_consistency_tolerance'][key] = value
     path = tmp_path/'config.yaml'
     path.write_text(yaml.safe_dump(config))
     with pytest.raises(ValueError, match='nonnegative integer'):
@@ -184,7 +257,7 @@ def test_resume_uses_new_tolerance_defaults_without_mutating_saved_config(tmp_pa
     saved_bytes = path.read_bytes()
     resumed = resume_config(path if config_source == 'saved_yaml' else None, saved)
     assert vars(ScoreTolerance.from_config(resumed)) == dict(
-        mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8.)
+        mean_abs=.05, max_abs=1., max_abs_outlier_tokens=2, max_abs_hard=8., min_tokens_for_mean=8)
     assert resumed is config and digest(resumed) == saved['config_hash']
     assert json.dumps(saved, sort_keys=True) == original and path.read_bytes() == saved_bytes
 
@@ -230,6 +303,15 @@ def test_outlier_decision_records_all_tokens_and_preserves_native_score_and_grad
     saved = records[0]
     assert saved['passed'] is passed and saved['protocol_version'] == '1.0.6'
     assert saved['n_tokens'] == 256
+    assert saved['mean_criterion'] == 'mean_abs'
+    # Disabling D15 must leave every long-action diagnostic byte-identical,
+    # apart from the explicitly recorded threshold itself.
+    legacy = score_diagnostic(action, values, native, saved['scoring_backend'],
+        replace(b.score_tolerance, min_tokens_for_mean=0), expected_prompt_ids=expected_prompt)
+    current = score_diagnostic(action, values, native, saved['scoring_backend'],
+        b.score_tolerance, expected_prompt_ids=expected_prompt)
+    legacy['tolerance'] = asdict(b.score_tolerance)
+    assert json.dumps(current) == json.dumps(legacy)
     outliers = positions if magnitude > 1. else []
     assert saved['outlier_positions'] == outliers
     assert saved['outlier_token_count'] == len(outliers)

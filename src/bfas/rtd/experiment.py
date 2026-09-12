@@ -17,17 +17,24 @@ import torch
 
 from ..behavior.deltas import tensor_state_hash
 from ..cc_pairs import render_prompt, thinking_off
-from .acquisition import AcquisitionPolicy, CostRegressor, PrePurchaseFeatures, ValuePosterior
+from .acquisition import AcquisitionPolicy, CostRegressor, PrePurchaseFeatures, ValuePosterior, LegacyValuePosterior
+from .experiment_v11 import BatchExperimentMixin
+from .experiment_alpha_d import AlphaDExperimentMixin
+from .alpha_d import enabled as alpha_d_enabled, validate_config as validate_alpha_d_config, validate_arm
 from .bank import parent_hash
 from .broker import SealedReplayBroker
 from .features import FeatureRow, FrozenProjection, FrozenStandardizer
 from .functional_step import FrozenStep, commit_step, gradients, kl_pilot, lora_parameters, rms_diagonal, snapshot
 from .insertion import InsertionReference, LabelType
 from .ledger import Ledger
-from .persistence import ComputeJournal, StateStore, atomic_json, digest, file_hash, fsync_directory, tree_hash
+from .persistence import ComputeJournal, StateStore, atomic_json, digest, file_hash, fsync_directory, tree_hash, manifest_hash
 from .return_gradient import ActionTrace, GateController, bfcl_task_rollout, reinforce_gradient
 from .runtime import streamed_gate_vjp, streamed_gradient
+from .source_estimator import SourceControl, validate_source_config
 from .memory import MemoryPolicy, memory_batches
+from .generation_batch import sample_actions, feedback_rollout_tasks
+from .forward_batch import source_score_scope
+from .feedback_rng import FeedbackRNG
 from .selector import PublicFeatures, StudentSnapshot, select_public
 from .transport import Behavior, FullState, SourceSample, TransportSlot, is_exact_noop
 
@@ -39,12 +46,18 @@ class BFCLSupport:
     adapter). They cannot silently become zero-reward feedback or flat targets.
     """
     def __init__(self, root, config):
+        self.config = dict(config)
         from ..adapters.bfcl import BFCLAdapter
         adapter = BFCLAdapter()
         entries, categories = adapter._load_entries()
         parents = json.loads((Path(root) / config['support_manifest']).read_text())['parents']
         self.parents, self.states, self.entries, self.categories = {}, {}, {}, {}
         self.unavailable = {}
+        from .student import bfcl_prompt
+        tokenizer = None
+        if config.get('student_call_format') == 'gemma4':
+            from .bank_build import load_student_tokenizer
+            tokenizer = load_student_tokenizer(config)
         for p in parents:
             tid, h = p['official_id'], p['parent_hash']
             entry = entries[tid]
@@ -63,16 +76,16 @@ class BFCLSupport:
                 observed = populate_test_cases_with_predefined_functions([copy.deepcopy(entry)])[0]
             task = {k: observed[k] for k in ('function', 'initial_config', 'involved_classes', 'scenario') if k in observed}
             task['question'] = observed['question'][0]
-            prompt = thinking_off(render_prompt([observed['question'][0]], observed.get('function', [])))
+            prompt = bfcl_prompt(config, observed['question'][0], observed.get('function', []), tokenizer)
             self.states[h] = FullState.create(task, observed['question'][0], prompt, h)
         self._truth = {}
 
-    def feedback(self, parent, backend, parameters, generator, checker):
+    def _feedback_request(self, parent):
         from bfcl_eval.utils import load_ground_truth_entry
         tid = self.parents[parent]
         category = self.categories[tid]
         if 'relevance' in category:
-            return bfcl_task_rollout(self.entries[tid], category, [], backend, parameters, generator, checker=checker)
+            return self.entries[tid], category, []
         if category not in self._truth:
             # Only feedback uses official labels; no checker-derived selector features.
             self._truth[category] = {r['id']: r for r in load_ground_truth_entry(category)}
@@ -82,13 +95,68 @@ class BFCLSupport:
         truth = [] if row is None else row.get('ground_truth', row.get('possible_answer'))
         if truth is None:
             raise ValueError(f'official feedback truth malformed: {tid}')
-        return bfcl_task_rollout(self.entries[tid], category, truth, backend, parameters, generator, checker=checker)
+        return self.entries[tid], category, truth
+
+    def feedback(self, parent, backend, parameters, generator, checker):
+        return bfcl_task_rollout(*self._feedback_request(parent), backend, parameters, generator, checker=checker)
+
+    def feedback_streams(self, tasks, backend, parameters, rng_context, checker, *, lockstep):
+        """Use the same complete episode streams in serial and bounded cohorts."""
+        import os
+        from .benchmarks.bfcl_rollout import BFCLFeedbackBackend, bfcl_task_rollouts_lockstep
+        if not isinstance(rng_context, FeedbackRNG):
+            raise ValueError('BFCL feedback requires its seed/round/step/role RNG context')
+        backend = BFCLFeedbackBackend(backend)
+        natural = self.config['meta_tasks_per_feedback'] * self.config['rollouts_per_meta_task']
+        try:
+            limit = int(os.environ.get('BFAS_FEEDBACK_LOCKSTEP_EPISODES', str(natural))) if lockstep else 1
+        except ValueError:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer') from None
+        if limit < 1:
+            raise ValueError('BFAS_FEEDBACK_LOCKSTEP_EPISODES must be a positive integer')
+        entries, indices = [], defaultdict(int)
+        device = next(iter(parameters.values())).device
+        for parent, count in tasks:
+            if type(count) is not int or count < 1:
+                raise ValueError('positive BFCL feedback rollout count required')
+            request = self._feedback_request(parent)
+            task_id = self.parents[parent]
+            for _ in range(count):
+                generator = rng_context.generator(task_id, indices[task_id], device=device)
+                indices[task_id] += 1
+                entries.append((parent, request, generator))
+        for offset in range(0, len(entries), limit):
+            cohort = entries[offset:offset+limit]
+            if lockstep:
+                episodes = bfcl_task_rollouts_lockstep([r for _, r, _ in cohort], backend,
+                    parameters, [g for _, _, g in cohort], checker=checker)
+            else:
+                episodes = [bfcl_task_rollout(*r, backend, parameters, g, checker=checker)
+                            for _, r, g in cohort]
+            for (parent, _, _), episode in zip(cohort, episodes, strict=True):
+                yield parent, episode
+
+    def diagnostic_batch(self, parents, backend, parameters, generator, checker):
+        from .benchmarks.bfcl_rollout import bfcl_task_rollouts_lockstep
+        from .benchmarks.interactive_diagnostics import diagnostic_episode_limit
+        if not getattr(backend, 'diagnostic_only', False):
+            raise PermissionError('diagnostic greedy backend required')
+        limit = diagnostic_episode_limit()
+        parents = tuple(parents)
+        for offset in range(0, len(parents), limit):
+            cohort = parents[offset:offset+limit]
+            episodes = bfcl_task_rollouts_lockstep([self._feedback_request(p) for p in cohort],
+                backend, parameters, [generator] * len(cohort), checker=checker)
+            yield from zip(cohort, episodes, strict=True)
 
 
 def assert_run_invariants(state, ledger, *, complete=False):
     """Executable assertions over committed steps, folds, spend and exposure."""
     if ledger.remaining < 0 or ledger.spent > ledger.budget:
         raise AssertionError('hard budget violated')
+    if ledger.window is not None and (ledger.window_remaining < 0 or
+            ledger.window_purchases+len(ledger.reservations) > ledger.window['max_packages']):
+        raise AssertionError('hard window budget violated')
     reveals = [e for e in ledger.events if e['kind'] == 'reveal']
     if len(reveals) != len(ledger.owned_ids):
         raise AssertionError('duplicate package charges')
@@ -106,18 +174,30 @@ def assert_run_invariants(state, ledger, *, complete=False):
     if any(e['inner_fold'] != (e['round']-1) % 2 for e in steps):
         raise AssertionError('fold rotation mismatch')
     for e in steps:
-        if e['selected'] is not None and not e['fixed_evidence']:
+        if e.get('acquisition_protocol') in {'alpha_d_historical_additive_surrogate', 'alpha_d_batch_mixture_v11'}:
+            if (e['source_actions'] != 2*e['slots'] or e['raw_new_slots'] > 20 or
+                    e['exposure_units'] != e['slots'] or
+                    e['teacher_evidence_units']+e['reference_pool_units'] != e['slots'] or
+                    abs(sum(r['weight'] for r in e['exposure_records'])-1) > 1e-7):
+                raise AssertionError('alpha/d exposure-unit accounting mismatch')
+        elif e.get('acquisition_protocol') == 'batch_common_reference_v1':
+            m, E = len(e['selected']), e['slots']
+            if (m > e['max_new_packages'] or m > E or e['raw_new_slots'] != m
+                    or e['weighted_new_slots'] != m or e['old_coefficient'] != 1-m/E):
+                raise AssertionError('batch insertion exposure mismatch')
+        elif e['selected'] is not None and not e['fixed_evidence']:
             if e['raw_new_slots'] != e['slots'] or e['weighted_new_slots'] != .25*e['slots']:
                 raise AssertionError('insertion exposure mismatch')
         if e['exact_noop'] and e['start_hash'] != e['actual_hash']:
             raise AssertionError('no-op changed the student')
         if not e['audit_passed']:
             raise AssertionError('public selector audit failed')
-    if len([e for e in decisions if e['selected']]) > (1 if state['smoke'] else 12):
+    rounds = state.get('rounds', 3)
+    if len([e for e in decisions if e['selected']]) > (1 if state['smoke'] else 4*rounds):
         raise AssertionError('too many new packages')
     if complete:
-        expected = 1 if state['smoke'] else 36
-        if len(steps) != expected or len(decisions) != (1 if state['smoke'] else 12):
+        expected = 1 if state['smoke'] else 12*rounds
+        if len(steps) != expected or len(decisions) != (1 if state['smoke'] else 4*rounds):
             raise AssertionError('incomplete committed schedule')
         if ledger.reservations or set(state['owned']) != ledger.owned_ids:
             raise AssertionError('pending/unmerged evidence at completion')
@@ -125,25 +205,97 @@ def assert_run_invariants(state, ledger, *, complete=False):
                 packages=len(ledger.owned_ids), actual_spend=ledger.spent, authorized_budget=ledger.budget)
 
 
-class RTDExperiment:
+def executor_config(config, arm):
+    """CPU constructor shared by preflight and the production executor."""
+    if config.get('method') == 'rtd_unified':
+        from .unified.config import runtime_config
+        from .unified.engine import UnifiedConfig
+        UnifiedConfig.from_config(config)
+        config = runtime_config(config)
+    validate_alpha_d_config(config)
+    validate_arm(config, arm)
+    estimator, mode, _ = validate_source_config(config)
+    gate = config.get('gate_override', 'fixed_half' if arm == 'R0' else config['gate'])
+    if gate == 'linear_sigmoid' and (estimator == 'soft' or
+            (estimator == 'cv' and mode == 'fixed_one_minus_a')):
+        raise ValueError('soft/fixed_one_minus_a requires a fixed/scalar gate; use cv with loo/independent')
+    return config
+
+
+def prepare_support(root, config, manifest):
+    """Build and check support before allocating a production model."""
+    from .benchmarks.registry import get_benchmark
+    support = get_benchmark(config).support_protocol(root, config)
+    try:
+        if alpha_d_enabled(config):
+            from .metrics_v11 import options as metric_options, freeze_tasks, task_rows
+            if metric_options(config)['enabled']:
+                expected = freeze_tasks([dict(parent_hash=h, official_id=t) for h, t in support.parents.items()],
+                                        short_fold=metric_options(config)['short_fold'], states=support.states)
+                if manifest.get('fixed_task_set_v11', expected) != expected:
+                    raise ValueError('fixed task set changed on resume')
+                task_rows(expected, support)
+        return support
+    except Exception:
+        if hasattr(support, 'close'):
+            support.close()
+        raise
+
+
+def prepare_ledger(manifest, support, *, path=None, resume=False):
+    ledger = (Ledger.resume(manifest['budget_ceilings'][0], path) if resume else
+              Ledger(manifest['budget_ceilings'][0], path))
+    broker = SealedReplayBroker(manifest['bank_path'], ledger, inner_parent_hashes=set(support.parents))
+    assert_run_invariants(dict(smoke=manifest.get('smoke', False)), ledger)
+    return ledger, broker
+
+
+class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
     def __init__(self, config, manifest, directory, backend, support, *, resume=False, smoke=False,
                  checker=None, journal=None, after_save=None):
+        config = executor_config(config, manifest['arm'])
         self.config, self.manifest = config, manifest
+        self.alpha_d = alpha_d_enabled(config)
+        self.v11 = config.get('protocol_version') == '1.1.0'
         self.directory, self.backend, self.support = Path(directory), backend, support
         self.device = next(iter(lora_parameters(backend.model).values())).device
         self.dtype = next(iter(lora_parameters(backend.model).values())).dtype
         self.directory.mkdir(parents=True, exist_ok=True)
+        if self.alpha_d:
+            from .metrics_v11 import options as metric_options, freeze_tasks, task_rows
+            if metric_options(config)['enabled']:
+                expected = freeze_tasks([dict(parent_hash=h, official_id=t) for h, t in support.parents.items()],
+                                        short_fold=metric_options(config)['short_fold'], states=support.states)
+                if manifest.get('fixed_task_set_v11', expected) != expected:
+                    raise ValueError('fixed task set changed on resume')
+                manifest['fixed_task_set_v11'] = expected
+                task_rows(expected, support)
+                atomic_json(self.directory/'manifest.json', manifest)
         self.journal = journal or ComputeJournal(self.directory / 'compute.jsonl', cuda=self.device.type == 'cuda')
+        from .streaming_replay import enabled as streaming_enabled, prepare_manifest, StreamingSchedule
+        streaming = streaming_enabled(config)
+        unified_replay = manifest['config'].get('method') == 'rtd_unified' and config.get('replay_schedule')
+        if streaming or (unified_replay and (not resume or 'replay_schedule_identity' in manifest)):
+            prepare_manifest(self)
+        self.journal.bind_score_manifest(manifest, self.directory/'manifest.json')
         self.store = StateStore(self.directory / 'recovery', manifest)
         self.rng = np.random.default_rng(config['training_seed'])
         self.sampling_rng = torch.Generator(device=self.device).manual_seed(config['training_seed'])
+        self.replay_schedule = None
+        if self.alpha_d:
+            from .conventions import load_schedule, ARMS
+            if manifest['arm'] in ARMS:
+                # Independently seeded streams; initialization/training seed remains 0.
+                self.sampling_rng.manual_seed(int(digest([config['training_seed'], manifest['arm'], 'source_and_feedback'])[:15], 16))
+            if manifest['arm'] == 'V1' or unified_replay:
+                self.replay_schedule = (StreamingSchedule(self, smoke=smoke) if streaming else
+                                        load_schedule(config, manifest, support, smoke=smoke))
         self.slot_rng = torch.Generator().manual_seed(config['training_seed'])
         self.after_save = after_save
         self.checker = checker
         self.ceilings = manifest['budget_ceilings']
-        self.ledger = (Ledger.resume(self.ceilings[0], self.directory / 'teacher.jsonl') if resume else
-                       Ledger(self.ceilings[0], self.directory / 'teacher.jsonl'))
-        self.broker = SealedReplayBroker(manifest['bank_path'], self.ledger, inner_parent_hashes=set(support.parents))
+        self.ledger, self.broker = prepare_ledger(manifest, support,
+            path=self.directory / 'teacher.jsonl', resume=resume)
         if resume and self.store.pointer.exists():
             self.state = self.store.load(self.ledger, device=self.device)
             for n, p in lora_parameters(backend.model).items():
@@ -169,7 +321,20 @@ class RTDExperiment:
                 phi=torch.zeros(1 if config.get('gate') == 'scalar_sigmoid' else 35, device=self.device,
                                 dtype=self.dtype, requires_grad=True), controller=GateController(),
                 cost_model=CostRegressor(39), support_return=0., checkpoints=[])
+            if self.v11:
+                self.state.update(rounds=config.get('rounds', 3), batch_schema_version=1,
+                    drift_measurements={}, previous_decision_model=None)
+            if self.alpha_d:
+                self.state['phi'] = torch.full((1 if config.get('gate') == 'scalar_sigmoid' else 33,),
+                    config.get('gate_initial_logit', 0.), device=self.device, dtype=self.dtype, requires_grad=True)
+                self.state['alpha_window_index'] = 0
             self.save()
+
+        if streaming:
+            self.replay_schedule.start()
+        if resume and self.alpha_d and manifest['arm'] == 'V0':
+            from .conventions import export_schedule
+            export_schedule(self)
 
     def save(self):
         self.state.update(numpy_rng=self.rng.bit_generator.state, sampling_rng=self.sampling_rng.get_state(),
@@ -201,41 +366,51 @@ class RTDExperiment:
         return [self.broker.acquire(q) for q in self.state['owned']
                 if self.broker._records[q].parent_hash in self.state['inner']]
 
-    def sample_state(self, state):
+    def sample_state(self, state, *, refresh=False, cache=True):
         s = self.state
         if state.parent_hash not in s['inner']:
             raise ValueError('source/feature state outside inner fold')
-        if state.state_hash not in s['source_cache']:
+        if refresh or not cache or state.state_hash not in s['source_cache']:
             sources = []
             category = self.support.categories[self.support.parents[state.parent_hash]]
-            for sample_index in range(2):
-                with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
-                    action = self.backend.sample_action(state.prompt, s['source'], self.sampling_rng)
-                source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
-                                      action.eos_token_id, action.generation_logprob, truncated=action.truncated)
-                # Persist the full check BEFORE enforcing tolerances, including
-                # the failed action that previously disappeared from the log.
-                def record(diagnostic):
-                    self.journal.append('score_consistency', **(diagnostic | dict(
-                        round=s['round'], step=s['step'], role='source', sample_index=sample_index,
-                        state_hash=state.state_hash, parent_hash=state.parent_hash, source_id=s['source_id'])))
-                with torch.no_grad():
-                    checked, diagnostic = self.backend.checked_score_action(action, s['source'], record=record,
-                        expected_prompt_ids=self.backend.tokenizer.encode(state.prompt, add_special_tokens=False))
-                score = float(checked)
-                error = diagnostic['sequence_abs_difference']
-                sources.append(source)
-                self.journal.append('source_sample', round=s['round'], state_hash=state.state_hash,
-                    parent_hash=state.parent_hash, source_id=s['source_id'], action=asdict(action),
-                    teacher_forced_logprob=score, score_discrepancy=error)
-            s['source_cache'][state.state_hash] = tuple(sources)
+            def actions():
+                count = getattr(self, 'config', {}).get('source_samples_per_state', 2)
+                draws = sample_actions(self.backend, state.prompt, count, s['source'], self.sampling_rng)
+                for _ in range(count):
+                    with self.backend.action_limit(category) if hasattr(self.backend, 'action_limit') else nullcontext():
+                        action = next(draws)
+                    yield action
+            with source_score_scope(self.backend, actions(), s['source']) as draws:
+                for sample_index, action in enumerate(draws):
+                    source = SourceSample(Behavior(state, action.text), s['source_id'], action.action_ids,
+                                          action.eos_token_id, action.generation_logprob, truncated=action.truncated)
+                    # Persist the full check BEFORE enforcing tolerances, including
+                    # the failed action that previously disappeared from the log.
+                    def record(diagnostic):
+                        self.journal.append('score_consistency', **(diagnostic | dict(
+                            round=s['round'], step=s['step'], role='source', sample_index=sample_index,
+                            state_hash=state.state_hash, parent_hash=state.parent_hash, source_id=s['source_id'])))
+                    with torch.no_grad():
+                        checked, diagnostic = self.backend.checked_score_action(action, s['source'], record=record,
+                            expected_prompt_ids=self.backend.tokenizer.encode(state.prompt, add_special_tokens=False))
+                    score = float(checked)
+                    error = diagnostic['sequence_abs_difference']
+                    sources.append(source)
+                    self.journal.append('source_sample', round=s['round'], state_hash=state.state_hash,
+                        parent_hash=state.parent_hash, source_id=s['source_id'], action=asdict(action),
+                        teacher_forced_logprob=score, score_discrepancy=error)
+            sources = tuple(sources)
+            if cache:
+                s['source_cache'][state.state_hash] = sources
+        else:
+            sources = s['source_cache'][state.state_hash]
         if state.state_hash not in s['projection_cache']:
             initial_id = self.backend.identity(s['initial'])
             hidden = self.backend.initial_hidden(state.prompt, s['initial'], initial_snapshot_id=initial_id)
             projection = FrozenProjection(hidden.numel(), initial_snapshot_id=initial_id,
                                            seed=self.config['gate_projection_seed'])
             s['projection_cache'][state.state_hash] = projection(hidden, snapshot_id=initial_id)
-        return s['source_cache'][state.state_hash]
+        return sources
 
     def feature(self, source):
         state = source.behavior.state
@@ -281,23 +456,45 @@ class RTDExperiment:
             by_parent[state.parent_hash].append((state, tuple(teachers[h].values())))
         return by_parent
 
-    def draw_slots(self, packages=None, *, package_only=False):
+    def draw_slots(self, packages=None, *, package_only=False, count=None):
         pool = self.pool(packages, package_only=package_only)
         parents = sorted(pool)
         if not parents:
             raise ValueError('no legal source states')
         targets = []
-        for _ in range(self.slots):
+        controls, groups = [], {}
+        cv = self.config.get('source_estimator', 'hard2') == 'cv'
+        mode = self.config.get('cv_cs_mode', 'loo')
+        for _ in range(self.slots if count is None else count):
             parent = parents[int(self.rng.integers(len(parents)))]
             states = pool[parent]
             state, teachers = states[int(self.rng.integers(len(states)))]
-            source = self.state['source_cache'][state.state_hash][int(self.rng.integers(2))]
+            if cv and state.state_hash not in groups:
+                # Fresh independent draws for each new update. The coefficient
+                # pool is sampled before exposure selection, never reconstructed
+                # from replacement slots or cached previous-update outcomes.
+                sources = self.sample_state(state, refresh=True)
+                auxiliary = self.sample_state(state, cache=False) if mode == 'independent' else sources
+                groups[state.state_hash] = (sources, auxiliary,
+                    torch.stack([self.chi(sample) for sample in auxiliary]))
+            sources = groups[state.state_hash][0] if cv else self.state['source_cache'][state.state_hash]
+            index = int(self.rng.integers(len(sources)))
+            source = sources[index]
+            if cv:
+                _, auxiliary, auxiliary_chi = groups[state.state_hash]
+                controls.append(SourceControl(auxiliary, auxiliary_chi, index if mode == 'loo' else None))
             slot = TransportSlot(source, teachers)
             targets.append((source, slot.sample_teacher(self.slot_rng)))
+        if cv:
+            self.state['draw_controls'] = tuple(controls)
         return tuple(targets), torch.stack([self.chi(source) for source, _ in targets])
 
     @property
     def slots(self):
+        if self.alpha_d:
+            return self.config.get('slots_per_step', 40)
+        if self.v11:
+            return self.config.get('exposure_slots_per_window', 40)
         return 2 if self.state['smoke'] else 8
 
     @property
@@ -308,17 +505,26 @@ class RTDExperiment:
     def fixed(self):
         return self.config['mode'] == 'fixed_evidence'
 
-    def gradient(self, targets, chi, parameters, *, pilot=False):
+    def estimator_options(self, controls=None):
+        if self.config.get('source_estimator', 'hard2') == 'hard2':
+            return {}  # Keep legacy calls and checkpoint state unchanged.
+        return dict(source_estimator=self.config['source_estimator'], source_parameters=self.state['source'],
+                    cv_cs_mode=self.config.get('cv_cs_mode', 'loo'), source_controls=controls)
+
+    def gradient(self, targets, chi, parameters, *, pilot=False, controls=None):
         return streamed_gradient(targets, chi, self.state['phi'], self.backend, parameters,
-                                 gate='fixed_half' if pilot else self.gate)
+                                 gate='fixed_half' if pilot else self.gate, **self.estimator_options(controls))
 
     def calibrate(self, packages):
+        if self.alpha_d:
+            return self.alpha_calibrate(packages)
         s = self.state
         targets, chi = self.draw_slots(packages, package_only=True)
+        controls = s.pop('draw_controls', None)
         parameters = s['parameters']
         with self.scope('kl_pilot'):
             with self.scope('pilot_gradient'):
-                g = self.gradient(targets, chi, parameters, pilot=True)
+                g = self.gradient(targets, chi, parameters, pilot=True, controls=controls)
             # Linear proxy has exactly the streamed gradient, without retaining
             # multiple full-sequence graphs. kl_pilot differentiates it once.
             def loss(alpha):
@@ -339,23 +545,34 @@ class RTDExperiment:
         self.journal.append('kl_pilot', round=s['round'], metadata=metadata,
                             source_slots=len(actions), source_action_tokens=sum(len(a.action_ids) for a in actions))
 
-    def feedback(self, parameters, label):
+    def feedback(self, parameters, label, *, trajectory_scores=None):
         s = self.state
         rollouts = []
+        if hasattr(self.support, 'feedback_context'):
+            self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
         with self.scope(label):
-            for parent, count in s['feedback_tasks']:
-                for _ in range(count):
-                    rollout = self.support.feedback(parent, self.backend, parameters, self.sampling_rng, self.checker)
-                    rollouts.append(rollout)
-                    self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
-                                        parent_hash=parent, rollout=asdict(rollout))
+            self.journal.append('feedback_plan', round=s['round'], step=s['step'], role=label,
+                                tasks=s['feedback_tasks'], episodes=sum(n for _, n in s['feedback_tasks']))
+            for parent, rollout in feedback_rollout_tasks(self.support, s['feedback_tasks'], self.backend,
+                    parameters, self.sampling_rng, self.checker,
+                    rng_context=(FeedbackRNG(self.config['training_seed'], s['round'], s['step'], label)
+                                 if hasattr(self.support, 'feedback_streams') else None)):
+                rollouts.append(rollout)
+                self.journal.append('feedback_rollout', round=s['round'], step=s['step'], role=label,
+                                    parent_hash=parent, rollout=asdict(rollout))
             result = reinforce_gradient(rollouts, self.backend, parameters,
                 diagnostic_record=lambda rollout, index, diagnostic: self.journal.append('score_consistency',
                     **(diagnostic | dict(round=s['round'], step=s['step'], role=label,
                         task_id=rollout.task_id, action_index=index))),
-                baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task')
+                baseline='smoke_zero' if s['smoke'] else 'leave_one_out_same_task',
+                **(dict(trajectory_scores=trajectory_scores) if trajectory_scores is not None else {}))
+        if self.alpha_d:
+            result.metadata.update(return_objective='temperature_1_stochastic_policy_expected_return',
+                                   temperature=1., feedback_role=label)
         self.journal.append('return_gradient', round=s['round'], step=s['step'], role=label,
                             parameter_hash=result.parameter_hash, metadata=result.metadata)
+        if self.v11:
+            s.setdefault('feedback_rollouts', {})[label] = tuple(rollouts)
         return result
 
     def choose_feedback_tasks(self):
@@ -391,12 +608,24 @@ class RTDExperiment:
         s['inner'] = {h for h in parents if int(h, 16) % 2 == fold}
         s['feedback'] = parents - s['inner']
         self.broker.set_inner_parents(s['inner'])
+        if hasattr(self.support, 'feedback_context'):
+            self.checker = self.support.feedback_context(s['round'], self.backend, self.journal)
         if not self.fixed:
             self.ledger.authorize(self.ceilings[s['round']-1])
         s['source'] = snapshot(s['parameters'])
         s['source_id'] = self.backend.identity(s['source'])
         s['source_cache'] = {}
-        s['posterior'] = ValuePosterior(39, round_id=f"r{s['round']}")
+        if self.v11:
+            if 'posterior' not in s:
+                from .acquisition import CONTEXTUAL_DIMENSION
+                s['posterior'] = ValuePosterior(CONTEXTUAL_DIMENSION if self.alpha_d else 39,
+                    round_id=f"r{s['round']}", contextual_shrinkage=self.alpha_d)
+            else:
+                s['posterior'].begin_round(f"r{s['round']}")
+            s['cost_model'].begin_round(f"r{s['round']}")
+            s['drift_pending'] = True
+        else:
+            s['posterior'] = LegacyValuePosterior(39, round_id=f"r{s['round']}")
         s['calibrated'] = False
         with self.scope('round_sources_and_geometry'):
             with self.scope('source_sampling'):
@@ -428,11 +657,21 @@ class RTDExperiment:
         self.transition('step_start')
 
     def step_start(self):
+        if self.alpha_d:
+            return self.alpha_step_start()
         s = self.state
         s['decision'] = s['step'] in (1, 4, 7, 10)
         s['selected'], s['label'], s['new_targets'], s['new_chi'] = None, None, None, None
+        if self.v11:
+            s.update(selected=[], pending_ids=[], batch_targets={}, batch_chi={}, labels={},
+                     feedback_rollouts={}, transaction_index=0, transaction_query=None,
+                     window_id=f"r{s['round']}/s{s['step']}", hard_stops=[])
+            if self.config.get('source_estimator') == 'cv':
+                s['batch_controls'] = {}
         s['owned_before'] = tuple(s['owned'])
         s['old_targets'], s['old_chi'] = self.draw_slots()
+        if self.config.get('source_estimator') == 'cv':
+            s['old_controls'] = s.pop('draw_controls')
         # no-op tests availability in the actual sampled finite loss, not merely
         # whether some other state in the owned pool has a teacher response.
         s['old_noop'] = is_exact_noop(has_teacher_evidence=any(t is not None for _, t in s['old_targets']),
@@ -440,14 +679,18 @@ class RTDExperiment:
         s['feedback_tasks'] = self.choose_feedback_tasks() if s['decision'] else []
         s['step_rule'] = FrozenStep(s['diagonal'], s['eta'], f"r{s['round']}", s['preconditioner_metadata'])
         with self.scope('reference_gradient'):
-            g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'])
+            g = None if s['old_noop'] else self.gradient(s['old_targets'], s['old_chi'], s['parameters'],
+                                                       controls=s.get('old_controls'))
             s['reference'] = InsertionReference(s['parameters'], None, s['step_rule'], old_slots=self.slots,
-                exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g)
+                exact_noop=s['old_noop'], smoke=s['smoke'], old_gradient=g,
+                **(dict(exposure_slots=self.slots) if self.v11 else {}))
         if s['decision']:
             s['reference_feedback'] = self.feedback(s['reference'].updated, 'reference_feedback')
         self.transition('reference')
 
     def reference(self):
+        if self.v11:
+            return self.batch_reference()
         s = self.state
         s['trace'] = []
         if s['decision'] and not self.fixed:
@@ -484,6 +727,8 @@ class RTDExperiment:
         self.transition('selected')
 
     def selected(self):
+        if self.v11:
+            return self.batch_selected()
         s = self.state
         if s['selected']:
             # Resume may be just after a durable reveal. Rehydrate that exact
@@ -495,6 +740,8 @@ class RTDExperiment:
                                            if e['kind'] == 'reveal' and e['query_id'] == package.query_id))
             with self.scope('pending_source_sampling'):
                 s['new_targets'], s['new_chi'] = self.draw_slots([package], package_only=True)
+                if self.config.get('source_estimator') == 'cv':
+                    s['new_controls'] = s.pop('draw_controls')
             if not s['calibrated']:
                 if not s['old_noop']:
                     # A round with no inner teacher carries eta as specified.
@@ -509,11 +756,15 @@ class RTDExperiment:
         self.transition('revealed')
 
     def revealed(self):
+        if self.alpha_d:
+            return self.alpha_revealed()
+        if self.v11:
+            return self.batch_revealed()
         s = self.state
         ref = s['reference']
         if s['selected']:
             with self.scope('new_package_gradient'):
-                gq = self.gradient(s['new_targets'], s['new_chi'], ref.start)
+                gq = self.gradient(s['new_targets'], s['new_chi'], ref.start, controls=s.get('new_controls'))
                 actual, label, accounting = ref.insert(s['selected'], None, s['reference_feedback'],
                     label_type=LabelType.PENDING_NEW, owned_before=s['owned_before'], pending_ids={s['selected']},
                     new_slots=self.slots, new_gradient=gq)
@@ -524,6 +775,10 @@ class RTDExperiment:
         self.transition('actual')
 
     def actual(self):
+        if self.alpha_d:
+            return self.alpha_actual()
+        if self.v11:
+            return self.batch_actual()
         s = self.state
         if s['decision']:
             if tensor_state_hash(s['actual']) == s['reference'].reference_hash:
@@ -540,10 +795,12 @@ class RTDExperiment:
                     vjp = torch.zeros_like(s['phi'])
                     if not s['old_noop']:
                         vjp = streamed_gate_vjp(s['old_targets'], s['old_chi'], s['phi'], self.backend,
-                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate)
+                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate,
+                                                **self.estimator_options(s.get('old_controls')))
                     if s['selected']:
                         vjp = .75*vjp + .25*streamed_gate_vjp(s['new_targets'], s['new_chi'], s['phi'], self.backend,
-                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate)
+                                                s['reference'].start, s['step_rule'], feedback, gate=self.gate,
+                                                **self.estimator_options(s.get('new_controls')))
                     s['next_phi'], meta = s['controller'].update(s['phi'], vjp)
                 self.journal.append('gate_update', round=s['round'], step=s['step'], vjp=vjp.tolist(),
                     next_phi=s['next_phi'].detach().tolist(), identifiable=feedback.metadata['identifiable'], **meta)
@@ -554,6 +811,10 @@ class RTDExperiment:
         self.transition('feedback')
 
     def feedback_commit(self):
+        if self.alpha_d:
+            return self.alpha_feedback_commit()
+        if self.v11:
+            return self.batch_feedback_commit()
         s = self.state
         commit_step(self.backend.model, s['actual'], expected_start_hash=s['reference'].start_hash)
         s['parameters'] = snapshot(lora_parameters(self.backend.model))
@@ -617,6 +878,9 @@ class RTDExperiment:
 
     def committed(self):
         s = self.state
+        if self.v11:
+            if s['decision'] and not self.fixed:
+                self.ledger.close_window(s['window_id'])
         row = s['steps'][-1]
         path = self.directory / 'steps' / f"r{s['round']}-s{s['step']:02d}.json"
         atomic_json(path, row | dict(old_slots=[dict(source=asdict(src), teacher=asdict(t) if t else None)
@@ -627,6 +891,18 @@ class RTDExperiment:
         for key in ('reference', 'reference_feedback', 'actual_feedback', 'actual', 'old_targets', 'old_chi',
                     'new_targets', 'new_chi', 'candidate_specs', 'selected_features', 'next_phi'):
             s.pop(key, None)
+        if self.v11:
+            for key in ('feedback_rollouts', 'batch_targets', 'batch_chi', 'batch_gradients', 'batch_rows',
+                        'batch_specs', 'value_statistics', 'reliability_check',
+                        'old_controls', 'batch_controls', 'draw_controls'):
+                s.pop(key, None)
+        if self.alpha_d:
+            from .conventions import export_schedule
+            export_schedule(self)
+            for key in ('alpha_pairs', 'alpha_chi', 'alpha_start', 'd_reference', 'd_reference_feedback',
+                        'd_solution', 'alpha_d_control', 'old_reference', 'old_reference_pairs', 'replay_exposure',
+                        'acquisition_feedback_statistic'):
+                s.pop(key, None)
         print(f"[rtd] {self.manifest['arm']} round={s['round']} step={s['step']} "
               f"package={row['selected']} spend={self.ledger.spent}/{self.ledger.budget}", flush=True)
         if s['smoke'] or s['step'] == 12:
@@ -639,6 +915,18 @@ class RTDExperiment:
         import os
         import shutil
         s = self.state
+        if self.alpha_d:
+            from .metrics_v11 import options as metric_options
+            if metric_options(self.config)['enabled']:
+                from .experiment_metrics_v11 import round_metrics
+                metric_path = self.directory/'metrics'/f"round-{s['round']}.json"
+                if metric_path.exists():
+                    metric = json.loads(metric_path.read_text())
+                    if (metric['parameter_hash'] != tensor_state_hash(s['parameters']) or
+                            metric['fixed_task_set_hash'] != self.manifest['fixed_task_set_v11']['hash']):
+                        raise ValueError('saved round metrics belong to another frozen checkpoint/task set')
+                else:
+                    round_metrics(self)
         directory = self.directory / f"round-{s['round']}"
         expected_hash = tensor_state_hash(s['parameters'])
         if directory.exists():
@@ -654,12 +942,15 @@ class RTDExperiment:
             self.backend.model.save_pretrained(temporary / 'lora', safe_serialization=True)
             self.backend.tokenizer.save_pretrained(temporary / 'lora')
             meta = dict(round=s['round'], parameter_hash=expected_hash, adapter_hash=tree_hash(temporary / 'lora'),
-                manifest_hash=digest(self.manifest), source_id=s['source_id'], authorized_budget=self.ledger.budget,
+                manifest_hash=manifest_hash(self.manifest), source_id=s['source_id'], authorized_budget=self.ledger.budget,
                 actual_spend=self.ledger.spent, owned=sorted(s['owned']), config_hash=self.manifest['config_hash'])
             # Source traces/moments are retained independently of rolling recovery.
             with (temporary / 'round_state.pt').open('wb') as stream:
-                torch.save({k: s[k] for k in ('source', 'source_cache', 'diagonal', 'standardizer', 'eta',
-                                               'phi', 'posterior', 'cost_model', 'controller')}, stream)
+                round_state = {k: s[k] for k in ('source', 'source_cache', 'diagonal', 'standardizer', 'eta',
+                                               'phi', 'posterior', 'cost_model', 'controller')}
+                if self.v11:
+                    round_state['batch_state'] = {k: v for k, v in s.items() if k not in round_state}
+                torch.save(round_state, stream)
                 stream.flush(); os.fsync(stream.fileno())
             meta['round_state_hash'] = file_hash(temporary / 'round_state.pt')
             atomic_json(temporary / 'checkpoint.json', meta)
@@ -673,7 +964,7 @@ class RTDExperiment:
             fsync_directory(self.directory)
         s['checkpoints'].append(meta)
         atomic_json(self.directory / 'trajectory.json', dict(checkpoints=s['checkpoints'], steps=s['steps']))
-        if s['smoke'] or s['round'] == 3:
+        if s['smoke'] or s['round'] == s.get('rounds', 3):
             self.transition('complete')
         else:
             s['round'] += 1
@@ -697,6 +988,8 @@ class RTDExperiment:
         self.transition('round_start')
 
     def run(self, *, stop_after_round=False):
+        from .streaming_replay import enabled as streaming_enabled
+        streaming = streaming_enabled(self.config)
         phases = dict(round_start=self.round_start, step_start=self.step_start, reference=self.reference,
             selected=self.selected, revealed=self.revealed, actual=self.actual, feedback=self.feedback_commit,
             committed=self.committed, round_end=self.round_end, initialize_fixed=self.initialize_fixed)
@@ -704,6 +997,11 @@ class RTDExperiment:
             if stop_after_round and self.state['checkpoints'] and self.state['checkpoints'][-1]['round'] >= int(stop_after_round):
                 return dict(round_ready=self.state['checkpoints'][-1]['round'], complete=False)
             phase = self.state['phase']
+            if (phase == 'round_end' and streaming
+                    and (self.state['smoke'] or self.state['round'] == self.state['rounds'])):
+                # Final integrity must succeed before publishing the last round
+                # checkpoint; coordinator resume must not skip this barrier.
+                self.replay_schedule.finish()
             if phase in {'initialize_fixed', 'round_end'}:
                 print(f"[rtd] round={self.state['round']} step={self.state['step']} phase={phase}", flush=True)
                 phases[phase]()
@@ -715,6 +1013,8 @@ class RTDExperiment:
                     phase = self.state['phase']
                     print(f"[rtd] round={round_number} step={step_number} phase={phase}", flush=True)
                     phases[phase]()
+        if streaming:
+            self.replay_schedule.finish()
         result = assert_run_invariants(self.state, self.ledger, complete=True)
         atomic_json(self.directory / 'audit.json', result)
         return result

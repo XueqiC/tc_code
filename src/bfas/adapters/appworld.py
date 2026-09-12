@@ -279,7 +279,7 @@ class AppWorldAdapter(BenchmarkAdapter):
 
         if self._tokenizer is None:
             raise RuntimeError("collect a student rollout before teacher demonstrations")
-        teacher_name = os.environ.get("BFAS_TEACHER", "deepseek-v4-pro")
+        teacher_name = os.environ.get("BFAS_TEACHER", "gpt-5.4")
         config = teacher.load_teacher_config(teacher_name)
         bridge = teacher.AppWorldBridge(ROOT)
         messages: list[dict[str, str]] = []

@@ -168,7 +168,7 @@ def test_official_ids_anchors_and_teacher_events(fake_miner, tmp_path, teacher_d
     if teacher_demos == "verified_demos":
         assert result.stats["events"] == 2
         assert [row["task_id"] for row in result.events] == fake.selected_ids
-        assert all(row["_source"] == "official_list" and row["teacher"] == "deepseek-v4-pro-FC"
+        assert all(row["_source"] == "official_list" and row["teacher"] == "gpt-5.4"
                    and miner.parsed_calls(row["response"]) == [{"lookup": {"value": "teacher"}}]
                    for row in result.events)
     else:

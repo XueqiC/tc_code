@@ -21,7 +21,7 @@ from ..behavior.deltas import canonical_hash, tensor_state_hash
 from ..cc_pairs import thinking_off
 from .functional_step import FrozenStep, _matching, gradients, lora_parameters, policy_identity, snapshot
 from .transport import Behavior, SourceSample, complete_token_logprobs, positive_mixture_loss, validate_sampled_action
-from .scoring import ScoreTolerance, enforce_score_diagnostic, score_diagnostic
+from .scoring import ScoreTolerance, attention_implementation, enforce_score_diagnostic, score_diagnostic
 from .bfcl_decode import DECODE_ERRORS, guard_rtd_decoding
 
 
@@ -136,6 +136,8 @@ class TorchPolicyBackend:
         eos = self.tokenizer.eos_token_id
         if type(eos) is not int:
             raise ValueError("one configured EOS token required")
+        from .student import termination_ids
+        stops = termination_ids(self)
         action, token_logprobs = [], []
         room = self.max_context_tokens - len(prompt_ids)
         if room < 1:
@@ -149,9 +151,10 @@ class TorchPolicyBackend:
                 token = int(torch.multinomial(logps.exp(), 1, generator=generator))
                 action.append(token)
                 token_logprobs.append(float(logps[token]))
-                if token == eos:
+                if token in stops:
                     break
-        truncated = action[-1] != eos
+        truncated = action[-1] not in stops
+        eos = eos if truncated else action[-1]
         return ActionTrace(prompt_ids, tuple(action), eos,
             self.tokenizer.decode(action if truncated else action[:-1], skip_special_tokens=False),
             sum(token_logprobs), self.backend_id, self.identity(parameters), tuple(token_logprobs),
@@ -183,7 +186,8 @@ class TorchPolicyBackend:
         score = values.sum()
         if return_details:
             return score, values, dict(implementation='torch-functional-teacher-forced-native-ce-v1',
-                use_cache=False, logits_dtype=str(logits.dtype), logprob_dtype=str(values.dtype),
+                use_cache=False, cache_type=None, attention=attention_implementation(self.model),
+                logits_dtype=str(logits.dtype), logprob_dtype=str(values.dtype),
                 reduction_dtype=str(score.dtype), parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
                 model_class=type(self.model).__name__, torch_version=torch.__version__)
         return score
@@ -210,7 +214,10 @@ class TorchPolicyBackend:
         prompt = self.tokenizer.encode(behavior.state.prompt, add_special_tokens=False)
         action = list(self.tokenizer.encode(behavior.text, add_special_tokens=False))
         eos = self.tokenizer.eos_token_id
-        # Authored text may include an explicit terminator. Never append two.
+        from .student import termination_ids
+        # Authored native targets already include their turn/handoff terminator.
+        if action and action[-1] in termination_ids(self):
+            eos = action[-1]
         if not action or action[-1] != eos:
             action.append(eos)
         return self.score_tokens(prompt, action, parameters, eos_token_id=eos)
@@ -231,11 +238,11 @@ class TorchPolicyBackend:
         frozen = snapshot(frozen_parameters)
         identity = self.identity(frozen)
         def sample(request, generator):
+            from .generation_batch import sample_actions
             if request.frozen_snapshot_id != identity:
                 raise ValueError("source snapshot mismatch")
             result = []
-            for _ in range(request.samples):
-                action = self.sample_action(request.state.prompt, frozen, generator)
+            for action in sample_actions(self, request.state.prompt, request.samples, frozen, generator):
                 result.append(SourceSample(Behavior(request.state, action.text), identity,
                     action.action_ids, action.eos_token_id, action.generation_logprob, truncated=action.truncated))
             return tuple(result)
@@ -268,7 +275,7 @@ class TorchPolicyBackend:
 
 
 def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *, checker=None):
-    """Run the existing Qwen BFCL harness from a fresh copy of the task start.
+    """Run the configured student BFCL harness from a fresh copy of the task start.
 
     The model query uses the local scoreable backend; RTD-only decoding guards
     preserve malformed samples as failed actions. Multi-turn observations and
@@ -277,7 +284,9 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
     """
     from ..adapters.bfcl import BFCLAdapter
     # _handler adds the repository's vendored BFCL path. It does not start a server.
-    handler = BFCLAdapter()._handler()
+    config = getattr(backend, 'student_config', {})
+    from .bfcl_decode import student_handler
+    handler = student_handler(config, getattr(backend, 'tokenizer', None))
     from bfcl_eval.utils import contain_multi_turn_interaction, populate_test_cases_with_predefined_functions
     from bfcl_eval.constants.enums import ReturnFormat
     from types import MethodType
@@ -292,9 +301,11 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
         if not actions[-1].malformed:
             actions[-1] = replace(actions[-1], malformed=True,
                 malformed_exception_type=type(exc).__name__, malformed_stage=stage)
-    guard_rtd_decoding(handler, record_malformed)
+    guard_rtd_decoding(handler, record_malformed, student_call_format=config.get('student_call_format', 'qwen'))
     def query(_handler, inference_data):
-        prompt = thinking_off(_handler._format_prompt(inference_data["message"], inference_data["function"]))
+        prompt = _handler._format_prompt(inference_data["message"], inference_data["function"])
+        if config.get("student_call_format", "qwen") == "qwen":
+            prompt = thinking_off(prompt)
         with backend.action_limit(category) if hasattr(backend, 'action_limit') else nullcontext():
             action = backend.sample_action(prompt, parameters, generator, temperature=1., top_p=1.)
         actions.append(action)
@@ -317,7 +328,8 @@ def bfcl_task_rollout(entry, category, truth, backend, parameters, generator, *,
             if key.startswith(prefix) and key.endswith("_instance"):
                 delattr(multi_turn_utils, key)
     owns_checker = checker is None
-    checker = checker or CheckerBridge()
+    checker = checker or (CheckerBridge(config['student']+'-FC',
+        student_call_format=config.get('student_call_format', 'qwen')) if config.get('student') else CheckerBridge())
     try:
         if contain_multi_turn_interaction(task["id"]):
             verdict = checker.check_multi_turn(task, result, truth, category)
@@ -392,7 +404,7 @@ class ReturnGradient:
 
 
 def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_rtol=None,
-                       baseline='leave_one_out_same_task', diagnostic_record=None):
+                       baseline='leave_one_out_same_task', diagnostic_record=None, trajectory_scores=None):
     if not rollouts:
         raise ValueError("complete feedback rollouts required")
     rewards = next(iter(parameters.values())).new_tensor([r.reward for r in rollouts]).detach()
@@ -406,6 +418,8 @@ def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_
     # One action graph at a time; both trajectory actions and observations are
     # fixed. Weight is per ROLLOUT, never per action/token or success subset.
     for rollout, advantage in zip(rollouts, advantages):
+        if trajectory_scores is not None:
+            trajectory_score = {n: torch.zeros_like(p, device='cpu') for n, p in parameters.items()}
         for action_index, action in enumerate(rollout.actions):
             record = (None if diagnostic_record is None else
                       lambda d: diagnostic_record(rollout, action_index, d))
@@ -415,10 +429,15 @@ def reinforce_gradient(rollouts, backend, parameters, *, score_atol=None, score_
             diagnostics.append({k: diagnostic[k] for k in ('state_hash', 'mean_abs_difference',
                 'max_abs_difference', 'tolerance', 'passed', 'generation_backend', 'scoring_backend')})
             gradient = gradients(score, parameters)
+            if trajectory_scores is not None:
+                for n in trajectory_score:
+                    trajectory_score[n].add_(gradient[n].detach().cpu())
             for n in estimate:
                 estimate[n].add_(gradient[n].detach() * advantage / len(rollouts))
             del score, gradient  # release this action before scoring the next
             tokens += len(action.action_ids)
+        if trajectory_scores is not None:
+            trajectory_scores.append(trajectory_score)
     return ReturnGradient(estimate, tensor_state_hash(parameters), dict(
         rollouts=len(rollouts), tasks=len(set(r.task_id for r in rollouts)), action_tokens=tokens,
         truncated_rollouts=sum(r.truncated for r in rollouts),

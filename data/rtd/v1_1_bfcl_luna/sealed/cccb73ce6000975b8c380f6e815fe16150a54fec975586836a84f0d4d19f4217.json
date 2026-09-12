@@ -1,0 +1,22 @@
+{
+  "cost": 10337,
+  "cost_confidence": "exact",
+  "usage": {
+    "output_tokens": 10337
+  },
+  "provenance": {
+    "task_id": "memory_rec_sum_58-finance-3",
+    "ledger_row": 31
+  },
+  "historical_response": {
+    "task_id": "memory_rec_sum_58-finance-3",
+    "teacher": "openai/gpt-5.6-luna-FC",
+    "attempt_index": 2,
+    "temperature": 0.7,
+    "verified": false,
+    "tokens_spent": 10337,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:04:07.082569Z"
+  },
+  "behaviors": []
+}

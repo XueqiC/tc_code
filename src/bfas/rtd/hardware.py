@@ -9,7 +9,7 @@ import re
 import socket
 import subprocess
 
-from .persistence import ComputeJournal, atomic_json, digest
+from .persistence import manifest_digest, ComputeJournal, atomic_json, digest
 
 
 VERSION = 'rtd-hardware-class-v1'
@@ -30,6 +30,8 @@ def host_class(hostname, gpu, env=None):
            or re.fullmatch(r'c\d+[a-z]-s\d+(?:\..*)?', hostname) is not None)
     if hpg and re.search(r'\bB200\b', gpu, re.I):
         return 'hpg-b200'
+    if hostname.split('.')[0] == 'rai' and re.search(r'RTX PRO 6000.*Blackwell', gpu, re.I):
+        return 'rai-rtx-pro-6000-blackwell'
     return cluster or partition or hostname
 
 
@@ -99,7 +101,7 @@ def device_class(hardware):
 
 
 def supplement_path(root, manifest):
-    return Path(root)/'configs/rtd/hardware_identities'/f'{digest(manifest)}.json'
+    return Path(root)/'configs/rtd/hardware_identities'/f'{manifest_digest(manifest)}.json'
 
 
 def _require_same_class(old, new, context):
@@ -138,7 +140,7 @@ def bound_hardware(root, manifest):
         raise ValueError('legacy hardware needs update-hardware-identity --run-dir before resume/evaluation')
     saved = json.loads(path.read_text())
     new = checked_hardware(saved['hardware'])
-    if (saved.get('version') != VERSION or saved.get('manifest_hash') != digest(manifest)
+    if (saved.get('version') != VERSION or saved.get('manifest_hash') != manifest_digest(manifest)
             or saved.get('old_hardware') != hardware or saved.get('old_hardware_hash') != manifest['hardware_hash']
             or new != _legacy_projection(hardware, driver=new['hard']['driver'])
             or saved.get('hardware_hash') != digest(new['hard'])
@@ -155,7 +157,7 @@ def guard_hardware(root, directory, manifest, current, *, context):
     previous = journal.events[-1]['new_metadata'] if journal.events else saved['metadata']
     if previous != current['metadata']:
         journal.append('device_instance_changed', protocol_version='1.0.4', context=context,
-            manifest_hash=digest(manifest), hardware_hash=digest(saved['hard']),
+            manifest_hash=manifest_digest(manifest), hardware_hash=digest(saved['hard']),
             original_metadata=saved['metadata'], old_metadata=previous, new_metadata=current['metadata'])
     return saved
 
@@ -227,7 +229,7 @@ def update_hardware_identity(root, directory, *, expected_host_class=None, drive
         limitation='Legacy driver version and PCI order were not recorded. Driver is established at migration, '
                    'not proven historically; missing instance metadata remains null. Saved model, capability, '
                    'memory and software fields are preserved; the full live class is checked before GPU work.')
-    supplement = dict(version=VERSION, manifest_hash=digest(manifest), old_hardware=old,
+    supplement = dict(version=VERSION, manifest_hash=manifest_digest(manifest), old_hardware=old,
                       old_hardware_hash=manifest['hardware_hash'], hardware=new,
                       hardware_hash=digest(new['hard']), audit=audit)
     def unchanged():

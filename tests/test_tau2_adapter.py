@@ -138,6 +138,7 @@ def test_tau2_cli_points_each_side_at_its_configured_endpoint(
     calls: list[tuple[list[str], dict[str, Any]]] = []
     monkeypatch.setenv("OLLAMA_BASE_URL", "https://teacher.example")
     monkeypatch.setenv("OLLAMA_API_KEY", "teacher-secret")
+    monkeypatch.delenv("BFAS_TAU2_USER_MODEL", raising=False)
 
     def run(command, **kwargs):
         calls.append((list(command), kwargs))
@@ -162,7 +163,7 @@ def test_tau2_cli_points_each_side_at_its_configured_endpoint(
         assert command[command.index("--agent-llm") + 1] == "openai/bfas-policy"
         assert agent_args["base_url"] == "http://localhost:9444/v1"
         assert command[command.index("--user-llm") + 1] == (
-            "openai/deepseek-v4-pro"
+            "openai/gpt-5.4"
         )
         assert user_args == {
             "temperature": 0.0,
@@ -176,9 +177,14 @@ def test_tau2_cli_points_each_side_at_its_configured_endpoint(
         native_run.cleanup()
 
 
+@pytest.mark.parametrize("user_model", [None, "azure/gpt-5.4"])
 def test_tau2_user_sim_usage_is_ledgered_with_its_own_purpose(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, user_model: str | None,
 ) -> None:
+    if user_model is None:
+        monkeypatch.delenv("BFAS_TAU2_USER_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("BFAS_TAU2_USER_MODEL", user_model)
     adapter = Tau2Adapter()
     adapter._run_serial = 9
     records: list[dict[str, Any]] = []
@@ -194,7 +200,7 @@ def test_tau2_user_sim_usage_is_ledgered_with_its_own_purpose(
 
     assert [record["purpose"] for record in records] == ["user_sim", "user_sim"]
     assert [record["tokens_spent"] for record in records] == [18, 13]
-    assert all(record["teacher"] == "deepseek-v4-pro" for record in records)
+    assert all(record["teacher"] == (user_model or "gpt-5.4") for record in records)
     assert all(record["attempt_index"] == 9 for record in records)
 
 
@@ -326,6 +332,8 @@ def test_tau2_azure_user_simulator_uses_litellm_azure_with_env_only_credentials(
     # the ollama-backed teacher still resolves through the OpenAI provider
     monkeypatch.setenv("OLLAMA_BASE_URL", "https://teacher.example")
     monkeypatch.setenv("OLLAMA_API_KEY", "k")
+    monkeypatch.delenv("BFAS_TEACHER", raising=False)
+    monkeypatch.delenv("BFAS_TAU2_TEACHER", raising=False)
     teacher_model, teacher_args = adapter._teacher_args(0.7)
-    assert teacher_model == "openai/deepseek-v4-pro"
+    assert teacher_model == "openai/gpt-5.4"
     assert teacher_args["base_url"] == "https://teacher.example/v1"

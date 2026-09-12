@@ -11,6 +11,43 @@ from pathlib import Path
 
 PUBLIC_CLASS_CAPS = {"demo_attempt": 65536, "generator_item": 8192}
 PROTOCOL_VERSION = "1.0.1"
+V11_CLASS_CAPS = {"demo_attempt": 2048, "generator_item": 512}
+V11_BUDGET_BASIS = 'usable_recorded_output_tokens'
+C25_RECORDED_OUTPUT_TOKENS = 55370
+BUDGET_CHECKPOINT_KEYS = ('budget_checkpoints_bank_fraction', 'budget_checkpoints_tokens')
+
+
+def validate_budget_checkpoints(config):
+    """Require one explicit cumulative checkpoint form; never infer a budget."""
+    keys = [key for key in BUDGET_CHECKPOINT_KEYS if key in config]
+    if len(keys) != 1:
+        raise ValueError('exactly one of budget_checkpoints_bank_fraction or budget_checkpoints_tokens is required')
+    rounds = config['rounds']
+    if type(rounds) is not int or rounds not in (2, 3):
+        raise ValueError('budget checkpoints require two or three integer rounds')
+    values = config[keys[0]]
+    if keys[0] == 'budget_checkpoints_tokens':
+        if (not isinstance(values, list) or len(values) != rounds
+                or any(type(v) is not int or v <= 0 for v in values)
+                or any(a >= b for a, b in zip(values, values[1:]))):
+            raise ValueError('budget_checkpoints_tokens requires one strictly increasing positive integer cap per round')
+        return 'tokens'
+    if values != [0.10, 0.25, 0.50][:rounds]:
+        raise ValueError('budget checkpoints must match the two/three-round schedule')
+    return 'bank_fraction'
+
+
+def resolve_budget_checkpoints(config, total):
+    """Absolute caps use the same ledger as rounded fractions of usable cost."""
+    form = validate_budget_checkpoints(config)
+    return (list(config['budget_checkpoints_tokens']) if form == 'tokens' else
+            recorded_budget_ceilings(total, rounds=config['rounds']))
+
+
+def recorded_budget_ceilings(total=C25_RECORDED_OUTPUT_TOKENS, *, rounds=3):
+    if type(total) is not int or total < 0 or type(rounds) is not int or rounds not in (2, 3):
+        raise ValueError('recorded integer cost and two or three rounds required')
+    return [(total * percent + 50) // 100 for percent in (10, 25, 50)[:rounds]]
 
 
 @dataclass(frozen=True)

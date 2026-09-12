@@ -1,0 +1,143 @@
+{
+  "version": "bfcl-gateway-pool-v1",
+  "ledger": {
+    "path": "data/teacher_ledger/bfcl_luna.jsonl",
+    "sha256": "4cd86bb17bc2ae9aabcfef4467b63653a1de581f5a3b8cc7f22828a30ff59c91",
+    "timestamp": "2026-09-11T05:16:19.872226+00:00"
+  },
+  "demo_sources": [
+    {
+      "task_id": "irrelevance_16",
+      "ledger_row": 0,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "irrelevance_212",
+      "ledger_row": 1,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_irrelevance_321-76-19",
+      "ledger_row": 2,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_irrelevance_433-107-1",
+      "ledger_row": 3,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_irrelevance_686-223-1",
+      "ledger_row": 4,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_multiple_659-162-1",
+      "ledger_row": 8,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_parallel_9-5-0",
+      "ledger_row": 12,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_relevance_1-1-0",
+      "ledger_row": 16,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_relevance_5-5-0",
+      "ledger_row": 17,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_simple_20-4-0",
+      "ledger_row": 21,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "live_simple_245-127-0",
+      "ledger_row": 22,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "memory_rec_sum_99-student-19",
+      "ledger_row": 32,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "multi_turn_long_context_78",
+      "ledger_row": 42,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "multi_turn_miss_param_1",
+      "ledger_row": 49,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "multiple_16",
+      "ledger_row": 50,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "multiple_176",
+      "ledger_row": 51,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "parallel_199",
+      "ledger_row": 52,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "parallel_80",
+      "ledger_row": 53,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "parallel_multiple_122",
+      "ledger_row": 54,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "simple_java_6",
+      "ledger_row": 61,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "simple_javascript_49",
+      "ledger_row": 65,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "simple_python_156",
+      "ledger_row": 66,
+      "attempt_index": 0
+    },
+    {
+      "task_id": "simple_python_31",
+      "ledger_row": 67,
+      "attempt_index": 0
+    }
+  ],
+  "verified_tasks": 23,
+  "pool_rows": 20,
+  "pool_tasks": 20,
+  "excluded": [
+    {
+      "task_id": "memory_rec_sum_99-student-19",
+      "reason": "adapter has no per-state training turns"
+    },
+    {
+      "task_id": "multi_turn_long_context_78",
+      "reason": "adapter has no per-state training turns"
+    },
+    {
+      "task_id": "multi_turn_miss_param_1",
+      "reason": "adapter has no per-state training turns"
+    }
+  ],
+  "pool_sha256": "ec5afd2fc0af7036c120b547f2f727e4abec09808fa86b300bd0d6574f664de1"
+}

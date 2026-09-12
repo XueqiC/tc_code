@@ -7,23 +7,81 @@ import torch
 from .persistence import digest
 
 
+def attention_implementation(model):
+    """Read the text model's effective HF setting, including PEFT/MM wrappers.
+
+    An unknown implementation stays null; a journal must not claim eager just
+    because the production loader normally requests it.
+    """
+    config = getattr(model, 'config', None)
+    if hasattr(config, 'get_text_config'):
+        config = config.get_text_config()
+    return getattr(config, '_attn_implementation', None)
+
+
 @dataclass(frozen=True)
 class ScoreTolerance:
     mean_abs: float = .05
     max_abs: float = 1.
     max_abs_outlier_tokens: int = 2
     max_abs_hard: float = 8.
+    min_tokens_for_mean: int = 8
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in (self.mean_abs, self.max_abs, self.max_abs_hard)):
             raise ValueError('score tolerances must be finite and nonnegative')
         if type(self.max_abs_outlier_tokens) is not int or self.max_abs_outlier_tokens < 0:
             raise ValueError('max_abs_outlier_tokens must be a nonnegative integer')
+        if type(self.min_tokens_for_mean) is not int or self.min_tokens_for_mean < 0:
+            raise ValueError('min_tokens_for_mean must be a nonnegative integer')
 
     @classmethod
     def from_config(cls, config):
         # Resumes use the immutable manifest config, which may predate these fields.
         return cls(**config.get('score_consistency_tolerance', {}))
+
+
+def tolerance_override(config):
+    """Audit a non-default guard without changing the frozen sampling protocol."""
+    effective = ScoreTolerance.from_config(config)
+    return asdict(effective) if effective != ScoreTolerance() else None
+
+
+@dataclass
+class ScoreConsistencySummary:
+    """All journaled attempts, including failures and work repeated on resume."""
+    checks: int = 0
+    failed_checks: int = 0
+    comparable_checks: int = 0
+    compared_tokens: int = 0
+    sum_abs_difference: float = 0.
+    max_mean_abs_difference: float | None = None
+    max_abs_difference: float | None = None
+    outlier_token_count: int = 0
+    last_score_sequence: int | None = None
+    last_score_hash: str | None = None
+
+    def add(self, event):
+        self.checks += 1
+        self.failed_checks += not event['passed']
+        self.last_score_sequence, self.last_score_hash = event['sequence'], event['hash']
+        mean, maximum = event['mean_abs_difference'], event['max_abs_difference']
+        if (mean is None or maximum is None or
+                'per-token score coverage mismatch' in event.get('structural_errors', ())):
+            return  # Coverage/nonfinite failures are counted, never averaged as zero.
+        self.comparable_checks += 1
+        self.compared_tokens += event['n_tokens']
+        self.sum_abs_difference += mean * event['n_tokens']
+        self.max_mean_abs_difference = max(self.max_mean_abs_difference or 0., mean)
+        self.max_abs_difference = max(self.max_abs_difference or 0., maximum)
+        self.outlier_token_count += event['outlier_token_count']
+
+    def record(self):
+        return asdict(self) | dict(
+            mean_abs_difference=(self.sum_abs_difference / self.compared_tokens if self.compared_tokens else None),
+            units='nats/token including sampled EOS',
+            aggregation='token-weighted mean; all journaled checks including failed/repeated attempts',
+            records='compute.jsonl: score_consistency')
 
 
 def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance, *,
@@ -56,15 +114,19 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
     outlier_fraction = outlier_count / len(gen) if delta is not None else None
     total = float(score.detach())
     sequence_abs = abs(total - action.generation_logprob) if finite else None
-    within = (mean_abs is not None and mean_abs <= tolerance.mean_abs
+    p, n = len(action.prompt_ids), len(action.action_ids)
+    # Short actions lack enough tokens for a mean check; allow no max_abs outliers.
+    mean_criterion = 'short_action_max_abs' if n < tolerance.min_tokens_for_mean else 'mean_abs'
+    within = (mean_abs is not None
+              and (max_abs <= tolerance.max_abs if mean_criterion == 'short_action_max_abs'
+                   else mean_abs <= tolerance.mean_abs)
               and outlier_count <= tolerance.max_abs_outlier_tokens and max_abs <= tolerance.max_abs_hard)
     if score_atol is not None or score_rtol is not None:
         within = within and sequence_abs <= (score_atol or 0.) + (score_rtol or 0.)*abs(action.generation_logprob)
-    p, n = len(action.prompt_ids), len(action.action_ids)
     # JSON forbids NaN/Inf in the durable hash chain. Keep their identity as text.
     def numbers(values):
         return [float(v) if math.isfinite(float(v)) else str(float(v)) for v in values]
-    return dict(version='rtd-score-consistency-v1', protocol_version='1.0.6', n_tokens=n,
+    return dict(version='rtd-score-consistency-v1.1', protocol_version='1.0.6', n_tokens=n,
         state_hash=digest(dict(prompt_ids=action.prompt_ids)),
         prompt_ids=action.prompt_ids, action_ids=action.action_ids, generated_text=action.text,
         expected_prompt_ids=expected_prompt_ids,
@@ -72,6 +134,7 @@ def score_diagnostic(action, token_logprobs, score, scoring_metadata, tolerance,
         generation_logprob=action.generation_logprob,
         teacher_forced_logprob=total if finite else str(total),
         mean_abs_difference=mean_abs, max_abs_difference=max_abs, sequence_abs_difference=sequence_abs,
+        mean_criterion=mean_criterion,
         outlier_token_count=outlier_count, outlier_positions=outlier_positions, outlier_fraction=outlier_fraction,
         tolerance=asdict(tolerance), sequence_atol=score_atol, sequence_rtol=score_rtol,
         passed=bool(within and not errors), structural_errors=errors,
