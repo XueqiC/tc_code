@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from bfas import hotpotqa as hp
 from bfas.adapters.hotpotqa import HotpotQAAdapter
 from bfas.hotpotqa_budget import Budget, Limits, TEACHER_MAX_TOKENS
-from bfas.ledger import append_episode, read_records, _minimum_interval
+from bfas.ledger import append_episode, append_record, read_records, _minimum_interval
 from bfas.protocol import TEACHER_ATTEMPTS, SAMPLING_TEMPERATURE
 
 
@@ -44,14 +44,55 @@ def collection_identity(teacher, limits):
                 "src/bfas/hotpotqa_budget.py", "src/bfas/adapters/hotpotqa.py", "src/appworld_teacher.py")}}
 
 
-def append_result(path, teacher, task_id, attempt, budget, episode=None):
+def append_attempt(path, question, row, episode=None):
+    """Archive all outcomes separately from the verified-only demo payloads."""
+    trajectory = episode.raw if episode is not None else None
+    if trajectory is None:
+        # A durable purchase without an archive must never trigger a re-purchase.
+        # Missing output cannot be reconstructed from token accounting.
+        trajectory = {"question": question["question"], "gold": question["answer"],
+                      "category": question["type"], "prediction": None, "em": None, "f1": None,
+                      "steps": None, "history": [], "transcript": None, "finished": None,
+                      "error": "Trajectory was not saved before interruption.",
+                      "termination_reason": "interrupted_before_trajectory_saved"}
+    record = dict(trajectory, **{key: row[key] for key in (
+        "task_id", "attempt_index", "teacher", "temperature", "verified", "timestamp",
+        "tokens_spent", "usage", "usage_status", "prompt_version")})
+    record.update(schema_version=1, trajectory_available=episode is not None and episode.raw is not None,
+                  response_texts=list(episode.response_texts) if episode is not None else [],
+                  tokens=row["usage"]["prompt_tokens"] + row["usage"]["completion_tokens"])
+    append_record(path, record)
+
+
+def reconcile_attempts(path, questions, rows):
+    """Validate unique audit keys and fill crash gaps without replaying requests."""
+    purchased = {(r["task_id"], r["attempt_index"]): r for r in rows}
+    archived = set()
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            row = json.loads(line)
+            key = row["task_id"], row["attempt_index"]
+            if key in archived or key not in purchased:
+                raise ValueError("attempt archive contains duplicate or unpurchased attempts")
+            if any(row[field] != purchased[key][field] for field in (
+                    "teacher", "prompt_version", "verified", "usage", "usage_status", "tokens_spent")):
+                raise ValueError("attempt archive and purchase ledger disagree")
+            archived.add(key)
+    for key, row in purchased.items():
+        if key not in archived:
+            append_attempt(path, questions[key[0]], row)
+
+
+def append_result(path, teacher, task_id, attempt, budget, question, episode=None):
     usage = budget.usage(task_id, attempt)
-    return append_episode(path, task_id=task_id, teacher=teacher, attempt_index=attempt,
-                          temperature=0.0 if attempt == 0 else SAMPLING_TEMPERATURE,
-                          verified=episode.verified if episode else False,
-                          demo=episode.demo if episode else None, tokens_spent=usage["completion_tokens"],
-                          usage=usage, usage_status=budget.status(task_id, attempt),
-                          prompt_version=hp.PROMPT_VERSION)
+    row = append_episode(path, task_id=task_id, teacher=teacher, attempt_index=attempt,
+                         temperature=0.0 if attempt == 0 else SAMPLING_TEMPERATURE,
+                         verified=episode.verified if episode else False,
+                         demo=episode.demo if episode else None, tokens_spent=usage["completion_tokens"],
+                         usage=usage, usage_status=budget.status(task_id, attempt),
+                         prompt_version=hp.PROMPT_VERSION)
+    append_attempt(path.with_name("attempts.jsonl"), question, row, episode)
+    return row
 
 
 def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolAdapter):
@@ -87,13 +128,15 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
             if row["usage"] != budget.usage(*key) or row["tokens_spent"] != row["usage"]["completion_tokens"]:
                 raise ValueError("ledger and durable request accounting disagree")
             previous[key] = row
+        attempts_path = out / "attempts.jsonl"
+        reconcile_attempts(attempts_path, questions, previous.values())
         for call in budget.calls.values():
             key = call["task_id"], call["attempt_index"]
             if key[0] not in ids or not 0 <= key[1] < TEACHER_ATTEMPTS:
                 raise ValueError("outside request reservation")
             if key not in previous:
                 # Crash between response and episode append: charged failed attempt.
-                previous[key] = append_result(path, teacher, *key, budget)
+                previous[key] = append_result(path, teacher, *key, budget, questions[key[0]])
         interval = _minimum_interval()
         gate, next_start = threading.Lock(), [0.0]
         reasons = []
@@ -126,7 +169,7 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
                         with gate:
                             reasons.append("hard cap cannot reserve the next request")
                         return  # No request: do not consume an attempt.
-                    append_result(path, teacher, task_id, attempt, budget, episode)
+                    append_result(path, teacher, task_id, attempt, budget, questions[task_id], episode)
                     if episode.verified:
                         return
                 except BaseException as exc:
@@ -149,9 +192,10 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
             for call in budget.calls.values():
                 key = call["task_id"], call["attempt_index"]
                 if key not in seen:
-                    append_result(path, teacher, *key, budget)
+                    append_result(path, teacher, *key, budget, questions[key[0]])
                     seen.add(key)
             rows = read_records(path)
+            reconcile_attempts(attempts_path, questions, rows)
             verified = {r["task_id"]: r["demo"] for r in rows if r["verified"]}
             hp.write_json(out / "demos.json", {"schema_version": 1, "prompt_version": hp.PROMPT_VERSION,
                                               "teacher": teacher, "demos": verified})
@@ -165,7 +209,7 @@ def collect(out, *, workers=1, limits=None, offline=False, adapter_factory=PoolA
                        "uncertain_calls": sum(r["status"] != "reported" for r in budget.calls.values()),
                        "complete": complete, "stop_reason": budget.stopped or (reasons[0] if reasons else "complete"),
                        "limits": {"max_tokens": limits.max_tokens, "max_usd": str(limits.max_usd)},
-                       "ledger": str(path)}
+                       "ledger": str(path), "attempts_path": str(attempts_path)}
             hp.write_json(out / "summary.json", summary)
         return summary
 

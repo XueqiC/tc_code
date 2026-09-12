@@ -214,6 +214,12 @@ The simpler pool format follows the accounting and identity conventions in
   counts. Missing/uncertain usage retains its full reservation, is marked
   `estimated`, cannot produce a demo and stops further purchases, including on
   resume. An orphan request is recovered as a paid failed attempt.
+- `attempts.jsonl`: append-only audit rows keyed by task and zero-based attempt
+  index, including failed attempts. Each row retains the question, step history
+  with thoughts/actions/observations, raw responses, predicted and gold answers,
+  EM/F1, termination reason and token usage. A purchase whose trajectory was lost
+  during interruption is marked `trajectory_available=false`; it is never
+  replayed to reconstruct the missing output.
 - `demos.json`: verified demos with portable prompts, exact message contexts,
   targets and worked examples. `summary.json`: coverage, spend, limits,
   uncertain requests, completion flag and stop reason.

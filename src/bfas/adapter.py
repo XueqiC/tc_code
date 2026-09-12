@@ -62,6 +62,8 @@ class TeacherEpisode:
     # Sums of API counters, or conservative bounds when usage_status=estimated.
     usage: Mapping[str, int] | None = None
     usage_status: str | None = None
+    # Preserve failed trajectories independently of verified demonstrations.
+    raw: Any = None
 
 
 COLLECTION_SCHEMA_VERSION = 1

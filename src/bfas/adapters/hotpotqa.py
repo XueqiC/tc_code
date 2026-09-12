@@ -128,7 +128,7 @@ class HotpotQAAdapter(BenchmarkAdapter):
                 raise
             if budget:
                 budget.cancel(str(exc))
-            rollout = Rollout(task_id, False, (), {"error": "offline Wikipedia cache miss"})
+            rollout = Rollout(task_id, False, (), exc.record)
         demo = None
         if rollout.verified:
             demo = Demo(task_id, rollout.turns,
@@ -136,7 +136,7 @@ class HotpotQAAdapter(BenchmarkAdapter):
                         rollout.raw)
         return TeacherEpisode(task_id, rollout.verified, demo, tuple(session.response_texts),
                               session.tokens_spent, teacher=session.config.name, usage=session.usage,
-                              usage_status=session.usage_status)
+                              usage_status=session.usage_status, raw=rollout.raw)
 
     def teacher_demo(self, task_ids, attempts):
         if set(task_ids) - set(self.questions("train")):

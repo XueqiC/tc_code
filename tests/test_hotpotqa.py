@@ -74,7 +74,8 @@ def isolated(monkeypatch, tmp_path):
     monkeypatch.setattr(appworld_teacher, "generate_reply", forbidden)
     monkeypatch.setattr(appworld_teacher, "load_teacher_config", forbidden)
     monkeypatch.setattr(ledger, "LEDGER_ROOT", tmp_path / "ledger")
-    for name in ("BFAS_TEACHER", "BFAS_HOTPOTQA_TEACHER_POOL", "BFAS_HOTPOTQA_OFFLINE", "BFAS_OPENAI_SERVICE_TIER"):
+    for name in ("BFAS_TEACHER", "BFAS_HOTPOTQA_TEACHER_POOL", "BFAS_HOTPOTQA_OFFLINE",
+                 "BFAS_OPENAI_SERVICE_TIER", "OPENAI_API_KEY", "BFAS_STUDENT_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("BFAS_TEACHER_MIN_INTERVAL_S", "0")
 
@@ -243,6 +244,60 @@ def test_student_adapter_matches_evaluator_and_guidance(adapter, monkeypatch):
     assert "PRIVATE GUIDANCE" not in guided.raw["deployment_turns"][0].prompt
 
 
+@pytest.mark.parametrize("base_url,openai_key,student_key,expected", [
+    ("https://api.openai.com/v1", "openai-test", None, "openai-test"),
+    ("https://api.openai.com/v1", "openai-test", "student-test", "openai-test"),
+    ("http://127.0.0.1:8900/v1", "openai-test", None, "openai-test"),
+    ("http://localhost:8900/v1", None, "student-test", "student-test"),
+    ("http://localhost:8900/v1", None, None, "EMPTY"),
+    ("http://127.0.0.1:8900/v1", "", "", "EMPTY"),
+    ("http://[::1]:8900/v1", None, None, "EMPTY"),
+    ("http://192.168.1.2:8900/v1", None, None, "EMPTY"),
+])
+def test_client_credentials(monkeypatch, base_url, openai_key, student_key, expected):
+    for name, value in (("OPENAI_API_KEY", openai_key), ("BFAS_STUDENT_API_KEY", student_key)):
+        if value is not None:
+            monkeypatch.setenv(name, value)
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=lambda **kwargs: kwargs))
+    assert hp.make_client(base_url) == {"base_url": base_url, "api_key": expected,
+                                       "timeout": 120, "max_retries": 0}
+
+
+@pytest.mark.parametrize("base_url", ["https://api.openai.com/v1", "https://inference.example.com/v1"])
+def test_remote_client_requires_a_key(monkeypatch, base_url):
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=lambda **kw: pytest.fail("missing key")))
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        hp.make_client(base_url)
+
+
+@pytest.mark.parametrize("model", ["gpt-5.6-luna", "gpt-5.6-luna-2026-09-01"])
+@pytest.mark.parametrize("temperature", [0.0, 0.7])
+@pytest.mark.parametrize("tier", [None, "", " flex ", "priority"])
+def test_luna_requests_and_local_stop(monkeypatch, model, temperature, tier):
+    if tier is not None:
+        monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", tier)
+    client = ClientStub(["Thought 1: City.\nAction 1: Finish[Paris]\nObservation 1: fabricated"])
+    messages = hp.build_messages(Q["question"])
+    reply = hp.student_generator(client, model)(messages, ["\nObservation 1:"], temperature)
+    assert reply == "Thought 1: City.\nAction 1: Finish[Paris]"
+    expected = {"model": model, "messages": messages, "max_completion_tokens": hp.MAX_TOKENS}
+    if tier and tier.strip():
+        expected["service_tier"] = tier.strip()
+    assert client.calls == [expected]  # No temperature, max_tokens, or unsupported stop.
+
+
+def test_luna_rejects_invalid_service_tier_and_preserves_local_decoding(monkeypatch):
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "invalid")
+    client = ClientStub(["finish[Paris]"])
+    with pytest.raises(ValueError, match="BFAS_OPENAI_SERVICE_TIER"):
+        hp.student_generator(client, "gpt-5.6-luna")
+    assert not client.calls
+    messages = hp.build_messages(Q["question"])
+    hp.student_generator(client, "bfas-policy")(messages, ["\n"], 0.7)
+    assert client.calls == [{"model": "bfas-policy", "messages": messages, "temperature": 0.7,
+                             "max_tokens": hp.MAX_TOKENS, "stop": ["\n"]}]
+
+
 def test_seven_steps_fallback_and_no_implicit_answer():
     client = ClientStub(["I think the answer is Paris", "nonsense"] * 7)
     record = hp.run_episode(Q, WikiStub(), hp.student_generator(client, "stub"))
@@ -276,6 +331,9 @@ def test_teacher_preserves_usage_after_error_and_restricts_support(adapter, teac
     assert not result.verified and result.demo is None
     assert result.tokens_spent == 74 and result.usage["prompt_tokens"] == 2000
     assert len(result.response_texts) == 1
+    assert result.raw["termination_reason"] == "error"
+    assert result.raw["history"][0]["action"] == "search[clock]"
+    assert "after provider usage" in result.raw["history"][1]["observation"]
     with pytest.raises(ValueError, match="support"):
         adapter.teacher_episode("dev-id", 0, 0.0)
     with pytest.raises(ValueError, match="three"):
@@ -317,6 +375,25 @@ def test_eval_offline_fails_clearly_and_keeps_question_pending(monkeypatch, tmp_
     assert not json.loads((tmp_path / "metrics.json").read_text())["complete"]
 
 
+def test_eval_openai_luna_uses_exported_key(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "exported-test-key")
+    monkeypatch.setenv("BFAS_OPENAI_SERVICE_TIER", "flex")
+    monkeypatch.setattr(hp, "load_questions", lambda split: [Q])
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: WikiStub())
+    client = ClientStub(["finish[Paris]"])
+    def create_client(**kwargs):
+        assert kwargs["api_key"] == "exported-test-key"
+        assert kwargs["base_url"] == "https://api.openai.com/v1"
+        return client
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=create_client))
+    metrics = hotpotqa_eval.evaluate(base_url="https://api.openai.com/v1", model="gpt-5.6-luna",
+                                    out=tmp_path, n=1)
+    assert metrics["complete"] and metrics["em"] == 1
+    assert metrics["config"]["temperature"] is None
+    assert metrics["config"]["service_tier"] == client.calls[0]["service_tier"] == "flex"
+    assert "temperature" not in client.calls[0] and "max_tokens" not in client.calls[0]
+
+
 @pytest.fixture
 def small_pool(monkeypatch):
     questions = [dict(Q, _id=f"task-{i}") for i in range(4)]
@@ -334,8 +411,13 @@ def test_pool_parallel_exact_caps_resume_import(small_pool, teacher, tmp_path, a
     rows = ledger.read_records(tmp_path / "teacher_ledger.jsonl")
     assert len({(r["task_id"], r["attempt_index"]) for r in rows}) == 4
     assert all(r["usage_status"] == "reported" for r in rows)
+    attempts = tmp_path / "attempts.jsonl"
+    before = attempts.read_bytes()
+    audits = [json.loads(line) for line in before.splitlines()]
+    assert len({(r["task_id"], r["attempt_index"]) for r in audits}) == 4
+    assert all(r["verified"] and r["trajectory_available"] and r["tokens"] == 1037 for r in audits)
     pool.collect(tmp_path, workers=2)
-    assert len(teacher.calls) == 4
+    assert len(teacher.calls) == 4 and attempts.read_bytes() == before
     adapter._import_pool(tmp_path)
     adapter._import_pool(tmp_path)
     assert len(ledger.read_records("hotpotqa")) == 4
@@ -347,11 +429,107 @@ def test_pool_parallel_exact_caps_resume_import(small_pool, teacher, tmp_path, a
         pool.collect(tmp_path)
 
 
+def test_pool_archives_failed_and_verified_trajectories(small_pool, teacher, tmp_path):
+    replies = ["Thought 1: Find the clock.\nAction 1: Search[clock]",
+               "Thought 2: Check the city.\nAction 2: Lookup[city]",
+               "Thought 3: Name both.\nAction 3: Finish[Paris France]", "finish[Paris]"]
+    teacher.replies = iter(replies * len(small_pool))
+    summary = pool.collect(tmp_path)
+    path = tmp_path / "attempts.jsonl"
+    before = path.read_bytes()
+    rows = [json.loads(line) for line in before.splitlines()]
+    assert len(rows) == summary["attempts"] == 8
+    for failed, verified in zip(rows[::2], rows[1::2]):
+        assert failed["task_id"] == verified["task_id"]
+        assert (failed["attempt_index"], verified["attempt_index"]) == (0, 1)
+        assert failed["question"] == Q["question"] and failed["gold"] == Q["answer"]
+        assert failed["prediction"] == "Paris France" and failed["termination_reason"] == "finish"
+        assert not failed["verified"] and failed["em"] == 0 and failed["f1"] == pytest.approx(2 / 3)
+        assert failed["history"][0]["thought"] == "Find the clock."
+        assert failed["history"][1]["action"] == "lookup[city]"
+        assert "Paris" in failed["history"][1]["observation"]
+        assert failed["steps"] == len(failed["history"]) == 3
+        assert failed["response_texts"] == replies[:3]
+        assert failed["tokens"] == 3111 and failed["tokens_spent"] == 111
+        assert failed["usage"] == {"prompt_tokens": 3000, "completion_tokens": 111, "cached_tokens": 2400}
+        assert failed["usage_status"] == "reported" and failed["trajectory_available"]
+        assert verified["verified"] and verified["prediction"] == "Paris"
+    demos = json.loads((tmp_path / "demos.json").read_text())["demos"]
+    assert len(demos) == 4 and all("Paris France" not in demo["worked_example"] for demo in demos.values())
+    pool.collect(tmp_path)
+    assert len(teacher.calls) == 16 and path.read_bytes() == before
+
+
+@pytest.mark.parametrize("replies,reason,last_thought", [
+    (["Thought 1: Search first.\nAction 1: Search[clock]", RuntimeError("provider failed")], "error", ""),
+    (["Thought 1: Need an action.", RuntimeError("fallback failed")], "error", "Need an action."),
+    (["No action", "still invalid"] * hp.MAX_STEPS, "step_limit", "No action"),
+])
+def test_pool_archives_errors_and_step_limits(small_pool, teacher, tmp_path, replies, reason, last_thought):
+    teacher.replies = iter((replies + ["finish[Paris]"]) * len(small_pool))
+    pool.collect(tmp_path)
+    rows = [json.loads(line) for line in (tmp_path / "attempts.jsonl").read_text().splitlines()]
+    for row in rows[::2]:
+        assert not row["verified"] and row["termination_reason"] == reason
+        assert row["prediction"] == "" and row["em"] == row["f1"] == 0
+        assert row["history"][-1]["thought"] == last_thought
+        assert row["history"][-1]["observation"]
+        assert row["tokens"] == len(replies) * 1037
+        assert row["response_texts"] == [r for r in replies if isinstance(r, str)]
+    assert len(rows) == 8
+
+
+def test_pool_recovers_missing_audits_without_repurchase(small_pool, teacher, tmp_path):
+    pool.collect(tmp_path)
+    path = tmp_path / "attempts.jsonl"
+    # Simulate interruption after the durable ledger write, before the audit append.
+    prefix = path.read_bytes().splitlines(keepends=True)[0]
+    path.write_bytes(prefix)
+    pool.collect(tmp_path)
+    before = path.read_bytes()
+    assert before.startswith(prefix) and len(teacher.calls) == 4
+    rows = [json.loads(line) for line in before.splitlines()]
+    assert len(rows) == 4 and rows[0]["trajectory_available"]
+    for row in rows[1:]:
+        assert row["termination_reason"] == "interrupted_before_trajectory_saved"
+        assert not row["trajectory_available"] and row["prediction"] is None
+        assert row["question"] == Q["question"] and row["gold"] == Q["answer"]
+        assert row["tokens"] == 1037
+    pool.collect(tmp_path)
+    assert len(teacher.calls) == 4 and path.read_bytes() == before
+
+
+def test_pool_resumes_after_failed_attempt_without_repurchase(small_pool, teacher, tmp_path):
+    teacher.replies = iter(["finish[Paris France]"])
+    limit = prompt_bound(hp.build_messages(Q["question"])) + TEACHER_MAX_TOKENS
+    summary = pool.collect(tmp_path, limits=Limits(max_tokens=limit))
+    assert summary["attempts"] == 1 and not summary["complete"]
+    path = tmp_path / "attempts.jsonl"
+    before = path.read_bytes()
+    assert json.loads(before)["attempt_index"] == 0 and not json.loads(before)["verified"]
+    teacher.replies = None
+    summary = pool.collect(tmp_path)
+    assert summary["complete"] and summary["attempts"] == len(teacher.calls) == 5
+    assert path.read_bytes().startswith(before)
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [(r["task_id"], r["attempt_index"]) for r in rows[:2]] == [("task-0", 0), ("task-0", 1)]
+
+
+def test_pool_rejects_duplicate_audit_keys(small_pool, teacher, tmp_path):
+    pool.collect(tmp_path)
+    path = tmp_path / "attempts.jsonl"
+    ledger.append_record(path, json.loads(path.read_text().splitlines()[0]))
+    with pytest.raises(ValueError, match="duplicate"):
+        pool.collect(tmp_path)
+    assert len(teacher.calls) == 4
+
+
 @pytest.mark.parametrize("limits", [Limits(max_tokens=0), Limits(max_usd=0)])
 def test_pool_zero_cap_makes_no_calls_or_attempts(small_pool, teacher, tmp_path, limits):
     summary = pool.collect(tmp_path, workers=4, limits=limits)
     assert summary["tokens"] == summary["attempts"] == 0
     assert not summary["complete"] and not teacher.calls
+    assert not (tmp_path / "attempts.jsonl").exists()
 
 
 def test_pool_unknown_usage_keeps_reservation_stops_resume(small_pool, teacher, tmp_path):
@@ -361,6 +539,9 @@ def test_pool_unknown_usage_keeps_reservation_stops_resume(small_pool, teacher, 
     assert summary["tokens"] > TEACHER_MAX_TOKENS
     row = ledger.read_records(tmp_path / "teacher_ledger.jsonl")[0]
     assert row["usage_status"] == "estimated"
+    archive = json.loads((tmp_path / "attempts.jsonl").read_text())
+    assert archive["usage_status"] == "estimated" and archive["response_texts"]
+    assert archive["termination_reason"] == "error" and archive["tokens"] == summary["tokens"]
     pool.collect(tmp_path, workers=2)
     assert len(teacher.calls) == 1
 
@@ -393,6 +574,11 @@ def test_teacher_pool_offline_miss_charged_and_stops(small_pool, teacher, tmp_pa
     assert summary["tokens"] == 1037 and "not cached" in summary["stop_reason"]
     row = ledger.read_records(tmp_path / "pool/teacher_ledger.jsonl")[0]
     assert not row["verified"] and row["usage_status"] == "reported"
+    archive = json.loads((tmp_path / "pool/attempts.jsonl").read_text())
+    assert archive["termination_reason"] == "offline_cache_miss"
+    assert archive["history"][0]["action"] == "search[uncached]"
+    assert "not cached" in archive["history"][0]["observation"]
+    assert archive["response_texts"] == ["search[uncached]"] and archive["tokens"] == 1037
 
 
 def test_budget_concurrent_reservations_and_crash_recovery(tmp_path, monkeypatch, small_pool, teacher):
@@ -411,6 +597,13 @@ def test_budget_concurrent_reservations_and_crash_recovery(tmp_path, monkeypatch
     (out / "usage.jsonl").write_bytes((tmp_path / "journal.jsonl").read_bytes())
     summary = pool.collect(out)
     assert summary["attempts"] == 1 and not teacher.calls
+    before = (out / "attempts.jsonl").read_bytes()
+    archive = json.loads(before)
+    assert archive["task_id"] == "task-0" and archive["attempt_index"] == 0
+    assert not archive["trajectory_available"] and archive["usage_status"] == "estimated"
+    assert archive["tokens"] == summary["tokens"]
+    pool.collect(out)
+    assert not teacher.calls and (out / "attempts.jsonl").read_bytes() == before
 
 
 def test_setup_download_atomic_idempotent_and_order_validation(tmp_path, monkeypatch):

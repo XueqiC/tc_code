@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -24,6 +25,8 @@ def evaluate(*, base_url, model, start=0, n=500, out, offline=False):
               "split": "dev_distractor_first500", "max_steps": hp.MAX_STEPS,
               "max_tokens": hp.MAX_TOKENS, "temperature": 0.0, "prompt_version": hp.PROMPT_VERSION,
               "wiki_version": hp.WIKI_VERSION, "task_ids": [q["_id"] for q in questions]}
+    if model.startswith("gpt-5.6-luna"):
+        config.update(temperature=None, service_tier=os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None)
     with hp.file_lock(out / "evaluation.lock"):
         identity = out / "identity.json"
         if identity.exists():

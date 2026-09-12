@@ -9,13 +9,14 @@ from collections import Counter
 from contextlib import contextmanager
 import fcntl
 import hashlib
+from ipaddress import ip_address
 import json
 import os
 from pathlib import Path
 import re
 import string
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "envs/hotpotqa/data"
@@ -120,7 +121,7 @@ def build_messages(question, transcript="", step=1, *, action_thought=None):
 
 
 class OfflineCacheMiss(RuntimeError):
-    pass
+    record = None
 
 
 class WikiError(RuntimeError):
@@ -241,22 +242,29 @@ def run_episode(question, wiki, generate, *, temperature=0.0):
     wiki.reset()
     transcript, prediction, error = "", "", None
     history, calls, steps, badcalls, finished = [], 0, 0, 0, False
+    offline_miss = None
     try:
         for step in range(1, MAX_STEPS + 1):
+            entry = {"step": step, "thought": "", "response": None, "fallback_response": None,
+                     "action": None, "observation": None}
+            history.append(entry)
             messages = build_messages(question["question"], transcript, step)
             calls += 1
             reply = generate(messages, [f"\nObservation {step}:"], temperature)
+            entry["response"] = reply
             action = parse_action(reply, step)
             thought_text = re.split(r"(?im)^\s*Action\s*\d*\s*:", reply, maxsplit=1)[0]
             if action is None or not re.search(r"(?im)^\s*Action\s*\d*\s*:", reply):
                 thought_text = reply.split("\n")[0] if action is None else ""
             thought = re.sub(r"^\s*Thought\s*\d*:\s*", "", thought_text).strip()
+            entry["thought"] = thought
             fallback_reply = None
             if action is None:
                 badcalls += 1
                 calls += 1
                 fallback_reply = generate(build_messages(question["question"], transcript, step,
                                                           action_thought=thought), ["\n"], temperature)
+                entry["fallback_response"] = fallback_reply
                 action = parse_action(fallback_reply, step)
             steps = step
             if action is None:
@@ -265,40 +273,73 @@ def run_episode(question, wiki, generate, *, temperature=0.0):
             else:
                 verb, argument = action
                 action_text = f"{verb}[{argument}]"
+                entry["action"] = action_text
                 if verb == "finish":
                     prediction, finished = argument, True
                     observation = "Episode finished."
                 else:
                     observation = getattr(wiki, verb)(argument)
-            history.append({"step": step, "response": reply, "fallback_response": fallback_reply,
-                            "action": action_text, "observation": observation})
+            entry.update(action=action_text, observation=observation)
             transcript += f"Thought {step}: {thought}\nAction {step}: {action_text}\nObservation {step}: {observation}\n"
             if finished:
                 break
-    except OfflineCacheMiss:
-        raise
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
+        if isinstance(exc, OfflineCacheMiss):
+            offline_miss = exc
+        entry["observation"] = error
+        transcript += (f"Thought {entry['step']}: {entry['thought']}\n"
+                       f"Action {entry['step']}: {entry['action'] or ''}\n"
+                       f"Observation {entry['step']}: {error}\n")
     scores = answer_metrics(prediction, question["answer"]) if finished else {"em": 0.0, "f1": 0.0}
-    return {"task_id": question["_id"], "question": question["question"], "gold": question["answer"],
+    record = {"task_id": question["_id"], "question": question["question"], "gold": question["answer"],
             "category": question["type"], "prediction": prediction, **scores,
             "verified": scores["em"] == 1.0, "checker_verified": scores["em"] == 1.0,
             "steps": steps, "model_calls": calls, "format_failures": badcalls,
             "finished": finished, "error": error, "history": history, "transcript": transcript,
+            "termination_reason": ("offline_cache_miss" if offline_miss else "error" if error else
+                                   "finish" if finished else "step_limit"),
             "wiki_queries": list(wiki.queries), "prompt_version": PROMPT_VERSION}
+    if offline_miss is not None:
+        offline_miss.record = record
+        raise offline_miss
+    return record
 
 
 def make_client(base_url):
     from openai import OpenAI
-    return OpenAI(base_url=base_url, api_key=os.environ.get("BFAS_STUDENT_API_KEY", "EMPTY"),
-                  timeout=120, max_retries=0)
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip() or os.environ.get("BFAS_STUDENT_API_KEY", "").strip()
+    if not api_key:
+        host = urlsplit(base_url).hostname or ""
+        try:
+            local = ip_address(host).is_private
+        except ValueError:
+            local = host == "localhost" or host.endswith(".localhost")
+        if not local:
+            raise ValueError("OPENAI_API_KEY or BFAS_STUDENT_API_KEY is required for non-local servers")
+        api_key = "EMPTY"  # OpenAI-compatible local servers need no credential.
+    return OpenAI(base_url=base_url, api_key=api_key, timeout=120, max_retries=0)
 
 
 def student_generator(client, model):
+    luna = model.startswith("gpt-5.6-luna")
+    service_tier = os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None
+    if luna and service_tier not in {None, "flex", "priority"}:
+        raise ValueError("BFAS_OPENAI_SERVICE_TIER must be flex, priority, or unset")
+
     def generate(messages, stop, temperature):
-        response = client.chat.completions.create(model=model, messages=messages,
-                                                 temperature=temperature, max_tokens=MAX_TOKENS, stop=stop)
-        return response.choices[0].message.content or ""
+        if luna:
+            options = {"max_completion_tokens": MAX_TOKENS}
+            if service_tier is not None:
+                options["service_tier"] = service_tier
+        else:
+            options = {"temperature": temperature, "max_tokens": MAX_TOKENS, "stop": stop}
+        response = client.chat.completions.create(model=model, messages=messages, **options)
+        reply = response.choices[0].message.content or ""
+        if luna:
+            for marker in stop:
+                reply = reply.split(marker, 1)[0]
+        return reply
     return generate
 
 
