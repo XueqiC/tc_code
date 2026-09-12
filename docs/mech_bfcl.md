@@ -281,6 +281,38 @@ after freezing raises `C/D exposure plan changed after it was frozen`.
 Choose the dose before starting either arm; existing training directories
 cannot be resumed or overwritten in place.
 
+`audit-loss --arm C|D [--train-seed K] [--checkpoint /path/to/adapter]`
+decomposes the training objective on every valid, encoded exercise in that arm.
+For example, with the caller's `CUDA_VISIBLE_DEVICES` selecting the GPU:
+
+```bash
+"$TRAIN_PY" tools/mech_bfcl.py audit-loss --run-dir "$MECH_RUN" --arm C
+"$TRAIN_PY" tools/mech_bfcl.py audit-loss --run-dir "$MECH_RUN" --arm D --train-seed 1
+```
+
+The default checkpoint is the selected seed's `training[_sK]/adapter`. The
+audit uses the saved model/tokenizer paths and projection chunk size; optional
+`--model-path`, `--tokenizer`, and `--position-chunk` overrides support relocated
+caches and memory limits. It verifies the exercise and encoding hashes against
+`training_plan.json`, reuses training's native encoding, causal target positions,
+frozen hidden states, and full-vocabulary softcapped projection, and runs BF16
+on CUDA in evaluation mode under `torch.no_grad()`. Every encoded target is
+counted once; the training cap, repeated passes, and shuffle order do not weight
+this exercise census. Invalid and over-context rows remain excluded.
+
+The sole result written is the selected training directory's `loss_audit.json`,
+including with an explicit checkpoint override. It contains per-token values,
+per-exercise means, and token-weighted overall means for adapter-disabled
+**before** and adapter-enabled **after**: teacher NLL, reference cross-entropy,
+base entropy, forward KL, the 0.5/0.5 mixture, and target-argmax correctness.
+The console prints overall before/after rows and one line per exercise, plus
+the fraction of targets the base already predicts. Losses use natural logs.
+For the frozen base distribution `q`, reference CE is `H(q) + KL(q || p)`;
+its floor is `H(q)`, so a small mixture alone does not establish learning.
+`steps.json` records mixtures during optimization on each step's token subset;
+the audit records both fixed models on the entire exercise set. It does not
+rewrite training artifacts, protocol files, locks, or evaluation results.
+
 `train --train-seed K` repeats training on the same generated C/D exercises.
 It defaults to the split seed, preserving existing behavior. It controls the
 per-pass shuffle, PyTorch CPU/CUDA manual seeds, adapter initialization, and

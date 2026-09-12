@@ -5,6 +5,7 @@ The target is q=.5*one_hot(demo_token)+.5*p_frozen_base over the FULL vocabulary
 Only position chunks are projected; no top-k or vocabulary truncation is used.
 """
 import csv
+import json
 import math
 import os
 from pathlib import Path
@@ -19,12 +20,29 @@ from .exercises import native_pair
 TARGET_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
 
 
+def _loss_terms(logp, q, targets):
+    teacher = -logp.gather(-1, targets[..., None]).squeeze(-1)
+    return teacher, -(q * logp).sum(-1)
+
+
 def mixture_loss(logits, reference_logits, targets):
     import torch.nn.functional as F
     logp = F.log_softmax(logits.float(), dim=-1)
     q = F.softmax(reference_logits.detach().float(), dim=-1)
-    teacher = -logp.gather(-1, targets[..., None]).squeeze(-1)
-    return (0.5 * teacher - 0.5 * (q * logp).sum(-1)).sum()
+    teacher, reference_ce = _loss_terms(logp, q, targets)
+    return (0.5 * teacher + 0.5 * reference_ce).sum()
+
+
+def _position_chunks(hidden, reference_hidden, targets, chunk_size):
+    if chunk_size <= 0 or hidden.shape != reference_hidden.shape or len(targets) != len(hidden):
+        raise ValueError("Invalid position chunk dimensions")
+    for start in range(0, len(targets), chunk_size):
+        yield slice(start, min(start + chunk_size, len(targets)))
+
+
+def _project_hidden(head, hidden, softcap):
+    logits = head(hidden)
+    return logits if softcap is None else (logits / softcap).tanh() * softcap
 
 
 def chunked_hidden_gradient(hidden, reference_hidden, head, targets, *, chunk_size=32, softcap=None):
@@ -34,26 +52,45 @@ def chunked_hidden_gradient(hidden, reference_hidden, head, targets, *, chunk_si
     output head is frozen (as are all base weights); LoRA lives in the decoder.
     """
     import torch
-    if chunk_size <= 0 or hidden.shape != reference_hidden.shape or len(targets) != len(hidden):
-        raise ValueError("Invalid position chunk dimensions")
     gradient, total = torch.zeros_like(hidden), 0.0
-
-    def project(h):
-        logits = head(h)
-        return logits if softcap is None else (logits / softcap).tanh() * softcap
-
-    for start in range(0, len(targets), chunk_size):
-        end = min(start + chunk_size, len(targets))
-        leaf = hidden[start:end].detach().requires_grad_(True)
+    for positions in _position_chunks(hidden, reference_hidden, targets, chunk_size):
+        leaf = hidden[positions].detach().requires_grad_(True)
         with torch.no_grad():
-            ref = project(reference_hidden[start:end])
-        logits = project(leaf)
-        loss = mixture_loss(logits, ref, targets[start:end])
+            ref = _project_hidden(head, reference_hidden[positions], softcap)
+        logits = _project_hidden(head, leaf, softcap)
+        loss = mixture_loss(logits, ref, targets[positions])
         (grad,) = torch.autograd.grad(loss, leaf)
-        gradient[start:end] = grad
+        gradient[positions] = grad
         total += float(loss.detach())
         del loss, logits, ref, grad, leaf
     return gradient, total
+
+
+def chunked_loss_audit(hidden, reference_hidden, head, targets, *, chunk_size=32, softcap=None):
+    """Full-vocabulary, per-token objective components; keep only scalars on CPU."""
+    import torch
+    import torch.nn.functional as F
+    values = {state: {} for state in ("before", "after")}
+    with torch.no_grad():
+        for positions in _position_chunks(hidden, reference_hidden, targets, chunk_size):
+            ref = _project_hidden(head, reference_hidden[positions], softcap).float()
+            logq, q = F.log_softmax(ref, dim=-1), F.softmax(ref, dim=-1)
+            entropy = -(q * logq).sum(-1)
+            for state in values:
+                logits = ref if state == "before" else _project_hidden(head, hidden[positions], softcap).float()
+                logp = logq if state == "before" else F.log_softmax(logits, dim=-1)
+                teacher, reference_ce = _loss_terms(logp, q, targets[positions])
+                terms = dict(teacher_nll=teacher, reference_ce=reference_ce,
+                             base_entropy=entropy, kl=(q * (logq - logp)).sum(-1),
+                             mixture=0.5 * teacher + 0.5 * reference_ce,
+                             target_argmax=logits.argmax(-1).eq(targets[positions]))
+                for key, value in terms.items():
+                    if not torch.isfinite(value).all():
+                        raise RuntimeError("Nonfinite loss audit component")
+                    values[state].setdefault(key, []).extend(value.cpu().tolist())
+                del logits, logp, terms
+            del ref, logq, q, entropy
+    return values
 
 
 def encode_rows(rows, tokenizer, max_context=8192):
@@ -71,6 +108,17 @@ def encode_rows(rows, tokenizer, max_context=8192):
         valid.append(dict(id=row["id"], prompt_ids=p, target_ids=y,
                           context_bucket=4096 if len(p)+len(y) <= 4096 else 8192))
     return valid, skipped
+
+
+def supervised_batch(row, device, left=0, right=None):
+    """Teacher-forced inputs and causal prediction positions used by the optimizer."""
+    import torch
+    p, y = row["prompt_ids"], row["target_ids"]
+    right = len(y) if right is None else right
+    # The final target token need not be forwarded to predict itself.
+    ids = torch.tensor([p + y[:right-1]], device=device)
+    indices = slice(len(p)-1+left, len(p)-1+right)
+    return ids, indices, torch.tensor(y[left:right], device=device)
 
 
 def token_schedule(rows, cap, tokens_per_step=512):
@@ -125,6 +173,141 @@ def frozen_hidden(model, ids, indices):
             return model.get_base_model().model(input_ids=ids, use_cache=False).last_hidden_state[0, indices].detach()
     finally:
         model.train(was_training)
+
+
+def _audit_summary(tokens):
+    count = len(tokens)
+    summary = dict(supervised_tokens=count)
+    for state in ("before", "after"):
+        summary[state] = {
+            ("target_argmax_rate" if key == "target_argmax" else key):
+            math.fsum(token[state][key] for token in tokens) / count
+            for key in tokens[0][state]
+        }
+    summary["base_target_argmax_rate"] = summary["before"]["target_argmax_rate"]
+    return summary
+
+
+def audit_encoded_rows(model, rows, *, chunk_size=32):
+    """Audit each encoded exercise once, including every demonstration token.
+
+    Pass shuffles and the common exposure cap are not weights in this census.
+    Prompt tokens and native terminal markers are never supervision targets.
+    """
+    import torch
+    if not rows or any(not row["target_ids"] for row in rows):
+        raise ValueError("Loss audit requires nonempty encoded supervision")
+    base = model.get_base_model()
+    if not hasattr(base, "model") or not hasattr(base, "lm_head"):
+        raise ValueError("Expected Gemma4ForCausalLM.model/lm_head backbone interface")
+    device = next(base.parameters()).device
+    softcap = getattr(base.config, "final_logit_softcapping", None)
+    was_training = model.training
+    model.eval()
+    exercises = []
+    try:
+        with torch.no_grad():
+            for row in rows:
+                ids, indices, targets = supervised_batch(row, device)
+                reference = frozen_hidden(model, ids, indices)
+                hidden = base.model(input_ids=ids, use_cache=False).last_hidden_state[0, indices]
+                values = chunked_loss_audit(hidden, reference, base.lm_head, targets,
+                                           chunk_size=chunk_size, softcap=softcap)
+                tokens = [dict(target_index=i, target_id=target,
+                               prediction_position=len(row["prompt_ids"])-1+i,
+                               **{state: {key: value[i] for key, value in terms.items()}
+                                  for state, terms in values.items()})
+                          for i, target in enumerate(row["target_ids"])]
+                exercises.append(dict(id=row["id"], prompt_tokens=len(row["prompt_ids"]),
+                                      **_audit_summary(tokens), tokens=tokens))
+                del ids, targets, reference, hidden, values
+    finally:
+        model.train(was_training)
+    return dict(overall=_audit_summary([token for row in exercises for token in row["tokens"]]),
+                exercises=exercises)
+
+
+def print_loss_audit(report):
+    columns = (("teacher_nll", "teacher NLL"), ("reference_ce", "ref CE"),
+               ("base_entropy", "entropy floor"), ("kl", "KL"),
+               ("mixture", "mixture"), ("target_argmax_rate", "target argmax"))
+
+    def cell(key, value):
+        return f"{value:.2%}" if key == "target_argmax_rate" else f"{value:.6f}"
+
+    overall = report["overall"]
+    print(f"Overall: {overall['supervised_tokens']} supervised tokens; losses in nats/token")
+    print(f"{'state':<8} " + " ".join(f"{label:>13}" for _, label in columns))
+    for state in ("before", "after"):
+        print(f"{state:<8} " + " ".join(f"{cell(key, overall[state][key]):>13}" for key, _ in columns))
+    print(f"Base already predicts target: {overall['base_target_argmax_rate']:.2%}")
+    print("Per exercise (before -> after):")
+    width = max(len("exercise"), *(len(row["id"]) for row in report["exercises"]))
+    print(f"{'exercise':<{width}} {'tokens':>6} " + " ".join(f"{label:>20}" for _, label in columns))
+    for row in report["exercises"]:
+        parts = [f"{cell(key, row['before'][key])}->{cell(key, row['after'][key])}"
+                 for key, _ in columns]
+        print(f"{row['id']:<{width}} {row['supervised_tokens']:>6} " + " ".join(f"{part:>20}" for part in parts))
+
+
+def audit_loss(args, splits):
+    """Read trained artifacts; the sole output is the selected seed's loss_audit.json."""
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
+
+    train_seed = resolved_train_seed(args, splits["seed"])
+    target_dir = training_directory(args.run_dir, args.arm, train_seed, splits["seed"])
+    plan = read_json(args.run_dir / "training_plan.json")
+    config = read_json(target_dir / "config.json")
+    if plan["seed"] != splits["seed"] or config.get("train_seed", splits["seed"]) != train_seed:
+        raise ValueError("Loss audit split/training seed disagrees with saved training artifacts")
+    checkpoint = (args.checkpoint or target_dir / "adapter").resolve()
+    if not checkpoint.is_dir():
+        raise FileNotFoundError(f"Adapter checkpoint directory does not exist: {checkpoint}")
+    bank = read_json(args.run_dir / args.arm / "exercises.json")
+    if digest(bank) != plan["bank_hashes"][args.arm]:
+        raise ValueError("Loss audit exercise bank changed after training")
+    if any(row["arm"] != args.arm or row["layer"] != 0 or row["task_id"] not in splits["support"]
+           for row in bank):
+        raise ValueError("Training bank contains the wrong arm or non-support descendants")
+    tokenizer_path = args.tokenizer or plan["tokenizer"]
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, local_files_only=True)
+    rows, excluded = encode_rows(bank, tokenizer)
+    if digest(rows) != plan["encoded_hashes"][args.arm]:
+        raise ValueError("Loss audit encoding differs from the frozen training rows")
+    if not rows:
+        raise ValueError("Loss audit requires nonempty encoded supervision")
+    chunk_size = args.position_chunk if args.position_chunk is not None else config["position_chunk"]
+    if chunk_size <= 0:
+        raise ValueError("Positive position chunk required")
+    if not torch.cuda.is_available():
+        raise RuntimeError("Loss audit requires CUDA; CPU tests use a tiny fake model")
+    model_path = args.model_path or config["model_path"]
+    revision = {"revision": config["model_commit"]} if config.get("model_commit") else {}
+    with torch.no_grad():
+        base = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16,
+            local_files_only=True, attn_implementation="sdpa", device_map={"": 0}, **revision)
+        model = PeftModel.from_pretrained(base, str(checkpoint), is_trainable=False,
+                                         local_files_only=True)
+        model.requires_grad_(False)
+        model.eval()
+        report = audit_encoded_rows(model, rows, chunk_size=chunk_size)
+    report.update(arm=args.arm, train_seed=train_seed, checkpoint=str(checkpoint),
+                  model_path=model_path, model_commit=getattr(base.config, "_commit_hash", None),
+                  tokenizer=tokenizer_path, dtype="bfloat16",
+                  position_chunk=chunk_size, training_plan_hash=digest(plan),
+                  bank_hash=digest(bank), encoded_hash=digest(rows), excluded=excluded,
+                  invalid_row_ids=[row["id"] for row in bank if not row["validation"]["valid"]],
+                  scope="All encoded exercises, every supervised target once; no pass/cap weighting",
+                  before="adapter disabled (frozen base)", after="trained adapter enabled",
+                  reference="full vocabulary frozen adapter-disabled base", mixture_weights=[0.5, 0.5],
+                  units="nats per supervised token; token-weighted means")
+    # Deliberately avoid write_json's .tmp file and the CLI's mutating run binding/lock.
+    output = target_dir / "loss_audit.json"
+    output.write_text(json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
+    print_loss_audit(report)
+    return report
 
 
 def _nvidia_smi_rows(fields):
@@ -272,14 +455,10 @@ def train(args, splits):
         step_start = time.monotonic()
         for segment in segments:
             row = rows[segment["row"]]
-            p, y = row["prompt_ids"], row["target_ids"]
             left, right = segment["start"], segment["end"]
-            # The final target token need not be forwarded to predict itself.
-            ids = torch.tensor([p + y[:right-1]], device="cuda")
-            indices = slice(len(p)-1+left, len(p)-1+right)
+            ids, indices, target = supervised_batch(row, "cuda", left, right)
             reference = frozen_hidden(model, ids, indices)
             hidden = base.model(input_ids=ids, use_cache=False).last_hidden_state[0, indices]
-            target = torch.tensor(y[left:right], device="cuda")
             gradient, loss = chunked_hidden_gradient(hidden, reference, base.lm_head, target,
                 chunk_size=args.position_chunk, softcap=getattr(base.config, "final_logit_softcapping", None))
             if not torch.isfinite(gradient).all() or not torch.isfinite(torch.tensor(loss)):

@@ -17,7 +17,6 @@ def parser():
     common.add_argument("--run-dir", type=Path, default=ROOT / "results/mech_bfcl")
     common.add_argument("--splits", type=Path, default=ROOT / "configs/mech_bfcl_splits.json")
     common.add_argument("--seed", type=int, default=0)
-    common.add_argument("--tokenizer", default=STUDENT)
     common.add_argument("--base-url", help="Already running vLLM /v1 endpoint")
     common.add_argument("--served-model", help="vLLM served ID; defaults to base or mech-<arm>[-s<train-seed>]")
     common.add_argument("--bfcl-python", default=str(ROOT / "envs/bfcl/.venv/bin/python"))
@@ -43,12 +42,25 @@ def parser():
     train.add_argument("--learning-rate", type=float, default=1e-5,
                        help="AdamW learning rate, shared by both arms (default: 1e-5)")
     train.add_argument("--position-chunk", type=int, default=32)
+    audit = commands.add_parser("audit-loss", parents=[common],
+                                help="Read-only before/after decomposition of the training objective")
+    audit.add_argument("--arm", choices=["C", "D"], required=True)
+    audit.add_argument("--train-seed", type=int,
+                       help="Adapter training seed; defaults to the frozen split seed")
+    audit.add_argument("--checkpoint", type=Path,
+                       help="Adapter directory; defaults to the selected arm/seed's training adapter")
+    audit.add_argument("--model-path", help="Cached base model; defaults to the saved training config")
+    audit.add_argument("--position-chunk", type=positive_int,
+                       help="Projection chunk size; defaults to the saved training config")
     evaluate = commands.add_parser("evaluate", parents=[common])
     evaluate.add_argument("--arm", choices=["base", "C", "D"], required=True)
     evaluate.add_argument("--train-seed", type=int,
                           help="Adapter training seed; defaults to the frozen split seed, ignored for base")
     evaluate.add_argument("--repeat", choices=["main", "repeat"], default="main")
     commands.add_parser("report", parents=[common])
+    for command in commands.choices.values():
+        command.add_argument("--tokenizer", default=None if command is audit else STUDENT,
+                             help="Cached tokenizer; audit-loss defaults to the frozen training plan")
     return p
 
 
@@ -62,6 +74,15 @@ def positive_int(value):
 def main(argv=None):
     args = parser().parse_args(argv)
     args.run_dir = args.run_dir.resolve()
+    # An audit must not create pipeline.lock or bind/rewrite protocol.json.
+    if args.command == "audit-loss":
+        from bfas.mech_bfcl.training import audit_loss
+        splits = read_json(args.splits)
+        if args.seed != splits["seed"]:
+            raise ValueError("All stages must use the frozen split seed")
+        args.train_seed = resolved_train_seed(args, splits["seed"])
+        audit_loss(args, splits)
+        return 0
     setup_harness(args.run_dir / "runtime")
     if args.command == "splits":
         from bfas.mech_bfcl.splits import run
