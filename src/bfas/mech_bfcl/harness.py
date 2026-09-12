@@ -2,6 +2,7 @@
 import copy
 from contextvars import ContextVar
 from dataclasses import replace
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -186,7 +187,19 @@ def generation_cost(states):
                 output_tokens=sum(f["usage"]["completion_tokens"] for f in states))
 
 
-def official_run(args, ids, destination, adapter, splits):
+def preserve_incomplete_run(destination):
+    """Archive a recognizable unfinished attempt; never overwrite old evidence."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    archive = destination.with_name(f"{destination.name}.failed-{stamp}")
+    suffix = 0
+    while archive.exists():
+        suffix += 1
+        archive = destination.with_name(f"{destination.name}.failed-{stamp}-{suffix}")
+    destination.rename(archive)
+    print(f"Incomplete harness run preserved at {archive}; starting a new attempt", file=sys.stderr)
+
+
+def official_run(args, ids, destination, adapter, splits, *, evaluation_scope=None):
     from bfas.adapters.bfcl import extract_verdicts, read_score_summaries
     from bfas.bfcl_teacher import read_results
     entries, categories = adapter._load_entries()
@@ -199,12 +212,16 @@ def official_run(args, ids, destination, adapter, splits):
                     source_hash=digest({tid: entries[tid] for tid in expanded}),
                     split_hash=digest(splits), base_url=args.base_url,
                     served_model=args.served_model, temperature=0.001, top_k=1, seed=splits["seed"])
+    if evaluation_scope is not None:
+        metadata.update(evaluation_scope)
     if (destination / "items.json").exists():
         from .common import read_json
         if read_json(destination / "run.json") != metadata:
             raise ValueError("Cannot reuse a harness run with changed inputs")
         return read_json(destination / "items.json")
-    if destination.exists():
+    if (destination / "run.json").is_file():
+        preserve_incomplete_run(destination)
+    elif destination.exists():
         raise ValueError(f"Incomplete harness run preserved at {destination}; use a new run directory")
     destination.mkdir(parents=True)
     write_json(destination / "run.json", metadata)
@@ -255,14 +272,20 @@ def official_run(args, ids, destination, adapter, splits):
     # Official write-phase prerequisites are unscored but remain fully charged.
     expected = {tid: categories[tid] for tid in expanded if tid not in adapter._prereq_ids}
     summaries = read_score_summaries(destination / "score")
-    if set(expected.values()) - summaries.keys():
-        raise RuntimeError("Official checker omitted categories; inspect evaluate.log")
+    expected_categories, scored_categories = set(expected.values()), set(summaries)
+    missing_categories = expected_categories - scored_categories
+    if missing_categories:
+        raise RuntimeError(f"Official checker omitted categories: {sorted(missing_categories)}; "
+            f"expected categories: {sorted(expected_categories)}; "
+            f"scored categories: {sorted(scored_categories)}. Inspect {destination / 'evaluate.log'}")
     verdicts = extract_verdicts(destination / "score", expected)
     items = []
     for tid in ids:
         own = by_task[tid]
         row = dict(id=tid, **splits["items"][tid], correct=verdicts[tid], layer=3,
                    checker_result=results[tid], metrics=trajectory_metrics(own, verdicts[tid]))
+        if evaluation_scope is not None:
+            row["evaluation_scope"] = copy.deepcopy(evaluation_scope)
         items.append(row)
     write_json(destination / "items.json", items)
     return items

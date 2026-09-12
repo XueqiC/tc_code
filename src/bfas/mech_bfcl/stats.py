@@ -57,12 +57,19 @@ def paired_interval(paired, seed=0, samples=4000):
         leave_one_parent_out_min=min(leave_one_out) if leave_one_out else None)
 
 
-def refresh_pairs(directory):
+def refresh_pairs(directory, splits):
+    from .pipeline import layer3_selection
+    ids, scope = layer3_selection(splits)
     models = {}
     for arm in ("base", "C", "D"):
         path = directory / "evaluation" / arm / "main/items.json"
         if path.exists():
             models[arm] = read_json(path)
+            full = [r for r in models[arm] if r["layer"] == 3]
+            if len(full) != len(ids) or {r["id"] for r in full} != set(ids):
+                raise ValueError(f"{arm}: layer-3 items do not match the evaluation selection")
+            if any(r.get("evaluation_scope") != scope for r in full):
+                raise ValueError(f"{arm}: layer-3 evaluation scope metadata mismatch")
     summary = {}
     for a, b in combinations(models, 2):
         rows = pair(models[a], models[b])
@@ -70,20 +77,27 @@ def refresh_pairs(directory):
         write_json(directory / "paired" / (name+".json"), rows)
         summary[name] = {str(layer): paired_interval([r for r in rows if r["layer"] == layer])
                          for layer in (1, 2, 3)}
+        summary[name]["3"]["evaluation_scope"] = scope
     write_json(directory / "paired/intervals.json", summary)
     return models, summary
 
 
 def report(args, splits):
-    models, intervals = refresh_pairs(args.run_dir)
+    from .pipeline import layer3_selection
+    models, intervals = refresh_pairs(args.run_dir, splits)
     if set(models) != {"base", "C", "D"}:
         raise ValueError("Report requires complete base/C/D evaluations at all three layers")
     rows = []
+    _, scope = layer3_selection(splits)
     cost = ledger_summary(args.run_dir / "teacher_ledger.jsonl")
     lines = ["# BFCL first-round mechanism validation", "",
              "Student: google/gemma-4-12B-it; teacher: official OpenAI gpt-5.6-luna, requested Flex.",
              "These are mechanism-validation subsets, not BFCL official Overall. Historical base context: "
              "Overall 45.6; NL 82 / Live 80 / MT 53 / Memory 30 / Irrel 75.", "",
+             f"Layer 3 covers {scope['evaluated_questions']} of the {scope['subset_questions']} subset questions "
+             "for every arm and paired comparison. The frozen split and split hash are unchanged.",
+             f"Excluded categories: {', '.join(scope['excluded_categories'])}. {scope['exclusion_reason']}",
+             f"Excluded IDs: {', '.join(scope['excluded_ids']) or 'none'}.", "",
              "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Supervised tokens | Steps | Train seconds |",
              "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     breakdown = {}
@@ -107,12 +121,12 @@ def report(args, splits):
     lines += ["", f"Shared diagnosis/held-out preparation: {cost['shared']['output_tokens']} output tokens. "
               "All attempts, discarded generations, and reasoning remain in the ledger. "
               "USD cost is not inferred from an unverified price; exact raw token usage is retained.", "",
-              "| Pair (right − left) | Layer | Parent delta (pp) | Paired 95% interval (pp) | Parents | Catches / regressions |",
-              "| --- | --- | ---: | --- | ---: | --- |"]
+              "| Pair (right − left) | Layer | Items | Parent delta (pp) | Paired 95% interval (pp) | Parents | Catches / regressions |",
+              "| --- | --- | ---: | ---: | --- | ---: | --- |"]
     for name, layers in intervals.items():
         for layer, stat in layers.items():
             ci = "unavailable" if stat["ci95"] is None else f"[{100*stat['ci95'][0]:.2f}, {100*stat['ci95'][1]:.2f}]"
-            lines.append(f"| {name} | {layer} | {100*stat['delta']:.2f} | {ci} | {stat['independent_parents']} | "
+            lines.append(f"| {name} | {layer} | {stat['items']} | {100*stat['delta']:.2f} | {ci} | {stat['independent_parents']} | "
                          f"{stat['outcomes'].get('01',0)} / {stat['outcomes'].get('10',0)} |")
     cd = intervals["C_vs_D"]
     positive = lambda stat: stat["ci95"] is not None and stat["ci95"][0] > 0
@@ -139,6 +153,7 @@ def report(args, splits):
               "teacher-authored semantics and unexecutable tools retain explicit validation limits.", "",
               "Base repeat: " + (str(stability["outcomes"]) if stability else "not run; determinism unverified.")]
     write_json(args.run_dir / "report.json", dict(mechanism_table=rows, intervals=intervals,
-        category_breakdown=breakdown, teacher_cost=cost, base_stability=stability, interpretation=finding))
+        layer_3_scope=scope, category_breakdown=breakdown, teacher_cost=cost,
+        base_stability=stability, interpretation=finding))
     (args.run_dir / "report.md").write_text("\n".join(lines)+"\n")
     print(args.run_dir / "report.md")

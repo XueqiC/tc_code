@@ -15,6 +15,15 @@ from .splits import inventory, stratum
 from .teacher import Teacher, ledger_summary
 
 GENERATION_CALL_TOKENS = 3000
+# Evaluation policy, deliberately outside the frozen split/hash so completed
+# support, diagnosis, and practice-generation artifacts remain reusable.
+LAYER3_EXCLUDED_CATEGORIES = ("web_search",)
+LAYER3_EXCLUSION_REASON = (
+    "Web search has no SERPAPI key in this project (0/200 for every model, "
+    "with roughly 20 retries per item), so it cannot discriminate arms. "
+    "The official checker also skips the generated web_search category because "
+    "it recognizes only the web_search_base and web_search_no_snippet leaves."
+)
 DIVERSITY_FOCI = (
     "Vary concrete entities and argument values within the declared schema.",
     "Vary decisive prerequisites, availability, and boundary conditions supported by this state.",
@@ -403,6 +412,17 @@ def generate(args, splits):
     write_json(args.run_dir / "teacher_cost.json", costs)
 
 
+def layer3_selection(splits):
+    """Select full-task questions for every arm without mutating the split."""
+    ids, excluded = [], []
+    for tid in splits["evaluation"]:
+        target = excluded if splits["items"][tid]["category"] in LAYER3_EXCLUDED_CATEGORIES else ids
+        target.append(tid)
+    return ids, dict(subset_questions=len(splits["evaluation"]), evaluated_questions=len(ids),
+                     excluded_categories=list(LAYER3_EXCLUDED_CATEGORIES), excluded_ids=excluded,
+                     exclusion_reason=LAYER3_EXCLUSION_REASON)
+
+
 def evaluate(args, splits):
     from transformers import AutoTokenizer
     adapter, entries = inventory()
@@ -432,9 +452,10 @@ def evaluate(args, splits):
             category=exercise["category"], layer=exercise["layer"], correct=score.pop("correct"),
             response=response, raw=raw, metrics=score, generation_group=exercise["generation_group"])
         append_row(destination / "local.jsonl", row)
-    full = official_run(args, splits["evaluation"], destination / "full", adapter, splits)
+    ids, scope = layer3_selection(splits)
+    full = official_run(args, ids, destination / "full", adapter, splits, evaluation_scope=scope)
     write_json(destination / "cost.json", dict(layer_3=read_json(destination / "full/cost.json")))
     rows = read_rows(destination / "local.jsonl") + full
     write_json(destination / "items.json", rows)
     from .stats import refresh_pairs
-    refresh_pairs(args.run_dir)
+    refresh_pairs(args.run_dir, splits)

@@ -1,5 +1,6 @@
 """Offline harness batches: dependencies, capture provenance, and student cost."""
 import copy
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -47,7 +48,7 @@ def batch(tmp_path, monkeypatch):
                            tokenizer="stub", served_model="stub", bfcl_python="stub-python",
                            seed=0, arm="base", repeat="main")
     calls, generated = [], []
-    missing_results, missing_frames = set(), set()
+    missing_results, missing_frames, missing_categories = set(), set(), set()
 
     def run(command, *, env, cwd, stdout, stderr, check=False):
         calls.append(command)
@@ -80,6 +81,8 @@ def batch(tmp_path, monkeypatch):
         else:
             assert "evaluate" in command and "--partial-eval" in command
             for category, group in selection.items():
+                if category in missing_categories:
+                    continue
                 scored = [tid for tid in group if tid not in adapter._prereq_ids]
                 path = root / "score" / f"BFCL_v4_{category}_score.json"
                 append_row(path, dict(correct_count=0, total_count=len(scored)))
@@ -118,6 +121,8 @@ def test_official_batch_expands_chains_and_keeps_only_support_seeds(batch):
     assert b.chains["kv"][-2] in {s["context"]["task_id"] for s in seeds}
     assert harness.official_run(b.args, b.requested, destination, b.adapter, b.splits) == items
     assert len(b.calls) == 2  # Resume does not rerun or double-charge a chain.
+    assert "excluded_categories" not in read_json(destination / "run.json")
+    assert all("evaluation_scope" not in r for r in items)
 
 
 def test_missing_ids_reported_together_after_batch_and_cost_recorded(batch):
@@ -135,22 +140,36 @@ def test_missing_ids_reported_together_after_batch_and_cost_recorded(batch):
     assert not (destination / "items.json").exists()
     cost = read_json(destination / "cost.json")
     assert cost["output_tokens"] == (len(b.generated) - len(b.missing_frames)) * 14
-    with pytest.raises(ValueError, match="Incomplete harness run"):
-        harness.official_run(b.args, b.requested, destination, b.adapter, b.splits)
-    assert len(b.calls) == 2
+    # A retry keeps the failed attempt byte-for-byte and starts a clean batch.
+    before = {p.relative_to(destination): p.read_bytes() for p in destination.rglob("*") if p.is_file()}
+    b.missing_frames.clear()
+    b.missing_results.clear()
+    items = harness.official_run(b.args, b.requested, destination, b.adapter, b.splits)
+    assert len(b.calls) == 4
+    assert [r["id"] for r in items] == b.requested
+    archives = list(b.tmp_path.glob("failed.failed-*"))
+    assert len(archives) == 1
+    datetime.strptime(archives[0].name.removeprefix("failed.failed-"), "%Y%m%dT%H%M%S.%fZ")
+    assert {p.relative_to(archives[0]): p.read_bytes() for p in archives[0].rglob("*") if p.is_file()} == before
 
 
-def test_evaluate_expands_memory_and_charges_prerequisites(batch, monkeypatch):
+@pytest.mark.parametrize("arm,repeat", [("base", "main"), ("base", "repeat"), ("C", "main"), ("D", "main")])
+def test_evaluate_excludes_web_search_and_charges_prerequisites(batch, monkeypatch, arm, repeat):
     b = batch
-    # Keep the full 256-question evaluation size; only this requested memory
-    # question's chain may add episodes, and those episodes are not scored items.
+    b.args.arm, b.args.repeat = arm, repeat
+    # Frozen subset: 246 usable questions and ten excluded web-search questions.
+    # The requested memory question still expands through unscored prerequisites.
     for n in range(1, 256):
-        tid = f"simple_python_{n}"
+        category = "simple_python" if n < 246 else "web_search"
+        tid = f"{category}_{n}"
         b.entries[tid] = dict(id=tid)
-        b.categories[tid] = "simple_python"
-        b.splits["items"][tid] = dict(category="simple_python", parent_id=tid,
+        b.categories[tid] = category
+        b.splits["items"][tid] = dict(category=category, parent_id=tid,
                                        source_hash=digest(b.entries[tid]))
         b.splits["evaluation"].append(tid)
+    original = copy.deepcopy(b.splits)
+    split_hash = digest(b.splits)
+    b.missing_categories.add("web_search")  # Reproduce the official checker's omission.
     monkeypatch.setattr(pipeline, "inventory", lambda: (b.adapter, b.entries))
     monkeypatch.setattr(pipeline, "check_server", lambda *args: {"id": "stub"})
     monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(
@@ -162,19 +181,45 @@ def test_evaluate_expands_memory_and_charges_prerequisites(batch, monkeypatch):
                       category="simple_python", layer=layer, generation_group="heldout")
                  for layer in (1, 2)]
     write_json(b.tmp_path / "heldout.json", exercises)
+    destination = b.tmp_path / "evaluation" / arm / repeat
+    # Simulate the old 256-ID run, with different metadata and no items.json.
+    write_json(destination / "full/run.json", dict(ids=b.splits["evaluation"], split_hash=split_hash))
+    (destination / "full/evaluate.log").write_text("old web_search omission\n")
     pipeline.evaluate(b.args, b.splits)
-    destination = b.tmp_path / "evaluation/base/main"
     items = read_json(destination / "items.json")
-    assert [r["id"] for r in items if r["layer"] == 3] == b.splits["evaluation"]
-    assert len(items) == 258
-    assert b.generated == b.chains["rec_sum"] + b.splits["evaluation"][1:]
+    full = [r for r in items if r["layer"] == 3]
+    expected = b.splits["evaluation"][:246]
+    excluded = b.splits["evaluation"][246:]
+    assert [r["id"] for r in full] == expected
+    assert len(items) == 248
+    assert all("evaluation_scope" not in r for r in items if r["layer"] in (1, 2))
+    assert b.generated == b.chains["rec_sum"] + expected[1:]
+    assert not set(excluded) & set(b.generated)
     assert len(b.calls) == 2
+    run = read_json(destination / "full/run.json")
+    assert run["ids"] == expected
+    assert run["split_hash"] == split_hash == digest(b.splits)
+    assert b.splits == original
+    assert run["excluded_categories"] == ["web_search"]
+    assert run["excluded_ids"] == excluded
+    assert (run["evaluated_questions"], run["subset_questions"]) == (246, 256)
+    for r in full:
+        assert all(run[k] == v for k, v in r["evaluation_scope"].items())
+        assert r["evaluation_scope"]["excluded_ids"] == excluded
+    assert read_json(destination / "full/items.json") == full
+    archive, = destination.glob("full.failed-*")
+    assert read_json(archive / "run.json")["ids"] == b.splits["evaluation"]
+    assert (archive / "evaluate.log").read_text() == "old web_search omission\n"
     cost = read_json(destination / "cost.json")["layer_3"]
     assert cost == read_json(destination / "full/cost.json")
-    assert cost["requested"]["generations"] == 512
+    assert cost["requested"]["generations"] == 492
     assert cost["prerequisites"]["generations"] == 8
-    assert cost["generations"] == 520
-    assert cost["output_tokens"] == 520 * 7
+    assert cost["generations"] == 500
+    assert cost["output_tokens"] == 500 * 7
+    monkeypatch.setattr(pipeline, "student_reply", lambda *args: pytest.fail("local result should be reused"))
+    pipeline.evaluate(b.args, b.splits)
+    assert len(b.calls) == 2
+    assert len(list(destination.glob("full.failed-*"))) == 1
 
 
 def test_non_memory_batch_adds_no_episodes(batch):
@@ -185,3 +230,50 @@ def test_non_memory_batch_adds_no_episodes(batch):
     assert [r["id"] for r in items] == [b.plain]
     assert read_json(destination / "prerequisites.json") == []
     assert read_json(destination / "cost.json")["prerequisites"]["generations"] == 0
+
+
+def test_missing_categories_error_names_expected_and_scored_sets(batch):
+    b = batch
+    b.missing_categories.update(["memory_kv", "simple_python"])
+    destination = b.tmp_path / "omitted"
+    with pytest.raises(RuntimeError) as exc:
+        harness.official_run(b.args, b.requested, destination, b.adapter, b.splits)
+    message = str(exc.value)
+    assert "omitted categories: ['memory_kv', 'simple_python']" in message
+    assert "expected categories: ['memory_kv', 'memory_vector', 'simple_python']" in message
+    assert "scored categories: ['memory_vector']" in message
+    assert str(destination / "evaluate.log") in message
+    assert not (destination / "items.json").exists()
+
+
+def test_move_aside_timestamp_collision_preserves_both_attempts(batch, monkeypatch):
+    b = batch
+    now = datetime(2026, 9, 11, 23, 0, 1, 123456, tzinfo=timezone.utc)
+    def frozen_now(tz):
+        assert tz == timezone.utc
+        return now
+    monkeypatch.setattr(harness, "datetime", SimpleNamespace(now=frozen_now))
+    destination = b.tmp_path / "full"
+    archive = b.tmp_path / "full.failed-20260911T230001.123456Z"
+    write_json(archive / "run.json", {"attempt": "older"})
+    write_json(destination / "run.json", {"attempt": "failed"})
+    harness.official_run(b.args, [b.plain], destination, b.adapter, b.splits)
+    assert read_json(archive / "run.json") == {"attempt": "older"}
+    assert read_json(b.tmp_path / (archive.name + "-1") / "run.json") == {"attempt": "failed"}
+    assert (destination / "items.json").exists()
+
+
+def test_unknown_directory_and_changed_completed_run_are_preserved(batch):
+    b = batch
+    unknown = b.tmp_path / "unknown"
+    write_json(unknown / "unrelated.json", {"preserve": True})
+    with pytest.raises(ValueError, match="Incomplete harness run"):
+        harness.official_run(b.args, [b.plain], unknown, b.adapter, b.splits)
+    assert read_json(unknown / "unrelated.json") == {"preserve": True}
+    assert not b.calls and not list(b.tmp_path.glob("unknown.failed-*"))
+    destination = b.tmp_path / "completed"
+    items = harness.official_run(b.args, [b.plain], destination, b.adapter, b.splits)
+    with pytest.raises(ValueError, match="changed inputs"):
+        harness.official_run(b.args, b.requested, destination, b.adapter, b.splits)
+    assert read_json(destination / "items.json") == items
+    assert len(b.calls) == 2 and not list(b.tmp_path.glob("completed.failed-*"))

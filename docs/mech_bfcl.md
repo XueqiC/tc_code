@@ -36,8 +36,12 @@ agent loop, memory prerequisites, AST checker, executor, and full-task evaluator
 remain authoritative. Each subprocess receives a private `BFCL_PROJECT_ROOT`.
 All query histories, exact rendered prompts, responses, tool returns, executor
 snapshots, raw results, scores, and logs are retained. Successful completed runs
-are reusable; incomplete harness directories are preserved and rejected rather
-than silently mixing attempts. Use a new run directory for an abandoned run.
+are reusable. On rerun, a harness directory containing `run.json` but no
+`items.json` is moved to `<name>.failed-<UTC timestamp>` before a fresh attempt
+starts; timestamp collisions receive a numeric suffix. No failed artifacts are
+deleted. For example, the incomplete `evaluation/base/main/full` moves to
+`evaluation/base/main/full.failed-20260911T230001.123456Z`. Directories without
+`run.json` and completed runs with changed inputs are still rejected.
 
 Each support, calibration, or full-evaluation batch expands memory questions
 through their official `depends_on` chains, deduplicating shared prerequisites.
@@ -50,8 +54,31 @@ requested items enter `items.json`, and only support IDs can supply seeds.
 Memory initial configurations use the same reversible packing as executor
 snapshots so the harness's filesystem paths survive capture.
 
-The 256-question evaluation subset uses the same expansion. Prerequisites do
-not enlarge the scored subset. Each harness batch's `cost.json` totals captured
+Layer 3 evaluates **246 of the 256 frozen subset questions**, using the same
+memory expansion. `LAYER3_EXCLUDED_CATEGORIES = ("web_search",)` in
+`src/bfas/mech_bfcl/pipeline.py` excludes the ten `web_search` IDs when building
+the full-task ID list for **every arm and repeat**. This project has no SERPAPI
+key: web search scores 0/200 for every model, including the base student, cannot
+discriminate arms, and costs roughly 20 retries per item. Also, the official
+generator writes `BFCL_v4_web_search_result.json`, while the evaluator recognizes
+only `web_search_base` and `web_search_no_snippet` and silently skips that file.
+The exclusion changes only layer-3 selection; `configs/mech_bfcl_splits.json`
+and its split hash remain unchanged, so completed rollout, diagnose, C/D
+generation, and local evaluation artifacts remain reusable. Layers 1/2 keep
+their original held-out items. BFCL data, checker, and server settings are unchanged.
+
+The full run's `run.json` records `excluded_categories`, `excluded_ids`,
+`subset_questions`, `evaluated_questions`, and `exclusion_reason`. Each layer-3
+row in both `full/items.json` and the combined evaluation `items.json` carries
+the same fields under `evaluation_scope`, preserving the existing list format.
+Support/calibration metadata keeps its existing format for cache compatibility.
+`report.json` includes `layer_3_scope`; layer-3 paired intervals carry
+`evaluation_scope` and the actual item count. `report.md` names the exclusions,
+lists their IDs, and states the 246/256 coverage. Pairing validates the selected
+IDs and scope metadata for each arm. Checker category omissions now report the
+missing, expected, and scored category sets plus the evaluation log path.
+
+Prerequisites do not enlarge the scored subset. Each harness batch's `cost.json` totals captured
 generations and exact input/output tokens, with requested/prerequisite
 breakdowns; evaluation exposes these totals under `cost.json`'s `layer_3` key.
 Completed queries in failed episodes are included. Missing result and completed
@@ -60,9 +87,7 @@ trajectory IDs are reported together after the batch and retained cost records.
 Run this sequence from the project root on **one A100 80GB**. The cached model
 and tokenizer, BFCL environment, vLLM environment, and training environment must
 already be installed. `envs/bfcl/.venv/bin/python` has the harness's provider
-imports; `.venv/bin/python` has the training dependencies. The BFCL web-search
-executor needs the same runtime credentials/resources as the existing harness.
-Keep any required keys in the environment, never in command-line arguments.
+imports; `.venv/bin/python` has the training dependencies.
 
 ```bash
 cd /home/xueqi/hq/projects/tc-alignment-mech
@@ -117,7 +142,7 @@ wait_server
 "$BFCL_PY" tools/mech_bfcl.py generate --run-dir "$MECH_RUN" --arm D --target-exercises 64 --max-output-tokens 24000 --base-url http://127.0.0.1:8901/v1
 
 # Every evaluate invocation runs all three layers. Repeat base once before
-# training; report records paired correctness stability, including web effects.
+# training; report records paired correctness stability on the selected items.
 "$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm base --base-url http://127.0.0.1:8901/v1
 "$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_RUN" --arm base --repeat repeat --base-url http://127.0.0.1:8901/v1
 stop_server
