@@ -21,13 +21,14 @@ subsections answer these questions in turn.
 \caption{Main comparison with distillation baselines (GPT-5.6 Luna teacher,
 Gemma-4-12B student). The agent harness, tools, prompts, and decoding
 are fixed per benchmark and only the student backbone changes.
-Teacher-using methods share the same teacher budget cap $B$ per
-benchmark, with actual spend reported in Appendix~\ref{app:details};
-STaR uses no teacher call. Trained rows are mean$\pm$std over three
-training runs; the initial student row is a single reference
-evaluation on the same machine (Appendix~\ref{app:details}). ALFWorld
-reports the \texttt{valid\_seen} success rate, WebShop the success
-rate on the 500 test instructions (the reward score is in
+Every teacher-using method shares one absolute budget cap of
+$B=30{,}000$ teacher output tokens, identical across benchmarks, with
+actual spend reported in Appendix~\ref{app:details}. Trained rows are
+mean$\pm$std over three training runs; the initial student row is a
+single reference evaluation on the same machine
+(Appendix~\ref{app:details}). ALFWorld reports the
+\texttt{valid\_seen} success rate, HotpotQA-ReAct the exact-match
+score on the 500 development questions (the F1 score is in
 Appendix~\ref{app:details}), and BFCL~v4 the official overall
 accuracy, all in percent. $\Delta_{\mathrm{avg}}$ is the mean
 improvement in percentage points over the initial student across the
@@ -41,16 +42,14 @@ Table~\ref{tab:earlier} of the appendix.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Method} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
+\textbf{Method} & ALFWorld & HotpotQA & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
-\rowcolor{rowhead}Initial student (Gemma-4-12B) & $56.4$ & $19.4$ & $45.6$ & --\\
+\rowcolor{rowhead}Initial student (Gemma-4-12B) & $56.4$ & $38.2$ & $45.6$ & --\\
 \midrule
-SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SmartAD & $55.7^{\dagger}$ & $\cdot$ & $\cdot$ & $\cdot$\\
 SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-BBOPD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-dDPO & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-PBSD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-STaR & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Agent Distillation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+GAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
 \rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule
@@ -113,7 +112,7 @@ column set. Bold marks the best and underline the second best.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Acquisition} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
+\textbf{Acquisition} & ALFWorld & HotpotQA & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
 \rowcolor{rowhead}\multicolumn{5}{@{}l}{\emph{Selection}}\\
 Random subset & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
@@ -159,14 +158,12 @@ the second best.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccc r@{}}
 \toprule
-\textbf{Distillation} & ALFWorld & WebShop & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
+\textbf{Distillation} & ALFWorld & HotpotQA & BFCL v4 & $\Delta_{\mathrm{avg}}$\\
 \midrule
-SFT & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+SmartAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 SAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-BBOPD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-dDPO & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-PBSD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
-STaR & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+Agent Distillation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+GAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \midrule
 \rowcolor{rowours}\textbf{Ours (anchored objective)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
 \bottomrule
@@ -239,6 +236,48 @@ the common cap. (b)~Purchase trajectory per decision window.
 (c)~Surrogate values against realized paired gains.}
 \label{fig:budget}
 \end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Budget curve on ALFWorld. Every column is one absolute cap on
+teacher output tokens, applied to the same sealed candidate pool in
+one frozen random order, with failed attempts charged at their
+recorded cost. The purchased row counts the demonstrations that passed
+verification and therefore reached training, so the cap buys attempts
+rather than usable evidence. Scores are \texttt{valid\_seen} success
+rates in percent from a single training run, and the initial student
+scores $56.4$ on the same harness. Curves for HotpotQA-ReAct and
+BFCL~v4 follow the same protocol.}
+\label{tab:budget}
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l cccc@{}}
+\toprule
+\textbf{Cap $B$ (teacher output tokens)} & $7{,}500$ & $15{,}000$ & $30{,}000$ & $60{,}000$\\
+\midrule
+Usable demonstrations purchased & $2$ & $5$ & $5$ & $9$\\
+\midrule
+SmartAD & $53.6$ & $55.0$ & $55.7$ & $56.4$\\
+SAD & $57.9$ & $60.7$ & $\cdot$ & $\cdot$\\
+Agent Distillation & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+GAD & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\midrule
+\rowcolor{rowours}\textbf{RTD (ours)} & $\cdot$ & $\cdot$ & $\cdot$ & $\cdot$\\
+\bottomrule
+\end{tabular*}
+\end{table}
+
+Table~\ref{tab:budget} reads the same cap as a curve rather than a
+single point. Two readings already separate the methods at matched
+purchases. Raising the cap eightfold moves SmartAD by $2.8$ points and
+leaves it at the initial student, so more demonstrations of the same
+kind do not convert into task capability here. At $15{,}000$ tokens
+the two methods train on the identical five demonstrations and differ
+only in which spans carry the loss, and the span-weighted variant is
+$5.7$ points higher, which is the first evidence in our setting that
+the placement of the teaching signal matters more than its volume.
+\todo{fill the remaining cells and the two other benchmarks as the
+curve runs land.}
 
 The second half of this question asks where the budget actually goes.
 The cap is an authorization, not an amount to be spent, so every

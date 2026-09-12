@@ -297,38 +297,29 @@ support set with identical optimization constants, and differ only in
 the training pool and loss. Losses are computed on assistant-generated
 spans only; environment observations and prompts are masked. The
 branches follow the black-box taxonomy of \citet{xu2024kdsurvey}.
-\textbf{SFT} \citep{mukherjee2023orca} minimizes the
-token-level NLL on verified teacher trajectories.
-\textbf{SAD} (Structured Agent Distillation, \citealp{liu2025structured})
-trains on the same pool with reasoning and action spans weighted
-separately in the NLL; the teacher-distribution alignment of the
-original method is not available from a black-box teacher and is
-replaced by hard labels. \textbf{BBOPD}
-(black-box on-policy distillation, adapted from \citealp{ye2025bbopd}) lets the rollouts of the student
-itself fix the visited states, queries the teacher once per visited
-state for the action it would take there, and trains the resulting
-(state, teacher action) pairs by NLL; this keeps the on-policy state
-distribution of black-box on-policy distillation but not its
-discriminator or adversarial objective, and on a single-turn benchmark
-the visited state is the query itself, so the pool coincides with the
-demonstration pool. \textbf{dDPO} (distilled DPO,
-\citealp{tunstall2023zephyr}) runs an SFT stage followed by
-DPO whose preference pairs are the samples of the student ranked best
-and worst by the teacher; the frozen initial student is the DPO
-reference model, and the ranking outputs are charged to $B$.
-\textbf{PBSD (offline pref.)} (an offline variant of
-\citealp{pbsd2026}) pairs teacher positives with the failed first turn
-of the student as the rejected side and trains jointly with the
-positive NLL; unlike PBSD it uses a static external teacher and a
-fixed negative rather than a context-augmented self-teacher with
-continually resampled negatives. \textbf{STaR} \citep{zelikman2022star}, without rationalization,
-iterates self-sampling, verifier filtering,
-and self-training on the verified samples of the student, with no
-teacher call and no teacher-generated initialization examples. The
-agent distiller of \citet{kang2025distilling} reduces, in this
-harness, to SFT on the same pool, since its retrieval and
-code-tool components are fixed by the benchmark harness for all
-methods, and it is therefore not listed as a separate row.
+\textbf{SmartAD} scores every purchased verified trajectory of a task
+with the initial student, keeps the one of lowest generated-token mean
+NLL, and trains a weighted token cross-entropy that gives reasoning
+weight one, actions weight one and a half, and the terminal decision
+weight two. Scoring happens before any update, and ties are broken by
+package identifier. \textbf{SAD} (Structured Agent Distillation,
+\citealp{liu2025structured}) trains on the same pool with reasoning
+and action spans averaged as separate groups, with observation spans
+masked; the teacher-distribution alignment of the original method is
+not available from a black-box teacher and is replaced by hard
+labels. \textbf{Agent Distillation} \citep{kang2025distilling}
+prepends a deterministic retrospective summary of at most forty words,
+extracted offline from each purchased trajectory, as the first thought
+of its first supervised response, which replaces the teacher-generated
+first thought of the original procedure under the constraint that no
+new teacher call may be made; at inference the student writes the
+thought itself. \textbf{GAD} \citep{ye2025bbopd} trains a small
+character-level discriminator to separate purchased teacher text from
+student samples at the same states and uses its score as a reward for
+policy-gradient commits interleaved with supervised warmup commits, so
+that purchased text is reused rather than imitated once. All four draw
+their evidence from the same sealed pool under the same cap, and no
+method issues a teacher call outside the purchase.
 
 \paragraph{Sealed-pool baseline runs.}
 Under the unified budget every baseline draws its evidence from the

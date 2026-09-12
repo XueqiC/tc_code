@@ -8,13 +8,16 @@ The main table uses three agent benchmarks under their official
 harnesses, with every method deployed through the same tools, prompts,
 action retries, and decoding, so that only the student backbone
 changes: \textbf{ALFWorld} \citep{shridhar2021alfworld} (success rate
-on the 140-task \texttt{valid\_seen} split), \textbf{WebShop}
-\citep{yao2022webshop} (success rate on the standard 500 test
-instructions over the full product catalogue, with the reward-based
-score reported as a diagnostic), and \textbf{BFCL~v4} (official
-overall accuracy over the full 5{,}217-entry suite). This is the
-benchmark pair used by structured agent distillation
-\citep{liu2025structured} plus a function-calling suite. AppWorld
+on the 140-task \texttt{valid\_seen} split),
+\textbf{HotpotQA-ReAct} \citep{yang2018hotpotqa, yao2023react}
+(exact match on 500 development questions under a Wikipedia search
+tool, with F1 reported as a diagnostic), and \textbf{BFCL~v4}
+(official overall accuracy over the full 5{,}217-entry suite). The
+first two are the benchmarks used by structured agent distillation
+\citep{liu2025structured}, and the third adds a function-calling
+suite. WebShop \citep{yao2022webshop} is excluded because the teacher
+itself succeeds on one instruction in five under its official
+verifier, so a purchased demonstration there certifies little. AppWorld
 \citep{trivedi2024appworld} and $\tau^2$-bench \citep{yao2024taubench}
 are not in the main table; the former floors every small student under
 its simplified harness and costs about $10^5$ teacher tokens per
@@ -24,17 +27,16 @@ of the size studied here. Protocols and task counts are given in
 Appendix~\ref{app:details}. The baselines carry the names of the
 methods they adapt, and Appendix~\ref{app:baselines} gives their
 losses, data, and what each adaptation keeps of the original:
-\emph{SFT} (trajectory imitation, \citealp{mukherjee2023orca}),
+\emph{SmartAD} (demonstration selection by student difficulty),
 \emph{SAD} (Structured Agent Distillation, \citealp{liu2025structured}),
-\emph{BBOPD} (the supervised core of black-box on-policy distillation,
-\citealp{ye2025bbopd}, without its discriminator), \emph{dDPO}
-\citep{tunstall2023zephyr}, \emph{PBSD} \citep{pbsd2026} in its agent
-adaptation, and \emph{STaR} without rationalization
-\citep{zelikman2022star}. Teacher-using methods share the same teacher
-budget cap $B$ on a benchmark, and every teacher output token they
-consume, including discarded failures, ranking calls, and on-policy
-corrections, is charged against it; STaR uses no teacher call and is
-reported as the zero-teacher reference. Each trained row is
+\emph{Agent Distillation} \citep{kang2025distilling} in its
+retrieval-free form, and \emph{GAD} (generative adversarial
+distillation, \citealp{ye2025bbopd}), which reuses purchased teacher
+text through a discriminator reward. All four share one absolute
+teacher budget cap of $B=30{,}000$ output tokens, identical across
+benchmarks, and every teacher output token they consume, including
+discarded failures, ranking calls, and on-policy corrections, is
+charged against it. Each trained row is
 mean$\pm$std over three training runs (data order, adapter
 initialization, and the sampling of the student itself) under the
 official decoding of each benchmark. The \emph{initial student} row is
@@ -68,7 +70,7 @@ hidden states nor gradients, billed per output token including any
 reasoning tokens) and a Gemma-4-12B instruction-tuned student
 \citep{gemma4}. The student is a dense 12B model with native
 structured tool calling, so BFCL prompts and targets are rendered in
-its own tool-call format and ALFWorld and WebShop use its chat template
+its own tool-call format and ALFWorld and HotpotQA-ReAct use its chat template
 with plain-text actions; training prompts are byte-identical to the
 strings the evaluators send. Students train LoRA adapters (rank 16)
 under compute-matched schedules, and every threshold in the method is
