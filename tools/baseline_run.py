@@ -34,7 +34,7 @@ def budget_token_levels(value):
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--method", required=True, choices=("smartad", "sad", "kang", "gad"))
-    parser.add_argument("--benchmark", required=True, choices=("alfworld", "bfcl"))
+    parser.add_argument("--benchmark", required=True, choices=("alfworld", "bfcl", "hotpotqa"))
     parser.add_argument("--bank", required=True, type=Path)
     budget = parser.add_mutually_exclusive_group(required=True)
     budget.add_argument("--budget-tokens", type=budget_token_levels, metavar="B[,B,...]",
@@ -54,6 +54,8 @@ def arguments(argv=None):
 
 
 def validate_run_args(args):
+    if args.benchmark == "hotpotqa" and args.smoke:
+        raise ValueError("HotpotQA evaluation requires the frozen 500-question dev split; omit --smoke")
     if not args.bank.is_absolute():
         raise ValueError("--bank must be an absolute path")
     if not 1 <= args.port <= 65535:
@@ -91,6 +93,15 @@ def prepare(args):
                     *[ROOT/"src/bfas/rtd"/name for name in ("runtime.py", "functional_step.py",
                         "return_gradient.py", "student.py", "transport.py", "evaluation.py",
                         "source_scoring.py", "persistence.py")]]
+    if args.benchmark == "hotpotqa":
+        source_files.extend([ROOT/"src/bfas/adapters/hotpotqa.py", ROOT/"src/bfas/hotpotqa.py",
+            ROOT/"src/bfas/hotpotqa_budget.py", ROOT/"tools/hotpotqa_eval.py",
+            ROOT/"prompts/hotpotqa_react_6shot.txt",
+            *sorted((ROOT/"configs").glob("hotpotqa_*_split.json")),
+            *sorted((ROOT/"src/bfas/rtd/benchmarks").glob("hotpotqa_*.py")),
+            *[ROOT/"src/bfas/rtd/benchmarks"/name for name in
+              ("config.py", "registry.py", "webshop_evaluation.py")],
+            ROOT/"src/bfas/rtd/caps.py", ROOT/"src/bfas/rtd/feedback_rng.py"])
     manifest = dict(version="budgeted-paper-baselines-v1", method=args.method, benchmark=args.benchmark,
         seed=0, student=STUDENT, teacher="gpt-5.6-luna", **purchase, config=config,
         config_sources={str(p.relative_to(ROOT)): file_hash(p) for p in (cfg_path, shared_path)},

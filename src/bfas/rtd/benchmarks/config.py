@@ -19,6 +19,11 @@ def benchmark_protocol(benchmark):
             webshop_expected_eval_tasks=500, webshop_max_episode_steps=15,
             webshop_obs_chars=2500, webshop_history_obs_chars=600, webshop_max_prompt_chars=60000,
             webshop_data_root='envs/webshop/repo/data', webshop_environment_root='envs/webshop')
+    if benchmark == 'hotpotqa':
+        return common | dict(support_parent_tasks_m=200, hotpotqa_evaluation_split='dev_distractor_first500',
+            hotpotqa_expected_eval_tasks=500, hotpotqa_max_episode_steps=7,
+            hotpotqa_data_root='envs/hotpotqa/data', hotpotqa_cache_root='envs/hotpotqa/cache',
+            hotpotqa_offline=True, max_action_tokens_by_benchmark={'hotpotqa': {'agent_action': 100}})
     raise ValueError('unknown interactive benchmark')
 
 

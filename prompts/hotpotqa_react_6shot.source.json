@@ -1,0 +1,10 @@
+{
+  "source": "https://github.com/ysymyth/ReAct",
+  "prompt_source": "https://github.com/ysymyth/ReAct/blob/master/prompts/prompts_naive.json",
+  "instruction_source": "https://github.com/ysymyth/ReAct/blob/master/hotpotqa.ipynb",
+  "retrieved": "2026-09-11",
+  "construction": "Verbatim instruction + webthink_simple6; whitespace and upstream encoding artifacts retained. No source header is inserted into the model prompt.",
+  "sha256": "e52ba17b32d98144c4ee3f95f3cd5a2fec2016629219427f8aa9ddcfbdcc3fdf",
+  "shots": 6,
+  "license": "MIT; see hotpotqa_react_LICENSE.txt"
+}

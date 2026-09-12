@@ -23,6 +23,13 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python tools/baseline_run.py \
   --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna \
   --budget-tokens 15000,30000,60000 --seed 0 \
   --run-dir results/paper_baselines/alfworld_smartad --prepare-only
+
+# Audit HotpotQA purchases on CPU without touching an active results tree.
+CUDA_VISIBLE_DEVICES='' .venv/bin/python tools/baseline_run.py \
+  --method smartad --benchmark hotpotqa \
+  --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna \
+  --budget-tokens 7500,15000,30000,60000 --seed 0 \
+  --run-dir /tmp/hotpotqa_smartad_audit --prepare-only
 ```
 
 Supply exactly one of `--budget-tokens` and the backward-compatible
@@ -52,6 +59,7 @@ still use the complete purchased data. Smoke receipts are marked
 `official_full: false` and written to `smoke_metrics.json` rather than
 `official_metrics.json`; they are not paper results. Kang's additional SAG
 campaign uses the same three tasks.
+HotpotQA retains the full frozen 500-question dev split and rejects `--smoke`.
 
 Workers flush timestamped JSON progress to `train.log` and `evaluate.log`,
 including rendering, selection, preconditioner rollouts, training loss and
@@ -80,7 +88,7 @@ PyTorch CPU threads are bounded to four. The shared frozen-source soft-gradient
 routine also checks reference hidden states, logits, and labels before loss
 computation; it remains separate from these baseline objectives.
 
-Both evaluation paths use the runner-owned vLLM server with
+All evaluation paths use the runner-owned vLLM server with
 `start_new_session=True` (POSIX `setsid`). Shutdown sends TERM to its whole
 process group and KILL to any remaining descendants even if the server leader
 has already exited. On interruption the parent lets the worker run its server
@@ -101,8 +109,9 @@ levels are:
 | BFCL | 2,500 | 5,000 | 10,000 |
 
 These are protocol choices, not budgets fitted to observed performance. The
-HotpotQA rule is specified for the paper; this runner currently supports only
-ALFWorld and BFCL. Pass the chosen cap(s) explicitly on the command line.
+runner supports ALFWorld, BFCL and HotpotQA. Pass the chosen cap(s) explicitly
+on the command line. The requested HotpotQA CPU purchase audit separately uses
+7,500 / 15,000 / 30,000 / 60,000; these audit caps do not change the proposed defaults.
 
 The authority for the frozen **purchase order and charging** rule is
 `paper/sections/appendix.tex`, “Sealed-pool baseline runs”, alongside
@@ -192,6 +201,14 @@ commands rather than the collector's private reasoning. Missing reasoning is
 not fabricated; action-only rows reduce to action CE. The empty template
 prefill is prompt context, not a fake reasoning example.
 
+HotpotQA keeps native bank prompts and uses the 100-token `agent_action` cap.
+Numbered `Thought n:` and `Action n:` spans and standalone `search`, `lookup`
+and `finish` actions are recognized. The last user-turn prefill distinguishes
+an inherited thought continuation from an action-only retry, including a retry
+that produces plain text. Wikipedia observations are masked. Only `finish`
+gets the final-decision weight; earlier reasoning in the terminal row stays
+reasoning. SAD groups both tool actions and terminal answers under ACT.
+
 **Kang / Agent Distillation.** Derive a deterministic, at-most-40-word
 retrospective summary from each purchased trajectory's text and prepend it as
 THOUGHT to its first supervised response. Later prompts/targets stay unchanged.
@@ -200,7 +217,7 @@ offline extraction, as required by the no-new-teacher-call constraint. At
 inference, the student produces the thought itself; no teacher-derived prefix
 is supplied for evaluation tasks. [Original paper](https://arxiv.org/abs/2505.17612).
 
-Kang has an additional full evaluation with **n=3, temperature=.7** and stable
+On ALFWorld and BFCL, Kang has an additional full evaluation with **n=3, temperature=.7** and stable
 per-task/per-step seeds. Vote by execution result, tie-breaking by first sample.
 ALFWorld probes replay the already executed commands into fresh environment
 workers, check that they reproduce the current public state, and execute each
@@ -213,6 +230,11 @@ external/file-backed memory/search tasks, no cloneable execution environment is
 available: use official decoded-AST consistency (final text for no-call answers).
 Each vote key records `executed`, `decoded_ast`, or `final`; this fallback is an
 explicit departure from fully executable SAG, never a correctness-oracle vote.
+HotpotQA currently reports Kang's official greedy score only, with
+`kang_self_consistency.status: unsupported` in `metrics.json`. Its manifest
+records no SAG sample count or temperature. A HotpotQA SAG implementation
+would need to sample complete ReAct episodes and vote over normalized final
+answers; a second greedy campaign is never labeled SAG.
 
 **GAD.** A separate small discriminator (257 byte symbols, embedding width 32,
 GRU hidden width 64, conditional pair MLP) reads complete prompts and responses.
@@ -249,8 +271,48 @@ harness files remain unchanged. BFCL's official Overall CSV is the headline;
 do not substitute an average of category accuracies. Existing RTD completeness
 validators reject missing/duplicate tasks, missing score categories or errors.
 
+HotpotQA uses `HotpotQAAdapter(seed=0, offline=True)` through the same serving
+lane on the merged student export. It evaluates the frozen first **500 dev
+questions**, temperature **0**, seven steps, at most 14 model calls, and
+**100 generated tokens per call**, with the byte-identical six-shot ReAct
+prompt. Answer **EM** is the headline (`overall_accuracy_percent = 100 * em`);
+answer F1 is separate. The ported validator checks ordered IDs, frozen question
+and gold hashes, horizons, decoding settings and recomputed EM/F1. Receipts
+include prompt/evaluator/split source hashes, dataset and cached Wikipedia
+identities, checkpoint/export hashes and reserved GPU time. Cache misses fail
+incomplete evaluation. The policy is released even when rendering or the
+campaign fails.
+
+The local `envs/hotpotqa/data` is already populated and `envs/hotpotqa/cache`
+links to `/home/xueqi/hq/projects/tc-alignment-ws/envs/hotpotqa/cache`. On a tree
+without `envs/hotpotqa`, link that directory to the shared ws environment.
+Runtime data/cache and the read-only bank are not copied into Git. Evaluation
+disables teacher-pool imports and reads cached Wikipedia without creating cache
+locks. The paper runner uses the ported registry providers; this integration
+does not migrate the shared RTD experiment driver to the sibling tree's newer
+feedback RNG or checkpoint scheduling protocol.
+
+The completed-bank SmartAD `--prepare-only` audit is saved in
+[`paper_baselines_hotpotqa_audit.json`](paper_baselines_hotpotqa_audit.json),
+including the bank certificate, source identities, package IDs and charges.
+The full manifests and purchased rows are under
+`/tmp/tc-alignment-base-hotpotqa-smartad-audit_B<cap>`.
+
+| Token cap | Charged tokens | Packages (usable / unavailable) | Positive rows |
+|---:|---:|---:|---:|
+| 7,500 | 6,879 | 6 / 0 | 32 |
+| 15,000 | 6,879 | 6 / 0 | 32 |
+| 30,000 | 25,622 | 7 / 4 | 39 |
+| 60,000 | 59,466 | 14 / 10 | 79 |
+
+Both smaller budgets stop before the same 8,221-token package: the next
+cumulative purchase would cost 15,100. The 30k and 60k runs stop before packages
+costing 5,487 and 541 tokens respectively. These are deterministic prefix
+purchases, including paid unavailable packages, with zero new teacher calls,
+new teacher tokens or GPU hours. They do not measure model performance.
+
 `metrics.json` and `official_metrics.json` contain the official single-sample
-score and per-category scores. Kang additionally writes `kang_metrics.json`
+score and benchmark-specific details. On ALFWorld/BFCL, Kang additionally writes `kang_metrics.json`
 and includes `kang_self_consistency` in `metrics.json`; the SAG score has a
 separate sampling label and is never presented as greedy. Both campaigns run
 the same tasks and official checkers. Each vote is archived in

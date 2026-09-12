@@ -14,14 +14,24 @@ from .paper_progress import progress, stage
 
 
 def protocol(benchmark, *, smoke=False):
+    if benchmark == "hotpotqa":
+        if smoke:
+            raise ValueError("HotpotQA evaluation requires the frozen 500-question dev split")
+        return dict(benchmark=benchmark, split="dev_distractor_first500", tasks=500, temperature=0.,
+                    max_steps=7, max_model_calls=14, max_action_tokens=100, backend="vllm",
+                    evaluator="HotpotQAAdapter.evaluate", overall_metric="em", secondary_metric="f1",
+                    prompt="prompts/hotpotqa_react_6shot.txt", offline=True,
+                    cache="envs/hotpotqa/cache")
     if smoke:
         return dict(protocol(benchmark), tasks=3, smoke=True, official_full=False,
                     task_selection="first 3 valid_seen tasks" if benchmark == "alfworld" else "first 3 simple_python IDs")
     if benchmark == "alfworld":
         return dict(benchmark=benchmark, split="valid_seen", tasks=140, temperature=0.,
                     max_steps=40, max_action_tokens=256, backend="vllm", evaluator="ALFWorldAdapter.evaluate")
-    return dict(benchmark=benchmark, split="all", tasks=5217, temperature=.001,
-                handler="gemma4_fc", model=STUDENT+"-FC", backend="vllm", evaluator="bfcl_eval CLI")
+    if benchmark == "bfcl":
+        return dict(benchmark=benchmark, split="all", tasks=5217, temperature=.001,
+                    handler="gemma4_fc", model=STUDENT+"-FC", backend="vllm", evaluator="bfcl_eval CLI")
+    raise ValueError("unknown paper baseline benchmark: " + benchmark)
 
 
 def bfcl_commands(root, merged, out, *, kang=False, port=8930, smoke=False):
@@ -157,6 +167,41 @@ def run_alfworld(root, merged, out, *, kang, port, smoke=False):
         validation=validation, expected=expected)
 
 
+def run_hotpotqa(root, merged, out, *, kang, port, smoke=False, config):
+    from ...adapters.hotpotqa import HotpotQAAdapter
+    from ...run import serving_lane
+    from ..benchmarks.hotpotqa_identity import evaluation_harness_identity
+    from ..benchmarks.hotpotqa_evaluation import validate_records
+    from ..benchmarks.webshop_evaluation import frozen_environment
+    protocol("hotpotqa", smoke=smoke)
+    if kang:
+        raise NotImplementedError("HotpotQA Kang SAG requires votes over complete sampled ReAct episodes")
+    out.mkdir(parents=True, exist_ok=False)
+    harness = evaluation_harness_identity(root, config)
+    expected = harness["expected"]
+    adapter = HotpotQAAdapter(seed=0, port=port, offline=True)
+    try:
+        with frozen_environment("hotpotqa"):
+            with stage("evaluation_rendering", benchmark="hotpotqa"):
+                adapter.prepare_renderer(str(merged))
+            start = time.monotonic()
+            try:
+                with stage("evaluation", benchmark="hotpotqa", tasks=500), serving_lane(
+                        adapter, str(merged), os.environ["CUDA_VISIBLE_DEVICES"], port, out/"vllm.log"):
+                    progress("evaluation", "server_ready", benchmark="hotpotqa")
+                    metrics = adapter.evaluate(str(merged), out)
+            finally:
+                atomic_json(out/"gpu_usage.json", dict(gpu_seconds=time.monotonic()-start,
+                    basis="one GPU reserved during vLLM adapter campaign including server startup"))
+    finally:
+        adapter.release_policy()
+    validation = validate_records(out, metrics, expected)
+    return dict(complete=True, tasks=500, smoke=False, official_full=True,
+        overall_accuracy_percent=100*metrics["em"], overall_metric="em",
+        em=metrics["em"], f1=metrics["f1"], validation=validation, expected=expected,
+        harness_identity=harness)
+
+
 def evaluate_run(root, directory, manifest):
     from ..evaluation import _flatten_adapter
     from ..hardware import hardware_identity
@@ -179,16 +224,27 @@ def evaluate_run(root, directory, manifest):
         subprocess.run([sys.executable, str(root/"tools/bfcl_hub_merge_export.py"),
             "--adapter", str(flat), "--out", str(merged), "--model", manifest["model_path"], "--verify"],
             cwd=root, env=dict(os.environ, CUDA_VISIBLE_DEVICES=""), check=True)
-    callback = run_alfworld if manifest["benchmark"] == "alfworld" else run_bfcl
+    benchmark = manifest["benchmark"]
+    if benchmark == "hotpotqa":
+        callback, options = run_hotpotqa, dict(config=manifest["config"])
+    elif benchmark == "alfworld":
+        callback, options = run_alfworld, {}
+    elif benchmark == "bfcl":
+        callback, options = run_bfcl, {}
+    else:
+        raise ValueError("unknown paper baseline benchmark: " + benchmark)
     receipt = dict(protocol=protocol(manifest["benchmark"], smoke=smoke), method=manifest["method"],
         teacher_tokens_charged=manifest["teacher_tokens_charged"], B=manifest["B"],
         checkpoint_sha256=manifest["checkpoint_sha256"], export_sha256=tree_hash(merged))
     receipt["hardware"] = hardware
     result = callback(root, merged, directory/("smoke" if smoke else "official"),
-                      kang=False, port=manifest["port"], smoke=smoke)
+                      kang=False, port=manifest["port"], smoke=smoke, **options)
     result.update(receipt, evaluation_mode="smoke_single_sample" if smoke else "official_single_sample")
     atomic_json(directory/("smoke_metrics.json" if smoke else "official_metrics.json"), result)
-    if manifest["method"] == "kang":
+    if manifest["method"] == "kang" and benchmark == "hotpotqa":
+        result["kang_self_consistency"] = dict(status="unsupported",
+            reason="HotpotQA SAG requires votes over normalized final answers from complete sampled ReAct episodes")
+    elif manifest["method"] == "kang":
         sag = callback(root, merged, directory/"kang_sag", kang=True, port=manifest["port"], smoke=smoke)
         sag.update(receipt, evaluation_mode="smoke_kang_sag" if smoke else "kang_sag", n=3, sampling_temperature=.7,
                    official_single_sample=result)

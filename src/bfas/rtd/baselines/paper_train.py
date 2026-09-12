@@ -18,7 +18,7 @@ from ..source_scoring import require_device
 
 
 def hyperparameters(config, method):
-    return dict(student=config["student"], seed=0, lora_rank=config["lora_rank"],
+    settings = dict(student=config["student"], seed=0, lora_rank=config["lora_rank"],
         lora_alpha=config["lora_alpha"], lora_target_modules=config["lora_target_modules"],
         lora_dropout=0., optimizer="fixed_preconditioned_single_step",
         preconditioner="train_only_rms_diagonal", preconditioner_refresh_steps=12,
@@ -42,6 +42,10 @@ def hyperparameters(config, method):
                  prompts="purchased prompt strings only; fresh current-student responses",
                  missing_teacher="skip exact prompt without purchased teacher response"),
         method=method)
+    if config.get("benchmark") == "hotpotqa":
+        settings["kang"].update(n=None, sampling_temperature=None, tie_break=None,
+            sag_status="unsupported; requires voting over complete sampled ReAct episodes")
+    return settings
 
 
 class PaperTrainer:
@@ -74,7 +78,7 @@ class PaperTrainer:
             self.encoded_prompts[row.prompt] = tuple(self.backend.tokenizer.encode(row.prompt, add_special_tokens=False))
         prompt = self.encoded_prompts[row.prompt]
         ids, kinds = token_kinds(self.backend.tokenizer, row.target,
-                                benchmark=row.benchmark, final_step=row.final_step)
+                                benchmark=row.benchmark, final_step=row.final_step, prompt=row.prompt)
         stops = termination_ids(self.backend)
         # Match native termination semantics, including the bank's newline
         # after a final turn marker. No extra EOS after an authored terminator.
@@ -111,7 +115,7 @@ class PaperTrainer:
             return float(-values[mask].sum()), int(mask.sum())
 
     def sample(self, row):
-        category = "agent_action" if row.benchmark == "alfworld" else row.task_id.rsplit("_", 1)[0]
+        category = "agent_action" if row.benchmark in {"alfworld", "hotpotqa"} else row.task_id.rsplit("_", 1)[0]
         with self.backend.action_limit(category):
             action = self.backend.sample_action(row.prompt, self.parameters, self.rng)
         with torch.no_grad():

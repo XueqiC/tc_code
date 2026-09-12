@@ -327,6 +327,17 @@ REGISTRY = MappingProxyType({
         cap_policy=('bfas.rtd.caps', 'public_cap'),
         affordability=('bfas.rtd.caps', 'affordability'),
         scoring_projection=('bfas.rtd.scoring_scope', 'scoring_projection'))),
+    'hotpotqa': MappingProxyType(dict(
+        bank_builder=('bfas.rtd.benchmarks.hotpotqa_bank', 'build_hotpotqa_bank'),
+        broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),
+        support_protocol=('bfas.rtd.benchmarks.hotpotqa_support', 'HotpotQASupport'),
+        action_limit=('bfas.rtd.benchmarks.hotpotqa_caps', 'action_limit'),
+        feedback_rollout=('bfas.rtd.benchmarks.hotpotqa_rollout', 'hotpotqa_task_rollout'),
+        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate_adapter'),
+        harness_identity=('bfas.rtd.benchmarks.hotpotqa_identity', 'evaluation_harness_identity'),
+        cap_policy=('bfas.rtd.benchmarks.hotpotqa_caps', 'public_cap'),
+        affordability=('bfas.rtd.benchmarks.hotpotqa_caps', 'affordability'),
+        scoring_projection=('bfas.rtd.benchmarks.hotpotqa_identity', 'scoring_projection'))),
     'webshop': MappingProxyType(dict(
         bank_builder=('bfas.rtd.benchmarks.webshop_bank', 'build_webshop_bank'),
         broker_builder=('bfas.rtd.broker', 'SealedReplayBroker'),
