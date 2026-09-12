@@ -24,6 +24,16 @@ GPU_UUIDS = [
 ]
 
 
+def generation_record(**changes):
+    return dict(contexts_hash="shared", ready=True, stop_reason="target_reached",
+                count=64, target=64, output_tokens=22000, max_output_tokens=24000,
+                below_target=False,
+                global_coverage=dict(condition=22, surface=21, neighbour_correct=21),
+                decision_coverage={"seed-0": dict(complete=True, directions={
+                    variant: dict(positive=1, negative=1, missing_sides=[])
+                    for variant in training.VARIANTS})}) | changes
+
+
 @pytest.fixture
 def gpu_guard(monkeypatch):
     """Every subprocess and /proc read is a stub, even on a host with no GPUs."""
@@ -171,7 +181,7 @@ def test_train_checks_gpu_and_logs_memory_before_model_load(gpu_guard, monkeypat
     monkeypatch.setattr(training, "encode_rows", lambda *a: ([dict(id="row", prompt_ids=[1], target_ids=[2])], []))
     for arm in ("C", "D"):
         training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
-        training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
+        training.write_json(tmp_path / arm / "generation.json", generation_record())
     args = SimpleNamespace(run_dir=tmp_path, arm="C", tokenizer="stub", model_path="stub",
                            tokens_per_step=1, passes=1, learning_rate=1e-5)
     with pytest.raises(RuntimeError if foreign else ModelLoadReached) as exc:
@@ -376,7 +386,7 @@ def tiny_training(monkeypatch, tmp_path):
         copy.deepcopy(encoded[bank[0]["arm"]]), []))
     for arm in ("C", "D"):
         training.write_json(tmp_path / arm / "exercises.json", [dict(task_id="task", arm=arm, layer=0)])
-        training.write_json(tmp_path / arm / "generation.json", dict(contexts_hash="shared", ready=True))
+        training.write_json(tmp_path / arm / "generation.json", generation_record())
 
     def run(arm="C", split_seed=0, **dose):
         args = parser().parse_args(["train", "--run-dir", str(tmp_path), "--arm", arm])
@@ -386,6 +396,105 @@ def tiny_training(monkeypatch, tmp_path):
         training.train(args, dict(seed=split_seed, support=["task"]))
 
     return SimpleNamespace(run=run, models=models, optimizers=optimizers, encoded=encoded)
+
+
+@pytest.mark.parametrize("below_target", [True, None])
+def test_train_accepts_cap_limited_bank_and_freezes_metadata(tiny_training, tmp_path, below_target):
+    preparation = generation_record(ready=False, stop_reason="output_token_cap", count=63,
+                                    output_tokens=21047, below_target=below_target)
+    if below_target is None:
+        del preparation["below_target"]
+    coverage = preparation["decision_coverage"]["seed-0"]
+    coverage["complete"] = False
+    coverage["directions"]["condition"].update(negative=0, missing_sides=["negative"])
+    coverage["directions"]["surface"].update(positive=0, missing_sides=["positive"])
+    path = tmp_path / "C/generation.json"
+    training.write_json(path, preparation)
+    original = path.read_bytes()
+    expected = dict(coverage_complete=False, stop_reason="output_token_cap", count=63, target=64,
+                    output_tokens=21047, max_output_tokens=24000, missing_sides=[
+                        dict(seed_id="seed-0", direction="condition", side="negative"),
+                        dict(seed_id="seed-0", direction="surface", side="positive")])
+    frozen = None
+    for arm in ("C", "D"):
+        tiny_training.run(arm, passes=1)
+        plan_path = tmp_path / "training_plan.json"
+        frozen = plan_path.read_bytes() if frozen is None else frozen
+        assert plan_path.read_bytes() == frozen
+        plan = training.read_json(plan_path)
+        assert plan["generation"]["C"] == expected
+        assert plan["generation"]["D"]["coverage_complete"] is True
+        metrics = training.read_json(tmp_path / arm / "training/metrics.json")
+        assert {key: metrics[key] for key in expected} == plan["generation"][arm]
+        assert metrics["supervised_tokens"] == plan["common_supervised_cap"] == 10
+        assert metrics["training_plan_hash"] == training.digest(plan)
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("decision_coverage", [True, False])
+def test_train_target_reached_preserves_dose_and_records_complete_coverage(
+        tiny_training, tmp_path, decision_coverage):
+    if not decision_coverage:  # R1 uses the same terminal reasons, without two-sided metadata.
+        for arm in ("C", "D"):
+            training.write_json(tmp_path / arm / "generation.json", generation_record(decision_coverage=None))
+    expected = dict(coverage_complete=True, stop_reason="target_reached", count=64, target=64,
+                    output_tokens=22000, max_output_tokens=24000, missing_sides=[])
+    for arm in ("C", "D"):
+        tiny_training.run(arm, passes=1)
+        plan = training.read_json(tmp_path / "training_plan.json")
+        metrics = training.read_json(tmp_path / arm / "training/metrics.json")
+        assert plan["generation"][arm] == expected
+        assert {key: metrics[key] for key in expected} == expected
+        assert metrics["supervised_tokens"] == plan["common_supervised_cap"] == 10
+        assert metrics["optimizer_steps"] == 3
+        assert plan["schedules"][arm] == pass_schedules(tiny_training.encoded[arm], 10, 4)
+
+
+@pytest.mark.parametrize("arm", ["C", "D"])
+def test_train_missing_generation_still_raises(tiny_training, tmp_path, arm):
+    (tmp_path / arm / "generation.json").unlink()
+    with pytest.raises(FileNotFoundError, match="generation.json"):
+        tiny_training.run()
+    assert not tiny_training.models
+    assert not (tmp_path / "training_plan.json").exists()
+
+
+@pytest.mark.parametrize("variant", sorted(training.VARIANTS))
+@pytest.mark.parametrize("zero_count", [False, True])
+def test_train_rejects_entirely_absent_variant(tiny_training, tmp_path, variant, zero_count):
+    preparation = generation_record(ready=False, stop_reason="output_token_cap", below_target=True)
+    if zero_count:
+        preparation["global_coverage"][variant] = 0
+    else:
+        del preparation["global_coverage"][variant]
+    training.write_json(tmp_path / "C/generation.json", preparation)
+    with pytest.raises(ValueError, match="lacks variant directions.*" + variant):
+        tiny_training.run()
+    assert not tiny_training.models
+    assert not (tmp_path / "training_plan.json").exists()
+
+
+@pytest.mark.parametrize("stop_reason", [None, "running", "teacher_failure"])
+@pytest.mark.parametrize("ready", [False, True])
+def test_train_rejects_nonterminal_generation(tiny_training, tmp_path, stop_reason, ready):
+    preparation = generation_record(ready=ready, stop_reason=stop_reason, below_target=True)
+    if stop_reason is None:
+        del preparation["stop_reason"]
+    training.write_json(tmp_path / "C/generation.json", preparation)
+    with pytest.raises(ValueError, match="stop_reason is not terminal"):
+        tiny_training.run()
+    assert not tiny_training.models
+    assert not (tmp_path / "training_plan.json").exists()
+
+
+def test_train_rejects_generation_spend_change_after_plan_frozen(tiny_training, tmp_path):
+    tiny_training.run("C", passes=1)
+    frozen = (tmp_path / "training_plan.json").read_bytes()
+    training.write_json(tmp_path / "D/generation.json", generation_record(output_tokens=22001))
+    with pytest.raises(ValueError, match="C/D exposure plan changed after it was frozen"):
+        tiny_training.run("D", passes=1)
+    assert (tmp_path / "training_plan.json").read_bytes() == frozen
+    assert len(tiny_training.models) == 1
 
 
 @pytest.mark.parametrize("passes", [1, 3])

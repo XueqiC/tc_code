@@ -111,6 +111,31 @@ def test_report_records_training_dose_and_total_exposure(tmp_path, evaluations):
         assert f"| {arm} | 100.00 | 100.00 | 100.00 | 0 | 20 | 0.0001 | 12220 | 40 | 12.5 |" in text
 
 
+def test_report_prints_frozen_generation_coverage_stop_and_actual_spend(tmp_path, evaluations):
+    splits, _ = evaluations
+    generation = {
+        "C": dict(coverage_complete=False, stop_reason="output_token_cap", count=63, target=64,
+                  output_tokens=21047, max_output_tokens=24000, missing_sides=[
+                      dict(seed_id="seed-0", direction="condition", side="negative")]),
+        "D": dict(coverage_complete=True, stop_reason="target_reached", count=64, target=64,
+                  output_tokens=22000, max_output_tokens=24000, missing_sides=[]),
+    }
+    for arm, metadata in generation.items():
+        write_json(tmp_path / arm / "training/metrics.json", metadata)
+    report(SimpleNamespace(run_dir=tmp_path), splits)
+    result = read_json(tmp_path / "report.json")
+    text = (tmp_path / "report.md").read_text()
+    assert "| coverage_complete | stop_reason | Count / target | Output-token cap |" in text
+    for arm, metadata in generation.items():
+        entry = next(r for r in result["mechanism_table"] if r["arm"] == arm)
+        assert all(entry[key] == value for key, value in metadata.items())
+        assert entry["generated_output_tokens"] == metadata["output_tokens"]
+        line = next(line for line in text.splitlines() if line.startswith(f"| {arm} |"))
+        assert f"| {metadata['output_tokens']} |" in line
+        assert (f"| {str(metadata['coverage_complete']).lower()} | {metadata['stop_reason']} | "
+                f"{metadata['count']} / 64 | 24000 |") in line
+
+
 @pytest.mark.parametrize("changed", ["ids", "metadata"])
 def test_pairs_reject_wrong_layer3_selection_or_scope(tmp_path, evaluations, changed):
     splits, _ = evaluations

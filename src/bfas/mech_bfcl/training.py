@@ -15,7 +15,7 @@ import time
 
 from .common import (STUDENT, digest, read_json, resolved_train_seed,
                      training_directory, write_json)
-from .exercises import native_pair
+from .exercises import VARIANTS, native_pair
 
 TARGET_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
 
@@ -363,6 +363,28 @@ def check_gpu_residency():
                            + "\n".join(resident))
 
 
+def generation_metadata(preparation, arm):
+    """Require a terminal bank; incomplete two-sided coverage is reportable."""
+    stop_reason = preparation.get("stop_reason")
+    if stop_reason not in {"target_reached", "output_token_cap"}:
+        raise ValueError(f"{arm} generation stop_reason is not terminal: {stop_reason!r}; inspect generation.json")
+    global_coverage = preparation.get("global_coverage", {})
+    missing_variants = sorted(v for v in VARIANTS if not global_coverage.get(v, 0))
+    if missing_variants:
+        raise ValueError(f"{arm} generation lacks variant directions: {missing_variants}; inspect generation.json")
+    coverage = preparation.get("decision_coverage")
+    missing_sides = [dict(seed_id=seed, direction=direction, side=side)
+                     for seed, entry in sorted((coverage or {}).items())
+                     for direction, counts in sorted(entry["directions"].items())
+                     for side in counts["missing_sides"]]
+    coverage_complete = (all(entry["complete"] for entry in coverage.values()) and not missing_sides
+                         if coverage is not None else bool(preparation["ready"]))
+    return dict(coverage_complete=coverage_complete, stop_reason=stop_reason,
+                count=preparation["count"], target=preparation["target"],
+                output_tokens=preparation["output_tokens"],
+                max_output_tokens=preparation["max_output_tokens"], missing_sides=missing_sides)
+
+
 def train(args, splits):
     if args.passes <= 0:
         raise ValueError("Positive number of training passes required")
@@ -382,9 +404,8 @@ def train(args, splits):
     preparation = {arm: read_json(args.run_dir / arm / "generation.json") for arm in banks}
     if preparation["C"]["contexts_hash"] != preparation["D"]["contexts_hash"]:
         raise ValueError("C/D do not share the same task/interface/start-state contexts")
+    generation = {arm: generation_metadata(preparation[arm], arm) for arm in banks}
     for arm in banks:
-        if not preparation[arm]["ready"]:
-            raise ValueError(f"{arm} generation failed coverage/validation; inspect generation.json")
         if any(e["task_id"] not in splits["support"] or e["arm"] != arm or e["layer"] != 0 for e in banks[arm]):
             raise ValueError("Training bank contains the wrong arm or non-support descendants")
     encoded, excluded = {}, {}
@@ -407,7 +428,7 @@ def train(args, splits):
                 passes=args.passes, learning_rate=args.learning_rate,
                 encoded_hashes={a: digest(encoded[a]) for a in encoded}, excluded=excluded,
                 row_ids={a: [r["id"] for r in encoded[a]] for a in encoded},
-                schedules=schedules)
+                schedules=schedules, generation=generation)
     # Omission keeps legacy default-dose plans byte-compatible. Pool hashes
     # include every exercise, including R1 provenance and R2 decisions.
     if budget is not None:
@@ -510,4 +531,5 @@ def train(args, splits):
         learning_rate=args.learning_rate, tokens_per_step=args.tokens_per_step, train_seed=train_seed,
         optimizer_steps=len(log), wall_seconds=time.monotonic()-start_time,
         max_allocated_bytes=torch.cuda.max_memory_allocated(), training_plan_hash=digest(plan),
-        data_examples=len({s["row"] for _, segments in steps for s in segments})))
+        data_examples=len({s["row"] for _, segments in steps for s in segments}),
+        **generation[args.arm]))

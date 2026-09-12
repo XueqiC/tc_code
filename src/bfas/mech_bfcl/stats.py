@@ -260,8 +260,8 @@ def report(args, splits):
              "for every arm and paired comparison. The frozen split and split hash are unchanged.",
              f"Excluded categories: {', '.join(scope['excluded_categories'])}. {scope['exclusion_reason']}",
              f"Excluded IDs: {', '.join(scope['excluded_ids']) or 'none'}.", "",
-             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Passes | Learning rate | Total supervised tokens | Optimizer steps | Train seconds | Train seed | Confirm (%) | Both sides (%) |",
-             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Passes | Learning rate | Total supervised tokens | Optimizer steps | Train seconds | Train seed | Confirm (%) | Both sides (%) | coverage_complete | stop_reason | Count / target | Output-token cap |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: |"]
     breakdown = {}
     entries = [(directory, name, items, inventory[name], costs, round_name)
                for directory, data, inventory, costs, round_name in datasets for name, items in data.items()]
@@ -279,15 +279,18 @@ def report(args, splits):
             metrics.update(metrics["checkpoints"]["mid"])
         cm = confirmation_metrics.get(name, {}) if directory == args.run_dir else {}
         training = dict(accuracy=accuracy, **metrics)
+        generated_output_tokens = metrics.get("output_tokens", costs.get(arm, {}).get("output_tokens", 0))
         rows.append(dict(training, arm=arm, train_seed=seed, variant=label, round=round_name,
                          checkpoint=checkpoint, confirmation=cm,
-                         generated_output_tokens=costs.get(arm, {}).get("output_tokens", 0)))
+                         generated_output_tokens=generated_output_tokens))
         pct = lambda v: "—" if v is None else f"{100*v:.2f}"
         lines.append(f"| {label} | " + " | ".join(f"{100*accuracy[str(l)]:.2f}" for l in (1,2,3)) +
-            f" | {costs.get(arm, {}).get('output_tokens', 0)} | {metrics.get('passes', '—')} | "
+            f" | {generated_output_tokens} | {metrics.get('passes', '—')} | "
             f"{metrics.get('learning_rate', '—')} | {metrics.get('supervised_tokens', 0)} | "
             f"{metrics.get('optimizer_steps', 0)} | {metrics.get('wall_seconds', 0):.1f} | {seed if seed is not None else '—'} | "
-            f"{pct(cm.get('accuracy'))} | {pct(cm.get('both_sides_correct_rate'))} |")
+            f"{pct(cm.get('accuracy'))} | {pct(cm.get('both_sides_correct_rate'))} | "
+            f"{str(metrics.get('coverage_complete', '—')).lower()} | {metrics.get('stop_reason', '—')} | "
+            f"{metrics.get('count', '—')} / {metrics.get('target', '—')} | {metrics.get('max_output_tokens', '—')} |")
         by_category = {}
         for layer in (1, 2, 3):
             for category in sorted({i["category"] for i in items if i["layer"] == layer}):
