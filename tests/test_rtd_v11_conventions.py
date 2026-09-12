@@ -303,6 +303,9 @@ def test_arm_labels_manifest_certification_and_legacy_hard2(manifest_inputs):
     from bfas.rtd.alpha_d import ALPHA_D_DEFAULTS
     c = manifest_inputs.config | dict(protocol_version='1.1.0', rounds=2, exposure_slots_per_window=40,
         max_new_packages_per_window=20, slots_per_step=40) | ALPHA_D_DEFAULTS
+    # Replace the v1.0 fixture's bank fractions with one absolute cap per round.
+    c.pop('budget_checkpoints_bank_fraction')
+    c['budget_checkpoints_tokens'] = [15000, 30000]
     for arm in ('V0', 'V2'):
         config, resolved = arm_config(c, arm)
         assert resolved == arm and all(config[k] == v for k, v in ARMS[arm].items())

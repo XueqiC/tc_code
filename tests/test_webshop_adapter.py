@@ -386,8 +386,9 @@ def test_registration_and_serving_lane(harness, tmp_path, monkeypatch):
             pass
 
     class Server:
-        def __init__(self, *args, served_model_name):
+        def __init__(self, *args, served_model_name, server_args):
             assert served_model_name == "bfas-policy"
+            assert server_args == ["--max-model-len", "8192"]
 
         def start(self):
             events.append("start")
@@ -397,7 +398,10 @@ def test_registration_and_serving_lane(harness, tmp_path, monkeypatch):
 
     monkeypatch.setattr(bfas_run, "PortRegistry", Registry)
     monkeypatch.setattr(bfas_run, "VLLMServer", Server)
-    with bfas_run.serving_lane(adapter, "stub-policy", "0", adapter.port, tmp_path / "server.log"):
+    with bfas_run.serving_lane(
+        adapter, "stub-policy", "0", adapter.port, tmp_path / "server.log",
+        server_args=["--max-model-len", "8192"],
+    ):
         events.append("body")
     assert events == ["start", "body", "close"]
     assert client.calls[0]["model"] == "bfas-policy"

@@ -383,7 +383,7 @@ def parse_args(argv=None):
     parser.add_argument("--prompt-version", choices=PROMPT_VERSIONS, default=None,
                         help="Overrides WEBSHOP_PROMPT_VERSION (default: v1)")
     parser.add_argument("--obs-chars", type=int, default=None,
-                        help="Current observation limit (default: v1=2500, v2=6000)")
+                        help="Current observation limit (default: 6000 for both prompt versions)")
     parser.add_argument("--history-obs-chars", type=int, default=HISTORY_OBS_CHARS,
                         help="Keep this many characters of each past observation, plus ' ...' if cut")
     parser.add_argument("--max-prompt-chars", type=int, default=MAX_PROMPT_CHARS,

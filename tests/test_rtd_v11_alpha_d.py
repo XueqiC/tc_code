@@ -346,6 +346,9 @@ def test_manifest_labels_full_and_random_exposure_and_arm_contract(manifest_inpu
     fixture = manifest_inputs
     config = fixture.config | dict(protocol_version='1.1.0', rounds=2, exposure_slots_per_window=40,
         max_new_packages_per_window=20, slots_per_step=4, source_estimator='alpha_d') | ALPHA_D_DEFAULTS
+    # Replace the v1.0 fixture's bank fractions with one absolute cap per round.
+    config.pop('budget_checkpoints_bank_fraction')
+    config['budget_checkpoints_tokens'] = [15000, 30000]
     audit = fixture.audit | dict(budget_denominator=100, cost_scope='cached content',
                                 cap_certificate_sha256='certificate', public_cost_assumption='class cap')
     manifest = cli.make_manifest(config, 'V2', audit)

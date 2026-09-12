@@ -545,7 +545,9 @@ def test_prompt_version_env_and_cli_precedence(evaluator, tmp_path, monkeypatch,
     extra = ["--prompt-version", cli] if cli else []
     args = cli_args(evaluator, tmp_path, *extra)
     assert args.prompt_version == expected
-    assert args.obs_chars == (6000 if expected == "v2" else 2500)
+    # Keep the frozen-protocol OBS_CHARS=6000 from 31dd242; a5ac397 added
+    # prompt versions on a branch that still had the older 2500 default.
+    assert args.obs_chars == 6000
     assert args.max_steps == 15
     assert cli_args(evaluator, tmp_path, *extra, "--obs-chars", "42").obs_chars == 42
 

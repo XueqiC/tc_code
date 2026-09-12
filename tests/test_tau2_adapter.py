@@ -273,9 +273,9 @@ def test_tau2_uses_pipeline_vllm_serving_lane(
             return None
 
     class Server:
-        def __init__(self, model, gpu, port, log_path, served_model_name):
+        def __init__(self, model, gpu, port, log_path, served_model_name, *, server_args):
             events.append(
-                ("server", model, gpu, port, log_path, served_model_name)
+                ("server", model, gpu, port, log_path, served_model_name, server_args)
             )
 
         def start(self):
@@ -303,6 +303,7 @@ def test_tau2_uses_pipeline_vllm_serving_lane(
             9666,
             tmp_path / "vllm.log",
             "bfas-policy",
+            None,
         ),
         "start",
         "probe",

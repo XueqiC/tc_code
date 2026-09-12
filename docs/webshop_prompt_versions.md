@@ -15,7 +15,7 @@ and uses the shared evaluator prompt for teacher acquisition, student rollouts,
 evaluation, and serving probes. Set `WEBSHOP_PROMPT_VERSION=v2` when running BFAS.
 
 - **v1:** the original system prompt and bottle example, unchanged byte for byte;
-  the current observation limit remains 2,500 characters.
+  the current observation limit is 6,000 characters under the frozen protocol.
 - **v2:** the attribute/option/price verification and navigation rules, plus the
   exact deodorant trajectory from `webshop_prompt_v2_draft.md` in the main tree.
   The draft's current observation limit is 6,000 characters.
