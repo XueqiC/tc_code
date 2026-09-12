@@ -1,8 +1,10 @@
 """Privileged sealed-cache broker. Selectors import selector.py only.
 
 A bank has public/request metadata and a separate sealed/ JSON directory, never
-inside src or on sys.path. Only acquire reads response files, after dependency,
-fold, and hard-cap checks. No teacher API exists on this path.
+inside src or on sys.path. Certified HotpotQA/ALFWorld/BFCL state banks disclose
+validated recorded package costs as runtime reservation bounds. Teacher evidence
+is returned only by acquire, after dependency, fold, and hard-budget checks.
+No teacher API exists on this path.
 """
 from __future__ import annotations
 
@@ -61,7 +63,8 @@ def seal_bank(directory, records: list[RequestRecord], payloads: dict[str, dict]
     """Offline ingestion only; the selector never receives this callable.
 
     Payload hashes belong to the privileged integrity index, not selector features.
-    Original costs/provenance remain in payload files until acquisition.
+    Original costs/provenance remain archived in payload files. Certified state
+    replay may disclose the recorded cost as a runtime reservation bound.
     """
     directory = Path(directory).resolve()
     source = Path(__file__).resolve().parents[2]
@@ -116,9 +119,55 @@ class SealedReplayBroker:
             self._records[spec.query_id] = RequestRecord(spec, raw["parent_hash"],
                                                        tuple(raw["dependencies"]), raw["unavailable_reason"])
         self._integrity = json.loads((self.directory / "sealed/integrity.json").read_text())
+        self.reservation_basis = 'public_class_cap'
+        self._load_recorded_reservations()
         self._purchased: dict[str, PurchasedEvidencePackage] = {}
         self._offered: set[str] = set()
         self._ever_offered: set[str] = set()
+
+    def _load_recorded_reservations(self):
+        """Use ledger costs for certified, already-paid benchmark packages.
+
+        Keep the archived certificate/class caps intact. Only the runtime public
+        bound changes, so candidate filtering, cost prediction and reservation
+        agree. Estimated historical usage stays estimated: the reservation is
+        exact with respect to the recorded ledger, not the provider bill.
+        Legacy banks and WebShop retain their public-class-cap convention.
+        """
+        from .bank_v11 import CERTIFICATE
+        certificate = self.directory / CERTIFICATE
+        if not certificate.exists():
+            return
+        core = json.loads(certificate.read_text())['core']
+        if (core['version'] != 'rtd-v1.1.0-state-bank'
+                or core['benchmark'] not in {'hotpotqa', 'alfworld', 'bfcl'}):
+            return
+        from .bank_build import validate_state_certificate
+        validate_state_certificate(self.directory)
+        total = 0
+        for q, record in self._records.items():
+            if record.unavailable_reason is not None:
+                continue
+            payload = self._read_payload(q)
+            cost = payload['cost']
+            if (type(cost) is not int or not 0 <= cost <= record.spec.cost_upper_bound
+                    or payload['cost_confidence'] != record.spec.cost_confidence):
+                raise LedgerError('invalid recorded package cost/confidence')
+            total += cost
+            provenance = json.loads(record.spec.cap_provenance)
+            provenance.update(basis='recorded_package_cost',
+                archived_class_cap=record.spec.cost_upper_bound, output_token_cap=cost)
+            self._records[q] = replace(record, spec=replace(record.spec,
+                cost_upper_bound=cost, cap_provenance=json.dumps(provenance, sort_keys=True)))
+        if total != core['budget_denominator']:
+            raise LedgerError('recorded package costs differ from certified denominator')
+        self.reservation_basis = 'recorded_package_cost'
+
+    def _read_payload(self, query_id):
+        payload = json.loads((self.directory / 'sealed' / (query_id + '.json')).read_text())
+        if digest(payload) != self._integrity[query_id]:
+            raise LedgerError('sealed payload integrity failure')
+        return payload
 
     def set_inner_parents(self, parent_hashes):
         """Rotate folds before constructing features, candidates and D_inner."""
@@ -168,9 +217,10 @@ class SealedReplayBroker:
                 raise UnavailableError("request was not offered in the current candidate view")
             self.ledger.reserve(query_id, record.spec.cost_upper_bound)
             try:
-                payload = json.loads((self.directory / "sealed" / (query_id + ".json")).read_text())
-                if digest(payload) != self._integrity[query_id]:
-                    raise LedgerError("sealed payload integrity failure")
+                payload = self._read_payload(query_id)
+                if (self.reservation_basis == 'recorded_package_cost'
+                        and payload['cost'] != record.spec.cost_upper_bound):
+                    raise LedgerError('recorded package cost changed on reveal')
                 if payload["cost_confidence"] != record.spec.cost_confidence:
                     raise LedgerError("cost confidence changed on reveal")
                 behaviors = tuple(Behavior(FullState(**r["state"]), r["text"]) for r in payload["behaviors"])

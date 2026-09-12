@@ -85,16 +85,26 @@ partial. The zero extra-call fields describe this offline import.
 `configs/rtd/v1_1_bfcl_luna.yaml` copies `v1_1_bfcl.yaml`, changing only the bank
 path, student, Gemma call format, and the 60 GB resource declaration already
 used by the Gemma config. `configs/rtd/unified_bfcl_gemma4_luna.yaml` copies
-`unified_bfcl_gemma4.yaml`, changing the bank path and its displayed integer
-budget caps to `[142, 355]`. Every other YAML value, including frozen P1 values,
-is unchanged. Both configs pass the existing protocol validators.
+`unified_bfcl_gemma4.yaml`, changing the bank path. Both Luna configs now use
+absolute cumulative budgets `[15000, 30000]`; the table's 142/355 amounts are
+the archived bank's 10%/25% reference amounts. Both configs pass the existing
+protocol validators.
 
 The legacy historical-token constants and public-cap mapping are frozen
 protocol fields. Actual luna costs and the 256-token class cap come from the
-bound bank certificate. The 142-token first checkpoint is below one class-cap
-reservation; it cannot acquire a package under hard reservation. The second
-checkpoint permits a reservation. Budget fractions and the certificate's
-next-power-of-two cap rule are unchanged.
+bound bank certificate. The broker previously reserved that generic 256-token
+cap; it now uses each package's validated recorded ledger cost as the runtime
+public reservation. The archived certificate and bank bytes remain unchanged.
+At 15k and 30k, the frozen ascending-query-ID prefix purchases all 20 packages
+for 1,418 tokens, unchanged from the previous rule at these large checkpoints.
+Smaller checkpoints can now admit a package whenever its recorded cost fits;
+the executor stops before the first overflow rather than skipping ahead.
+
+V0/D3 acquisition-only checks pass with identical counts. Current full startup
+checks fail because the local harness lacks `memory_kv_141-notetaker-11`; the
+historical full-startup receipts below describe the bank build environment.
+See [the reservation audit](rtd_recorded_cost_validation.json) and
+[CPU preflight modes](rtd_preflight.md).
 
 Validation completed:
 

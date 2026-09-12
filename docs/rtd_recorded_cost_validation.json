@@ -1,0 +1,489 @@
+{
+  "version": "rtd-recorded-cost-reservation-v1",
+  "reservation_basis": "recorded_package_cost",
+  "purchase_rule": "stop_before_first_overflow",
+  "order": "query_id_ascending_dependency_first",
+  "scope": "certified v1.1 HotpotQA/ALFWorld/BFCL state banks; all legal usable packages; no training window quotas or policy draws",
+  "bank_files_modified": false,
+  "exact_means": "exact recorded ledger charge; estimated provider usage retains its confidence flag",
+  "benchmarks": {
+    "hotpotqa": {
+      "bank_path": "data/rtd/v1_1_hotpotqa_luna",
+      "archived_class_caps": {
+        "hotpotqa_demo_episode": 16384
+      },
+      "bank_sha256": {
+        "public/cap_certificate.json": "c8cdd26933710f7b66bde2788695d40b6155f89b51e6e75ed891ca17bc49c972",
+        "public/requests.json": "704656f07d68835a6cc7bc97a1b07053113085c6bcc441b2b0f9e47e8a1cf21c",
+        "sealed/integrity.json": "dc37ebffd1ba652ee23ad9df0b3a6b22db3383dc1dccd9d959c9363800732b1e"
+      },
+      "previous_class_cap_prefix": [
+        {
+          "budget_tokens": 15000,
+          "purchase_count": 0,
+          "spent_tokens": 0
+        },
+        {
+          "budget_tokens": 30000,
+          "purchase_count": 18,
+          "spent_tokens": 14430
+        }
+      ],
+      "preflight": {
+        "V0": {
+          "acquisition": {
+            "available_packages": 113,
+            "checkpoints": [
+              {
+                "budget_tokens": 15000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+                "next_reservation_tokens": 2078,
+                "purchase_count": 18,
+                "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+                "remaining_tokens": 570,
+                "spent_tokens": 14430,
+                "stop_reason": "first_overflow"
+              },
+              {
+                "budget_tokens": 30000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+                "next_reservation_tokens": 3262,
+                "purchase_count": 39,
+                "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+                "remaining_tokens": 766,
+                "spent_tokens": 29234,
+                "stop_reason": "first_overflow"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "V0",
+          "available_packages": 113,
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+          "config_protocol_version": "1.1.0",
+          "deferred": [],
+          "generation_batch": {
+            "max_batch_tokens": 16384,
+            "prompts_per_batch": 8
+          },
+          "gpu_required": [
+            "hardware binding",
+            "model/LoRA initialization and replay parameter identity",
+            "generation/scoring numerical consistency, gradients and peak memory"
+          ],
+          "ledger_spent": 0,
+          "protocol_version": "1.1.0",
+          "rendered_states": 200,
+          "status": "OK",
+          "support_states": 200,
+          "tokenizer": "local cache"
+        },
+        "D3": {
+          "acquisition": {
+            "available_packages": 113,
+            "checkpoints": [
+              {
+                "budget_tokens": 15000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+                "next_reservation_tokens": 2078,
+                "purchase_count": 18,
+                "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+                "remaining_tokens": 570,
+                "spent_tokens": 14430,
+                "stop_reason": "first_overflow"
+              },
+              {
+                "budget_tokens": 30000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+                "next_reservation_tokens": 3262,
+                "purchase_count": 39,
+                "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+                "remaining_tokens": 766,
+                "spent_tokens": 29234,
+                "stop_reason": "first_overflow"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "D3",
+          "available_packages": 113,
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+          "config_protocol_version": "unified-p0-1",
+          "deferred": [],
+          "generation_batch": {
+            "max_batch_tokens": 16384,
+            "prompts_per_batch": 8
+          },
+          "gpu_required": [
+            "hardware binding",
+            "model/LoRA initialization and replay parameter identity",
+            "generation/scoring numerical consistency, gradients and peak memory"
+          ],
+          "ledger_spent": 0,
+          "protocol_version": "1.1.0",
+          "rendered_states": 200,
+          "status": "OK",
+          "support_states": 200,
+          "tokenizer": "local cache"
+        },
+        "D0": {
+          "acquisition": {
+            "available_packages": 113,
+            "checkpoints": [
+              {
+                "budget_tokens": 15000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+                "next_reservation_tokens": 2078,
+                "purchase_count": 18,
+                "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+                "remaining_tokens": 570,
+                "spent_tokens": 14430,
+                "stop_reason": "first_overflow"
+              },
+              {
+                "budget_tokens": 30000,
+                "individually_affordable_at_zero_spend": 113,
+                "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+                "next_reservation_tokens": 3262,
+                "purchase_count": 39,
+                "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+                "remaining_tokens": 766,
+                "spent_tokens": 29234,
+                "stop_reason": "first_overflow"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "D0",
+          "available_packages": 113,
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+          "config_protocol_version": "unified-p0-1",
+          "deferred": [],
+          "generation_batch": {
+            "max_batch_tokens": 16384,
+            "prompts_per_batch": 8
+          },
+          "gpu_required": [
+            "hardware binding",
+            "model/LoRA initialization and replay parameter identity",
+            "generation/scoring numerical consistency, gradients and peak memory"
+          ],
+          "ledger_spent": 0,
+          "protocol_version": "1.1.0",
+          "rendered_states": 200,
+          "status": "OK",
+          "support_states": 200,
+          "tokenizer": "local cache"
+        }
+      },
+      "commands": {
+        "V0": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_hotpotqa_luna.yaml --arm V0",
+        "D3": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_hotpotqa_gemma4_luna.yaml --arm D3",
+        "D0": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_hotpotqa_gemma4_luna_d0.yaml --arm D0"
+      }
+    },
+    "alfworld": {
+      "bank_path": "data/rtd/v1_1_alfworld_luna",
+      "archived_class_caps": {
+        "alf_demo_episode": 16384
+      },
+      "bank_sha256": {
+        "public/cap_certificate.json": "f58013c424462212924089d4c64a939d98aa824de87e409e44965f8bdc22909f",
+        "public/requests.json": "75a068c42d44e3cd0f04b6644744f26bea56df83a01127468c3bc30254037034",
+        "sealed/integrity.json": "9f43778910b0fc8b37d6217e886c3b275db65f730debe66f12e78182e628f6ab"
+      },
+      "previous_class_cap_prefix": [
+        {
+          "budget_tokens": 11879,
+          "purchase_count": 0,
+          "spent_tokens": 0
+        },
+        {
+          "budget_tokens": 29698,
+          "purchase_count": 10,
+          "spent_tokens": 15071
+        }
+      ],
+      "preflight": {
+        "V0": {
+          "acquisition": {
+            "available_packages": 104,
+            "checkpoints": [
+              {
+                "budget_tokens": 11879,
+                "individually_affordable_at_zero_spend": 104,
+                "next_query_id": "04d190a130485718c7e2902e070c33e123866f3181d02439c3f7a1cbfdcb8b19",
+                "next_reservation_tokens": 1480,
+                "purchase_count": 7,
+                "purchased_query_ids_sha256": "7c0a00a278d2b7bb74857b46997b1b5a653f25651d0987337d8fa5e5562e3ed0",
+                "remaining_tokens": 1010,
+                "spent_tokens": 10869,
+                "stop_reason": "first_overflow"
+              },
+              {
+                "budget_tokens": 29698,
+                "individually_affordable_at_zero_spend": 104,
+                "next_query_id": "257f71db2b2f7a49bf15e5ef4638bfe4c5628bf9dc046e160b49e259dbeef763",
+                "next_reservation_tokens": 8407,
+                "purchase_count": 24,
+                "purchased_query_ids_sha256": "10218bc61810452bd90e9fc50c6d6d7cd911a3bcab7d331ec7348f57c057c6b0",
+                "remaining_tokens": 3518,
+                "spent_tokens": 26180,
+                "stop_reason": "first_overflow"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "c3ecc56a8f045319f7299ef6590779745e36466ffaf6f0e2c5504cc13f6e97b1",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "V0",
+          "available_packages": 104,
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+          "config_protocol_version": "1.1.0",
+          "deferred": [],
+          "generation_batch": {
+            "max_batch_tokens": 16384,
+            "prompts_per_batch": 8
+          },
+          "gpu_required": [
+            "hardware binding",
+            "model/LoRA initialization and replay parameter identity",
+            "generation/scoring numerical consistency, gradients and peak memory"
+          ],
+          "ledger_spent": 0,
+          "protocol_version": "1.1.0",
+          "rendered_states": 135,
+          "status": "OK",
+          "support_states": 135,
+          "tokenizer": "local cache"
+        },
+        "D3": {
+          "acquisition": {
+            "available_packages": 104,
+            "checkpoints": [
+              {
+                "budget_tokens": 11879,
+                "individually_affordable_at_zero_spend": 104,
+                "next_query_id": "04d190a130485718c7e2902e070c33e123866f3181d02439c3f7a1cbfdcb8b19",
+                "next_reservation_tokens": 1480,
+                "purchase_count": 7,
+                "purchased_query_ids_sha256": "7c0a00a278d2b7bb74857b46997b1b5a653f25651d0987337d8fa5e5562e3ed0",
+                "remaining_tokens": 1010,
+                "spent_tokens": 10869,
+                "stop_reason": "first_overflow"
+              },
+              {
+                "budget_tokens": 29698,
+                "individually_affordable_at_zero_spend": 104,
+                "next_query_id": "257f71db2b2f7a49bf15e5ef4638bfe4c5628bf9dc046e160b49e259dbeef763",
+                "next_reservation_tokens": 8407,
+                "purchase_count": 24,
+                "purchased_query_ids_sha256": "10218bc61810452bd90e9fc50c6d6d7cd911a3bcab7d331ec7348f57c057c6b0",
+                "remaining_tokens": 3518,
+                "spent_tokens": 26180,
+                "stop_reason": "first_overflow"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "c3ecc56a8f045319f7299ef6590779745e36466ffaf6f0e2c5504cc13f6e97b1",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "D3",
+          "available_packages": 104,
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+          "config_protocol_version": "unified-p0-1",
+          "deferred": [],
+          "generation_batch": {
+            "max_batch_tokens": 16384,
+            "prompts_per_batch": 8
+          },
+          "gpu_required": [
+            "hardware binding",
+            "model/LoRA initialization and replay parameter identity",
+            "generation/scoring numerical consistency, gradients and peak memory"
+          ],
+          "ledger_spent": 0,
+          "protocol_version": "1.1.0",
+          "rendered_states": 135,
+          "status": "OK",
+          "support_states": 135,
+          "tokenizer": "local cache"
+        }
+      },
+      "commands": {
+        "V0": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_alfworld_luna.yaml --arm V0",
+        "D3": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_alfworld_gemma4_luna.yaml --arm D3"
+      }
+    },
+    "bfcl": {
+      "bank_path": "data/rtd/v1_1_bfcl_luna",
+      "archived_class_caps": {
+        "demo_attempt": 256
+      },
+      "bank_sha256": {
+        "public/cap_certificate.json": "8581088aafc6aafa354a561cced19aa1f7fa4040d6dc2665c777be1aa53810cc",
+        "public/requests.json": "2529b5e9de7fc80e78840f3562c908e6e99bcbb9b8be134afb4dbb976dc0d255",
+        "sealed/integrity.json": "954d26987b02208599d518f565e9a672a090a202c964d3fb2be38824be760641"
+      },
+      "previous_class_cap_prefix": [
+        {
+          "budget_tokens": 15000,
+          "purchase_count": 20,
+          "spent_tokens": 1418
+        },
+        {
+          "budget_tokens": 30000,
+          "purchase_count": 20,
+          "spent_tokens": 1418
+        }
+      ],
+      "preflight": {
+        "V0": {
+          "acquisition": {
+            "available_packages": 20,
+            "checkpoints": [
+              {
+                "budget_tokens": 15000,
+                "individually_affordable_at_zero_spend": 20,
+                "next_query_id": null,
+                "next_reservation_tokens": null,
+                "purchase_count": 20,
+                "purchased_query_ids_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+                "remaining_tokens": 13582,
+                "spent_tokens": 1418,
+                "stop_reason": "inventory_exhausted"
+              },
+              {
+                "budget_tokens": 30000,
+                "individually_affordable_at_zero_spend": 20,
+                "next_query_id": null,
+                "next_reservation_tokens": null,
+                "purchase_count": 20,
+                "purchased_query_ids_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+                "remaining_tokens": 28582,
+                "spent_tokens": 1418,
+                "stop_reason": "inventory_exhausted"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "V0",
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_bfcl_luna",
+          "cap_certificate_sha256": "8581088aafc6aafa354a561cced19aa1f7fa4040d6dc2665c777be1aa53810cc",
+          "mode": "acquisition_only",
+          "status": "OK"
+        },
+        "D3": {
+          "acquisition": {
+            "available_packages": 20,
+            "checkpoints": [
+              {
+                "budget_tokens": 15000,
+                "individually_affordable_at_zero_spend": 20,
+                "next_query_id": null,
+                "next_reservation_tokens": null,
+                "purchase_count": 20,
+                "purchased_query_ids_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+                "remaining_tokens": 13582,
+                "spent_tokens": 1418,
+                "stop_reason": "inventory_exhausted"
+              },
+              {
+                "budget_tokens": 30000,
+                "individually_affordable_at_zero_spend": 20,
+                "next_query_id": null,
+                "next_reservation_tokens": null,
+                "purchase_count": 20,
+                "purchased_query_ids_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+                "remaining_tokens": 28582,
+                "spent_tokens": 1418,
+                "stop_reason": "inventory_exhausted"
+              }
+            ],
+            "order": "query_id_ascending_dependency_first",
+            "order_sha256": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
+            "reservation_basis": "recorded_package_cost",
+            "scope": "all legal support parents; cumulative prefix without training window quotas"
+          },
+          "arm": "D3",
+          "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_bfcl_luna",
+          "cap_certificate_sha256": "8581088aafc6aafa354a561cced19aa1f7fa4040d6dc2665c777be1aa53810cc",
+          "mode": "acquisition_only",
+          "status": "OK"
+        }
+      },
+      "full_preflight": {
+        "V0": {
+          "status": "FAIL",
+          "error": "KeyError: 'memory_kv_141-notetaker-11'",
+          "reason": "local BFCL support entry missing from harness data"
+        },
+        "D3": {
+          "status": "FAIL",
+          "error": "KeyError: 'memory_kv_141-notetaker-11'",
+          "reason": "local BFCL support entry missing from harness data"
+        }
+      },
+      "commands": {
+        "V0": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0 --acquisition-only",
+        "D3": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_bfcl_gemma4_luna.yaml --arm D3 --acquisition-only"
+      }
+    }
+  },
+  "gpu_used": false,
+  "network_used": false,
+  "new_teacher_calls": 0,
+  "committed": false,
+  "tests": {
+    "interpreter": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python",
+    "command": "-m pytest -q tests/ -k 'hotpotqa or acquisition or broker or preflight or caps'",
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "",
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1"
+    },
+    "passed": 309,
+    "skipped": 1,
+    "deselected": 3043,
+    "warnings": 1,
+    "seconds": 125.45
+  },
+  "staging": {
+    "status": "staged",
+    "task_paths": [
+      "src/bfas/rtd/broker.py",
+      "src/bfas/rtd/experiment_v11.py",
+      "src/bfas/rtd/ledger.py",
+      "src/bfas/rtd/preflight.py",
+      "tests/test_rtd_broker.py",
+      "tests/test_rtd_preflight.py",
+      "tests/test_unified_p1.py",
+      "docs/rtd_alfworld_luna_bank.md",
+      "docs/rtd_hotpotqa.md",
+      "docs/rtd_hotpotqa_validation.json",
+      "docs/rtd_preflight.md",
+      "docs/rtd_v1_1_bfcl_luna_bank.md",
+      "docs/rtd_recorded_cost_validation.json"
+    ],
+    "preexisting_untracked_cache_excluded": true
+  }
+}

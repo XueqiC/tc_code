@@ -68,6 +68,7 @@ def local_startup(manifest_inputs, monkeypatch):
         q = f'{i+10:064x}'
         records.append(state_record(q, state, 'demo_episode', 4, 'exact'))
         payloads[q] = dict(cost=4, cost_confidence='exact',
+            usage={'output_tokens': 4}, provenance={}, historical_response={},
             behaviors=[dict(state=asdict(state), text='action')])
     parents = [dict(parent_hash=h, official_id=t, fold=int(h, 16) % 2) for h, t in support.parents.items()]
     bank = c.root/'bank'
@@ -109,6 +110,26 @@ def test_preflight_real_bank_manifest_tokenizer_cpu_only(local_startup, forbid_a
     assert {p: p.read_bytes() for p in before} == before
     assert not (c.path.parent/'manifest.json').exists()
     assert not (c.path.parent/'teacher.jsonl').exists()
+
+
+@pytest.mark.parametrize('arm', ['V0', 'D3'])
+def test_preflight_acquisition_only_needs_no_harness_or_tokenizer(local_startup, monkeypatch, capsys, arm):
+    c = local_startup
+    config = deepcopy(c.config)
+    config.pop('budget_checkpoints_bank_fraction')
+    config['budget_checkpoints_tokens'] = [4, 8]
+    if arm == 'V0':
+        config, _, _ = runtime.backend_config(config)
+    c.path.write_text(yaml.safe_dump(config))
+    def forbidden(*a, **kw):
+        pytest.fail('acquisition-only must not construct the harness or tokenizer')
+    monkeypatch.setattr(cli, 'make_manifest', forbidden)
+    monkeypatch.setattr(runtime, 'load_tokenizer', forbidden)
+    assert preflight.main(['--config', str(c.path), '--arm', arm, '--acquisition-only']) == 0
+    line = next(line for line in capsys.readouterr().out.splitlines() if line.startswith('[rtd-preflight] OK '))
+    result = json.loads(line.removeprefix('[rtd-preflight] OK '))
+    assert result['mode'] == 'acquisition_only'
+    assert [r['purchase_count'] for r in result['acquisition']['checkpoints']] == [1, 2]
 
 
 @pytest.mark.parametrize('arm', ['V0', 'D3'])

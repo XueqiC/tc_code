@@ -116,7 +116,7 @@
     "hotpotqa_demo_episode": 16384
   },
   "individually_affordable_packages_at_zero_spend": {
-    "15000": 0,
+    "15000": 113,
     "30000": 113
   },
   "support": {
@@ -131,12 +131,51 @@
   },
   "tests": {
     "interpreter": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python",
-    "command": "-m pytest -q tests/ -k 'hotpotqa or bank_build'",
-    "passed": 120,
-    "deselected": 3217
+    "command": "-m pytest -q tests/ -k 'hotpotqa or acquisition or broker or preflight or caps'",
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "",
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1"
+    },
+    "passed": 309,
+    "skipped": 1,
+    "deselected": 3043,
+    "warnings": 1,
+    "seconds": 125.45
   },
   "preflight": {
     "V0": {
+      "acquisition": {
+        "available_packages": 113,
+        "checkpoints": [
+          {
+            "budget_tokens": 15000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+            "next_reservation_tokens": 2078,
+            "purchase_count": 18,
+            "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+            "remaining_tokens": 570,
+            "spent_tokens": 14430,
+            "stop_reason": "first_overflow"
+          },
+          {
+            "budget_tokens": 30000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+            "next_reservation_tokens": 3262,
+            "purchase_count": 39,
+            "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+            "remaining_tokens": 766,
+            "spent_tokens": 29234,
+            "stop_reason": "first_overflow"
+          }
+        ],
+        "order": "query_id_ascending_dependency_first",
+        "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+        "reservation_basis": "recorded_package_cost",
+        "scope": "all legal support parents; cumulative prefix without training window quotas"
+      },
       "arm": "V0",
       "available_packages": 113,
       "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
@@ -159,7 +198,91 @@
       "tokenizer": "local cache"
     },
     "D3": {
+      "acquisition": {
+        "available_packages": 113,
+        "checkpoints": [
+          {
+            "budget_tokens": 15000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+            "next_reservation_tokens": 2078,
+            "purchase_count": 18,
+            "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+            "remaining_tokens": 570,
+            "spent_tokens": 14430,
+            "stop_reason": "first_overflow"
+          },
+          {
+            "budget_tokens": 30000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+            "next_reservation_tokens": 3262,
+            "purchase_count": 39,
+            "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+            "remaining_tokens": 766,
+            "spent_tokens": 29234,
+            "stop_reason": "first_overflow"
+          }
+        ],
+        "order": "query_id_ascending_dependency_first",
+        "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+        "reservation_basis": "recorded_package_cost",
+        "scope": "all legal support parents; cumulative prefix without training window quotas"
+      },
       "arm": "D3",
+      "available_packages": 113,
+      "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+      "config_protocol_version": "unified-p0-1",
+      "deferred": [],
+      "generation_batch": {
+        "max_batch_tokens": 16384,
+        "prompts_per_batch": 8
+      },
+      "gpu_required": [
+        "hardware binding",
+        "model/LoRA initialization and replay parameter identity",
+        "generation/scoring numerical consistency, gradients and peak memory"
+      ],
+      "ledger_spent": 0,
+      "protocol_version": "1.1.0",
+      "rendered_states": 200,
+      "status": "OK",
+      "support_states": 200,
+      "tokenizer": "local cache"
+    },
+    "D0": {
+      "acquisition": {
+        "available_packages": 113,
+        "checkpoints": [
+          {
+            "budget_tokens": 15000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "4072658bc4259e91ea22b4247d782d9fa22728c65a96cb27ef66f9641143c5cf",
+            "next_reservation_tokens": 2078,
+            "purchase_count": 18,
+            "purchased_query_ids_sha256": "bb61bd59c080f1e035995b1c3ea1a9d318772d720a4c6180bf323b78b7d83d65",
+            "remaining_tokens": 570,
+            "spent_tokens": 14430,
+            "stop_reason": "first_overflow"
+          },
+          {
+            "budget_tokens": 30000,
+            "individually_affordable_at_zero_spend": 113,
+            "next_query_id": "6da260cbec634db346f1a045fa9024746a77641de3d704a468c4c8d84439969d",
+            "next_reservation_tokens": 3262,
+            "purchase_count": 39,
+            "purchased_query_ids_sha256": "0aa9c072e59a886a48907c855260f59f8a59583e01df7ca3772fe0637ba19354",
+            "remaining_tokens": 766,
+            "spent_tokens": 29234,
+            "stop_reason": "first_overflow"
+          }
+        ],
+        "order": "query_id_ascending_dependency_first",
+        "order_sha256": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
+        "reservation_basis": "recorded_package_cost",
+        "scope": "all legal support parents; cumulative prefix without training window quotas"
+      },
+      "arm": "D0",
       "available_packages": 113,
       "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
       "config_protocol_version": "unified-p0-1",
@@ -193,9 +316,24 @@
   "new_teacher_calls": 0,
   "committed": false,
   "staging": {
-    "status": "blocked",
-    "reason": "Git cannot create index.lock: linked worktree Git index is on a read-only filesystem",
-    "index_lock": "/home/xueqi/hq/projects/tc-alignment/.git/worktrees/tc-alignment-uni/index.lock",
-    "exit_code": 128
-  }
+    "status": "staged",
+    "task_paths": [
+      "src/bfas/rtd/broker.py",
+      "src/bfas/rtd/experiment_v11.py",
+      "src/bfas/rtd/ledger.py",
+      "src/bfas/rtd/preflight.py",
+      "tests/test_rtd_broker.py",
+      "tests/test_rtd_preflight.py",
+      "tests/test_unified_p1.py",
+      "docs/rtd_alfworld_luna_bank.md",
+      "docs/rtd_hotpotqa.md",
+      "docs/rtd_hotpotqa_validation.json",
+      "docs/rtd_preflight.md",
+      "docs/rtd_v1_1_bfcl_luna_bank.md",
+      "docs/rtd_recorded_cost_validation.json"
+    ],
+    "preexisting_untracked_cache_excluded": true
+  },
+  "reservation_basis": "recorded_package_cost",
+  "recorded_cost_validation": "docs/rtd_recorded_cost_validation.json"
 }

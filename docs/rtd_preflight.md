@@ -35,6 +35,29 @@ tokens and action caps, and renders/tokenizes every frozen support reset.
 BFCL checker construction is checked too. Missing local model/tokenizer files
 are CPU prerequisite failures; preflight never downloads them.
 
+Preflight also purchases a frozen prefix using the real broker and a separate
+in-memory ledger. `acquisition.checkpoints` reports cumulative counts, spend,
+remaining tokens and the first package that would overflow each checkpoint.
+The order is ascending query ID, with dependencies first, across legal support
+parents. It never skips an overflow to fit a later cheaper package. These are
+budget-feasibility receipts, independent of policy draws, fold rotation and
+training window quotas; they do not predict a trained acquisition schedule.
+
+Certified HotpotQA/ALFWorld/BFCL v1.1 state banks now reserve each package's
+validated recorded cost. The archived class caps and bank certificates remain
+unchanged. Recorded costs become the runtime public bounds used by candidate
+filtering and acquisition; exact/estimated confidence is preserved.
+
+To check only bank accounting when harness data or a tokenizer is unavailable:
+
+```bash
+.venv/bin/python tools/rtd_preflight.py \
+  --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0 --acquisition-only
+```
+
+This mode validates the bank and checks its usable package prefixes. It reports
+`mode=acquisition_only` and omits manifest, harness, renderer and tokenizer checks.
+
 Output ends in `OK` (exit 0) or the first exception type/message (exit 1).
 The bank, training ledger and run directory are untouched. A provisional
 manifest substitutes an explicit CPU marker for the GPU hardware identity;

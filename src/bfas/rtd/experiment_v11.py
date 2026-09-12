@@ -165,9 +165,12 @@ class BatchExperimentMixin:
                 package = self.broker.acquire(q)
             except BudgetError:
                 # The predicted-cost knapsack does not override a reservation.
-                # Keep the sampled set fixed; visit remaining choices once.
                 s['hard_stops'].append(dict(query_id=q, reason='hard_cap_tail',
                     global_remaining=self.ledger.remaining, window_remaining=self.ledger.window_remaining))
+                if self.broker.reservation_basis == 'recorded_package_cost':
+                    # Paid-package replay buys a prefix of the frozen plan;
+                    # never skip an overflow to buy a cheaper later package.
+                    s['transaction_index'] = len(s['selected']) - 1
             except UnavailableError as error:
                 if not self.alpha_d:
                     raise

@@ -2,7 +2,8 @@
 
 The currency is historical output tokens (exact or explicitly estimated).
 Input/reasoning/money remain separate usage fields; unknown is never zero.
-A reservation uses a public cap, not the sealed response's actual usage.
+A reservation uses the broker's public bound: recorded package cost for
+certified HotpotQA/ALFWorld/BFCL state replay, a class/request cap otherwise.
 
 "Not charged on failure" applies only to local pre-check failures with zero
 consumption. Online output is settled at recorded usage BEFORE task validation;

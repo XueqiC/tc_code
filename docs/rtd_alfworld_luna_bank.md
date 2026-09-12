@@ -253,6 +253,15 @@ support: 34 training tasks have no usable Luna package but remain in support.
 | All-attempt recorded output-token estimate | 521,643 |
 | New teacher calls / GPU use during repair | 0 / 0 |
 
+The 16,384 class cap remains in the certificate, but the broker now reserves
+each usable episode's recorded ledger cost. Previously it reserved the generic
+class cap. On the frozen ascending-query-ID prefix, V0 and D3 CPU preflight now
+buy 7 packages for 10,869 tokens at 11,879 (previously zero), and 24 packages for
+26,180 tokens at 29,698 (previously 10 packages for 15,071 tokens). Purchases stop
+before the first overflow; estimated historical cost labels remain estimated.
+These receipts exclude policy/fold/window scheduling. See
+[the reservation audit](rtd_recorded_cost_validation.json).
+
 All 142 reset states also match the GPT-5.4 bank exactly, so feedback and fixed
 diagnostic task selection share the same requests, histories, prompts and hashes.
 All 1,535 converted behavior states pass the frozen support's ownership/fold

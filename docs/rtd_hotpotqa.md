@@ -131,8 +131,8 @@ a subset of prompt tokens and are not counted again as output tokens.
 
 The usable recorded-output-token sum is the v1.1 budget denominator. The cap
 certificate publishes the next-power-of-two usable task-cost maximum for the
-`hotpotqa_demo_episode` class; it is a cached-content reservation bound, not an
-online provider guarantee. Full historical teacher usage, including failed
+`hotpotqa_demo_episode` class; it is an archived cached-content envelope, not an
+online provider guarantee or the runtime reservation. Full historical teacher usage, including failed
 attempts, is separately retained in the accounting block. No teacher calls or
 new teacher tokens are incurred by building or preflight.
 
@@ -160,9 +160,60 @@ The usable denominator is **133,206**. Both V0 and D3 resolve their configured
 cumulative caps to **15,000 / 30,000**, independent of the generic bank audit's
 10%/25% reference amounts (13,321 / 33,302). The maximum usable task cost is
 **8,889**, giving a uniform class reservation cap of **16,384**. Consequently,
-at zero prior spend the 15k checkpoint cannot reserve any package; at 30k all
-113 usable packages are individually affordable. CPU preflight validates
-startup but does not establish acquisition progress at the first checkpoint.
+the old broker could not reserve any package at 15k. This cap originates in
+`bank_build.seal_v11`: `1 << max(0, (class_maximum - 1).bit_length())`.
+`SealedReplayBroker.list_candidates` filtered against it, and `acquire` passed
+it to `Ledger.reserve`. It is unrelated to `generation_batch.max_batch_tokens`,
+which happens to also be 16,384, or the 100-token ReAct action limit.
+
+The broker now validates the certificate and sealed payload hashes, then uses
+each usable package's **recorded cost** as its runtime `cost_upper_bound`.
+Candidate filtering, acquisition cost prediction, and the hard reservation all
+use that same amount. The bank bytes and class certificate remain unchanged;
+runtime provenance retains the archived class cap and names
+`recorded_package_cost` as the reservation basis. This explicitly makes recorded
+cost public to the selector; teacher text, usage details, and verification
+evidence are returned only after acquisition. Costs are revalidated on reveal.
+
+A ReAct episode has at most seven environment steps, with 100 tokens per model
+call and the fixed prompt; the action-only format retry remains accounted for.
+The bank's task package can charge multiple recorded attempts, including failed
+attempts and hidden reasoning. The reservation therefore uses the whole ledger
+cost, **not** `7 * 100`, target length, or another prompt/completion estimate.
+Prompt tokens are separate from the configured output-token currency. Estimated
+collector usage remains labeled estimated: reservation is exact relative to
+the recorded ledger, without claiming exact provider billing.
+
+The executor buys the frozen selected order and **stops before the first
+overflow**; it does not skip to a cheaper later package. The CPU preflight now
+exercises real broker purchases in a separate in-memory ledger. For the Luna
+banks, it freezes usable packages in ascending query-ID order (dependencies
+first), across all legal support parents, and carries purchases between
+cumulative checkpoints. This checks budget feasibility without policy draws,
+fold rotation, training window quotas, model loading, or persistent spend.
+
+| Bank | Checkpoint | Old class-cap prefix count | Recorded-cost prefix count | Recorded spend |
+| --- | ---: | ---: | ---: | ---: |
+| HotpotQA | 15,000 | 0 | **18** | 14,430 |
+| HotpotQA | 30,000 | 18 | **39** | 29,234 |
+| ALFWorld | 11,879 | 0 | **7** | 10,869 |
+| ALFWorld | 29,698 | 10 | **24** | 26,180 |
+| BFCL | 15,000 | 20 | **20** | 1,418 |
+| BFCL | 30,000 | 20 | **20** | 1,418 |
+
+HotpotQA V0, D3 and D0 full CPU preflights pass and agree on these counts.
+At 15k the next package costs 2,078 with 570 tokens remaining; at 30k it costs
+3,262 with 766 remaining. All 113 packages are individually affordable at both
+checkpoints. ALFWorld V0/D3 also pass. ALFWorld and BFCL previously reserved
+generic class caps (16,384 and 256 respectively), so both now use recorded
+costs. BFCL's counts at 15k/30k are unchanged because its entire usable bank
+costs only 1,418 tokens. Its acquisition-only V0/D3 checks pass; full startup is
+blocked by the local harness missing `memory_kv_141-notetaker-11`.
+
+This reservation change applies to certified v1.1 state banks for HotpotQA,
+ALFWorld and BFCL. WebShop and legacy bank formats retain their existing cap
+conventions. See [rtd_recorded_cost_validation.json](rtd_recorded_cost_validation.json)
+for order/prefix hashes, old/new counts, certificate hashes and CPU receipts.
 
 `public/support.json` is byte-identical to
 `_trash/v1_1_hotpotqa_luna_partial_09120141Z/public/support.json`, including all
@@ -236,7 +287,7 @@ be recomputed against its certificate and the chosen budget configuration.
 ```bash
 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES='' \
 /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest -q tests/ \
-  -k 'hotpotqa or bank_build'
+  -k 'hotpotqa or acquisition or broker or preflight or caps'
 
 PYTHONPATH=src HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES='' \
 .venv/bin/python tools/rtd_preflight.py \
@@ -255,14 +306,13 @@ serial/cohort trace equality under RNG v2, per-episode wiki cursors, fold guards
 cache failures, greedy diagnostics, synthetic V0/D3 preflight, and a stubbed
 500-question round-end adapter campaign with separate EM/F1. Real-bank V0 and
 D3 preflight both passed with 113 usable packages, 200 rendered states and zero
-ledger spend. The requested test selection passed **120 tests** (3,217
-deselected). Five stale budget assertions were updated from 10k/20k to the
-existing 15k/30k configuration. See
+persistent ledger spend. Broker regression tests cover recorded reservations,
+exact fits, stale offers, window/package limits, integrity checks, durable
+resume, confidence preservation, and stopping before an overflow even when a
+later cheaper package fits. Two stale BFCL assertions were updated from
+2.5k/5k to the existing 15k/30k configuration. See
 [rtd_hotpotqa_validation.json](rtd_hotpotqa_validation.json) for
 the final certificate hash and CPU preflight receipts. No GPU, network or live
 model/teacher API was used.
 
-Staging in this sandbox was blocked: Git could not create the linked worktree's
-`/home/xueqi/hq/projects/tc-alignment/.git/worktrees/tc-alignment-uni/index.lock`
-on its read-only filesystem. Source changes and the bank remain in this
-worktree; no commit was created.
+No commit was created. Staging status is recorded in the validation receipt.

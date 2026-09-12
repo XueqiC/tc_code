@@ -46,6 +46,56 @@ def prepare_renderer(config, support, tokenizer, journal):
     return count
 
 
+def acquisition_preflight(manifest, support):
+    """Buy a frozen prefix in an in-memory ledger, stopping before overflow.
+
+    This checks budget feasibility across all legal support parents, independent
+    of student features, policy draws, fold rotation and per-window quotas.
+    It is not a prediction of a trained V0/D3 acquisition schedule.
+    """
+    from .experiment import prepare_ledger
+    from .persistence import digest
+    from .selector import StudentSnapshot
+    ledger, broker = prepare_ledger(manifest, support)
+    # Ascending query IDs match executor reservation order; dependencies precede
+    # their children. No budget-dependent filtering may alter this frozen order.
+    remaining = {q for q, r in broker._records.items() if broker._legal(r)}
+    order, ordered = [], set()
+    while remaining:
+        ready = sorted(q for q in remaining if set(broker._records[q].dependencies) <= ordered)
+        if not ready:
+            raise ValueError('acquisition preflight has unavailable/cyclic dependencies')
+        order.extend(ready)
+        ordered.update(ready)
+        remaining.difference_update(ready)
+    view = StudentSnapshot('cpu-acquisition-preflight', broker.inner_parent_hashes)
+    position, checkpoints = 0, []
+    for cap in manifest['budget_ceilings']:
+        ledger.authorize(cap)
+        while position < len(order):
+            q = order[position]
+            offered = {s.query_id for s in broker.list_candidates(view, ledger.owned_ids, ledger.remaining)}
+            if q not in offered:
+                if broker._records[q].spec.cost_upper_bound <= ledger.remaining:
+                    raise ValueError('frozen acquisition prefix became unavailable')
+                break
+            broker.acquire(q)
+            position += 1
+        next_id = order[position] if position < len(order) else None
+        if ledger.reservations or ledger.spent > cap:
+            raise ValueError('acquisition preflight left an invalid ledger')
+        checkpoints.append(dict(budget_tokens=cap, purchase_count=len(ledger.owned_ids),
+            spent_tokens=ledger.spent, remaining_tokens=ledger.remaining,
+            purchased_query_ids_sha256=digest(order[:position]), next_query_id=next_id,
+            next_reservation_tokens=(broker._records[next_id].spec.cost_upper_bound if next_id else None),
+            stop_reason='first_overflow' if next_id else 'inventory_exhausted',
+            individually_affordable_at_zero_spend=sum(broker._records[q].spec.cost_upper_bound <= cap for q in order)))
+    return dict(reservation_basis=broker.reservation_basis, order='query_id_ascending_dependency_first',
+        order_sha256=digest(order), available_packages=len(order),
+        scope='all legal support parents; cumulative prefix without training window quotas',
+        checkpoints=checkpoints)
+
+
 def preflight_config(config, arm, *, smoke=True):
     """Raise the first startup exception; return a summary on CPU success."""
     from . import cli
@@ -65,6 +115,7 @@ def preflight_config(config, arm, *, smoke=True):
     support = prepare_support(cli.ROOT, executor, manifest)
     try:
         ledger, _ = prepare_ledger(manifest, support)
+        acquisition = acquisition_preflight(manifest, support)
         deferred = []
         with TemporaryDirectory(prefix='rtd-preflight-') as scratch:
             journal = ComputeJournal(Path(scratch)/'compute.jsonl', cuda=False)
@@ -90,6 +141,7 @@ def preflight_config(config, arm, *, smoke=True):
             config_protocol_version=config['protocol_version'], bank_path=manifest['bank_path'],
             available_packages=audit['available_packages'], support_states=len(support.states),
             rendered_states=rendered, tokenizer='local cache', ledger_spent=ledger.spent,
+            acquisition=acquisition,
             deferred=deferred,
             generation_batch=None if settings['generation_batch'] is None else settings['generation_batch'].config(),
             gpu_required=['hardware binding', 'model/LoRA initialization and replay parameter identity',
@@ -102,11 +154,13 @@ def preflight_config(config, arm, *, smoke=True):
 
 
 def main(argv=None):
-    from .cli import startup_config, positive_seconds
+    from .cli import startup_config, positive_seconds, bank_audit
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--arm')
     parser.add_argument('--mode', choices=['smoke', 'run'], default='smoke')
+    parser.add_argument('--acquisition-only', action='store_true',
+        help='check certified bank purchase prefixes only; omit harness/model/tokenizer startup checks')
     parser.add_argument('--replay-schedule', type=Path)
     parser.add_argument('--replay-mode', choices=['complete', 'streaming'])
     parser.add_argument('--replay-poll-seconds', type=float)
@@ -118,7 +172,16 @@ def main(argv=None):
                           if getattr(args, k) is not None}
         config, arm = startup_config(args.config, args.arm, args.replay_schedule,
             smoke=args.mode == 'smoke', smoke_deadline_seconds=args.smoke_deadline_seconds, **replay_options)
-        preflight_config(config, arm, smoke=args.mode == 'smoke')
+        if args.acquisition_only:
+            audit = bank_audit(config)
+            rows = json.loads((Path(audit['bank_path'])/'public/requests.json').read_text())
+            support = SimpleNamespace(parents={r['parent_hash'] for r in rows if r['unavailable_reason'] is None})
+            summary = dict(status='OK', arm=arm, mode='acquisition_only', bank_path=audit['bank_path'],
+                cap_certificate_sha256=audit.get('cap_certificate_sha256'),
+                acquisition=acquisition_preflight(audit, support))
+            print('[rtd-preflight] OK ' + json.dumps(summary, sort_keys=True), flush=True)
+        else:
+            preflight_config(config, arm, smoke=args.mode == 'smoke')
     except Exception as exc:
         print(f'[rtd-preflight] FAIL {type(exc).__name__}: {exc}', flush=True)
         return 1
