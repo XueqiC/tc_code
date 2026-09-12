@@ -13,6 +13,7 @@ from .exercises import (OfficialValidator, VARIANTS, exercise_fingerprint,
 from .harness import NoThinking, frames, official_run, trajectory_metrics
 from .splits import inventory, stratum
 from .teacher import Teacher, ledger_summary
+from .generation import prepare_r2
 
 GENERATION_CALL_TOKENS = 3000
 # Evaluation policy, deliberately outside the frozen split/hash so completed
@@ -152,10 +153,12 @@ def check_server(args, arm):
             raise ValueError("Base rollouts/probes must use the base student served as google/gemma-4-12B-it")
     else:
         train_seed = resolved_train_seed(args, args.seed)
-        alias = "mech-" + variant_name(arm, train_seed, args.seed)
-        if train_seed != args.seed and args.served_model != alias:
+        checkpoint = getattr(args, "checkpoint", "end")
+        alias = "mech-" + variant_name(arm, train_seed, args.seed, checkpoint)
+        if (train_seed != args.seed or checkpoint == "mid") and args.served_model != alias:
             raise ValueError(f"Training-seed repeat must be served as {alias}")
-        artifact = (training_directory(args.run_dir, arm, train_seed, args.seed) / "adapter").resolve()
+        artifact = (training_directory(args.run_dir, arm, train_seed, args.seed) /
+                    ("adapter_mid" if checkpoint == "mid" else "adapter")).resolve()
         if not (artifact / "adapter_config.json").exists():
             raise ValueError("No trained adapter for the requested arm")
         if Path(model.get("root", "")).resolve() != artifact:
@@ -179,7 +182,8 @@ def student_reply(args, exercise, tokenizer):
     return raw["choices"][0]["text"], raw
 
 
-def generation_prompt(context, diagnosis=None, *, attempt=0, diversity_index=None, accepted=()):
+def generation_prompt(context, diagnosis=None, *, attempt=0, diversity_index=None, accepted=(), coverage_rule=None,
+                      rejected=()):
     common = (
         'Return JSON {"exercises":[{"user":"short task", "demo":{"kind":"call",'
         '"calls":[{"name":"declared_tool","arguments":{}}]},"variant":"condition"}]}.'
@@ -208,6 +212,24 @@ def generation_prompt(context, diagnosis=None, *, attempt=0, diversity_index=Non
                               "Create fresh examples distinct from all previously accepted exercises.",
         accepted_exercises=[dict(messages=e["messages"], demo=e["demo"], variant=e["variant"]) for e in own],
         missing_variants=sorted(VARIANTS - {e["variant"] for e in accepted}))
+    if coverage_rule is not None:
+        from .generation import condition_side
+        common += (
+            ' R2 requires BOTH positive and negative sides of the supplied condition_relation '
+            'within EACH direction (condition, surface, neighbour_correct). Include condition_side '
+            '(positive|negative) and condition_evidence (a short explanation supported by the task '
+            'and actual state) on every proposal. The evidence and labels are metadata only. '
+            'Surface direction preserves a relation while using a NEW correct call set; spelling '
+            'or paraphrasing the same calls is rejected. No-call prose is one decision. '
+            'No drill, exercise, test, or condition-side cues in the user task. '
+            'Several calls must each be necessary; do not pad calls to satisfy coverage. '
+            'Use new entities/keys/requests only when the real state supports them. '
+            'Use missing_sides to prioritize uncovered decisions. If previous proposals failed, '
+            'repair them within this paid batch; no separate repair purchase is permitted.')
+        payload["condition_relation"] = coverage_rule
+        payload["rejected_candidates"] = list(rejected)[-9:]
+        payload["missing_sides"] = {v: [side for side in ("positive", "negative") if not any(
+            e["variant"] == v and condition_side(e, coverage_rule) == side for e in own)] for v in sorted(VARIANTS)}
     return [dict(role="system", content=common), dict(role="user", content=json.dumps(payload, ensure_ascii=False))]
 
 
@@ -290,6 +312,10 @@ def bind_generation(args, seeds):
         max_output_tokens=args.max_output_tokens, call_output_tokens=GENERATION_CALL_TOKENS,
         seed_order=[s["seed_id"] for s in seeds],
         contexts_hash=digest([s["context"] for s in seeds]))
+    if getattr(args, "extend_from", None) is not None:
+        from .generation import relation
+        value.update(version=3, round=2, deduplication="normalized correct call set per seed/direction",
+                     coverage_rules={s["seed_id"]: relation(s["context"]) for s in seeds})
     path = args.run_dir / "generation_protocol.json"
     if path.exists():
         if read_json(path) != value:
@@ -310,22 +336,39 @@ def bind_generation(args, seeds):
     return value
 
 
-def generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer):
+def generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer, *, frozen=()):
     """Shared round-robin loop; cached attempts replay without new purchases."""
-    output, audit, accepted = [], [], {}
+    from .generation import condition_side, coverage, decision_key, relation
+    expanding = getattr(args, "extend_from", None) is not None
+    output = copy.deepcopy(list(frozen))
+    audit = [dict(id=r["id"], origin="round1", disposition="frozen; retained without regeneration") for r in output]
+    accepted = {exercise_fingerprint(r): r["id"] for r in output}
+    decisions = {decision_key(r): r["id"] for r in output}
     attempt = 0
     stop_reason = "target_reached"
     while len(output) < args.target_exercises:
         seed = seeds[attempt % len(seeds)]
+        if expanding:
+            # Fill missing seed/direction sides before using the remaining count
+            # for diversity. The rotation is deterministic on cached replay.
+            incomplete = {k for k, v in coverage(output, seeds).items() if not v["complete"]}
+            if incomplete:
+                seed = next(s for offset in range(len(seeds))
+                            if (s := seeds[(attempt + offset) % len(seeds)])["seed_id"] in incomplete)
         round_index = attempt // len(seeds)
         diag = None if args.arm == "C" else dict(
             hypothesis=diagnoses[seed["seed_id"]]["diagnosis"],
             observed_response=seed["failure_frame"]["response"],
             observed_execution=seed["failure_frame"].get("execution"))
         prompt = generation_prompt(seed["context"], diag, attempt=attempt,
-                                   diversity_index=round_index + attempt % len(seeds), accepted=output)
+                                   diversity_index=round_index + attempt % len(seeds), accepted=output,
+                                   coverage_rule=relation(seed["context"]) if expanding else None,
+                                   rejected=[dict(demo=r.get("demo"), reason=r.get("reason", r.get("validation")))
+                                             for r in audit if r.get("generation_group") == args.arm+":"+seed["seed_id"]
+                                             and not r.get("validation", {}).get("valid", True)])
         group = args.arm + ":" + seed["seed_id"]
-        value, cost = teacher.ask(args.arm, f"{group}:round:{round_index}", prompt,
+        key = f"{group}:r2:attempt:{attempt}" if expanding else f"{group}:round:{round_index}"
+        value, cost = teacher.ask(args.arm, key, prompt,
                                  GENERATION_CALL_TOKENS, output_budget=args.max_output_tokens,
                                  require_full_cap=True)
         if cost is None:
@@ -348,13 +391,34 @@ def generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer):
                 break
             try:
                 row = materialize(proposed, seed["context"], arm=args.arm,
-                    group=group, index=f"{round_index}:{index}", call_id=cost)
+                    group=group, index=f"r2:{attempt-1}:{index}" if expanding else f"{round_index}:{index}", call_id=cost)
+                row["origin"] = "round2" if expanding else "round1"
                 fingerprint = exercise_fingerprint(row)
                 if fingerprint in accepted:
                     row["validation"] = dict(valid=False, reason="Duplicate accepted exercise",
                                              duplicate_of=accepted[fingerprint])
                     audit.append(row)
                     continue
+                if expanding and decision_key(row) in decisions:
+                    row["validation"] = dict(valid=False, reason="Duplicate correct behaviour for seed/direction",
+                                             duplicate_of=decisions[decision_key(row)])
+                    audit.append(row)
+                    continue
+                if expanding:
+                    side = condition_side(row, relation(seed["context"]))
+                    if side is None or proposed.get("condition_side") != side:
+                        raise ValueError("Condition side missing or inconsistent with correct calls")
+                    evidence = proposed.get("condition_evidence")
+                    if not isinstance(evidence, str) or not evidence.strip():
+                        raise ValueError("Missing condition evidence")
+                    import re
+                    if re.search(r"\b(drill|exercise|test case|condition.side)\b", proposed["user"], re.I):
+                        raise ValueError("Exercise cue leaked into student task")
+                    row.update(condition_side=side, condition_evidence=evidence)
+                    remaining = sum(len(d["missing_sides"]) for c in coverage(output+[row], seeds).values()
+                                    for d in c["directions"].values())
+                    if len(output) + 1 + remaining > args.target_exercises:
+                        raise ValueError("Remaining target slots reserved for missing condition sides")
                 row["validation"] = validator.validate(row)
                 if row["variant"] not in VARIANTS:
                     row["validation"] = dict(valid=False, reason="Missing variant type")
@@ -374,6 +438,7 @@ def generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer):
                     if row["validation"]["valid"]:
                         output.append(row)
                         accepted[fingerprint] = row["id"]
+                        decisions[decision_key(row)] = row["id"]
                 audit.append(row)
             except (KeyError, ValueError, TypeError) as exc:
                 audit.append(dict(seed_id=seed["seed_id"], round=round_index,
@@ -389,12 +454,17 @@ def generate(args, splits):
         raise ValueError("No support failures: report insufficient headroom; do not mine evaluation")
     if any(not diagnoses[s["seed_id"]]["valid"] for s in seeds):
         raise ValueError("Missing testable diagnoses; inspect diagnoses.json (failed generations remain charged)")
+    from .generation import frozen_subset, coverage as decision_coverage
+    frozen = frozen_subset(args, seeds)
+    if getattr(args, "extend_from", None) is not None:
+        from .harness import restore_multiturn_context
+        seeds = [dict(s, context=restore_multiturn_context(s["context"], s["failure_frame"])) for s in seeds]
     settings = bind_generation(args, seeds)
     check_server(args, "base")
     teacher, validator = Teacher(args.run_dir), OfficialValidator()
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
     heldout(args, splits, teacher, validator)
-    output, audit, stop_reason = generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer)
+    output, audit, stop_reason = generate_exercises(args, seeds, diagnoses, teacher, validator, tokenizer, frozen=frozen)
     coverage = {s["seed_id"]: dict(Counter(e["variant"] for e in output
                 if e["generation_group"] == args.arm+":"+s["seed_id"])) for s in seeds}
     missing = [seed for seed, counts in coverage.items() if not VARIANTS <= counts.keys()]
@@ -404,6 +474,9 @@ def generate(args, splits):
     surface_actions = {digest(e["demo"]) for e in output if e["variant"] == "surface"}
     condition_changes = any(digest(e["demo"]) not in surface_actions for e in output if e["variant"] == "condition")
     ready = bool(output) and VARIANTS <= global_coverage.keys() and condition_changes
+    coverage_r2 = decision_coverage(output, seeds) if getattr(args, "extend_from", None) is not None else None
+    if coverage_r2 is not None:
+        ready = bool(output) and all(c["complete"] for c in coverage_r2.values())
     costs = ledger_summary(teacher.path)
     write_json(args.run_dir / args.arm / "generation.json", dict(arm=args.arm, count=len(output),
         target=args.target_exercises, max_output_tokens=args.max_output_tokens,
@@ -411,6 +484,10 @@ def generate(args, splits):
         calls=costs[args.arm]["calls"], output_tokens=costs[args.arm]["output_tokens"],
         coverage=coverage, missing_variant_groups=missing,
         ready=ready, global_coverage=dict(global_coverage), condition_action_changes=condition_changes,
+        decision_coverage=coverage_r2, round1_exercise_ids=[r["id"] for r in frozen],
+        origins=dict(Counter(r["origin"] for r in output)),
+        snapshot_reconstruction={s["seed_id"]: dict(error=s["context"].get("snapshot_error"),
+            provenance=s["context"].get("snapshot_reconstruction")) for s in seeds},
         contexts_hash=settings["contexts_hash"], below_target=len(output) < args.target_exercises,
         reason="Stop at the validated target or before the next full reservation exceeds the cap"))
     write_json(args.run_dir / "teacher_cost.json", costs)
@@ -427,6 +504,14 @@ def layer3_selection(splits):
                      exclusion_reason=LAYER3_EXCLUSION_REASON)
 
 
+def confirm(args, splits):
+    from transformers import AutoTokenizer
+    from .confirmation import build
+    training_seeds(args.run_dir, splits)  # Verify the frozen support provenance.
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True)
+    return build(args, splits, Teacher(args.run_dir), OfficialValidator(), tokenizer)
+
+
 def evaluate(args, splits):
     from transformers import AutoTokenizer
     adapter, entries = inventory()
@@ -438,16 +523,29 @@ def evaluate(args, splits):
     if {e["layer"] for e in exercises} != {1, 2}:
         raise ValueError("Held-out sets must contain both local and natural continuation items")
     train_seed = None if args.arm == "base" else resolved_train_seed(args, splits["seed"])
-    variant = variant_name(args.arm, train_seed, splits["seed"])
+    checkpoint = "end" if args.arm == "base" else getattr(args, "checkpoint", "end")
+    variant = variant_name(args.arm, train_seed, splits["seed"], checkpoint)
     destination = args.run_dir / "evaluation" / variant / args.repeat
     destination.mkdir(parents=True, exist_ok=True)
     fingerprint = dict(arm=args.arm, split_hash=digest(splits), heldout_hash=digest(exercises),
                        server=server, temperature=0.001, top_k=1, seed=splits["seed"],
                        train_seed=train_seed)
+    fingerprint["checkpoint"] = checkpoint
+    confirmation_path = args.run_dir / "confirmation.json"
+    confirmation = read_json(confirmation_path) if confirmation_path.exists() else None
+    if (args.run_dir / "round2.json").exists() and confirmation is None:
+        raise ValueError("Run confirm before evaluating the pre-registered R2 run")
+    if confirmation is not None:
+        from .confirmation import validate_set
+        validate_set(confirmation, args.run_dir, splits)
+        if confirmation["plan_hash"] != digest(read_json(args.run_dir / "confirmation_plan.json")):
+            raise ValueError("Confirmation set does not match preregistration")
+        fingerprint["confirmation_hash"] = digest(confirmation)
     if (destination / "protocol.json").exists():
         previous = read_json(destination / "protocol.json")
         # Legacy evaluations could only use the split-seed adapter (or base).
         previous.setdefault("train_seed", None if args.arm == "base" else splits["seed"])
+        previous.setdefault("checkpoint", "end")
         if previous != fingerprint:
             raise ValueError("Evaluation protocol/artifact changed during resume")
     write_json(destination / "protocol.json", fingerprint)
@@ -463,6 +561,23 @@ def evaluate(args, splits):
             category=exercise["category"], layer=exercise["layer"], correct=score.pop("correct"),
             response=response, raw=raw, metrics=score, generation_group=exercise["generation_group"])
         append_row(destination / "local.jsonl", row)
+    if confirmation is not None:
+        from .confirmation import metrics, target_probability
+        existing_confirmation = {r["id"]: r for r in read_rows(destination / "confirmation.jsonl")}
+        for exercise in confirmation["items"]:
+            if exercise["id"] in existing_confirmation:
+                continue
+            response, raw = student_reply(args, exercise, tokenizer)
+            score = validator.score(exercise, response)
+            row = dict(id=exercise["id"], parent_id=exercise["parent_id"], category=exercise["category"],
+                layer="confirm", correct=score.pop("correct"), metrics=score, response=response, raw=raw,
+                target_probability=target_probability(args, exercise, tokenizer))
+            append_row(destination / "confirmation.jsonl", row)
+        confirm_rows = read_rows(destination / "confirmation.jsonl")
+        base_path = args.run_dir / "evaluation/base/main/confirmation.json"
+        base_rows = read_json(base_path)["items"] if base_path.exists() else None
+        write_json(destination / "confirmation.json", dict(items=confirm_rows,
+            confirmation_hash=digest(confirmation), metrics=metrics(confirm_rows, confirmation, base_rows)))
     ids, scope = layer3_selection(splits)
     full = official_run(args, ids, destination / "full", adapter, splits, evaluation_scope=scope)
     write_json(destination / "cost.json", dict(layer_3=read_json(destination / "full/cost.json")))

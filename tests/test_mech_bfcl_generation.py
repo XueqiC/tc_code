@@ -72,13 +72,13 @@ def generation(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(
         AutoTokenizer=SimpleNamespace(from_pretrained=lambda *args, **kwargs: None)))
 
-    def run(arm="C", target=64, cap=24000, *, batches=None, seed_count=5):
+    def run(arm="C", target=64, cap=24000, *, batches=None, seed_count=5, extend_from=None):
         nonlocal responses
         if batches is not None:
             responses = lambda index: batches[index]
         seeds[:] = [seed(i) for i in range(seed_count)]
         args = SimpleNamespace(run_dir=tmp_path, arm=arm, target_exercises=target,
-                               max_output_tokens=cap, tokenizer="stub")
+                               max_output_tokens=cap, tokenizer="stub", extend_from=extend_from)
         splits = dict(seed=0)
         bind_run(tmp_path, splits)
         write_json(tmp_path / "diagnoses.json", [dict(seed_id=s["seed_id"], valid=True,

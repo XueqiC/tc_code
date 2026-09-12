@@ -19,6 +19,18 @@ def exercise_fingerprint(exercise):
                        demonstration=demonstration(exercise["demo"])))
 
 
+def correct_call_set(exercise):
+    """Canonical JSON call set: ignore order, object-key order and no-call prose.
+
+    Array argument order remains meaningful. Repeated identical calls do not
+    count as new decisions, including within a single demonstration.
+    """
+    import json
+    demonstration(exercise["demo"])
+    return tuple(sorted({json.dumps(c, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+                         for c in exercise["demo"].get("calls", [])}))
+
+
 def demonstration(value):
     if not isinstance(value, dict) or value.get("kind") not in {"call", "abstain"}:
         raise ValueError("Demonstration requires kind=call|abstain")
@@ -61,7 +73,8 @@ def materialize(proposal, context, *, arm, group, index, call_id, layer=0):
     """Whitelist authored fields; never render diagnosis/validation metadata."""
     if not isinstance(proposal, dict):
         raise ValueError("Exercise must be an object")
-    allowed = {"user", "demo", "variant", "evidence_frame", "possible_answer", "state_index"}
+    allowed = {"user", "demo", "variant", "evidence_frame", "possible_answer", "state_index",
+               "condition_side", "condition_evidence"}
     if set(proposal) - allowed:
         raise ValueError("Unexpected teacher fields (history, tools, and state cannot be replaced)")
     messages = copy.deepcopy(context["messages"])
@@ -87,6 +100,8 @@ def materialize(proposal, context, *, arm, group, index, call_id, layer=0):
                 messages=messages, functions=copy.deepcopy(context["functions"]),
                 snapshot=copy.deepcopy(context.get("snapshot")),
                 snapshot_error=context.get("snapshot_error"),
+                **({"snapshot_reconstruction": context["snapshot_reconstruction"]}
+                   if "snapshot_reconstruction" in context else {}),
                 involved_classes=context.get("involved_classes", []),
                 demo=proposal["demo"], variant=proposal.get("variant", "ordinary"),
                 evidence_frame=proposal.get("evidence_frame"),

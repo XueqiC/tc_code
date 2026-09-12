@@ -2,8 +2,9 @@
 from collections import Counter, defaultdict
 import random
 import re
+from pathlib import Path
 
-from .common import read_json, training_directory, variant_name, write_json
+from .common import digest, read_json, training_directory, variant_name, write_json
 from .teacher import ledger_summary
 
 
@@ -63,12 +64,12 @@ def evaluation_variants(directory, splits):
     variants = {}
     for path in (directory / "evaluation").glob("*/main/items.json"):
         name = path.parent.parent.name
-        match = re.fullmatch(r"(base|C|D)(?:-s(-?\d+))?", name)
+        match = re.fullmatch(r"(base|C|D)(?:-s(-?\d+))?(-mid)?", name)
         if match is None:
             continue
-        arm, suffix = match.groups()
+        arm, suffix, mid = match.groups()
         seed = None if arm == "base" else splits["seed"] if suffix is None else int(suffix)
-        if name != variant_name(arm, seed, splits["seed"]):
+        if name != variant_name(arm, seed, splits["seed"], "mid" if mid else "end"):
             raise ValueError(f"Noncanonical evaluation variant directory: {name}")
         variants[name] = (arm, seed)
     return dict(sorted(variants.items(), key=lambda item: (
@@ -96,9 +97,10 @@ def pool_seed_pairs(left, right):
     return rows
 
 
-def refresh_pairs(directory, splits):
+def refresh_pairs(directory, splits, *, output_directory=None):
     from .pipeline import layer3_selection
     ids, scope = layer3_selection(splits)
+    output_directory = output_directory or directory / "paired"
     models, protocols = {}, []
     variants = evaluation_variants(directory, splits)
     for name, (arm, seed) in variants.items():
@@ -114,6 +116,8 @@ def refresh_pairs(directory, splits):
             protocol = read_json(path.with_name("protocol.json"))
             if protocol.get("train_seed", None if arm == "base" else splits["seed"]) != seed:
                 raise ValueError(f"{name}: evaluation training seed mismatch")
+            if protocol.get("checkpoint", "end") != ("mid" if name.endswith("-mid") else "end"):
+                raise ValueError(f"{name}: evaluation checkpoint mismatch")
             protocols.append({k: protocol[k] for k in
                               ("split_hash", "heldout_hash", "temperature", "top_k", "seed")})
     if protocols and any(p != protocols[0] for p in protocols):
@@ -121,7 +125,7 @@ def refresh_pairs(directory, splits):
     summary = {}
 
     def record(name, rows, seeds=None):
-        write_json(directory / "paired" / (name+".json"), rows)
+        write_json(output_directory / (name+".json"), rows)
         summary[name] = {str(layer): paired_interval([r for r in rows if r["layer"] == layer])
                          for layer in (1, 2, 3)}
         summary[name]["3"]["evaluation_scope"] = scope
@@ -129,10 +133,21 @@ def refresh_pairs(directory, splits):
             for stat in summary[name].values():
                 stat.update(train_seeds=seeds, method="mean per question over training seeds; " + stat["method"])
 
-    by_arm = {arm: {seed: models[name] for name, (a, seed) in variants.items() if a == arm}
+    by_arm = {arm: {seed: models[name] for name, (a, seed) in variants.items() if a == arm and not name.endswith("-mid")}
               for arm in ("C", "D")}
     for name, (arm, seed) in variants.items():
         if arm == "base":
+            continue
+        if name.endswith("-mid"):
+            label = name.replace("-", "_")
+            if "base" in models:
+                record("base_vs_" + label, pair(models["base"], models[name]))
+            end = name[:-4]
+            if end in models:
+                record(label + "_vs_" + end.replace("-", "_"), pair(models[name], models[end]))
+            other = variant_name("D", seed, splits["seed"], "mid")
+            if arm == "C" and other in models:
+                record(label + "_vs_" + other.replace("-", "_"), pair(models[name], models[other]))
             continue
         label = arm if seed == splits["seed"] else f"{arm}_s{seed}"
         if "base" in models:
@@ -147,8 +162,47 @@ def refresh_pairs(directory, splits):
         record("C_vs_D_pooled", pool_seed_pairs(
             {s: by_arm["C"][s] for s in common_seeds}, {s: by_arm["D"][s] for s in common_seeds}),
             seeds=common_seeds)
-    write_json(directory / "paired/intervals.json", summary)
+    write_json(output_directory / "intervals.json", summary)
     return models, summary
+
+
+def confirmation_report(directory, models, splits):
+    from .confirmation import metrics, validate_set
+    path = directory / "confirmation.json"
+    if not path.exists():
+        return {}, {}
+    specification = read_json(path)
+    validate_set(specification, directory, splits)
+    evaluated = {}
+    for name in models:
+        path = directory / "evaluation" / name / "main/confirmation.json"
+        if not path.exists():
+            raise ValueError("Completed evaluation lacks confirmation results: " + name)
+        value = read_json(path)
+        if value["confirmation_hash"] != digest(specification):
+            raise ValueError("Confirmation evaluation set changed: " + name)
+        evaluated[name] = value["items"]
+    summaries = {name: metrics(rows, specification, evaluated.get("base")) for name, rows in evaluated.items()}
+    intervals = {}
+    for left in evaluated:
+        for right in evaluated:
+            if left == right or not (left == "base" or left.startswith("C") and right.startswith("D")
+                                     and left[1:] == right[1:]):
+                continue
+            name = "confirm_"+left.replace("-", "_")+"_vs_"+right.replace("-", "_")
+            paired = pair(evaluated[left], evaluated[right])
+            stats = {}
+            if paired:
+                stats["items"] = paired_interval(paired, seed=splits["seed"])
+            a = [dict(id=p["id"], parent_id=p["parent_id"], category=p["relation"], layer="confirm",
+                      correct=p["both_correct"]) for p in summaries[left]["pairs"]]
+            b = [dict(id=p["id"], parent_id=p["parent_id"], category=p["relation"], layer="confirm",
+                      correct=p["both_correct"]) for p in summaries[right]["pairs"]]
+            if a:
+                stats["pairs"] = paired_interval(pair(a, b), seed=splits["seed"])
+            intervals[name] = stats
+            write_json(directory / "paired" / (name+".json"), dict(items=paired, pairs=pair(a, b)))
+    return summaries, intervals
 
 
 def report(args, splits):
@@ -159,7 +213,46 @@ def report(args, splits):
     rows = []
     _, scope = layer3_selection(splits)
     cost = ledger_summary(args.run_dir / "teacher_ledger.jsonl")
-    lines = ["# BFCL first-round mechanism validation", "",
+    variants = evaluation_variants(args.run_dir, splits)
+    source = getattr(args, "round1_run_dir", None)
+    manifest = args.run_dir / "round2.json"
+    if source is None and manifest.exists():
+        source = Path(read_json(manifest)["round1_run_dir"])
+    if source is not None and not {"C-mid", "D-mid"} <= models.keys():
+        raise ValueError("R2 report requires C/D midpoint and end evaluations")
+    datasets = [(args.run_dir, models, variants, cost, "R2" if source else None)]
+    round1_intervals = {}
+    if source is not None:
+        source = Path(source).resolve()
+        if source == args.run_dir.resolve():
+            raise ValueError("R1 report source must be a separate read-only run")
+        previous, round1_intervals = refresh_pairs(source, splits,
+                                                  output_directory=args.run_dir / "paired/round1")
+        # Verify local source identities and inference policy across rounds,
+        # not just boolean item IDs. Confirmation deliberately differs.
+        for field in ("split_hash", "heldout_hash", "temperature", "top_k", "seed"):
+            values = [read_json(p)[field] for directory, names in ((source, previous), (args.run_dir, models))
+                      for name in names if (p := directory / "evaluation" / name / "main/protocol.json").exists()]
+            if values and any(v != values[0] for v in values):
+                raise ValueError("R1/R2 evaluation source or decoding settings differ")
+        if previous:
+            pair(next(iter(models.values())), next(iter(previous.values())))
+        datasets.append((source, previous, evaluation_variants(source, splits),
+                         ledger_summary(source / "teacher_ledger.jsonl"), "R1"))
+        intervals.update({"R1_"+k: v for k, v in round1_intervals.items()})
+        for old, (arm, seed) in datasets[-1][2].items():
+            if arm == "base":
+                continue
+            for new in models:
+                if variants[new][0] != arm:
+                    continue
+                name = "R1_"+old.replace("-", "_")+"_vs_R2_"+new.replace("-", "_")
+                paired = pair(previous[old], models[new])
+                write_json(args.run_dir / "paired" / (name+".json"), paired)
+                intervals[name] = {str(l): paired_interval([r for r in paired if r["layer"] == l]) for l in (1, 2, 3)}
+                intervals[name]["3"]["evaluation_scope"] = scope
+    confirmation_metrics, confirmation_intervals = confirmation_report(args.run_dir, models, splits)
+    lines = ["# BFCL mechanism validation" + (": R1 and R2" if source else ""), "",
              "Student: google/gemma-4-12B-it; teacher: official OpenAI gpt-5.6-luna, requested Flex.",
              "These are mechanism-validation subsets, not BFCL official Overall. Historical base context: "
              "Overall 45.6; NL 82 / Live 80 / MT 53 / Memory 30 / Irrel 75.", "",
@@ -167,23 +260,34 @@ def report(args, splits):
              "for every arm and paired comparison. The frozen split and split hash are unchanged.",
              f"Excluded categories: {', '.join(scope['excluded_categories'])}. {scope['exclusion_reason']}",
              f"Excluded IDs: {', '.join(scope['excluded_ids']) or 'none'}.", "",
-             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Passes | Learning rate | Total supervised tokens | Optimizer steps | Train seconds | Train seed |",
-             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
+             "| Arm | Local (%) | Natural (%) | Full tasks (%) | Generated output tokens | Passes | Learning rate | Total supervised tokens | Optimizer steps | Train seconds | Train seed | Confirm (%) | Both sides (%) |",
+             "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
     breakdown = {}
-    variants = evaluation_variants(args.run_dir, splits)
-    for name, items in models.items():
-        arm, seed = variants[name]
+    entries = [(directory, name, items, inventory[name], costs, round_name)
+               for directory, data, inventory, costs, round_name in datasets for name, items in data.items()]
+    for directory, name, items, (arm, seed), costs, round_name in entries:
+        label = f"{round_name}/{name}" if round_name else name
         accuracy = {str(layer): sum(i["correct"] for i in items if i["layer"] == layer) /
                     sum(i["layer"] == layer for i in items) for layer in (1, 2, 3)}
-        metrics = read_json(training_directory(args.run_dir, arm, seed, splits["seed"]) / "metrics.json") if arm != "base" else {}
+        metrics = read_json(training_directory(directory, arm, seed, splits["seed"]) / "metrics.json") if arm != "base" else {}
         if arm != "base" and metrics.get("train_seed", splits["seed"]) != seed:
             raise ValueError(f"{name}: training metrics seed mismatch")
+        checkpoint = "mid" if name.endswith("-mid") else "end"
+        if checkpoint == "mid":
+            if "mid" not in metrics.get("checkpoints", {}):
+                raise ValueError("Missing midpoint exposure metrics for " + label)
+            metrics.update(metrics["checkpoints"]["mid"])
+        cm = confirmation_metrics.get(name, {}) if directory == args.run_dir else {}
         training = dict(accuracy=accuracy, **metrics)
-        rows.append(dict(training, arm=arm, train_seed=seed, variant=name))
-        lines.append(f"| {name} | " + " | ".join(f"{100*accuracy[str(l)]:.2f}" for l in (1,2,3)) +
-            f" | {cost.get(arm, {}).get('output_tokens', 0)} | {metrics.get('passes', '—')} | "
+        rows.append(dict(training, arm=arm, train_seed=seed, variant=label, round=round_name,
+                         checkpoint=checkpoint, confirmation=cm,
+                         generated_output_tokens=costs.get(arm, {}).get("output_tokens", 0)))
+        pct = lambda v: "—" if v is None else f"{100*v:.2f}"
+        lines.append(f"| {label} | " + " | ".join(f"{100*accuracy[str(l)]:.2f}" for l in (1,2,3)) +
+            f" | {costs.get(arm, {}).get('output_tokens', 0)} | {metrics.get('passes', '—')} | "
             f"{metrics.get('learning_rate', '—')} | {metrics.get('supervised_tokens', 0)} | "
-            f"{metrics.get('optimizer_steps', 0)} | {metrics.get('wall_seconds', 0):.1f} | {seed if seed is not None else '—'} |")
+            f"{metrics.get('optimizer_steps', 0)} | {metrics.get('wall_seconds', 0):.1f} | {seed if seed is not None else '—'} | "
+            f"{pct(cm.get('accuracy'))} | {pct(cm.get('both_sides_correct_rate'))} |")
         by_category = {}
         for layer in (1, 2, 3):
             for category in sorted({i["category"] for i in items if i["layer"] == layer}):
@@ -191,9 +295,10 @@ def report(args, splits):
                 totals = {key: sum(i.get("metrics", {}).get(key, 0) for i in group) for key in
                           ("tool_calls", "illegal_actions", "repeated_actions", "early_stops", "truncated_generations")}
                 by_category[f"{layer}:{category}"] = dict(n=len(group), correct=sum(i["correct"] for i in group), **totals)
-        breakdown[name] = by_category
+        breakdown[label] = by_category
     pooled_seeds = intervals.get("C_vs_D_pooled", {}).get("3", {}).get("train_seeds", [])
-    unpooled = {arm: sorted(seed for a, seed in variants.values() if a == arm and seed not in pooled_seeds)
+    unpooled = {arm: sorted({seed for name, (a, seed) in variants.items()
+                            if a == arm and seed not in pooled_seeds and not name.endswith("-mid")})
                for arm in ("C", "D")}
     lines += ["", f"C vs D pooled training seeds: {pooled_seeds or 'unavailable (requires two matched seeds)'}. "
               f"Seeds outside the pool: {unpooled}.",
@@ -206,6 +311,7 @@ def report(args, splits):
               "USD cost is not inferred from an unverified price; exact raw token usage is retained.", "",
               "| Pair (right − left) | Layer | Items | Parent delta (pp) | Paired 95% interval (pp) | Parents | Catches / regressions | Mean absolute item delta (pp) |",
               "| --- | --- | ---: | ---: | --- | ---: | --- | ---: |"]
+    intervals.update(confirmation_intervals)
     for name, layers in intervals.items():
         for layer, stat in layers.items():
             ci = "unavailable" if stat["ci95"] is None else f"[{100*stat['ci95'][0]:.2f}, {100*stat['ci95'][1]:.2f}]"
@@ -246,6 +352,22 @@ def report(args, splits):
     write_json(args.run_dir / "report.json", dict(mechanism_table=rows, intervals=intervals,
         layer_3_scope=scope, category_breakdown=breakdown, teacher_cost=cost,
         pooled_training_seeds=pooled_seeds, unpooled_training_seeds=unpooled,
+        confirmation=confirmation_metrics, round1_run_dir=str(source) if source else None,
+        round1_teacher_cost=datasets[-1][3] if source else None,
         base_stability=stability, interpretation_comparison=comparison, interpretation=finding))
+    if confirmation_metrics:
+        lines += ["", "Confirmation is separate from heldout layer 1. Valid condition and surface pairs "
+                  "share anchors; parent-cluster intervals preserve this dependence. Unpaired items "
+                  "remain independent items within their parent. Target-sequence probability deltas "
+                  "versus base are diagnostics only; they do not affect correctness or selection.", ""]
+        for name, cm in confirmation_metrics.items():
+            lines.append(f"{name}: {cm['items']} items; {cm['valid_pairs']} valid pairs; "
+                         f"{len(cm['unpaired_items'])} unpaired items.")
+            lines.append("")
+            for item in cm["per_item"]:
+                delta = next((d for d in cm["target_probability_deltas"] if d["id"] == item["id"]), {})
+                lines.append(f"- {item['id']}: correct={item['correct']}; "
+                             f"target probability change={delta.get('probability_delta', 'unavailable')}")
+    write_json(args.run_dir / "paired/intervals.json", intervals)
     (args.run_dir / "report.md").write_text("\n".join(lines)+"\n")
     print(args.run_dir / "report.md")

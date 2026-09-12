@@ -1,4 +1,7 @@
-# BFCL first-round mechanism validation
+# BFCL mechanism validation
+
+For the coverage expansion, use [Round 2](#round-2-coverage-expansion) below.
+The first-round workflow and its held-out layers remain supported.
 
 Implements [the user specification](2026-09-12-gpt6-mechanism-validation-from-user.md)
 for **google/gemma-4-12B-it**, comparing ordinary local practice **C** with
@@ -437,3 +440,255 @@ CPU-only verification (all model/server work is mocked or uses tiny CPU tensors)
 ```bash
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_mech_bfcl*.py
 ```
+
+## Round 2: coverage expansion
+
+R2 reuses the five R1 diagnoses and **every** accepted R1 exercise. R1 had 22
+exercises per arm, including repeated teaching signals, and no accepted
+multi-turn exercises. The commands below use a new run directory outside
+`results/`. The sibling R1 run is read-only; its frozen training plan,
+exercises, heldout set, ledgers, and evaluations are never updated. These are
+execution instructions for a later authorized experiment: implementation and
+unit verification do not run the teacher, student inference, or GPU training.
+
+`prepare-r2` copies support/calibration evidence, seeds, diagnoses, and the
+byte-identical `heldout.json` and audit. `round2.json` records input hashes and
+R1 bank identities. It imports **only shared** R1 teacher ledger events and
+their raw envelopes. This preserves the single 8,000-output-token allowance
+for diagnosis, heldout preparation, and confirmation. The observed R1 shared
+spend was 4,363 tokens, leaving at most 3,637 for confirmation. It imports no
+training plan, adapter, arm generation ledger, or evaluation directory.
+Use copies rather than symlinks for these inputs. Preparation can be verified
+again with the same command; changed source or copied evidence is rejected.
+
+`generate --arm C|D --target 64 --extend-from <R1 exercises.json>` freezes the
+source path, content hash, and all original exercise IDs in
+`<arm>/extension.json`. The output starts with the original rows, with only
+`origin="round1"` and `round1_exercise_id` added. Historical duplicates remain
+in this frozen subset. New rows have `origin="round2"` and noncolliding IDs.
+Both arms must use extension mode in a prepared R2 run. `--target` is an alias
+of `--target-exercises`; the common 24,000-output-token cap, target, seed
+contexts, and coverage rules are frozen in `generation_protocol.json`.
+
+Each new candidate is deduplicated against the entire accepted pool of its
+seed and direction, using the normalized correct call **set**. Call order,
+dictionary-key order, duplicated calls, and no-call wording do not create
+new teaching signals; argument values and array order still matter. The
+existing full-exercise deduplication also remains. Both sides of the following
+relation must be represented **within each direction** (`condition`,
+`surface`, `neighbour_correct`) of **each** diagnosed seed:
+
+| Interface / R1 seeds | Positive side | Negative side |
+| --- | --- | --- |
+| Archival/core memory, seed_0 and seed_3 | Archival retrieval/search needed | Core memory or visible observations suffice |
+| Parallel calls, seed_2 | Several distinct calls genuinely needed | Exactly one call necessary |
+| Vehicle prerequisites, seed_1 | Authorized door-lock prerequisite required | Door-lock prerequisite unnecessary or unauthorized |
+| Further action/completion, seed_4 | A further tool action required | No further action; answer or clarify |
+
+These interface-derived predicates and authoring rules are shared by C/D.
+Only D sees the diagnosis and observed failure. Teachers provide condition
+side and evidence as metadata; the validator checks that the side agrees
+with the correct calls. Missing seed/direction sides get generation priority,
+and the remaining target slots are reserved for them. All candidates still
+pass native rendering and the same official AST/executor validation;
+neighbours still require a correct frozen-base response. `surface` requires a
+new call set within its direction: paraphrasing the same target does not
+expand R2 coverage. A changed requirement may be expressed in the last user
+request; tools, actual state, and historical observations cannot be invented.
+
+The loop stops at 64 retained examples, or when the next full 3,000-token
+reservation cannot fit under the arm cap. Invalid proposals, paid failures,
+repaired proposals in later batches, duplicates, and unused proposals are all
+charged. Resuming replays cached purchases and probes. No unbudgeted repair
+call exists. `generation_audit.json` retains the existing rejection reasons
+and new coverage/deduplication failures. `generation.json` reports actual
+spend per arm, origins, R1 IDs, counts, shortfall, snapshot exclusions, and
+`decision_coverage` down to missing sides. `ready` requires every seed and
+direction to cover both sides, even if the count target is reached. A
+budget-limited smaller pool can be ready when coverage is complete; training
+does not fill missing counts by repetition.
+
+### Multi-turn executor reconstruction
+
+Snapshots now losslessly pack and restore `random.Random.getstate()`, which
+caused both R1 multi-turn exclusions. For a missing legacy multi-turn
+snapshot, reconstruction loads the official entry and ground truth, creates
+the official executor classes through `execute_multi_turn_func_call`, loads
+`initial_config`, and replays all prior turns' ground-truth calls. The official
+long-context/composite flag is preserved. Prior observed student calls are
+replayed separately: public executor state and RNG state must agree with
+the gold replay. Calls already observed in the current failure turn are then
+replayed on the gold state, and their outputs must match the captured tool
+observations. The current turn's future gold calls are **never** replayed.
+Private executor instances are removed after success or failure.
+
+A CPU check against the actual read-only R1 evidence successfully reconstructed
+`multi_turn_base_79:2` (VehicleControlAPI) and
+`multi_turn_long_context_175:7` (TwitterAPI/TravelAPI). R1 seed files remain
+unchanged; reconstructed contexts and provenance belong to R2 generation.
+New captures retain RNG state directly. Remaining exclusions are explicit:
+unavailable official entry/gold, turn alignment failure, errors in prior gold
+replay, divergent prior student state/RNG, mismatched current-turn outputs,
+or other unserializable executor attributes. Live web and filesystem memory
+prerequisite executors are excluded from this **multi-turn reconstruction**;
+existing captured memory snapshots remain executable as before. Generated
+examples can still fail normal AST/execution, base-neighbour, or 8k training
+context checks. Teacher task semantics, including necessity of an action,
+remain teacher-authored; successful execution is not an independent proof of
+natural-language intent.
+
+### Confirmation and dose
+
+Run `confirm --target 24` before R2 evaluation. It pre-registers at most eight
+independent calibration parents and three fixed slots per parent: an anchor,
+a changed-condition request, and an unchanged-decision surface paraphrase.
+The source selection is deterministic under the split seed, excludes the
+whole support split and every training exercise's task/parent, and takes at
+most one source task per parent. No adapter score or baseline success filters
+selection. `confirmation_plan.json` freezes sources, exclusions, roles, pair
+relations, and equal per-parent output reservations from the shared remaining
+budget **before** teacher authoring. Parent shortages and authoring failures
+produce explicit shortfalls without replacement tasks or extra spending.
+
+Each member receives the same materialization, native rendering, and official
+validation as exercises. A valid condition pair has different natural requests,
+opposite relation sides, and different correct call sets; a valid surface pair
+has different wording and the identical correct call set. Pair metadata and
+authoring cues never enter student prompts. Invalid or unavailable members
+are audited; valid surviving members of invalid pairs remain independent
+items. The existing `heldout` layer 1 and natural layer 2 stay exactly as they
+were, including their original IDs and hash.
+
+Evaluation saves separate `confirmation.jsonl` and `confirmation.json` under
+each variant/repeat, including per-item correctness, valid/invalid pairs,
+unpaired items, and the fraction of valid pairs with **both members correct**.
+As a diagnostic only, it teacher-forces the exact native target tokens through
+the served model's completion `echo`/`logprobs` interface, records sequence
+probability and log probability, and compares each adapter against base.
+This is the probability of the particular authored call sequence (or authored
+no-call text), not summed probability over all equivalent calls. A server
+that cannot return prompt token log probabilities records an explicit
+unavailable diagnostic; correctness remains scored. Raw responses and usage
+are retained. Reports recompute the deltas regardless of evaluation order.
+
+`train --supervised-budget 15900` derives
+`passes = max(1, round(15900 / supervised_tokens_per_pass))`, using Python's
+round-to-even convention and the existing common C/D per-pass token cap.
+It overrides `--passes`. Omitting the budget preserves the original behavior.
+Actual exposure is `passes * supervised_tokens_per_pass`; its rounding error
+is normally at most half a pass (the minimum-one-pass rule can overshoot a
+very small budget). Use the **same** learning rate and `--tokens-per-step` in
+C/D. The full-vocabulary 0.5 teacher/0.5 frozen-base mixture, normalization by
+supervised tokens per optimizer step, and accumulation reset per pass are
+unchanged. `training_plan.json` freezes the requested budget as well as the
+derived passes and hashes of both full pools/encodings. Changing the budget
+even when it rounds to the same number of passes, or changing pool provenance,
+fails the cross-arm/cross-seed guard. R1's plan is unaffected.
+
+Every new training run saves `adapter_mid` immediately after
+`ceil(total_optimizer_steps / 2)` optimizer steps, and saves `adapter` at the
+end. Both paths and their actual optimizer-step counts and token exposures
+are in `metrics.json.checkpoints`; midpoint exposure is not guessed as half
+the final token count. `evaluate --checkpoint mid` requires the exact alias
+`mech-C-mid` / `mech-D-mid` (or `mech-C-sK-mid` for a training-seed repeat),
+checks its `/models` adapter root, and writes `evaluation/C-mid/<repeat>/`
+or `evaluation/C-sK-mid/<repeat>/`. `--checkpoint end` remains the default,
+with the original alias, adapter path, and evaluation directory. Base keeps
+its original name/path and ignores checkpoint selection.
+
+### R2 commands, end to end
+
+Do not run R1 rollout or diagnosis again. This sequence leaves both worktrees'
+`results/` contents unchanged; choose a persistent new run directory for actual
+training artifacts. The server/training commands require the previously
+described A100 and installed environments.
+
+```bash
+cd /home/xueqi/hq/projects/tc-alignment-mech2
+set -euo pipefail
+export PYTHONPATH=src:. PYTHONDONTWRITEBYTECODE=1
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export BFAS_TEACHER=openai/gpt-5.6-luna BFAS_OPENAI_SERVICE_TIER=flex
+export OPENAI_BASE_URL=https://api.openai.com/v1
+# OPENAI_API_KEY is supplied by the existing credential setup.
+MECH_R1=/home/xueqi/hq/projects/tc-alignment-mech/results/mech_bfcl
+MECH_R2="$PWD/runs/mech_bfcl_r2"
+BFCL_PY="$PWD/envs/bfcl/.venv/bin/python"
+TRAIN_PY="$PWD/.venv/bin/python"
+VLLM="$PWD/envs/vllm-serve/.venv/bin/vllm"
+
+CUDA_VISIBLE_DEVICES='' BFCL_PROJECT_ROOT=/tmp/mech-bfcl-cpu-runtime \
+  "$TRAIN_PY" -m pytest -q -p no:cacheprovider tests/test_mech_bfcl*.py
+"$BFCL_PY" tools/mech_bfcl.py prepare-r2 --run-dir "$MECH_R2" --round1-run-dir "$MECH_R1"
+# Confirmation authoring requires the teacher but no GPU or student server.
+"$BFCL_PY" tools/mech_bfcl.py confirm --run-dir "$MECH_R2" --target 24
+
+export CUDA_VISIBLE_DEVICES=0  # Select the assigned A100.
+wait_server() {
+  until curl --fail --silent http://127.0.0.1:8901/v1/models >/dev/null; do
+    kill -0 "$MECH_SERVING_PID"
+    sleep 2
+  done
+}
+stop_server() {
+  kill -- -"$MECH_SERVING_PID"
+  wait "$MECH_SERVING_PID" || true
+  unset MECH_SERVING_PID
+  while [ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]; do
+    sleep 2
+  done
+}
+setsid "$VLLM" serve google/gemma-4-12B-it \
+  --served-model-name google/gemma-4-12B-it --dtype bfloat16 \
+  --max-model-len 32768 --gpu-memory-utilization 0.85 --port 8901 \
+  >"$MECH_R2/serve-base.log" 2>&1 &
+export MECH_SERVING_PID=$!
+wait_server
+for arm in C D; do
+  "$BFCL_PY" tools/mech_bfcl.py generate --run-dir "$MECH_R2" --arm "$arm" \
+    --target 64 --max-output-tokens 24000 \
+    --extend-from "$MECH_R1/$arm/exercises.json" --base-url http://127.0.0.1:8901/v1
+done
+# Inspect both generation.json files: ready must be true; count/spend/shortfall
+# and every seed/direction's missing_sides are explicit. No count padding.
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_R2" --arm base \
+  --base-url http://127.0.0.1:8901/v1
+"$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_R2" --arm base --repeat repeat \
+  --base-url http://127.0.0.1:8901/v1
+stop_server
+
+for arm in C D; do
+  "$TRAIN_PY" tools/mech_bfcl.py train --run-dir "$MECH_R2" --arm "$arm" \
+    --supervised-budget 15900 --learning-rate 1e-4 --tokens-per-step 512
+  setsid "$VLLM" serve google/gemma-4-12B-it \
+    --served-model-name google/gemma-4-12B-it --dtype bfloat16 \
+    --max-model-len 32768 --gpu-memory-utilization 0.85 \
+    --enable-lora --max-lora-rank 16 --max-loras 2 \
+    --lora-modules "mech-$arm=$MECH_R2/$arm/training/adapter" \
+                   "mech-$arm-mid=$MECH_R2/$arm/training/adapter_mid" \
+    --port 8901 >"$MECH_R2/serve-$arm.log" 2>&1 &
+  export MECH_SERVING_PID=$!
+  wait_server
+  for checkpoint in mid end; do
+    "$BFCL_PY" tools/mech_bfcl.py evaluate --run-dir "$MECH_R2" --arm "$arm" \
+      --checkpoint "$checkpoint" --base-url http://127.0.0.1:8901/v1
+  done
+  stop_server
+done
+"$BFCL_PY" tools/mech_bfcl.py report --run-dir "$MECH_R2" --round1-run-dir "$MECH_R1"
+```
+
+The report source defaults to `round2.json`'s R1 run when prepared this way.
+It reads every completed R1 main evaluation, including `C-sK`/`D-sK` seed
+repeats that are present at report time, and requires R2 C/D at midpoint and
+end. One table contains R1 arms/repeats, R2 midpoint/end arms, exposure at each
+checkpoint, and confirmation accuracy/both-sides scores. R1 confirmation
+cells are unavailable, not invented. Existing paired-by-parent C/D and
+seed-pooled statistics remain; midpoint/end and cross-round within-arm
+comparisons are added. R1 statistics are written under **R2**'s `paired/round1/`.
+Confirmation has separate parent-cluster intervals for per-item correctness
+and valid-pair success; shared anchors do not multiply independent parents.
+Per-item probability changes are diagnostic only. Generated-token costs in
+the R2 rows are actual **new** arm spending; R1 generation and shared costs
+are retained separately, and neither checkpoint rows nor seed repeats imply
+another generation purchase.

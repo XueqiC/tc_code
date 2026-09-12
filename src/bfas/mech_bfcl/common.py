@@ -19,8 +19,9 @@ def resolved_train_seed(args, split_seed):
     return split_seed if seed is None else seed
 
 
-def variant_name(arm, train_seed, split_seed):
-    return arm if arm == "base" or train_seed == split_seed else f"{arm}-s{train_seed}"
+def variant_name(arm, train_seed, split_seed, checkpoint="end"):
+    name = arm if arm == "base" or train_seed == split_seed else f"{arm}-s{train_seed}"
+    return name + ("-mid" if checkpoint == "mid" and arm != "base" else "")
 
 
 def training_directory(directory, arm, train_seed, split_seed):

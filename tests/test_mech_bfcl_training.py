@@ -354,6 +354,9 @@ def tiny_training(monkeypatch, tmp_path):
 
         def save_pretrained(self, path, **kwargs):
             path.mkdir(parents=True)
+            if not hasattr(self, "saved_checkpoints"):
+                self.saved_checkpoints = {}
+            self.saved_checkpoints[path.name] = self.model.adapter.detach().clone()
 
     def load_model(*args, **kwargs):
         model = Model()
@@ -497,6 +500,54 @@ def test_omitted_training_seed_defaults_to_nonzero_split(tiny_training, tmp_path
     config = training.read_json(tmp_path / "C/training/config.json")
     assert config["train_seed"] == 19
     assert not (tmp_path / "C/training_s19").exists()
+
+
+@pytest.mark.parametrize("budget,passes", [(1, 1), (25, 2), (26, 3), (159, 16)])
+def test_supervised_budget_derives_common_dose_and_saves_exact_midpoint(tiny_training, tmp_path, budget, passes):
+    for arm in ("C", "D"):
+        tiny_training.run(arm, supervised_budget=budget)
+        metrics = training.read_json(tmp_path / arm / "training/metrics.json")
+        plan = training.read_json(tmp_path / "training_plan.json")
+        assert plan["supervised_budget"] == metrics["supervised_budget"] == budget
+        assert metrics["passes"] == passes
+        assert metrics["supervised_tokens_per_pass"] == 10
+        assert metrics["supervised_tokens"] == 10 * passes
+        steps = training.read_json(tmp_path / arm / "training/steps.json")
+        mid = (len(steps)+1)//2
+        assert metrics["checkpoints"]["mid"]["optimizer_steps"] == mid
+        assert metrics["checkpoints"]["mid"]["supervised_tokens"] == sum(s["supervised_tokens"] for s in steps[:mid])
+        assert metrics["checkpoints"]["end"]["supervised_tokens"] == 10 * passes
+        for checkpoint, folder in (("mid", "adapter_mid"), ("end", "adapter")):
+            assert Path(metrics["checkpoints"][checkpoint]["path"]).name == folder
+            assert (tmp_path / arm / "training" / folder).is_dir()
+        saved = tiny_training.models[-1].saved_checkpoints
+        assert set(saved) == {"adapter", "adapter_mid"}
+        assert not torch.equal(saved["adapter"], saved["adapter_mid"])
+
+
+@pytest.mark.parametrize("change", ["budget_same_passes", "omit_budget", "pool"])
+def test_budget_and_pool_identity_guard_even_when_effective_dose_is_unchanged(tiny_training, tmp_path, change):
+    tiny_training.run("C", supervised_budget=30)
+    frozen = (tmp_path / "training_plan.json").read_bytes()
+    dose = dict(supervised_budget=31 if change == "budget_same_passes" else 30)
+    if change == "omit_budget":
+        dose = dict(passes=3)
+    elif change == "pool":
+        path = tmp_path / "D/exercises.json"
+        rows = training.read_json(path)
+        rows[0]["origin"] = "round2"
+        training.write_json(path, rows)
+    with pytest.raises(ValueError, match="C/D exposure plan changed after it was frozen"):
+        tiny_training.run("D", **dose)
+    assert frozen == (tmp_path / "training_plan.json").read_bytes()
+    assert len(tiny_training.models) == 1
+
+
+@pytest.mark.parametrize("budget", [0, -1, 1.5])
+def test_budget_rejects_invalid_values_before_model_load(tiny_training, budget):
+    with pytest.raises(ValueError, match="Supervised budget"):
+        tiny_training.run(supervised_budget=budget)
+    assert not tiny_training.models
 
 
 @pytest.mark.parametrize("first_arm", ["C", "D"])

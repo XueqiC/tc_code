@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import os
+import random
 from pathlib import Path
 import subprocess
 import sys
@@ -23,6 +24,8 @@ def pack(value):
         return value
     if isinstance(value, Path):
         return {"__mech_path__": str(value)}
+    if isinstance(value, random.Random):
+        return {"__mech_random__": pack(value.getstate())}
     if isinstance(value, tuple):
         return {"__mech_tuple__": [pack(v) for v in value]}
     if isinstance(value, set):
@@ -40,6 +43,10 @@ def unpack(value):
     if isinstance(value, dict):
         if "__mech_path__" in value:
             return Path(value["__mech_path__"])
+        if "__mech_random__" in value:
+            rng = random.Random()
+            rng.setstate(unpack(value["__mech_random__"]))
+            return rng
         if "__mech_tuple__" in value:
             return tuple(map(unpack, value["__mech_tuple__"]))
         if "__mech_set__" in value:
@@ -47,6 +54,107 @@ def unpack(value):
         if "__mech_dict__" in value:
             return {unpack(k): unpack(v) for k, v in value["__mech_dict__"]}
     return value
+
+
+def multiturn_snapshot(frame, entry, ground_truth):
+    """Official prior-turn gold replay plus the observed current-turn prefix.
+
+    Compare prior student state with gold state before combining the two. An
+    incompatible natural history is excluded, never silently relabelled.
+    All executor instances are private and removed even if replay fails.
+    """
+    from bfcl_eval.eval_checker.multi_turn_eval import multi_turn_utils as util
+    from bfcl_eval.eval_checker.multi_turn_eval.multi_turn_checker import state_checker
+    from bfcl_eval.model_handler.utils import convert_to_function_call
+    from .exercises import demonstration
+    messages = frame["messages"]
+    user_positions = [i for i, m in enumerate(messages) if m["role"] == "user"]
+    turn = len(user_positions) - 1
+    questions = [m for t in entry["question"] for m in t if m["role"] == "user"]
+    if turn < 0 or turn >= len(ground_truth) or turn >= len(questions):
+        raise ValueError("Cannot align failure frame with official multi-turn question")
+    if any(messages[p]["content"] != q["content"] for p, q in zip(user_positions, questions)):
+        raise ValueError("Captured user turns differ from official multi-turn question")
+    classes = entry["involved_classes"]
+    if "WebSearchAPI" in classes or any(c.startswith("MemoryAPI") for c in classes):
+        raise ValueError("Replay excludes live web and filesystem memory prerequisite executors")
+    tid = uuid.uuid4().hex
+    models = ("mech_gold", "mech_observed")
+    long_context = "long_context" in entry["id"] or "composite" in entry["id"]
+
+    def execute(calls, model):
+        return util.execute_multi_turn_func_call(calls, copy.deepcopy(entry["initial_config"]),
+            classes, model, tid, long_context=long_context)
+
+    def observed(prefix):
+        calls, outputs = [], []
+        for message in prefix:
+            if message["role"] == "assistant":
+                for call in message.get("tool_calls", []):
+                    function = copy.deepcopy(call["function"])
+                    if isinstance(function["arguments"], str):
+                        function["arguments"] = json.loads(function["arguments"])
+                    demonstration(dict(kind="call", calls=[function]))
+                    calls.extend(convert_to_function_call([{function["name"]: function["arguments"]}]))
+            elif message["role"] == "tool":
+                outputs.append(message["content"])
+        return calls, outputs
+
+    def comparable(value):
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return value
+
+    try:
+        _, gold = execute([], models[0])
+        for calls in ground_truth[:turn]:
+            outputs, gold = execute(calls, models[0])
+            if any("error" in o.lower() for o in outputs):
+                raise ValueError("Official prior-turn ground-truth replay returned an error")
+        previous_calls, _ = observed(messages[:user_positions[-1]])
+        _, actual = execute(previous_calls, models[1])
+        check = state_checker(actual, gold)
+        random_equal = all(pack(vars(actual[c]).get("_random")) == pack(vars(gold[c]).get("_random"))
+                           for c in classes)
+        if not check["valid"] or not random_equal:
+            raise ValueError("Prior student history diverges from ground-truth executor state")
+        current_calls, expected = observed(messages[user_positions[-1]+1:])
+        outputs, gold = execute(current_calls, models[0])
+        if list(map(comparable, outputs)) != list(map(comparable, expected)):
+            raise ValueError("Failure-turn replay outputs differ from captured observations")
+        return {c: pack(vars(instance)) for c, instance in gold.items()}, dict(
+            method="official initial_config + prior-turn ground truth + observed current-turn calls",
+            turn_index=turn, prior_ground_truth_calls=ground_truth[:turn],
+            current_turn_calls=current_calls, entry_hash=digest(entry),
+            ground_truth_hash=digest(ground_truth), observed_history_consistent=True)
+    finally:
+        for model in models:
+            for cls in classes:
+                name = f"{model}_{tid}_{cls}_instance"
+                if hasattr(util, name):
+                    delattr(util, name)
+
+
+def restore_multiturn_context(context, frame):
+    """Repair legacy captures in memory; retain precise failure evidence."""
+    context = copy.deepcopy(context)
+    classes = context.get("involved_classes") or []
+    if not context["task_id"].startswith("multi_turn_") or (
+            not context.get("snapshot_error") and context.get("snapshot") and
+            all(c in context["snapshot"] for c in classes)):
+        return context
+    try:
+        setup_harness()
+        from bfcl_eval.utils import load_dataset_entry, load_ground_truth_entry
+        category = context["task_id"].rsplit("_", 1)[0]
+        entry = next(e for e in load_dataset_entry(category) if e["id"] == context["task_id"])
+        truth = next(e for e in load_ground_truth_entry(category) if e["id"] == context["task_id"])
+        snapshot, provenance = multiturn_snapshot(frame, entry, truth["ground_truth"])
+        context.update(snapshot=snapshot, snapshot_error=None, snapshot_reconstruction=provenance)
+    except (ValueError, KeyError, TypeError, AssertionError, StopIteration, ImportError) as exc:
+        context.update(snapshot=None, snapshot_error=f"Multi-turn reconstruction excluded: {type(exc).__name__}: {exc}")
+    return context
 
 
 class NoThinking:
@@ -217,6 +325,8 @@ def official_run(args, ids, destination, adapter, splits, *, evaluation_scope=No
         if getattr(args, "arm", "base") != "base":
             from .common import resolved_train_seed
             metadata["train_seed"] = resolved_train_seed(args, splits["seed"])
+            if getattr(args, "checkpoint", "end") == "mid":
+                metadata["checkpoint"] = "mid"
     if (destination / "items.json").exists():
         from .common import read_json
         previous = read_json(destination / "run.json")

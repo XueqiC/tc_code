@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""First-round BFCL mechanism pipeline. No model/API work happens on import."""
+"""BFCL mechanism validation, including R2 coverage expansion."""
 import argparse
 from pathlib import Path
 import sys
@@ -25,12 +25,17 @@ def parser():
     split.add_argument("--source-split", type=Path, default=ROOT / "configs/bfcl_support_split.json")
     commands.add_parser("rollout", parents=[common])
     commands.add_parser("diagnose", parents=[common])
+    prepare = commands.add_parser("prepare-r2", parents=[common])
+    prepare.add_argument("--round1-run-dir", type=Path, required=True)
+    confirm = commands.add_parser("confirm", parents=[common])
+    confirm.add_argument("--target", type=positive_int, default=24)
     gen = commands.add_parser("generate", parents=[common])
     gen.add_argument("--arm", choices=["C", "D"], required=True)
-    gen.add_argument("--target-exercises", type=positive_int, default=64,
+    gen.add_argument("--target-exercises", "--target", type=positive_int, default=64,
                      help="Target number of distinct validated exercises per arm (default: 64)")
     gen.add_argument("--max-output-tokens", type=positive_int, default=24000,
                      help="Total teacher output-token cap per arm (default: 24000)")
+    gen.add_argument("--extend-from", type=Path, help="Frozen round-1 exercises.json for this arm")
     train = commands.add_parser("train", parents=[common])
     train.add_argument("--arm", choices=["C", "D"], required=True)
     train.add_argument("--train-seed", type=int,
@@ -39,6 +44,8 @@ def parser():
     train.add_argument("--tokens-per-step", type=int, default=512)
     train.add_argument("--passes", type=positive_int, default=1,
                        help="Passes over each arm's exercises with the common token cap per pass (default: 1)")
+    train.add_argument("--supervised-budget", type=positive_int,
+                       help="Total token exposure; derives passes from the common per-pass cap")
     train.add_argument("--learning-rate", type=float, default=1e-5,
                        help="AdamW learning rate, shared by both arms (default: 1e-5)")
     train.add_argument("--position-chunk", type=int, default=32)
@@ -57,7 +64,9 @@ def parser():
     evaluate.add_argument("--train-seed", type=int,
                           help="Adapter training seed; defaults to the frozen split seed, ignored for base")
     evaluate.add_argument("--repeat", choices=["main", "repeat"], default="main")
-    commands.add_parser("report", parents=[common])
+    evaluate.add_argument("--checkpoint", choices=["mid", "end"], default="end")
+    report = commands.add_parser("report", parents=[common])
+    report.add_argument("--round1-run-dir", type=Path, help="Read-only R1 evaluations, including seed repeats")
     for command in commands.choices.values():
         command.add_argument("--tokenizer", default=None if command is audit else STUDENT,
                              help="Cached tokenizer; audit-loss defaults to the frozen training plan")
@@ -94,7 +103,7 @@ def main(argv=None):
     if args.command in ("train", "evaluate"):
         args.train_seed = resolved_train_seed(args, splits["seed"])
     args.served_model = args.served_model or (
-        "mech-" + variant_name(args.arm, args.train_seed, splits["seed"])
+        "mech-" + variant_name(args.arm, args.train_seed, splits["seed"], args.checkpoint)
         if args.command == "evaluate" and args.arm != "base" else STUDENT)
     with lock(args.run_dir / "pipeline.lock"):
         bind_run(args.run_dir, splits)
@@ -106,7 +115,7 @@ def main(argv=None):
             report(args, splits)
         else:
             from bfas.mech_bfcl import pipeline
-            getattr(pipeline, args.command)(args, splits)
+            getattr(pipeline, args.command.replace("-", "_"))(args, splits)
     return 0
 
 

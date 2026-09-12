@@ -391,6 +391,13 @@ def train(args, splits):
     for arm in banks:
         encoded[arm], excluded[arm] = encode_rows(banks[arm], tokenizer)
     cap = min(16000, *(sum(len(r["target_ids"]) for r in encoded[a]) for a in encoded))
+    budget = getattr(args, "supervised_budget", None)
+    if budget is not None:
+        if type(budget) is not int or budget <= 0:
+            raise ValueError("Supervised budget must be a positive integer")
+        if cap <= 0:
+            raise ValueError("No usable supervised tokens for the requested budget")
+        args.passes = max(1, round(budget / cap))
     # Keep the original split-seed plan byte-compatible across training seeds.
     # It freezes data and dose; each variant records its actual schedule below.
     schedules = {a: pass_schedules(encoded[a], cap, args.tokens_per_step,
@@ -401,6 +408,10 @@ def train(args, splits):
                 encoded_hashes={a: digest(encoded[a]) for a in encoded}, excluded=excluded,
                 row_ids={a: [r["id"] for r in encoded[a]] for a in encoded},
                 schedules=schedules)
+    # Omission keeps legacy default-dose plans byte-compatible. Pool hashes
+    # include every exercise, including R1 provenance and R2 decisions.
+    if budget is not None:
+        plan["supervised_budget"] = budget
     plan_path = args.run_dir / "training_plan.json"
     if plan_path.exists() and read_json(plan_path) != plan:
         raise ValueError("C/D exposure plan changed after it was frozen")
@@ -440,10 +451,13 @@ def train(args, splits):
     steps = [(schedule["pass_number"], segments) for schedule in arm_schedules
              for segments in schedule["steps"]]
     log, input_tokens, supervised = [], 0, 0
+    checkpoints = {}
+    midpoint = math.ceil(len(steps) / 2)
     write_json(target_dir / "config.json", dict(student=STUDENT, model_path=args.model_path,
         model_commit=getattr(base.config, "_commit_hash", None), lora_rank=16, lora_alpha=32,
         lora_dropout=0, target_modules=sorted(actual), dtype="bfloat16", micro_batch=1,
         learning_rate=args.learning_rate, gradient_checkpointing=True, passes=args.passes,
+        supervised_budget=budget,
         tokens_per_step=args.tokens_per_step, train_seed=train_seed,
         teacher_target="one-hot demonstration", reference_target="full vocabulary frozen adapter-disabled base",
         mixture=[0.5, 0.5], thinking=False, position_chunk=args.position_chunk))
@@ -479,11 +493,20 @@ def train(args, splits):
                         supervised_tokens=step_tokens, loss=step_loss/step_tokens,
                         wall_seconds=time.monotonic()-step_start))
         write_json(target_dir / "steps.json", log)
+        if step + 1 == midpoint:
+            model.save_pretrained(target_dir / "adapter_mid", safe_serialization=True)
+            tokenizer.save_pretrained(target_dir / "adapter_mid")
+            checkpoints["mid"] = dict(path=str(target_dir / "adapter_mid"),
+                optimizer_steps=step+1, supervised_tokens=supervised, input_tokens=input_tokens,
+                wall_seconds=time.monotonic()-start_time)
     model.save_pretrained(target_dir / "adapter", safe_serialization=True)
     tokenizer.save_pretrained(target_dir / "adapter")
+    checkpoints["end"] = dict(path=str(target_dir / "adapter"), optimizer_steps=len(log),
+        supervised_tokens=supervised, input_tokens=input_tokens, wall_seconds=time.monotonic()-start_time)
     write_json(target_dir / "metrics.json", dict(input_tokens=input_tokens,
         unique_input_tokens=sum(len(r["prompt_ids"])+len(r["target_ids"]) for r in rows),
         supervised_tokens=supervised, supervised_tokens_per_pass=cap, passes=args.passes,
+        supervised_budget=budget, checkpoints=checkpoints,
         learning_rate=args.learning_rate, tokens_per_step=args.tokens_per_step, train_seed=train_seed,
         optimizer_steps=len(log), wall_seconds=time.monotonic()-start_time,
         max_allocated_bytes=torch.cuda.max_memory_allocated(), training_plan_hash=digest(plan),
