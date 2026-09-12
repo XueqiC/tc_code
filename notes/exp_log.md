@@ -896,3 +896,4 @@ bl_alfworld_sad_B7500 | SAD (text-adapted), ALFWorld, B=7.5k, 2 usable demos | r
 mech_bfcl_r2_D_end | arm D R2 64 ex, budget 15.9k, seed 0, end ckpt | rai GPU3 | L3 168/246 (base 160, C 165), L1 17/33, L2 5/9, confirm 11/16 | tc-alignment-mech2/runs/mech_bfcl_r2/evaluation/D/main
 mech_bfcl_r2_D_mid | arm D R2, seed 0, mid ckpt | rai GPU3 | L3 170/246, L1 17/33, L2 5/9, confirm 10/16 | tc-alignment-mech2/runs/mech_bfcl_r2/evaluation/D-mid/main
 bl_alfworld_sad_B15000 | SAD (text-adapted), ALFWorld, B=15k, 5 usable demos | rai GPU4 | SR 60.7 (base 56.4) | tc-alignment-base/results/paper_baselines/alfworld_sad_curve_B15000
+mech_bfcl_r2_C_s1 | arm C R2 63 ex, train seed 1, end ckpt | rai GPU3 | L3 164/246, L1 21/33, L2 5/9, confirm 10/16 | tc-alignment-mech2/runs/mech_bfcl_r2/evaluation/C-s1/main
