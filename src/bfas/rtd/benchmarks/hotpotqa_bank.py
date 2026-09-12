@@ -1,4 +1,4 @@
-"""Offline Luna task packages; charge every recorded attempt to its task."""
+"""Offline Luna attempt packages; preserve each attempt and its task dependency."""
 from collections import Counter, defaultdict
 from dataclasses import asdict
 import hashlib
@@ -158,26 +158,20 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
         # replay-verified attempt, even when the package uses the earlier one.
         if demo not in demos[tid]:
             raise ValueError('HotpotQA pool demo differs from paid ledger')
-    for tid, attempts in grouped.items():
-        attempts = sorted(attempts, key=lambda item: item[1]['attempt_index'])
-        verified = [(i, r) for i, r in attempts if r['verified']]
-        index, row = (verified or attempts)[0]
-        attempt = row['attempt_index']
-        total = sum(r['tokens_spent'] for _, r in attempts)
-        confidence = 'estimated' if any(_confidence(r) == 'estimated' for _, r in attempts) else 'exact'
-        usage = {k: sum(r['usage'][k] for _, r in attempts) for k in totals}
+    for index, row in enumerate(rows):
+        tid, attempt = row['task_id'], row['attempt_index']
+        total, confidence, usage = row['tokens_spent'], _confidence(row), row['usage']
         qid = digest(['hotpotqa-paid-episode', row['teacher'], tid, attempt, hp.PROMPT_VERSION])
         behaviors, verification, empty_targets = replayed[tid, attempt]
         state = FullState(**behaviors[0]['state']) if behaviors else None
         records.append(state_record(qid, state, 'hotpotqa_demo_episode', total, confidence,
-            parent=parent_hash(tid), unavailable=None if verified else 'no verified teacher attempt'))
+            parent=parent_hash(tid), unavailable=None if row['verified'] else 'failed teacher attempt'))
         payloads[qid] = dict(cost=total, cost_confidence=confidence, usage=usage,
             provenance=dict(task_id=tid, attempt_index=attempt, teacher=row['teacher'], ledger_row=index,
-                ledger_rows=[i for i, _ in attempts], charged_attempt_indices=[r['attempt_index'] for _, r in attempts],
-                selection='earliest_verified_attempt_index', cost_scope='all_recorded_task_attempts',
+                cost_scope='recorded_teacher_attempt',
                 ledger_sha256=ledger_binding['sha256'], verified=row['verified'], rendering_student=config['student'],
                 empty_targets_rendered_with_native_eos=empty_targets),
-            historical_response=row, historical_attempts=[r for _, r in attempts],
+            historical_response=row,
             behaviors=behaviors, verification=verification)
     accounting = dict(historical_output_tokens=sum(r['tokens_spent'] for r in rows),
         historical_attempts=len(rows), verified_episodes=sum(r['verified'] for r in rows),
@@ -188,10 +182,10 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
         exact_output_tokens=sum(r['tokens_spent'] for r in rows if _confidence(r) == 'exact'),
         estimated_output_tokens=sum(r['tokens_spent'] for r in rows if _confidence(r) == 'estimated'),
         cost_confidence='estimated' if any(_confidence(r) == 'estimated' for r in rows) else 'exact',
-        usage=dict(totals), scope='completed ledger prefix; all attempts charged once per task',
+        usage=dict(totals), scope='completed ledger prefix; each attempt charged separately',
         new_teacher_calls=0, new_teacher_tokens=0)
     audit = dict(m=200, **accounting, snapshot=inputs, pool_demos=len(archive['demos']),
-        packages=len(records), unavailable_packages=len(grouped)-len(demos),
+        packages=len(records), unavailable_packages=sum(not r['verified'] for r in rows),
         available_packages_by_confidence=dict(Counter(p['cost_confidence'] for p in payloads.values()
             if p['provenance']['verified'])),
         budget_checkpoints_tokens=resolve_budget_checkpoints(config,

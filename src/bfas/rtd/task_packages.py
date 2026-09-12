@@ -1,11 +1,19 @@
-"""Public accounting for frozen task purchases; no raw-pool access at runtime."""
+"""Per-task attempt ledgers and frozen attempt purchases; no runtime raw pool."""
 from collections import defaultdict
 import json
 import random
 
 ATTEMPT_LEDGER = 'task_attempts.json'
-PURCHASE_BASIS = 'all_recorded_task_attempts'
-ORDER_RULE = 'sorted task IDs; random.Random(0).shuffle; stop before first overflow'
+PURCHASE_BASIS = 'recorded_teacher_attempt'
+ORDER_RULE = 'sorted query IDs; random.Random(0).shuffle; stop before first overflow'
+
+
+def frozen_attempt_order(query_ids):
+    order = sorted(query_ids)
+    if len(set(order)) != len(order):
+        raise ValueError('duplicate attempt IDs')
+    random.Random(0).shuffle(order)
+    return order
 
 
 def attempt_summary(row, *, confidence):
@@ -29,7 +37,7 @@ def build_attempt_ledger(records, payloads):
     """Summarize the immutable attempts, including unavailable/protected rows.
 
     Existing sealed IDs, costs, rendering, and the usable fraction denominator
-    remain archival identities. One runtime task ID owns all its attempt IDs.
+    remain archival identities. Task groups express parentage, not joint charges.
     """
     grouped, seen = defaultdict(list), set()
     for record in records:
@@ -54,7 +62,7 @@ def build_attempt_ledger(records, payloads):
     for tid, members in sorted(grouped.items()):
         parents = {r.parent_hash for r, _, _ in members}
         if len(parents) != 1 or any(r.dependencies for r, _, _ in members):
-            raise ValueError('task package requires one parent and no cross-package dependencies')
+            raise ValueError('task ledger requires one parent and no cross-package dependencies')
         usable = [(r, i) for r, i, _ in members if r.unavailable_reason is None]
         selected, _ = min(usable or [(r, i) for r, i, _ in members], key=lambda v: (v[1], v[0].spec.query_id))
         attempts = sorted([a for _, _, rows in members for a in rows], key=lambda a: a['attempt_index'])
@@ -64,16 +72,23 @@ def build_attempt_ledger(records, payloads):
             cost_confidence='estimated' if any(a['cost_confidence'] == 'estimated' for a in attempts) else 'exact'))
     order = [t['task_id'] for t in tasks]
     random.Random(0).shuffle(order)
-    return dict(version=1, purchase_unit='task', cost_basis=PURCHASE_BASIS,
-        purchase_seed=0, order_rule=ORDER_RULE, task_order=order, tasks=tasks)
+    return dict(version=2, purchase_unit='teacher_attempt', cost_basis=PURCHASE_BASIS,
+        purchase_seed=0, order_rule=ORDER_RULE, task_order=order, tasks=tasks,
+        attempt_order=frozen_attempt_order(payloads))
 
 
 def validate_attempt_ledger(value, records):
     """Validate only certificate-bound public metadata, never teacher payloads."""
-    if (value['version'] != 1 or value['purchase_unit'] != 'task'
-            or value['cost_basis'] != PURCHASE_BASIS or value['purchase_seed'] != 0
-            or value['order_rule'] != ORDER_RULE):
-        raise ValueError('unknown task purchase protocol')
+    # Existing v1 files remain byte-identical archival ledgers. Their obsolete
+    # task purchase metadata never controls runtime purchase order or prices.
+    legacy = (value['version'] == 1 and value['purchase_unit'] == 'task'
+        and value['cost_basis'] == 'all_recorded_task_attempts'
+        and value['order_rule'] == 'sorted task IDs; random.Random(0).shuffle; stop before first overflow')
+    current = (value['version'] == 2 and value['purchase_unit'] == 'teacher_attempt'
+        and value['cost_basis'] == PURCHASE_BASIS and value['order_rule'] == ORDER_RULE
+        and value['attempt_order'] == frozen_attempt_order(records))
+    if not (legacy or current) or value['purchase_seed'] != 0:
+        raise ValueError('unknown attempt ledger protocol')
     seen, tids = set(), []
     for task in value['tasks']:
         tids.append(task['task_id'])
@@ -102,6 +117,20 @@ def validate_attempt_ledger(value, records):
     if seen != records.keys() or len(set(tids)) != len(tids) or value['task_order'] != order:
         raise ValueError('task purchase order/inventory mismatch')
     return value
+
+
+def attempt_packages(value, records):
+    """Flatten validated parent groups without combining sibling attempts."""
+    validate_attempt_ledger(value, records)
+    packages = {}
+    for task in value['tasks']:
+        for attempt in task['attempts']:
+            q = attempt['query_id']
+            if q in packages:
+                raise ValueError('sealed package contains multiple attempts; rebuild the bank')
+            packages[q] = dict(attempt, parent_hash=task['parent_hash'],
+                usable=records[q].unavailable_reason is None)
+    return packages
 
 
 def rebuild_task_accounting(bank):

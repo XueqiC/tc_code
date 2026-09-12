@@ -107,9 +107,12 @@ class BatchExperimentMixin:
             view = StudentSnapshot(s['source_id'], frozenset(s['inner']), features)
             candidates = self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)
             remaining_windows = 1 if s['smoke'] else sum(step >= s['step'] for step in (1, 4, 7, 10))
-            quota = (self.ledger.remaining if self.broker.task_packages else
+            quota = (self.ledger.remaining if self.broker.attempt_packages else
                      window_budget(self.ledger.remaining, remaining_windows, candidates))
-            rows = self.batch_features(candidates)
+            # Frozen purchases need no source features, including for failed
+            # attempts and parents outside the active training fold.
+            rows = (dict.fromkeys(c.query_id for c in candidates) if self.broker.attempt_packages
+                    else self.batch_features(candidates))
             policy = BatchAcquisitionPolicy(s['posterior'], s['cost_model'], rng=self.rng)
             replay = s.get('replay_exposure') if self.alpha_d else None
             if replay:
@@ -126,21 +129,21 @@ class BatchExperimentMixin:
                 if self.config.get('replay_mode') == 'streaming':
                     from .persistence import digest
                     policy.last_decision.update(replay_mode='streaming', replay_step_hash=digest(replay))
-            elif self.broker.task_packages:
+            elif self.broker.attempt_packages:
                 selected, trace = select_public_batch(candidates, lambda public:
                     [c.query_id for c in public[:self.max_new_packages]])
-                remaining_tasks = self.broker.frozen_unowned()
-                overflow = len(selected) == len(candidates) < len(remaining_tasks)
+                remaining_attempts = self.broker.frozen_unowned()
+                overflow = len(selected) == len(candidates) < len(remaining_attempts)
                 policy.last_decision = dict(selected=list(selected), query_ids=list(rows),
                     sampled_values=[0.]*len(rows), predicted_additive_gain=0., predicted_cost=None,
-                    budget_binding=overflow, stop_reason='first_overflow' if overflow else 'frozen_task_prefix',
+                    budget_binding=overflow, stop_reason='first_overflow' if overflow else 'frozen_attempt_prefix',
                     purchase_seed=0)
             else:
                 selected, trace = select_public_batch(candidates, lambda public: policy.choose_batch(public, rows,
                     remaining_budget=quota, exposure_slots=40 if self.alpha_d else self.slots, max_new_packages=self.max_new_packages,
                     random_control=self.manifest['arm'] in {'R0', 'V0'} or self.config.get('acquisition') == 'random',
                     previous_model=s['previous_decision_model']))
-            if self.alpha_d and not self.broker.task_packages:
+            if self.alpha_d and not self.broker.attempt_packages:
                 # Stable executor order is independent of random/learned solver rank.
                 selected = sorted(selected)
                 policy.last_decision['selected'] = list(selected)
@@ -177,12 +180,12 @@ class BatchExperimentMixin:
                 # The predicted-cost knapsack does not override a reservation.
                 s['hard_stops'].append(dict(query_id=q, reason='hard_cap_tail',
                     global_remaining=self.ledger.remaining, window_remaining=self.ledger.window_remaining))
-                if self.broker.reservation_basis in {'recorded_package_cost', 'all_recorded_task_attempts'}:
+                if self.broker.reservation_basis in {'recorded_package_cost', 'recorded_teacher_attempt'}:
                     # Paid-package replay buys a prefix of the frozen plan;
                     # never skip an overflow to buy a cheaper later package.
                     s['transaction_index'] = len(s['selected']) - 1
             except UnavailableError as error:
-                if not self.alpha_d or self.broker.task_packages:
+                if not self.alpha_d or self.broker.attempt_packages:
                     raise
                 s['hard_stops'].append(dict(query_id=q, reason='local_precheck_unavailable', detail=str(error),
                     global_remaining=self.ledger.remaining, window_remaining=self.ledger.window_remaining))
@@ -190,10 +193,11 @@ class BatchExperimentMixin:
                 self.journal.append('request_reveal_link', round=s['round'], step=s['step'], query_id=q,
                     window_id=s['window_id'], ledger_reveal_sequence=next(e['sequence'] for e in self.ledger.events
                         if e['kind'] == 'reveal' and e['query_id'] == q))
-                if not self.alpha_d and package.behaviors:
+                if not self.alpha_d and package.behaviors and self.broker.training_eligible(q):
                     self.batch_prepare_package(package)
-                s['cost_model'].observe_revealed(s['batch_specs'][q], s['batch_rows'][q], cost=package.cost,
-                    confidence=package.cost_confidence, revealed_ids=self.ledger.owned_ids)
+                if not self.broker.attempt_packages:
+                    s['cost_model'].observe_revealed(s['batch_specs'][q], s['batch_rows'][q], cost=package.cost,
+                        confidence=package.cost_confidence, revealed_ids=self.ledger.owned_ids)
                 s['pending_ids'].append(q)
             if self.alpha_d:
                 # Recompute legal public inventory after settlement/release.
@@ -210,12 +214,12 @@ class BatchExperimentMixin:
             return
         s['selection']['planned_selected'] = list(s['selected'])
         s['selected'] = list(s['pending_ids'])
-        if self.broker.task_packages and not self.alpha_d:
-            failed = [q for q in s['selected'] if not self.broker.task_packages[q]['usable']]
+        if self.broker.attempt_packages and not self.alpha_d:
+            failed = [q for q in s['selected'] if not self.broker.training_eligible(q)]
             s['owned'].extend(q for q in failed if q not in s['owned'])
             s['selected'] = [q for q in s['selected'] if q not in failed]
             s['pending_ids'] = list(s['selected'])
-            s['selection']['charged_failed_tasks'] = failed
+            s['selection']['charged_unexposed_attempts'] = failed
         s['selection']['selected'] = list(s['selected'])
         if s['hard_stops']:
             hard_cap = any(r['reason'] == 'hard_cap_tail' for r in s['hard_stops'])
@@ -227,7 +231,7 @@ class BatchExperimentMixin:
             s['remaining_candidate_ids'] = self.batch_remaining_candidates()
             self.journal.append('acquisition_execution', round=s['round'], step=s['step'],
                 planned=s['selection']['planned_selected'], acquired=list(s['selected']),
-                drops=list(s['hard_stops']), reservation_order=('frozen_task_order' if self.broker.task_packages else 'query_id_ascending'),
+                drops=list(s['hard_stops']), reservation_order=('frozen_attempt_order' if self.broker.attempt_packages else 'query_id_ascending'),
                 remaining_authorization=self.ledger.remaining, actual_spend=self.ledger.spent,
                 remaining_candidates=s.get('remaining_candidate_ids', sorted(set(s['batch_specs'])-self.ledger.owned_ids)))
         ids, values = s['selection'].get('query_ids', []), s['selection'].get('sampled_values', [])
@@ -331,7 +335,8 @@ class BatchExperimentMixin:
         s['phi'] = s['next_phi'].detach().requires_grad_(True)
         for q in s['selected']:
             s['owned'].append(q)
-        s['posterior'].observe_batch(s['batch_rows'], s['labels'], s['value_statistics']['covariance'])
+        if not self.broker.attempt_packages:
+            s['posterior'].observe_batch(s['batch_rows'], s['labels'], s['value_statistics']['covariance'])
         m, E = len(s['selected']), self.slots
         row = dict(round=s['round'], step=s['step'], decision=s['decision'], inner_fold=(s['round']-1)%2,
             acquisition_protocol='batch_common_reference_v1', selected=s['selected'], slots=E,

@@ -254,7 +254,7 @@ support: 34 training tasks have no usable Luna package but remain in support.
 | New teacher calls / GPU use during repair | 0 / 0 |
 
 The former usable-attempt reservation audit (7/24 packages at 11,879/29,698)
-is superseded by task purchase accounting. The class cap and denominator remain
+is superseded by attempt purchase accounting. The class cap and denominator remain
 archival; the runtime charge now sums every attempt for the selected task.
 See the correction and exact baseline comparison below.
 
@@ -299,53 +299,34 @@ The combined CPU regression run passed **67 tests** across
 `test_rtd_preflight.py`; output is in
 `logs/alfworld_luna_frozen_support_tests.log`.
 
-## Task purchase accounting correction (2026-09-11)
+## Attempt purchase correction (2026-09-11)
 
-Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
+Each teacher attempt is a separate package at its original ledger token cost,
+including failed attempts and recorded reasoning. Sort the original query IDs,
+shuffle once with `random.Random(0)`, and stop before the first overflow.
+The per-task ledger retains each attempt's task/parent dependency; it does not
+combine retry costs. All bank bytes, including support/folds, per-task ledgers,
+sealed payloads and certificates, are unchanged; no rebuild was needed.
 
-The runtime purchase unit is **a task with all its recorded attempts**.
-The offline builders now write certificate-bound `public/task_attempts.json`
-with task ID, attempt index, ledger tokens, verification, confidence and archived
-query IDs. The broker prices from that public summary without opening sealed
-responses or raw pools; acquisition rechecks every member payload and charges
-the sum of its ledger output tokens, including failed attempts and reasoning
-already included in completion usage. Estimates remain estimates. The earliest
-usable attempt supplies the trajectory; other attempts still cost tokens.
-Failed-only/excluded tasks are paid but yield no training rows.
+RTD and the read-only paper reader bought exactly the same ordered attempt IDs
+and usable IDs at all four budgets, with equal spend and next blocker:
 
-Order: sort task IDs, then `random.Random(0).shuffle`, once for the bank.
-Purchases stop before the first overflow, including an unavailable blocker.
-Training keeps the original fold guards and restricts this order to legal inner
-parents without reshuffling; V0/D3 schedules retain charged failures. The table
-below covers all recorded parents, without training folds or window quotas.
+| Budget | Attempts | Usable | Tokens charged |
+| ---: | ---: | ---: | ---: |
+| 7,500 | 4 | 2 | 6,535 |
+| 15,000 | 9 | 5 | 13,342 |
+| 30,000 | 13 | 5 | 29,229 |
+| 60,000 | 24 | 9 | 58,602 |
 
-The bank was rebuilt in place from its own sealed ledger rows. The replacement
-gate confirmed byte-identical support/folds, reset states, sealed payloads,
-integrity and original audit; only the public accounting index and its binding
-metadata changed. The existing fraction denominator and configured checkpoints
-remain unchanged. The generic archived class cap is no longer the task price.
+The cited 30k receipt is reproduced: **13 attempts, 5 usable, 29,229 tokens**.
+The task-level zero-usable result is superseded. Denominator 118,792 and configured
+fraction caps 11,879 / 29,698 remain unchanged. V0/D3 full CPU preflight passes.
 
-| Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
-| ---: | ---: | ---: | ---: | ---: |
-| 7,500 | 0 | 0 | 0 | 0 |
-| 15,000 | 0 | 0 | 0 | 0 |
-| 30,000 | 1 | 0 | 3 | 21,457 |
-| 60,000 | 8 | 4 | 16 | 58,314 |
+Purchases use the whole bank prefix, independently of training seed/fold.
+Only exposure is restricted to the active parent fold. Failed and other-fold
+purchases remain in V0/D3 receipts. Window limits pause and resume the same order.
 
-The read-only baseline reader still shuffles **233 attempt query IDs**. Executing
-it reproduced **13 attempts from 13 tasks, 5 usable, 29,229 tokens at 30k**; it
-does not buy all attempts for each task. The new rule shuffles **142 task IDs**.
-Its first task, `pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256`,
-has three failures costing 8,061 + 6,536 + 6,860 = **21,457**. The next task costs
-**9,629**, so buying both would cost **31,086**, above 30k. The resulting zero
-usable packages also holds at the unchanged configured cap **29,698**. This is
-a difference in purchase unit and ordering, not rounding or missing costs.
-ALFWorld retains its legacy estimated confidence labels and denominator 118,792.
-
-V0/D3 full CPU preflight passed at the unchanged 11,879 / 29,698 caps.
-
-See the [shared protocol and rebuild command](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11),
-[byte-preservation and purchase audit](rtd_task_purchase_validation.json),
-[exact ALFWorld baseline comparison](rtd_alfworld_task_baseline_comparison.json),
-and [CPU validation](rtd_task_cpu_validation.json). No GPU/API calls were made.
-Older recorded-cost purchase receipts are superseded by this correction.
+[Shared protocol](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11),
+[both code paths' attempt IDs](rtd_attempt_purchase_validation.json),
+[CPU and byte-preservation receipts](rtd_attempt_cpu_validation.json).
+No GPU/API calls were made. Older task-purchase receipts are superseded.

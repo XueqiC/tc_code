@@ -1,4 +1,4 @@
-"""Task accounting: failed attempts, prefix blocking, sealed isolation and resume."""
+"""Attempt accounting: failed attempts, prefix blocking, sealed isolation and resume."""
 from dataclasses import asdict
 import json
 from types import SimpleNamespace
@@ -21,12 +21,12 @@ def task_bank(tmp_path, request):
     parent = digest('shared parent')
     state = FullState.create({'task': 'public'}, [{'role': 'user', 'content': 'public'}], 'public prompt', parent)
     records, payloads = [], {}
-    # Seed zero shuffles [a, b, c] into [a, c, b]. The cheaper b must
-    # never bypass c. Visible text lengths bear no relation to ledger usage.
+    # Seed zero shuffles IDs [0, 1, 2, 3] into [2, 0, 1, 3].
+    # Buy failed a, verified c, failed c, then cheap b; never bypass a blocker.
     for tid, index, tokens, verified, confidence in [
             ('a', 0, 6, False, 'exact'), ('b', 0, 1, True, 'exact'),
             ('c', 0, 7, False, 'exact'), ('c', 2, 2, True, 'estimated')]:
-        q = digest([tid, index])
+        q = f"{ {('a', 0): 2, ('b', 0): 3, ('c', 0): 1, ('c', 2): 0}[tid, index]:064x}"
         row = dict(task_id=tid, attempt_index=index, tokens_spent=tokens, verified=verified,
             cost_confidence=confidence, usage={'completion_tokens': tokens, 'reasoning_tokens': tokens-1})
         records.append(state_record(q, state if verified else None, 'demo', tokens, confidence,
@@ -51,18 +51,22 @@ def test_task_broker_prices_without_sealed_reads_and_charges_failed_prefix(task_
         ledger = Ledger(8)
         broker = SealedReplayBroker(bank, ledger, inner_parent_hashes={parent})
         offered = broker.list_candidates(view(broker), (), 8)
-    assert len(broker._records) == 3
-    assert [broker.task_packages[q]['task_id'] for q in broker.purchase_order] == ['a', 'c', 'b']
-    assert [c.query_id for c in offered] == [broker.purchase_order[0]]
+    assert len(broker._records) == 4
+    assert [broker.attempt_packages[q]['task_id'] for q in broker.purchase_order] == ['a', 'c', 'c', 'b']
+    assert [c.query_id for c in offered] == list(broker.purchase_order[:2])
     failed = broker.acquire(offered[0].query_id)
     assert failed.behaviors == () and failed.cost == ledger.spent == 6
-    assert not broker.list_candidates(view(broker), ledger.owned_ids, ledger.remaining)
-    ledger.authorize(15)
     candidates = broker.list_candidates(view(broker), ledger.owned_ids, ledger.remaining)
     package = broker.acquire(candidates[0].query_id)
-    assert package.cost == 9 and ledger.spent == 15
+    assert package.cost == 2 and ledger.spent == 8
     assert package.cost_confidence == 'estimated' and len(package.behaviors) == 1
-    assert [a['tokens'] for a in package.usage['attempts']] == [7, 2]
+    assert package.usage['completion_tokens'] == 2
+    assert len(ledger.owned_ids) == 2  # Its failed sibling is still unpurchased.
+    assert not broker.list_candidates(view(broker), ledger.owned_ids, ledger.remaining)
+    ledger.authorize(15)
+    specs = broker.list_candidates(view(broker), ledger.owned_ids, ledger.remaining)
+    assert broker.acquire(specs[0].query_id).behaviors == ()
+    assert ledger.spent == 15
     assert not ledger.reservations
 
 
@@ -72,7 +76,7 @@ def test_task_bank_preflight_exact_prefix_and_original_denominator(task_bank):
     result = acquisition_preflight(dict(bank_path=str(bank), budget_ceilings=[8, 15, 16]),
         SimpleNamespace(parents={parent}))
     assert [(c['tasks_purchased'], c['usable_packages'], c['attempts_purchased'], c['spent_tokens'])
-            for c in result['checkpoints']] == [(1, 0, 1, 6), (2, 1, 3, 15), (3, 2, 4, 16)]
+            for c in result['checkpoints']] == [(2, 1, 2, 8), (2, 1, 3, 15), (3, 2, 4, 16)]
 
 
 def test_task_broker_resume_and_out_of_order_stale_offers(task_bank, tmp_path):
@@ -81,9 +85,9 @@ def test_task_broker_resume_and_out_of_order_stale_offers(task_bank, tmp_path):
     ledger = Ledger(16, path)
     broker = SealedReplayBroker(bank, ledger, inner_parent_hashes={parent})
     candidates = broker.list_candidates(view(broker), (), 16)
-    with pytest.raises(UnavailableError, match='frozen task order'):
+    with pytest.raises(UnavailableError, match='frozen attempt order'):
         broker.acquire(candidates[-1].query_id)
-    ledger.open_window('window', 8, 3)
+    ledger.open_window('window', 7, 3)
     failed = broker.acquire(candidates[0].query_id)
     with pytest.raises(BudgetError):
         broker.acquire(candidates[1].query_id)
@@ -95,11 +99,11 @@ def test_task_broker_resume_and_out_of_order_stale_offers(task_bank, tmp_path):
     assert resumed.spent == 6 and len(resumed.owned_ids) == 1
     offered = restored.list_candidates(view(restored), resumed.owned_ids, resumed.remaining)
     package = restored.acquire(offered[0].query_id)
-    assert package.cost == 9 and resumed.spent == 15
+    assert package.cost == 2 and resumed.spent == 8
     restored.set_inner_parents(set())
-    assert restored.list_candidates(view(restored), resumed.owned_ids, resumed.remaining) == []
-    with pytest.raises(UnavailableError):
-        restored.acquire(package.query_id)
+    assert len(restored.list_candidates(view(restored), resumed.owned_ids, resumed.remaining)) == 2
+    assert not restored.training_eligible(package.query_id)
+    assert restored.acquire(package.query_id) == package
 
 
 def test_task_bank_public_summary_corruption_rejected(task_bank):
@@ -112,15 +116,15 @@ def test_task_bank_public_summary_corruption_rejected(task_bank):
         SealedReplayBroker(bank, Ledger(16), inner_parent_hashes={parent})
 
 
-def test_task_broker_rejects_attempt_accounting_resume(task_bank):
+def test_task_broker_rejects_old_task_accounting_resume(task_bank):
     bank, parent = task_bank
     ledger = Ledger(16)
     summary = json.loads((bank/'public'/ATTEMPT_LEDGER).read_text())
     task = next(t for t in summary['tasks'] if t['task_id'] == 'c')
     q = task['query_id']
-    ledger.reserve(q, 2)
-    ledger.settle(q, 2, confidence='estimated', usage={'output_tokens': 2})
-    with pytest.raises(LedgerError, match='different task purchase accounting'):
+    ledger.reserve(q, 9)
+    ledger.settle(q, 9, confidence='estimated', usage={'output_tokens': 9})
+    with pytest.raises(LedgerError, match='different attempt purchase accounting'):
         SealedReplayBroker(bank, ledger, inner_parent_hashes={parent})
 
 
@@ -183,10 +187,11 @@ def test_task_acquisition_executor_keeps_failed_purchases_for_replay(task_bank, 
         BatchExperimentMixin.batch_selected(executor)
     assert state['pending_ids'] == ids and ledger.spent == 16
     assert broker.acquire(ids[0]).behaviors == ()
-    assert prepared == ([] if alpha_d else ids[1:])
+    assert prepared == ([] if alpha_d else [q for q in ids if broker.training_eligible(q)])
 
 
-def test_task_acquisition_v0_d3_failed_only_window_smoke_and_resume(toy_bank, tmp_path):
+@pytest.mark.parametrize('purchase_kind', ['failed', 'other_fold', 'usable'])
+def test_task_acquisition_v0_d3_purchase_smoke_and_resume(toy_bank, tmp_path, purchase_kind):
     from copy import deepcopy
     from dataclasses import replace
     from test_rtd_v11_alpha_d import engine
@@ -194,15 +199,23 @@ def test_task_acquisition_v0_d3_failed_only_window_smoke_and_resume(toy_bank, tm
     _, records, payloads, states = toy_bank
     payloads = deepcopy(payloads)
     records = list(records)
-    # Round 1 has parents 2 and 4. Of their tasks, the frozen prefix starts
-    # with task-1. It fails, so K=1 buys no teacher while still charging it.
+    if purchase_kind == 'other_fold':
+        # Give the first global query ID to parent 1, outside round 1's inner
+        # fold. Keep its state/trajectory intact and all four IDs unchanged.
+        q0, q1 = [r.spec.query_id for r in records[:2]]
+        payloads[q0], payloads[q1] = payloads[q1], payloads[q0]
+        records[0] = replace(records[0], spec=replace(records[0].spec, query_id=q1))
+        records[1] = replace(records[1], spec=replace(records[1].spec, query_id=q0))
+    # Purchase the global prefix even when its parent is outside round 1.
+    from bfas.rtd.task_packages import frozen_attempt_order
+    first_id = frozen_attempt_order(payloads)[0]
     for i, record in enumerate(records):
         q = record.spec.query_id
         p = payloads[q]
         p['provenance']['task_id'] = f'task-{i}'
         p['historical_response'] = dict(task_id=f'task-{i}', attempt_index=0,
-            tokens_spent=p['cost'], verified=i != 1)
-        if i == 1:
+            tokens_spent=p['cost'], verified=purchase_kind != 'failed' or q != first_id)
+        if q == first_id and purchase_kind == 'failed':
             p['behaviors'] = []
             records[i] = replace(record, unavailable_reason='failed attempt')
     bank = tmp_path/'task-smoke-bank'
@@ -211,16 +224,24 @@ def test_task_acquisition_v0_d3_failed_only_window_smoke_and_resume(toy_bank, tm
     fixture = bank, records, payloads, states
     source = engine(tmp_path/'V0', fixture, arm='V0', slots_per_step=2, max_new_packages_per_window=1)
     source.run()
-    q = records[1].spec.query_id
-    assert source.ledger.charges == {q: 11}
-    assert source.state['owned'] == [q] and not source.packages()
+    ids = [first_id]
+    charges = {q: payloads[q]['cost'] for q in ids}
+    assert source.ledger.charges == charges
+    assert source.state['owned'] == ids
+    assert bool(source.packages()) == (purchase_kind == 'usable')
+    assert not source.state['posterior'].observations
+    if purchase_kind == 'other_fold':
+        # A usable attempt on the other fold is paid now, and can only become
+        # supervision when that task's unchanged fold rotates into training.
+        assert source.broker.acquire(first_id).behaviors
+        assert not source.broker.training_eligible(first_id)
     schedule = source.state['steps'][0]['exposure_schedule']
-    assert schedule['selected'] == [q]
-    assert not any(row['has_teacher'] for row in schedule['records'])
+    assert schedule['selected'] == ids
+    assert any(row['has_teacher'] for row in schedule['records']) == (purchase_kind == 'usable')
     target = p1_engine(tmp_path/'D3', fixture, replay_schedule=source.directory)
     target.run()
     assert target.state['steps'][0]['exposure_schedule'] == schedule
     assert target.ledger.charges == source.ledger.charges
     restored = p1_engine(tmp_path/'D3', fixture, resume=True)
     restored.run()
-    assert restored.ledger.charges == {q: 11}
+    assert restored.ledger.charges == charges

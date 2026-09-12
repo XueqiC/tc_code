@@ -92,7 +92,7 @@ protocol validators.
 
 The 256-token cap and 1,418-token denominator remain archival identities.
 The former ascending-query-ID receipt (20 usable packages for 1,418 tokens)
-is superseded by task accounting, including paid failures. Full BFCL startup
+is superseded by attempt accounting, including paid failures. Full BFCL startup
 currently fails on the missing local harness task `memory_kv_141-notetaker-11`;
 the historical startup receipts below describe the earlier build environment.
 
@@ -153,49 +153,39 @@ G4_ROOT=/home/xueqi/hq/projects/tc-alignment-g4
 Bank creation refuses an existing output directory. Reproduction requires a
 fresh bank path; preserve the certified bank when checking it again.
 
-## Task purchase accounting correction (2026-09-11)
+## Attempt purchase correction (2026-09-11)
 
-Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
+Each teacher attempt is a separate package at its original ledger token cost,
+including failed attempts and recorded reasoning. Sort the original query IDs,
+shuffle once with `random.Random(0)`, and stop before the first overflow.
+The per-task ledger retains each attempt's task/parent dependency; it does not
+combine retry costs. All bank bytes, including support/folds, per-task ledgers,
+sealed payloads and certificates, are unchanged; no rebuild was needed.
 
-The runtime purchase unit is **a task with all its recorded attempts**.
-The offline builders now write certificate-bound `public/task_attempts.json`
-with task ID, attempt index, ledger tokens, verification, confidence and archived
-query IDs. The broker prices from that public summary without opening sealed
-responses or raw pools; acquisition rechecks every member payload and charges
-the sum of its ledger output tokens, including failed attempts and reasoning
-already included in completion usage. Estimates remain estimates. The earliest
-usable attempt supplies the trajectory; other attempts still cost tokens.
-Failed-only/excluded tasks are paid but yield no training rows.
+RTD and the read-only paper reader bought exactly the same ordered attempt IDs
+and usable IDs at all four budgets, with equal spend and next blocker:
 
-Order: sort task IDs, then `random.Random(0).shuffle`, once for the bank.
-Purchases stop before the first overflow, including an unavailable blocker.
-Training keeps the original fold guards and restricts this order to legal inner
-parents without reshuffling; V0/D3 schedules retain charged failures. The table
-below covers all recorded parents, without training folds or window quotas.
+| Budget | Attempts | Usable | Tokens charged |
+| ---: | ---: | ---: | ---: |
+| 7,500 | 11 | 3 | 5,289 |
+| 15,000 | 11 | 3 | 5,289 |
+| 30,000 | 11 | 3 | 5,289 |
+| 60,000 | 23 | 8 | 59,951 |
 
-The bank was rebuilt in place from its own sealed ledger rows. The replacement
-gate confirmed byte-identical support/folds, reset states, sealed payloads,
-integrity and original audit; only the public accounting index and its binding
-metadata changed. The existing fraction denominator and configured checkpoints
-remain unchanged. The generic archived class cap is no longer the task price.
+Denominator 1,418 and absolute configured caps 15,000 / 30,000 remain unchanged.
+V0/D3 full CPU preflight passes with `BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl`.
+The reported missing `memory_kv_141-notetaker-11` entry exists: the official loader
+expands raw `memory_141-notetaker-11` into that backend ID. It needs a writable
+runtime lock directory; otherwise the adapter swallows EROFS and omits memory
+entries. The expanded entry matches the frozen parent hash and fold exactly.
+No data entry, support or harness edit was required.
+[Diagnosis](rtd_bfcl_memory_harness_diagnosis.json).
 
-| Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
-| ---: | ---: | ---: | ---: | ---: |
-| 7,500 | 9 | 4 | 19 | 2,860 |
-| 15,000 | 9 | 4 | 19 | 2,860 |
-| 30,000 | 9 | 4 | 19 | 2,860 |
-| 60,000 | 9 | 4 | 19 | 2,860 |
+Purchases use the whole bank prefix, independently of training seed/fold.
+Only exposure is restricted to the active parent fold. Failed and other-fold
+purchases remain in V0/D3 receipts. Window limits pause and resume the same order.
 
-The tenth frozen task costs **80,878** tokens and blocks all four budgets after
-2,860 tokens. The **1,418** denominator is the archived usable-attempt basis;
-it does not define the new task price. Absolute caps remain **15,000 / 30,000**.
-
-Both V0/D3 full CPU preflights were run and failed on the existing local harness
-missing `memory_kv_141-notetaker-11`. Their acquisition-only checks passed,
-with 9 tasks / 4 usable packages / 2,860 tokens at both configured caps.
-
-See the [shared protocol and rebuild command](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11),
-[byte-preservation and purchase audit](rtd_task_purchase_validation.json),
-[exact ALFWorld baseline comparison](rtd_alfworld_task_baseline_comparison.json),
-and [CPU validation](rtd_task_cpu_validation.json). No GPU/API calls were made.
-Older recorded-cost purchase receipts are superseded by this correction.
+[Shared protocol](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11),
+[both code paths' attempt IDs](rtd_attempt_purchase_validation.json),
+[CPU and byte-preservation receipts](rtd_attempt_cpu_validation.json).
+No GPU/API calls were made. Older task-purchase receipts are superseded.

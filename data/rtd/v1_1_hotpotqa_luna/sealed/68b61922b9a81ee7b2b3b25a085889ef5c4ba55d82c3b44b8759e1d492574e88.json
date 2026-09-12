@@ -1,0 +1,39 @@
+{
+  "cost": 1459,
+  "cost_confidence": "exact",
+  "usage": {
+    "prompt_tokens": 24997,
+    "completion_tokens": 1459,
+    "cached_tokens": 1583
+  },
+  "provenance": {
+    "task_id": "5a7662035542992db9473783",
+    "attempt_index": 1,
+    "teacher": "openai/gpt-5.6-luna",
+    "ledger_row": 225,
+    "cost_scope": "recorded_teacher_attempt",
+    "ledger_sha256": "2428e55077795df128dd1367f1abbee3d480ea1f60a397dd23f9808cf12babbe",
+    "verified": false,
+    "rendering_student": "google/gemma-4-12B-it",
+    "empty_targets_rendered_with_native_eos": []
+  },
+  "historical_response": {
+    "task_id": "5a7662035542992db9473783",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 1,
+    "temperature": 0.7,
+    "verified": false,
+    "tokens_spent": 1459,
+    "purpose": "teacher",
+    "timestamp": "2026-09-12T01:11:42.952073Z",
+    "prompt_version": "react6-e52ba17b32d9",
+    "usage": {
+      "prompt_tokens": 24997,
+      "completion_tokens": 1459,
+      "cached_tokens": 1583
+    },
+    "usage_status": "reported"
+  },
+  "behaviors": [],
+  "verification": null
+}

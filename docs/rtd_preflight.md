@@ -38,15 +38,32 @@ are CPU prerequisite failures; preflight never downloads them.
 Preflight also purchases a frozen prefix using the real broker and a separate
 in-memory ledger. `acquisition.checkpoints` reports cumulative counts, spend,
 remaining tokens and the first package that would overflow each checkpoint.
-The order is ascending query ID, with dependencies first, across legal support
-parents. It never skips an overflow to fit a later cheaper package. These are
-budget-feasibility receipts, independent of policy draws, fold rotation and
-training window quotas; they do not predict a trained acquisition schedule.
+For certified ALFWorld/BFCL/HotpotQA attempt-ledger banks, the order is sorted
+attempt query IDs followed by `random.Random(0).shuffle`, exactly as the paper
+baseline reader. Purchase spans the full inventory, including failed/excluded
+attempts and parents outside the current fold. Each package charges only its
+own ledger tokens, including recorded reasoning; failures yield no positive.
+Preflight reports the ordered purchased and usable IDs as well as their counts.
+It never skips an overflow. Training still gates exposure by the unchanged
+parent folds; window limits can pause acquisition, then resume the same prefix.
+Legacy banks retain dependency-first ascending query-ID order.
 
-Certified HotpotQA/ALFWorld/BFCL v1.1 state banks now reserve each package's
-validated recorded cost. The archived class caps and bank certificates remain
-unchanged. Recorded costs become the runtime public bounds used by candidate
-filtering and acquisition; exact/estimated confidence is preserved.
+Per-task ledgers remain certificate-bound attempt-to-parent accounting. Existing
+ALFWorld/BFCL bank bytes are unchanged. HotpotQA required a sealed rebuild to
+split task payloads into 419 attempts; all support/fold/reset bytes remain
+identical. See [exact baseline parity](rtd_attempt_purchase_validation.json).
+
+For a read-only BFCL checkout, use the harness's runtime-directory override:
+
+```bash
+export BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl
+```
+
+Otherwise its official memory expansion cannot create `.file_locks`, the adapter
+swallows the filesystem error, and support loading reports a missing
+`memory_kv_141-notetaker-11`. The data entry exists and expands to the exact
+frozen parent hash. The override moves locks, not `PACKAGE_ROOT/data`.
+[Diagnosis and data hashes](rtd_bfcl_memory_harness_diagnosis.json).
 
 To check only bank accounting when harness data or a tokenizer is unavailable:
 
@@ -55,7 +72,7 @@ To check only bank accounting when harness data or a tokenizer is unavailable:
   --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0 --acquisition-only
 ```
 
-This mode validates the bank and checks its usable package prefixes. It reports
+This mode validates the bank and checks its purchased attempt prefixes. It reports
 `mode=acquisition_only` and omits manifest, harness, renderer and tokenizer checks.
 
 Output ends in `OK` (exit 0) or the first exception type/message (exit 1).

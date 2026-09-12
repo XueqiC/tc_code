@@ -103,170 +103,149 @@ sealed/audit.json
 sealed/audit_v11.json
 ```
 
-There is **one package per task with recorded attempts**, with ordered
-`behaviors[].state` and `behaviors[].text` from the **earliest verified attempt
-index**. Every verified attempt is replayed, including later successes. The
-selected original ledger row is retained in `historical_response`; all original
-rows, sorted by attempt index, are retained in `historical_attempts`. Provenance
-records the selected attempt, all charged indices and ledger row numbers,
-teacher, ledger snapshot and student rendering. Empty replies in verified
-episodes are rendered as explicit native
-EOS targets. RTD's `teacher_tokens` already appends that same EOS to an empty
-reply, so the supervised token sequence is unchanged and the paper reader gets
-a nonempty target. Original empty replies stay in `historical_response`, and
-`provenance.empty_targets_rendered_with_native_eos` records their turn indices.
-Tasks with no verified attempt have empty behaviors and an explicit unavailable
-reason. Their costs remain available to privileged historical accounting and
-paper-baseline charging. The RTD broker charges failed-only tasks too; they produce no training rows.
+There is **one package per recorded teacher attempt**. Each verified attempt
+has its own ordered `behaviors[].state` / `behaviors[].text` trajectory and
+original `historical_response` ledger row. Every success is replayed, including
+later successes; the collector's selected `demos.json` entry does not remove
+other attempts. Failed attempts have empty behaviors and an explicit unavailable
+reason. Empty replies in verified episodes retain the native EOS rendering,
+with original text and affected turn indices preserved in provenance.
 
-Package costs sum the task's ledger `tokens_spent == usage.completion_tokens`
-across **every attempt**, including failures, later successes, hidden reasoning
-and collector estimates. Each attempt is charged exactly once. No target-length
-estimate or per-state allocation replaces recorded cost. A package is `exact`
-only when all its attempts are exact; any collector row marked `estimated`
-makes the entire package cost confidence `estimated`. Estimated usage does not
-invalidate a replay-verified demo. Missing/unknown tasks, negative token counts,
-duplicate attempt identities and inconsistent usage or replay evidence still
-fail validation; retry count and index gaps do not. Cached input tokens remain
-a subset of prompt tokens and are not counted again as output tokens.
+Each package charges its own `tokens_spent == usage.completion_tokens`, including
+reasoning already recorded there. Confidence is per attempt, so an estimated
+failure does not change a sibling success's confidence. No target-length
+estimate or per-state allocation replaces ledger usage. Prompt and cached input
+tokens are not added to output charges. The per-task public ledger retains the
+attempt-to-task dependency without forcing joint purchases.
 
 The usable recorded-output-token sum is the v1.1 budget denominator. The cap
-certificate publishes the next-power-of-two usable task-cost maximum for the
+certificate publishes the next-power-of-two usable attempt-cost maximum for the
 `hotpotqa_demo_episode` class; it is an archived cached-content envelope, not an
 online provider guarantee or the runtime reservation. Full historical teacher usage, including failed
 attempts, is separately retained in the accounting block. No teacher calls or
 new teacher tokens are incurred by building or preflight.
 
 The completed `teacher_pool_v2` snapshot has **419 attempts: 113 verified,
-306 failed**, covering all 200 support tasks. It produces **200 packages:
-113 usable, 87 unavailable**. This snapshot has no duplicate successes;
-synthetic tests exercise selection among multiple verified attempts.
+306 failed**, covering all 200 support tasks. It produces **419 packages:
+113 usable, 306 unavailable**. This snapshot has no duplicate successes;
+synthetic tests exercise separate purchases of multiple verified attempts.
 
 | Accounting scope | Exact output tokens | Estimated output tokens | Total |
 | --- | ---: | ---: | ---: |
-| Usable packages, classified by whole-task confidence | 125,173 | 8,033 | **133,206** |
+| Usable attempts, classified by ledger-row confidence | 58,767 | 8,033 | **66,800** |
 | All historical attempts, classified by ledger-row confidence | 507,176 | 28,390 | **535,566** |
 
 There are **111 exact and two estimated usable packages**. Eight historical
 attempts have estimated usage (two verified, six failed); all their recorded
 costs are retained. Failed attempts account for **468,766** historical output
-tokens, including **66,406** charged to tasks that eventually succeeded.
+tokens, including **66,406** from tasks that eventually succeeded; those failures
+remain separate packages, outside the usable denominator.
 Historical prompt/cached tokens are 6,422,285 / 402,477. The bank's historical
 cost confidence is `estimated`. `demos.json` has all 113 demos, and
 `attempts.jsonl` covers all 419 attempts. The request journal reconciles with
 the complete ledger; there are zero outside-prefix calls or trailing bytes.
 All 113 successes were replayed against cached Wikipedia without model calls.
 
-The usable denominator is **133,206**. Both V0 and D3 resolve their configured
-cumulative caps to **15,000 / 30,000**, independent of the generic bank audit's
-10%/25% reference amounts (13,321 / 33,302). The maximum usable task cost is
-**8,889**, giving a uniform class reservation cap of **16,384**. Consequently,
-the old broker could not reserve any package at 15k. This cap originates in
-`bank_build.seal_v11`: `1 << max(0, (class_maximum - 1).bit_length())`.
-`SealedReplayBroker.list_candidates` filtered against it, and `acquire` passed
-it to `Ledger.reserve`. It is unrelated to `generation_batch.max_batch_tokens`,
-which happens to also be 16,384, or the 100-token ReAct action limit.
+The usable denominator is **66,800**. Both V0 and D3 keep absolute cumulative
+caps **15,000 / 30,000**. The generic fraction reference is 6,680 / 16,700.
+Runtime reservations use individual recorded costs; the archived class envelope
+is not the runtime price and does not control affordability.
 
-## Task purchase accounting correction (2026-09-11)
+## Attempt purchase correction (2026-09-11)
 
-Final requested CPU suite: **314 passed, 1 skipped**, 104.93 seconds.
+The purchase unit is **one teacher attempt**, verified or failed, at its exact
+recorded ledger token cost, including reasoning already counted in completion
+usage. Estimates retain their original confidence; reasoning is never added
+again. Sort the original opaque attempt query IDs, then apply
+`random.Random(0).shuffle` once. Buy that global prefix and **stop before the
+first overflow**. Failures and excluded attempts are charged and yield no positive.
+Every purchased usable attempt contributes its own trajectory; buying a success
+does not buy its sibling retries.
 
-The purchase unit is now **one task containing all recorded attempts**, including
-failed attempts, later successes, and verified attempts excluded from training.
-`public/task_attempts.json` records task ID, attempt index, ledger tokens,
-verification, confidence, and archived query IDs; the certificate binds this
-file. Builders publish it from the sealed ledger rows. The broker reads only
-this public summary to price purchases and rechecks every member payload's
-integrity and ledger summary on acquisition. Completion tokens include reasoning
-exactly as the ledger records it; reasoning is never added again. Collector
-estimates remain estimates. ALFWorld's legacy `estimated` confidence labels are
-retained, even where its archived collector row contains reported usage.
+`public/task_attempts.json` stays as the certificate-bound per-task ledger: it
+maps each attempt to its task and parent. Existing ALFWorld/BFCL v1 metadata is
+accepted as archival accounting, but its obsolete task order/prices do not drive
+purchases. New banks publish v2 with the attempt order. The broker prices from
+public ledger rows and validates only the purchased sealed payload on reveal.
+Old task-cost ledgers and non-prefix resumes are rejected.
 
-The frozen order is **sorted task IDs, shuffled once with `random.Random(0)`**,
-independent of training seed. A task is atomic: reserve and charge the sum of
-all its attempt tokens, or stop before the first overflow. Never remove a
-failed-only task or skip to a cheaper task. A failed-only or excluded task is
-ledger-owned but supplies no training row. For tasks with usable evidence, the
-earliest usable attempt supplies the trajectory (HotpotQA already selected the
-earliest verified attempt). Other attempts are still charged. The representative
-query ID remains an archived ID; member IDs cannot be bought separately.
+Purchases span the same whole inventory as the paper baseline, independently of
+training seed or current fold. Fold membership still gates **training exposure**;
+purchased other-fold evidence waits for its task to rotate into training.
+Failed and other-fold purchases remain in V0/D3 replay receipts. Frozen purchases
+need no student features or cost-model fitting. The per-window package limit
+remains; windows consume the cumulative authorization and continue the same
+prefix, never skipping a blocker. The audit below exhausts that prefix at each
+cap without the training window limit. Usable counts mean bank-usable purchased
+attempts, before selecting the current training fold.
 
-V0 and unified acquisition preserve this order instead of sorting the selected
-IDs or running a cost knapsack. The per-window package limit remains; task
-purchases use the remaining cumulative authorization, avoiding artificial
-per-window fractional quotas. Failed purchases stay in the durable ledger and
-V0/D3 replay schedule, but receive no teacher exposure. Existing fold guards
-remain: training restricts the one frozen order to the current legal inner
-parents, without reshuffling. The audit table below buys across **all recorded
-parents**, including unavailable/protected tasks, without training folds or
-window quotas; it is not a predicted training schedule.
+The read-only sibling `paper_data.load_purchased` was executed in a separate
+Python process against each exact same bank. Assertions compare ordered attempt
+IDs, usable IDs/counts, tokens, next blocker and the entire shuffle hash at all
+four budgets. Full receipts with **both code paths' IDs** are in
+[attempt parity validation](rtd_attempt_purchase_validation.json).
 
-The three accounting indexes were rebuilt in place from their existing sealed
-rows. Before replacement, the rebuild checked byte identity of **every existing
-artifact except the requests/certificate/accounting metadata**. In particular,
-all support manifests, task IDs, parents, folds, reset states, sealed payloads,
-integrity indexes, and original audits stayed byte-identical. A failed comparison
-aborts replacement. No raw pool, tokenizer, model, API, or GPU was needed.
-Rebuild/audit command:
+| Bank | Budget | Attempts | Usable | Tokens charged |
+| --- | ---: | ---: | ---: | ---: |
+| alfworld | 7,500 | 4 | 2 | 6,535 |
+| alfworld | 15,000 | 9 | 5 | 13,342 |
+| alfworld | 30,000 | 13 | 5 | 29,229 |
+| alfworld | 60,000 | 24 | 9 | 58,602 |
+| bfcl | 7,500 | 11 | 3 | 5,289 |
+| bfcl | 15,000 | 11 | 3 | 5,289 |
+| bfcl | 30,000 | 11 | 3 | 5,289 |
+| bfcl | 60,000 | 23 | 8 | 59,951 |
+| hotpotqa | 7,500 | 6 | 1 | 7,207 |
+| hotpotqa | 15,000 | 11 | 3 | 12,134 |
+| hotpotqa | 30,000 | 17 | 4 | 29,663 |
+| hotpotqa | 60,000 | 35 | 8 | 59,859 |
+
+ALFWorld 30k matches the cited **13 attempts / 5 usable / 29,229 tokens**.
+The previous task-package comparison and its zero-usable result are superseded.
+ALFWorld and BFCL banks were **not rebuilt**: every file, including their
+per-task ledgers, certificates and sealed payloads, remains byte-identical.
+Their denominators remain 118,792 / 1,418; ALFWorld configured fraction caps stay
+11,879 / 29,698, and BFCL absolute caps stay 15,000 / 30,000.
+
+HotpotQA required a sealed rebuild because its prior 200 packages combined
+419 attempts. Rebuilding used the exact same input hashes/completed ledger
+snapshot and the offline cached replay builder. The replacement gate compared
+all support/reset bytes, all 419 original ledger rows and the original verified
+trajectories before replacing the bank. The result has 419 attempt packages,
+113 usable and 306 charged failures. Total historical output remains 535,566;
+the usable denominator becomes **66,800** (58,767 exact + 8,033 estimated).
+The configured absolute caps stay **15,000 / 30,000**. The former 133,206 task
+basis had included 66,406 failed-retry tokens from eventually successful tasks.
+The previous bank is retained in
+`_trash/v1_1_hotpotqa_luna_task_accounting_before_attempt_correction`.
+All arms and baselines must consume the rebuilt HotpotQA certificate.
+
+Reproduce the read-only parity audit:
 
 ```bash
 PYTHONPATH=src:. CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
 /home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_task_purchase_audit.py \
   --bank data/rtd/v1_1_alfworld_luna --bank data/rtd/v1_1_bfcl_luna \
-  --bank data/rtd/v1_1_hotpotqa_luna --rebuild-accounting \
-  --out docs/rtd_task_purchase_validation.json
+  --bank data/rtd/v1_1_hotpotqa_luna \
+  --baseline-reader /home/xueqi/hq/projects/tc-alignment-base/src/bfas/rtd/baselines/paper_data.py \
+  --out docs/rtd_attempt_purchase_validation.json
 ```
 
-Omit `--rebuild-accounting` for a read-only audit. The default audit budgets are
-7,500 / 15,000 / 30,000 / 60,000; they do **not** modify configured checkpoints.
-ALFWorld retains the archived usable-attempt denominator **118,792** and its
-configured fraction caps **11,879 / 29,698**. BFCL retains denominator **1,418**,
-HotpotQA **133,206**; both keep absolute caps **15,000 / 30,000**. Denominators
-are archival fraction bases, not the new task purchase prices.
+Full V0/D3 CPU preflight passes for all three banks. BFCL requires
+`BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl` for writable runtime locks in this
+read-only shared checkout. `memory_kv_141-notetaker-11` was **not removed or
+renamed**: the raw `memory_141-notetaker-11` row is expanded by the official
+loader into backend-specific IDs and prerequisite chains. Without the override,
+`load_file` raises EROFS creating `.file_locks`; `BFCLAdapter._load_memory_entries`
+swallows the exception, and `BFCLSupport` then fails with the missing-ID KeyError.
+With the override, the expanded entry has the exact frozen support parent hash
+and fold. Data still comes from `PACKAGE_ROOT/data`; no harness or support edit
+was needed. Details: [harness diagnosis](rtd_bfcl_memory_harness_diagnosis.json).
 
-| Bank | Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| alfworld | 7,500 | 0 | 0 | 0 | 0 |
-| alfworld | 15,000 | 0 | 0 | 0 | 0 |
-| alfworld | 30,000 | 1 | 0 | 3 | 21,457 |
-| alfworld | 60,000 | 8 | 4 | 16 | 58,314 |
-| bfcl | 7,500 | 9 | 4 | 19 | 2,860 |
-| bfcl | 15,000 | 9 | 4 | 19 | 2,860 |
-| bfcl | 30,000 | 9 | 4 | 19 | 2,860 |
-| bfcl | 60,000 | 9 | 4 | 19 | 2,860 |
-| hotpotqa | 7,500 | 5 | 3 | 9 | 6,690 |
-| hotpotqa | 15,000 | 8 | 4 | 16 | 12,670 |
-| hotpotqa | 30,000 | 11 | 5 | 23 | 20,944 |
-| hotpotqa | 60,000 | 26 | 13 | 58 | 57,428 |
-
-ALFWorld at 30,000 does **not** match the cited 5 usable / 29,229 baseline
-receipt. Direct execution of the read-only sibling's `paper_data.load_purchased`
-reproduced that receipt: it shuffles **233 archived attempt query IDs**, and its
-first 13 purchases are 13 separate attempts from 13 tasks. It does not collect
-all attempts for each of those tasks. The new task order shuffles **142 task
-IDs**. Its first task is
-`pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256`:
-three failed attempts cost **8,061 + 6,536 + 6,860 = 21,457**. The next task,
-`pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442`,
-costs **3,116 + 3,256 + 3,257 = 9,629**. Their sum **31,086** exceeds 30,000,
-so only the first task is purchased, with **zero usable packages**. The same
-prefix holds at the unchanged configured cap 29,698. This discrepancy comes
-from the baseline reader's attempt unit and query-ID order, not rounding,
-missing costs, reasoning subtraction, or support/fold changes. The read-only
-baseline worktree and paper were not modified.
-
-BFCL's tenth frozen task costs **80878** tokens, so it blocks all four reported budgets
-after 2,860 tokens. Filling those budgets with later inexpensive tasks would
-violate the prefix rule.
-
-Full V0/D3 CPU preflight passed for ALFWorld and HotpotQA. BFCL full preflight
-was run for both arms and failed at the existing local harness missing
-`memory_kv_141-notetaker-11`; its V0/D3 acquisition-only preflights passed.
-Machine-readable evidence: [task purchase audit](rtd_task_purchase_validation.json),
-[exact baseline comparison](rtd_alfworld_task_baseline_comparison.json), and
-[CPU validation](rtd_task_cpu_validation.json). Older recorded-cost receipts
-below or in linked historical reports are superseded for purchase accounting.
-
+The requested CPU filter finished with **316 passed, 1 skipped, 3,069 deselected,
+1 existing warning**, in 112.72 seconds. See
+[CPU receipts and byte-preservation checks](rtd_attempt_cpu_validation.json).
+No GPU, model, teacher/API call or commit was used.
 
 `public/support.json` is byte-identical to
 `_trash/v1_1_hotpotqa_luna_partial_09120141Z/public/support.json`, including all
@@ -289,7 +268,7 @@ unchanged. Its `src/bfas/rtd/baselines/paper_data.py::load_purchased` accepts th
 bank's certificate, episode payloads, teacher IDs, dependencies, and native
 Gemma prompt/target boundary without changes. The reader was exercised on the
 archived partial bank at fractions 0.1, 0.25 and 1.0; that historical receipt
-does not measure purchases from the completed task-package bank.
+does not measure purchases from the completed attempt-package bank.
 
 The entrypoint and execution hooks in that worktree still need these edits:
 
@@ -331,9 +310,9 @@ and stop before the first overflow. On **the archived partial snapshot**, both 1
 25% purchase one failed package (1,005 tokens) and **zero positive rows**; even
 100% of the usable denominator purchases only three failed packages (6,755
 tokens). Those purchase numbers apply only to the archived bank. The completed
-task-package bank is a new snapshot that all compared arms must share. Its
-packages retain the full task cost, including failures; purchase receipts must
-be recomputed against its certificate and the chosen budget configuration.
+attempt-package bank is a new snapshot that all compared arms must share. Its
+individual failed attempts are paid separately; current purchase receipts are
+asserted against the baseline reader above.
 
 ## CPU verification
 
@@ -352,8 +331,8 @@ PYTHONPATH=src HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES='' \
 ```
 
 CPU tests cover tiny synthetic paid pools with all 200 support resets, failed
-attempt costs, earliest-success selection despite later published demos,
-estimated success/retry cost propagation, byte-identical support manifests,
+attempt costs, separate successes despite later published demos,
+per-attempt estimated success/retry costs, byte-identical support manifests,
 stale demos snapshots, corruption rejection, native rendering,
 serial/cohort trace equality under RNG v2, per-episode wiki cursors, fold guards,
 cache failures, greedy diagnostics, synthetic V0/D3 preflight, and a stubbed

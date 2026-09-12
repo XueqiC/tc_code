@@ -164,22 +164,24 @@ def test_hotpotqa_bank_build_multiple_successes_charge_all_attempts(synthetic, p
         config=c.config, tokenizer=c.tokenizer, wiki_factory=Wiki)
     requests = json.loads((bank/'public/requests.json').read_text())
     payloads = [json.loads((bank/'sealed'/f"{r['spec']['query_id']}.json").read_text()) for r in requests]
-    payload = next(p for p in payloads if p['provenance']['task_id'] == first['task_id'])
-    assert len(requests) == 3 and result['available_packages'] == 2
-    assert payload['cost'] == 31 and payload['usage']['completion_tokens'] == 31
-    assert payload['provenance']['attempt_index'] == 1
-    assert payload['provenance']['ledger_rows'] == [4, 1, 0]
-    assert payload['provenance']['charged_attempt_indices'] == [0, 1, 4]
-    assert payload['historical_response'] == first
-    assert payload['historical_attempts'] == [failed, first, later]
-    assert [b['text'] for b in payload['behaviors']] == [t['target'] for t in first['demo']['turns']]
+    attempts = {p['provenance']['attempt_index']: p for p in payloads
+                if p['provenance']['task_id'] == first['task_id']}
+    assert len(requests) == 5 and result['available_packages'] == 3
+    assert set(attempts) == {0, 1, 4}
+    for row in (failed, first, later):
+        payload = attempts[row['attempt_index']]
+        assert payload['cost'] == payload['usage']['completion_tokens'] == row['tokens_spent']
+        assert payload['historical_response'] == row
+        assert 'historical_attempts' not in payload
+        assert [b['text'] for b in payload['behaviors']] == (
+            [t['target'] for t in row['demo']['turns']] if row['verified'] else [])
     assert sum(p['cost'] for p in payloads) == sum(r['tokens_spent'] for r in rows) == 49
-    assert result['budget_denominator'] == 42
-    assert result['available_cost_by_confidence'] == {'exact': 42}
+    assert result['budget_denominator'] == 35
+    assert result['available_cost_by_confidence'] == {'exact': 35}
     assert result['teacher_accounting']['verified_episodes'] == 3
     assert result['teacher_accounting']['verified_tasks'] == 2
     assert result['teacher_accounting']['later_verified_attempts'] == 1
-    assert validate_state_certificate(bank)['core']['class_caps'] == {'hotpotqa_demo_episode': 32}
+    assert validate_state_certificate(bank)['core']['class_caps'] == {'hotpotqa_demo_episode': 16}
     assert (bank/'public/support.json').read_bytes() == (c.bank/'public/support.json').read_bytes()
 
 
@@ -206,17 +208,21 @@ def test_hotpotqa_bank_build_estimated_usage_charged_and_propagated(synthetic, e
     requests = json.loads((bank/'public/requests.json').read_text())
     request = next(r for r in requests if r['spec']['cost_confidence'] == 'estimated')
     payload = json.loads((bank/'sealed'/f"{request['spec']['query_id']}.json").read_text())
-    cost = sum(r['tokens_spent'] for r in rows if r['task_id'] == rows[0]['task_id'])
-    assert request['unavailable_reason'] is None and payload['verification']['verified']
-    assert payload['provenance']['attempt_index'] == 0
+    cost = estimated['tokens_spent']
+    assert (request['unavailable_reason'] is None) == estimated['verified']
+    assert payload['provenance']['attempt_index'] == estimated['attempt_index']
     assert payload['cost'] == payload['usage']['completion_tokens'] == cost
+    assert payload['historical_response'] == estimated
     assert payload['cost_confidence'] == 'estimated'
-    assert result['available_cost_by_confidence'] == {'exact': 11, 'estimated': cost}
+    expected_costs = {'exact': sum(r['tokens_spent'] for r in rows if r is not estimated and r['verified'])}
+    if estimated['verified']:
+        expected_costs['estimated'] = cost
+    assert result['available_cost_by_confidence'] == expected_costs
     assert result['teacher_accounting']['cost_confidence'] == 'estimated'
-    assert result['teacher_accounting']['estimated_output_tokens'] == estimated['tokens_spent']
+    assert result['teacher_accounting']['estimated_output_tokens'] == cost
     assert result['teacher_accounting']['exact_output_tokens'] == sum(r['tokens_spent'] for r in rows if r is not estimated)
-    assert result['teacher_accounting']['historical_output_tokens'] == cost+18
-    assert result['budget_denominator'] == cost+11
+    assert result['teacher_accounting']['historical_output_tokens'] == sum(r['tokens_spent'] for r in rows)
+    assert result['budget_denominator'] == sum(expected_costs.values())
     cert = validate_state_certificate(bank)
     assert cert['core']['teacher_accounting'] == result['teacher_accounting']
     assert (bank/'public/support.json').read_bytes() == (c.bank/'public/support.json').read_bytes()

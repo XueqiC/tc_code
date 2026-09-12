@@ -1,28 +1,17 @@
 {
-  "cost": 1601,
+  "cost": 561,
   "cost_confidence": "exact",
   "usage": {
-    "prompt_tokens": 49946,
-    "completion_tokens": 1601,
-    "cached_tokens": 3204
+    "prompt_tokens": 17014,
+    "completion_tokens": 561,
+    "cached_tokens": 0
   },
   "provenance": {
     "task_id": "5ab938415542996be2020451",
     "attempt_index": 0,
     "teacher": "openai/gpt-5.6-luna",
     "ledger_row": 241,
-    "ledger_rows": [
-      241,
-      243,
-      248
-    ],
-    "charged_attempt_indices": [
-      0,
-      1,
-      2
-    ],
-    "selection": "earliest_verified_attempt_index",
-    "cost_scope": "all_recorded_task_attempts",
+    "cost_scope": "recorded_teacher_attempt",
     "ledger_sha256": "2428e55077795df128dd1367f1abbee3d480ea1f60a397dd23f9808cf12babbe",
     "verified": false,
     "rendering_student": "google/gemma-4-12B-it",
@@ -45,59 +34,6 @@
     },
     "usage_status": "reported"
   },
-  "historical_attempts": [
-    {
-      "task_id": "5ab938415542996be2020451",
-      "teacher": "openai/gpt-5.6-luna",
-      "attempt_index": 0,
-      "temperature": 0.0,
-      "verified": false,
-      "tokens_spent": 561,
-      "purpose": "teacher",
-      "timestamp": "2026-09-12T01:13:25.253398Z",
-      "prompt_version": "react6-e52ba17b32d9",
-      "usage": {
-        "prompt_tokens": 17014,
-        "completion_tokens": 561,
-        "cached_tokens": 0
-      },
-      "usage_status": "reported"
-    },
-    {
-      "task_id": "5ab938415542996be2020451",
-      "teacher": "openai/gpt-5.6-luna",
-      "attempt_index": 1,
-      "temperature": 0.7,
-      "verified": false,
-      "tokens_spent": 216,
-      "purpose": "teacher",
-      "timestamp": "2026-09-12T01:13:35.263448Z",
-      "prompt_version": "react6-e52ba17b32d9",
-      "usage": {
-        "prompt_tokens": 9795,
-        "completion_tokens": 216,
-        "cached_tokens": 1602
-      },
-      "usage_status": "reported"
-    },
-    {
-      "task_id": "5ab938415542996be2020451",
-      "teacher": "openai/gpt-5.6-luna",
-      "attempt_index": 2,
-      "temperature": 0.7,
-      "verified": false,
-      "tokens_spent": 824,
-      "purpose": "teacher",
-      "timestamp": "2026-09-12T01:14:07.833042Z",
-      "prompt_version": "react6-e52ba17b32d9",
-      "usage": {
-        "prompt_tokens": 23137,
-        "completion_tokens": 824,
-        "cached_tokens": 1602
-      },
-      "usage_status": "reported"
-    }
-  ],
   "behaviors": [],
   "verification": null
 }

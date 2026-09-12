@@ -1,0 +1,38 @@
+{
+  "task_id": "memory_kv_141-notetaker-11",
+  "raw_id": "memory_141-notetaker-11",
+  "parent": {
+    "demo_demand": true,
+    "fold": 0,
+    "generator_seed": false,
+    "official_id": "memory_kv_141-notetaker-11",
+    "parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02"
+  },
+  "parent_hash_matches": true,
+  "fold_matches": true,
+  "data_removed_or_renamed": false,
+  "cause": "BFCL load_file acquires .file_locks under the read-only shared checkout; OSError(EROFS) is swallowed by BFCLAdapter._load_memory_entries, dropping the backend entries.",
+  "resolution": "BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl moves runtime locks; PACKAGE_ROOT/data remains unchanged.",
+  "harness_head": "f5462ba",
+  "history_limit": "shallow checkout; exact current row and official expansion suffice to establish presence",
+  "files": {
+    "envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_memory.json": "40fc21d4528af53c6b44204def89e81515d0101654229e2c2e82bbf5f047b14f",
+    "envs/bfcl/gorilla/berkeley-function-call-leaderboard/bfcl_eval/utils.py": "3703b9bb63f83581c60b8e0b82aac74c360c9ca781e99e7d4eb28b0cce2285dd",
+    "src/bfas/adapters/bfcl.py": "6227d29beafdd3168fdafc0fbaddb21178ea9021b7d04ed0ba71009a9e29e63e"
+  },
+  "expanded_entry": {
+    "id": "memory_kv_141-notetaker-11",
+    "involved_classes": [
+      "MemoryAPI_kv"
+    ],
+    "scenario": "notetaker",
+    "depends_on": [
+      "memory_kv_prereq_32-notetaker-0",
+      "memory_kv_prereq_33-notetaker-1",
+      "memory_kv_prereq_34-notetaker-2",
+      "memory_kv_prereq_35-notetaker-3",
+      "memory_kv_prereq_36-notetaker-4"
+    ]
+  },
+  "expanded_entry_parent_hash": "07348b574c9dad945e0aefee6290b0a63e6b5faa2182b576face5b6c1c22ec02"
+}

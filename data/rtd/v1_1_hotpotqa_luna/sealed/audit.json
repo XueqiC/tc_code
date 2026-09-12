@@ -21,10 +21,10 @@
   "m": 200,
   "new_teacher_calls": 0,
   "new_teacher_tokens": 0,
-  "packages": 200,
+  "packages": 419,
   "pool_demos": 113,
   "request_calls_outside_completed_ledger": 0,
-  "scope": "completed ledger prefix; all attempts charged once per task",
+  "scope": "completed ledger prefix; each attempt charged separately",
   "snapshot": {
     "attempts.jsonl": {
       "bytes": 2126334,
@@ -52,7 +52,7 @@
       "trailing_bytes": 0
     }
   },
-  "unavailable_packages": 87,
+  "unavailable_packages": 306,
   "usage": {
     "cached_tokens": 402477,
     "completion_tokens": 535566,

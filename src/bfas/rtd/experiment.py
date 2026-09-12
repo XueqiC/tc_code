@@ -981,7 +981,7 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
             view = StudentSnapshot('fixed-evidence-initialization', frozenset(self.support.parents))
             candidates = self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)
             legal = [q.query_id for q in candidates if q.query_id in pending]
-            if not self.broker.task_packages:
+            if not self.broker.attempt_packages:
                 legal.sort()
             if not legal:
                 raise ValueError('fixed ledger has missing dependencies, unavailable packages or insufficient caps')

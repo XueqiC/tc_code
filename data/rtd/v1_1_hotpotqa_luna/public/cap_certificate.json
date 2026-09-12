@@ -1,15 +1,15 @@
 {
   "core": {
     "all_actual_within_class_cap": true,
-    "audit_sha256": "92367955a13eecd4c88335b46c54009d590fc54ef9b2711225bb68802f531d23",
+    "audit_sha256": "d178bd638d960a825e05752c6cb4e031daa430191a2b1cb450b83c48fe1682c5",
     "available_packages": 113,
     "benchmark": "hotpotqa",
     "budget_basis": "usable_recorded_output_tokens",
-    "budget_denominator": 133206,
+    "budget_denominator": 66800,
     "cap_basis": "sealed_bank_class_content_envelope",
     "cap_rule": "next_power_of_two_of_usable_class_maximum",
     "class_caps": {
-      "hotpotqa_demo_episode": 16384
+      "hotpotqa_demo_episode": 8192
     },
     "class_counts": {
       "hotpotqa_demo_episode": 113
@@ -47,11 +47,11 @@
     "public_artifacts": {
       "reset_states.json": "4d4427dc56faaed6f51eb131509dbf1db09b4b78165e1e171245c1d653308d12",
       "support.json": "164ee60ec28d12447b44a21334b36e86dd1e71b9121e7d28bcaefdc62dff3808",
-      "task_attempts.json": "fcef1a8b7ac4212fe5ac579edfbdd8e94660d73f5ba09ecf62106e20f25d2b72"
+      "task_attempts.json": "08fd949c96736982e3dff2aafb4895b86ecb0fcd7c2e6472c98d873ded5faa7b"
     },
     "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
     "rounding": "positive_integer_half_up",
-    "sealed_integrity_sha256": "dc37ebffd1ba652ee23ad9df0b3a6b22db3383dc1dccd9d959c9363800732b1e",
+    "sealed_integrity_sha256": "fd57163c3beacbb28f10c159b3b0e2e197f14462144993ce5b5e0a83438f7315",
     "student": "google/gemma-4-12B-it",
     "teacher_accounting": {
       "cost_confidence": "estimated",
@@ -65,7 +65,7 @@
       "later_verified_attempts": 0,
       "new_teacher_calls": 0,
       "new_teacher_tokens": 0,
-      "scope": "completed ledger prefix; all attempts charged once per task",
+      "scope": "completed ledger prefix; each attempt charged separately",
       "usage": {
         "cached_tokens": 402477,
         "completion_tokens": 535566,
@@ -77,6 +77,6 @@
     "usable_set_hash": "f2bff76067eca96bf30ea11e6a14ce5cc6ad70bd6ca3f6c7a1ab8df42d42eea4",
     "version": "rtd-v1.1.0-state-bank"
   },
-  "core_hash": "5bce249609cf618171a488df9bb8ef4a388b2acbfd03c373534720dee4b5484f",
-  "public_sha256": "cb2da9a18cd1c972b1ab3508c054a73645cb7385762434603505a59f19b73729"
+  "core_hash": "b2bc028d585dc85d63f7a6e4c096d7f98dc821bc19b81454f32e74557e01fb9f",
+  "public_sha256": "5d505c7cb56328243e283e22a11ec4ed02888c4970f9009859412e3017179b8e"
 }

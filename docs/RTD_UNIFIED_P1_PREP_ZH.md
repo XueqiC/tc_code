@@ -122,51 +122,46 @@ PYTHONPATH=src:. /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest
 
 最终 focused CPU 检查：55 passed，33.83 s（P1、P0 QP、P0 execution）。最终全 suite：**2,436 passed、4 skipped、6 warnings，931.44 s（15:31），退出码 0**。命令与环境设置见上，完整原始日志在本次 workspace 的 `/tmp/rtd-unified-p1-pytest.log`。GPU/API 运行次数为 0。
 
-## 2026-09-11 采购口径修正
+## 2026-09-11 attempt 采购口径修正
 
-采购单位统一为 task：一次购买该任务全部已记录 attempts，按账本 completion tokens
-逐项求和，含失败与账本已计入的 reasoning；估算行按原估算计费，不再加一次 reasoning。
-三个 bank 已新增 certificate 绑定的 `public/task_attempts.json`（task id、attempt index、
-tokens、verified、confidence 与原 query IDs）。broker 定价只读 public；购买时核验所有
-成员的 sealed hash 与摘要。失败任务仍入账，但不进入教师训练行；多个可用 attempt
-选择最早一个供训练，其余照常收费。原 usable denominator 与 checkpoint 配置均不改。
+采购单位改正为 **一次 teacher attempt**：保留原 query ID，按该次 ledger completion
+tokens（已含 reasoning）单独付费；失败照付且没有 positive。排序全部 attempt IDs 后
+`random.Random(0).shuffle`，首个溢出即停。采购顺序不按当前 fold 过滤，才能与 paper
+baseline 的全 inventory 前缀一致；训练曝光仍严格检查原 task parent/fold。
+每 task 的 `public/task_attempts.json` 保留，用于 attempt 到 task 的依赖。
 
-固定顺序是 sorted task IDs 后 `random.Random(0).shuffle`，各训练 seed 共用，首次溢出
-即停，不过滤失败、不按价格跳过或补齐预算。V0/D3 保存含失败购买的 replay schedule；
-K 窗口限制保留，窗口可用额度为剩余累计授权。训练继续遵守原 inner fold，使用该固定
-顺序在合法父任务上的子序列，不重新 shuffle。下表是全 bank 审计（含不可用/受保护任务，
-无训练 fold 或窗口配额），不是 GPU 训练轨迹。
+ALFWorld/BFCL 的所有 bank bytes 未变。仅 HotpotQA 因 sealed payload 原先合并 task
+而重建：相同 frozen ledger 输入、419 attempts、113 usable，support/reset/folds bytes
+逐项断言相同。历史总 tokens 535,566 不变，usable denominator 为 66,800；原 task
+分母 133,206 包含成功 task 的失败重试费用。绝对预算 15k/30k 不变。
 
-| Bank | Budget | Tasks purchased | Usable packages | Attempts | Tokens charged |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| alfworld | 7,500 | 0 | 0 | 0 | 0 |
-| alfworld | 15,000 | 0 | 0 | 0 | 0 |
-| alfworld | 30,000 | 1 | 0 | 3 | 21,457 |
-| alfworld | 60,000 | 8 | 4 | 16 | 58,314 |
-| bfcl | 7,500 | 9 | 4 | 19 | 2,860 |
-| bfcl | 15,000 | 9 | 4 | 19 | 2,860 |
-| bfcl | 30,000 | 9 | 4 | 19 | 2,860 |
-| bfcl | 60,000 | 9 | 4 | 19 | 2,860 |
-| hotpotqa | 7,500 | 5 | 3 | 9 | 6,690 |
-| hotpotqa | 15,000 | 8 | 4 | 16 | 12,670 |
-| hotpotqa | 30,000 | 11 | 5 | 23 | 20,944 |
-| hotpotqa | 60,000 | 26 | 13 | 58 | 57,428 |
+实际执行只读 sibling `paper_data.load_purchased` 和 RTD broker，逐个预算断言完整
+ordered purchased IDs、usable IDs/counts、spend、blocker 和全序 hash 相等：
 
-ALFWorld 30k 的 **0 usable / 21,457** 与旧 baseline 的 **5 usable / 29,229** 不同，
-原因已实际复现：只读 `paper_data.py` shuffle 的是 233 个 attempt query IDs，买下的
-13 项属于 13 个任务，但没有购买每个任务的其余 attempts。新规则 shuffle 142 个 task IDs；
-第一个任务三次全失败，8,061 + 6,536 + 6,860 = 21,457；第二个任务 9,629，合计
-31,086 超限，因此不能再买。29,698 的原配置上限得到同样前缀。不是 rounding 或费用遗漏。
-详见 [逐项 baseline 对照](rtd_alfworld_task_baseline_comparison.json)。
+| Bank | Budget | Attempts | Usable | Tokens charged |
+| --- | ---: | ---: | ---: | ---: |
+| alfworld | 7,500 | 4 | 2 | 6,535 |
+| alfworld | 15,000 | 9 | 5 | 13,342 |
+| alfworld | 30,000 | 13 | 5 | 29,229 |
+| alfworld | 60,000 | 24 | 9 | 58,602 |
+| bfcl | 7,500 | 11 | 3 | 5,289 |
+| bfcl | 15,000 | 11 | 3 | 5,289 |
+| bfcl | 30,000 | 11 | 3 | 5,289 |
+| bfcl | 60,000 | 23 | 8 | 59,951 |
+| hotpotqa | 7,500 | 6 | 1 | 7,207 |
+| hotpotqa | 15,000 | 11 | 3 | 12,134 |
+| hotpotqa | 30,000 | 17 | 4 | 29,663 |
+| hotpotqa | 60,000 | 35 | 8 | 59,859 |
 
-三个 bank 在原路径完成 accounting rebuild；替换前逐文件核验，support/folds/reset states、
-所有 sealed payloads、integrity 和原 audit 的 bytes 全部未变。118,792 / 1,418 / 133,206
-分母未变，ALFWorld cap 11,879 / 29,698、BFCL/HotpotQA cap 15,000 / 30,000 未变。
-重建命令与 SHA-256 清单见 [采购审计](rtd_task_purchase_validation.json) 及
-[HotpotQA 文档](rtd_hotpotqa.md#task-purchase-accounting-correction-2026-09-11)。
+V0/D3 的六次 full CPU preflight 均通过。BFCL 的 `memory_kv_141-notetaker-11`
+不是删除或改名；原始 `memory_141-notetaker-11` 经官方 loader 展开为 memory_kv。
+共享 checkout 的 `.file_locks` 不可写，异常被 adapter 吞掉才造成 KeyError。
+设置 `BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl` 后父任务 hash/fold 与冻结 support 完全
+相同；只移动运行时锁目录，不改 harness data。GPU/API 次数为 0。
 
-ALFWorld、HotpotQA 的 V0/D3 full CPU preflight 通过；BFCL 两臂实际运行后因本地 harness
-缺少 `memory_kv_141-notetaker-11` 失败，另跑两臂 acquisition-only 均通过。
-本次 CPU 测试与日志摘要见 [validation](rtd_task_cpu_validation.json)。GPU/API 使用均为 0。
+完整双路径 IDs：[parity](rtd_attempt_purchase_validation.json)；
+[CPU 与 bytes 验证](rtd_attempt_cpu_validation.json)；
+[BFCL diagnosis](rtd_bfcl_memory_harness_diagnosis.json)；
+[英文协议与重现命令](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11)。
 
-本次指定筛选 CPU suite 最终结果：**314 passed、1 skipped、3069 deselected、1 warning，104.93 s**。
+本次指定 CPU filter 最终：**316 passed、1 skipped、3069 deselected、1 warning，112.72 s**。

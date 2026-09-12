@@ -49,19 +49,19 @@ def prepare_renderer(config, support, tokenizer, journal):
 def acquisition_preflight(manifest, support):
     """Buy a frozen prefix in an in-memory ledger, stopping before overflow.
 
-    This checks budget feasibility across all legal support parents, independent
-    of student features, policy draws, fold rotation and per-window quotas.
-    It is not a prediction of a trained V0/D3 acquisition schedule.
+    Attempt-ledger banks buy from the whole bank exactly as the paper baseline;
+    legacy banks use legal support parents. No student features or window quotas
+    affect these receipts. Training folds still govern exposure after purchase.
     """
     from .experiment import prepare_ledger
     from .persistence import digest
     from .selector import StudentSnapshot
     ledger, broker = prepare_ledger(manifest, support)
-    # Task banks use the certificate-bound seed-zero order. Legacy request
+    # Attempt banks use the baseline seed-zero order. Legacy request
     # banks retain dependency-first ID order. Never filter this order by cost.
     remaining = {q for q, r in broker._records.items() if broker._legal(r)}
     order, ordered = [], set()
-    if broker.task_packages:
+    if broker.attempt_packages:
         order = [q for q in broker.purchase_order if q in remaining]
         remaining.clear()
     while remaining:
@@ -88,20 +88,24 @@ def acquisition_preflight(manifest, support):
         if ledger.reservations or ledger.spent > cap:
             raise ValueError('acquisition preflight left an invalid ledger')
         checkpoints.append(dict(budget_tokens=cap, purchase_count=len(ledger.owned_ids),
-            tasks_purchased=len(ledger.owned_ids) if broker.task_packages else None,
+            tasks_purchased=(len({broker.attempt_packages[q]['task_id'] for q in ledger.owned_ids})
+                             if broker.attempt_packages else None),
             usable_packages=sum(broker._records[q].unavailable_reason is None for q in ledger.owned_ids),
-            attempts_purchased=(sum(len(broker.task_packages[q]['attempts']) for q in ledger.owned_ids)
-                                if broker.task_packages else len(ledger.owned_ids)),
+            attempts_purchased=len(ledger.owned_ids),
+            purchased_query_ids=order[:position],
+            usable_query_ids=[q for q in order[:position] if broker._records[q].unavailable_reason is None],
             spent_tokens=ledger.spent, remaining_tokens=ledger.remaining,
             purchased_query_ids_sha256=digest(order[:position]), next_query_id=next_id,
             next_reservation_tokens=(broker._records[next_id].spec.cost_upper_bound if next_id else None),
             stop_reason='first_overflow' if next_id else 'inventory_exhausted',
             individually_affordable_at_zero_spend=sum(broker._records[q].spec.cost_upper_bound <= cap for q in order)))
     return dict(reservation_basis=broker.reservation_basis,
-        order=('sorted_task_ids_random_seed_0' if broker.task_packages else 'query_id_ascending_dependency_first'),
-        order_sha256=digest(order), inventory_tasks=len(order) if broker.task_packages else None,
+        order=('sorted_attempt_ids_random_seed_0' if broker.attempt_packages else 'query_id_ascending_dependency_first'),
+        order_sha256=digest(order), inventory_tasks=(len({a['task_id'] for a in broker.attempt_packages.values()})
+                         if broker.attempt_packages else None),
         available_packages=sum(broker._records[q].unavailable_reason is None for q in order),
-        scope='all legal support parents; cumulative prefix without training window quotas',
+        scope=('all bank attempts; fold-independent cumulative prefix without training window quotas'
+               if broker.attempt_packages else 'all legal support parents; cumulative prefix without training window quotas'),
         checkpoints=checkpoints)
 
 
