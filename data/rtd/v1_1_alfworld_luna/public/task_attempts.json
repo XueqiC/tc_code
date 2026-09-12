@@ -1,0 +1,3954 @@
+{
+  "cost_basis": "all_recorded_task_attempts",
+  "order_rule": "sorted task IDs; random.Random(0).shuffle; stop before first overflow",
+  "purchase_seed": 0,
+  "purchase_unit": "task",
+  "task_order": [
+    "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+    "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+    "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+    "pick_cool_then_place_in_recep-Pot-None-DiningTable-21/trial_T20190909_004420_892970",
+    "pick_two_obj_and_place-RemoteControl-None-ArmChair-214/trial_T20190909_020949_765614",
+    "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+    "pick_and_place_simple-Pen-None-Shelf-310/trial_T20190909_113535_223329",
+    "pick_clean_then_place_in_recep-Potato-None-SideTable-21/trial_T20190906_192526_089769",
+    "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+    "pick_clean_then_place_in_recep-Apple-None-Fridge-24/trial_T20190907_210711_329362",
+    "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+    "pick_heat_then_place_in_recep-Apple-None-Fridge-25/trial_T20190908_050852_487447",
+    "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+    "pick_two_obj_and_place-Laptop-None-Desk-309/trial_T20190907_151204_265576",
+    "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+    "look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091",
+    "pick_heat_then_place_in_recep-Mug-None-Shelf-5/trial_T20190906_203817_948928",
+    "pick_two_obj_and_place-SoapBottle-None-Toilet-408/trial_T20190910_093824_432980",
+    "pick_clean_then_place_in_recep-Apple-None-DiningTable-4/trial_T20190908_104413_450768",
+    "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+    "pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171756_784651",
+    "pick_clean_then_place_in_recep-Cup-None-Shelf-20/trial_T20190909_150550_335621",
+    "pick_clean_then_place_in_recep-DishSponge-None-Toilet-427/trial_T20190908_234308_183420",
+    "pick_heat_then_place_in_recep-Cup-None-Cabinet-12/trial_T20190907_210848_644854",
+    "pick_clean_then_place_in_recep-Cloth-None-Drawer-423/trial_T20190908_140626_609969",
+    "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+    "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+    "pick_and_place_simple-KeyChain-None-ArmChair-322/trial_T20190908_223409_609518",
+    "pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084818_682608",
+    "pick_two_obj_and_place-RemoteControl-None-Ottoman-208/trial_T20190908_004505_362807",
+    "pick_heat_then_place_in_recep-Apple-None-DiningTable-23/trial_T20190909_082324_376707",
+    "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+    "pick_and_place_simple-Kettle-None-StoveBurner-2/trial_T20190918_152051_373060",
+    "pick_two_obj_and_place-CellPhone-None-Bed-324/trial_T20190907_143501_605409",
+    "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+    "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+    "pick_two_obj_and_place-Book-None-Bed-316/trial_T20190909_032358_551783",
+    "pick_two_obj_and_place-CreditCard-None-DiningTable-329/trial_T20190909_001332_765357",
+    "look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941",
+    "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+    "pick_and_place_simple-CD-None-Dresser-323/trial_T20190908_005514_476729",
+    "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+    "look_at_obj_in_light-Bowl-None-DeskLamp-307/trial_T20190908_204844_162083",
+    "pick_heat_then_place_in_recep-Mug-None-Cabinet-22/trial_T20190908_073018_399742",
+    "pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-2/trial_T20190907_070817_015451",
+    "pick_cool_then_place_in_recep-Tomato-None-Microwave-27/trial_T20190909_145459_922990",
+    "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-18/trial_T20190909_101110_748348",
+    "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-429/trial_T20190909_015333_203352",
+    "pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042148_900573",
+    "pick_and_place_simple-CellPhone-None-Desk-327/trial_T20190907_162420_449542",
+    "pick_two_obj_and_place-SaltShaker-None-Drawer-12/trial_T20190907_175233_453383",
+    "pick_cool_then_place_in_recep-Bowl-None-Microwave-7/trial_T20190908_231310_981246",
+    "look_at_obj_in_light-Laptop-None-DeskLamp-319/trial_T20190908_182531_510491",
+    "pick_two_obj_and_place-CellPhone-None-Bed-314/trial_T20190909_013435_646326",
+    "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+    "pick_cool_then_place_in_recep-Bread-None-DiningTable-26/trial_T20190906_183934_151879",
+    "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112632_208041",
+    "pick_heat_then_place_in_recep-Apple-None-SideTable-21/trial_T20190908_235409_008266",
+    "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-16/trial_T20190907_015045_510934",
+    "pick_clean_then_place_in_recep-Spoon-None-DiningTable-18/trial_T20190909_102022_120766",
+    "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+    "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-409/trial_T20190908_025437_027878",
+    "pick_clean_then_place_in_recep-Lettuce-None-DiningTable-20/trial_T20190906_191148_519826",
+    "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+    "pick_and_place_simple-Box-None-Sofa-220/trial_T20190907_165554_112021",
+    "pick_and_place_simple-SprayBottle-None-Toilet-418/trial_T20190906_190906_143249",
+    "pick_and_place_simple-SprayBottle-None-Toilet-426/trial_T20190908_155236_907481",
+    "pick_and_place_simple-Book-None-Sofa-209/trial_T20190909_035124_250394",
+    "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052957_687258",
+    "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+    "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+    "pick_two_obj_and_place-SoapBottle-None-GarbageCan-416/trial_T20190909_003015_267270",
+    "pick_two_obj_and_place-CellPhone-None-Desk-312/trial_T20190908_122308_202330",
+    "pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114616_377252",
+    "pick_cool_then_place_in_recep-Apple-None-DiningTable-16/trial_T20190909_075846_194710",
+    "pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_054258_649233",
+    "pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151",
+    "pick_and_place_simple-Newspaper-None-GarbageCan-214/trial_T20190907_181248_411320",
+    "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112704_150966",
+    "pick_and_place_simple-CreditCard-None-Sofa-220/trial_T20190909_110856_321744",
+    "look_at_obj_in_light-Pen-None-DeskLamp-305/trial_T20190907_115838_075745",
+    "pick_and_place_simple-ToiletPaper-None-Toilet-429/trial_T20190907_215139_316260",
+    "pick_and_place_simple-RemoteControl-None-Sofa-216/trial_T20190909_150037_262342",
+    "pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190908_022158_405498",
+    "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-420/trial_T20190906_201023_015139",
+    "pick_heat_then_place_in_recep-Cup-None-CounterTop-13/trial_T20190907_013610_766116",
+    "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+    "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+    "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+    "pick_clean_then_place_in_recep-Ladle-None-CounterTop-14/trial_T20190909_114001_668818",
+    "look_at_obj_in_light-Statue-None-DeskLamp-319/trial_T20190907_035512_450549",
+    "look_at_obj_in_light-Book-None-DeskLamp-305/trial_T20190908_215736_012696",
+    "pick_two_obj_and_place-SprayBottle-None-Cabinet-417/trial_T20190909_112634_915921",
+    "look_at_obj_in_light-Newspaper-None-DeskLamp-216/trial_T20190908_143004_004127",
+    "pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104226_709618",
+    "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172",
+    "pick_clean_then_place_in_recep-Pan-None-StoveBurner-5/trial_T20190907_124437_794732",
+    "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052929_590517",
+    "pick_cool_then_place_in_recep-Apple-None-GarbageCan-5/trial_T20190908_111700_053859",
+    "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+    "pick_cool_then_place_in_recep-Plate-None-Microwave-7/trial_T20190909_130643_778745",
+    "pick_cool_then_place_in_recep-Pan-None-Cabinet-5/trial_T20190919_052755_008638",
+    "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002434_086261",
+    "pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114",
+    "pick_clean_then_place_in_recep-Bowl-None-Fridge-21/trial_T20190909_014405_823537",
+    "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+    "pick_cool_then_place_in_recep-Bowl-None-Cabinet-20/trial_T20190909_112802_913273",
+    "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-414/trial_T20190908_215405_138970",
+    "pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_030848_480173",
+    "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+    "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+    "look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034918_885162",
+    "pick_heat_then_place_in_recep-Apple-None-Fridge-22/trial_T20190908_210321_417277",
+    "pick_two_obj_and_place-Ladle-None-Drawer-2/trial_T20190906_162750_791095",
+    "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002335_756186",
+    "pick_and_place_simple-CD-None-SideTable-329/trial_T20190908_002233_981326",
+    "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+    "pick_two_obj_and_place-RemoteControl-None-Sofa-212/trial_T20190907_235247_981744",
+    "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+    "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+    "pick_clean_then_place_in_recep-Tomato-None-SideTable-21/trial_T20190907_165032_703898",
+    "pick_two_obj_and_place-Candle-None-Shelf-429/trial_T20190909_075128_271977",
+    "pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015616_880449",
+    "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+    "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+    "pick_and_place_simple-AlarmClock-None-Desk-314/trial_T20190908_185924_234584",
+    "pick_heat_then_place_in_recep-Bread-None-DiningTable-15/trial_T20190907_030851_016828",
+    "pick_two_obj_and_place-SaltShaker-None-Drawer-5/trial_T20190907_151045_928468",
+    "pick_cool_then_place_in_recep-Bowl-None-DiningTable-23/trial_T20190908_140248_782127",
+    "pick_and_place_simple-SprayBottle-None-Drawer-423/trial_T20190909_071924_418051",
+    "pick_two_obj_and_place-Pen-None-Dresser-318/trial_T20190912_171559_010465",
+    "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-25/trial_T20190907_223942_379753",
+    "pick_heat_then_place_in_recep-Apple-None-CounterTop-5/trial_T20190907_113507_490654",
+    "pick_two_obj_and_place-Kettle-None-Cabinet-3/trial_T20190918_152724_975980",
+    "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+    "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+    "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+    "pick_two_obj_and_place-Pencil-None-Desk-327/trial_T20190911_224556_462302",
+    "pick_clean_then_place_in_recep-Spatula-None-DiningTable-24/trial_T20190909_021012_621960",
+    "look_at_obj_in_light-Pillow-None-DeskLamp-314/trial_T20190908_115833_802764",
+    "pick_heat_then_place_in_recep-Plate-None-Fridge-13/trial_T20190907_040058_909208",
+    "pick_heat_then_place_in_recep-Cup-None-Cabinet-15/trial_T20190908_055531_226087"
+  ],
+  "tasks": [
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "5537602aac941b1abcd6734b8fae7fd7a021267831963ff3f9f74738f6e41606",
+          "task_id": "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+          "tokens": 2613,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "f88f0d5b4fc6484847f8f1e85a32e9e781ae104291f90b3a37fec9c785b49f14",
+          "task_id": "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+          "tokens": 2642,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "4c5b3a1f5b2b6a1ab37fec864ef7273e600100ffbe5ec65fe4c5a802941ddaf7",
+          "task_id": "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+          "tokens": 2779,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "25262e19c661f1c086161573bba261080a4065489420b20f63116700a919aa04",
+      "query_id": "5537602aac941b1abcd6734b8fae7fd7a021267831963ff3f9f74738f6e41606",
+      "query_ids": [
+        "4c5b3a1f5b2b6a1ab37fec864ef7273e600100ffbe5ec65fe4c5a802941ddaf7",
+        "5537602aac941b1abcd6734b8fae7fd7a021267831963ff3f9f74738f6e41606",
+        "f88f0d5b4fc6484847f8f1e85a32e9e781ae104291f90b3a37fec9c785b49f14"
+      ],
+      "task_id": "look_at_obj_in_light-Book-None-DeskLamp-303/trial_T20190909_085355_202971",
+      "tokens": 8034,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "01b43c8f1ab6f3cdb95e17d7481aaa6ec0a71f3192c3957b9212590b75ef4b3c",
+          "task_id": "look_at_obj_in_light-Book-None-DeskLamp-305/trial_T20190908_215736_012696",
+          "tokens": 4249,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8f64d6ee33ac5f9f62921faa91ffd63faaf5ae9abdb735c8e1b55949bf7167c4",
+      "query_id": "01b43c8f1ab6f3cdb95e17d7481aaa6ec0a71f3192c3957b9212590b75ef4b3c",
+      "query_ids": [
+        "01b43c8f1ab6f3cdb95e17d7481aaa6ec0a71f3192c3957b9212590b75ef4b3c"
+      ],
+      "task_id": "look_at_obj_in_light-Book-None-DeskLamp-305/trial_T20190908_215736_012696",
+      "tokens": 4249,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "592ea33382d5a54b4465442ac434bbe6c026ec8694bd44d853f3322b7dfccc92",
+          "task_id": "look_at_obj_in_light-Bowl-None-DeskLamp-307/trial_T20190908_204844_162083",
+          "tokens": 1321,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "f36bab7a2e4f2ebfb13392a001ed18c783c494f564d48d53c9a492ce563bbb0c",
+      "query_id": "592ea33382d5a54b4465442ac434bbe6c026ec8694bd44d853f3322b7dfccc92",
+      "query_ids": [
+        "592ea33382d5a54b4465442ac434bbe6c026ec8694bd44d853f3322b7dfccc92"
+      ],
+      "task_id": "look_at_obj_in_light-Bowl-None-DeskLamp-307/trial_T20190908_204844_162083",
+      "tokens": 1321,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0140d71a1281ac67750a3e2907b6baccc62a62da1379dc2d2ba7a140cbe2989a",
+          "task_id": "look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091",
+          "tokens": 235,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee",
+      "query_id": "0140d71a1281ac67750a3e2907b6baccc62a62da1379dc2d2ba7a140cbe2989a",
+      "query_ids": [
+        "0140d71a1281ac67750a3e2907b6baccc62a62da1379dc2d2ba7a140cbe2989a"
+      ],
+      "task_id": "look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091",
+      "tokens": 235,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "ca52252a9ad82b9f3dedca5ef40d1816b49601662eb3b1576dccb3ecef0f9d76",
+          "task_id": "look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941",
+          "tokens": 404,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd",
+      "query_id": "ca52252a9ad82b9f3dedca5ef40d1816b49601662eb3b1576dccb3ecef0f9d76",
+      "query_ids": [
+        "ca52252a9ad82b9f3dedca5ef40d1816b49601662eb3b1576dccb3ecef0f9d76"
+      ],
+      "task_id": "look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941",
+      "tokens": 404,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "3ea9a01dd7d3093941fab25d1e62d896cd224ee75fe2aaaf9e1878130ac8464f",
+          "task_id": "look_at_obj_in_light-Laptop-None-DeskLamp-319/trial_T20190908_182531_510491",
+          "tokens": 2727,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "21c0f20c8eb242974850b4a67b0d14a990da0a063bc67904e6f16d8c13c9cba2",
+          "task_id": "look_at_obj_in_light-Laptop-None-DeskLamp-319/trial_T20190908_182531_510491",
+          "tokens": 2923,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "ac730f7754d03b1670baa12ed7e7cfefb52cb1864289b2f7892d22ced517ffec",
+          "task_id": "look_at_obj_in_light-Laptop-None-DeskLamp-319/trial_T20190908_182531_510491",
+          "tokens": 2738,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "5e7ad860813f3dd13cbf4796d0666d5978c88bd214386bedb57be706f315dc16",
+      "query_id": "ac730f7754d03b1670baa12ed7e7cfefb52cb1864289b2f7892d22ced517ffec",
+      "query_ids": [
+        "21c0f20c8eb242974850b4a67b0d14a990da0a063bc67904e6f16d8c13c9cba2",
+        "3ea9a01dd7d3093941fab25d1e62d896cd224ee75fe2aaaf9e1878130ac8464f",
+        "ac730f7754d03b1670baa12ed7e7cfefb52cb1864289b2f7892d22ced517ffec"
+      ],
+      "task_id": "look_at_obj_in_light-Laptop-None-DeskLamp-319/trial_T20190908_182531_510491",
+      "tokens": 8388,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2ccd6ada6e5d073259ec1c80d25bb4093fdad74aa1c12ee58305aceb2d457e2e",
+          "task_id": "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+          "tokens": 9046,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "257f71db2b2f7a49bf15e5ef4638bfe4c5628bf9dc046e160b49e259dbeef763",
+          "task_id": "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+          "tokens": 8407,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c3c109d9e13047fe0106b0b4d927d5bcb1367d05bedcefa3c7d75be9e97ea2cc",
+      "query_id": "257f71db2b2f7a49bf15e5ef4638bfe4c5628bf9dc046e160b49e259dbeef763",
+      "query_ids": [
+        "257f71db2b2f7a49bf15e5ef4638bfe4c5628bf9dc046e160b49e259dbeef763",
+        "2ccd6ada6e5d073259ec1c80d25bb4093fdad74aa1c12ee58305aceb2d457e2e"
+      ],
+      "task_id": "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+      "tokens": 17453,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "1f03a5761a7a060f30569e36d2345636faa5fb209276f35a6f97e73f108548c8",
+          "task_id": "look_at_obj_in_light-Newspaper-None-DeskLamp-216/trial_T20190908_143004_004127",
+          "tokens": 974,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ea90faea341a5f2c1b9f7a57196c439ddcba3849258442bc1880e33fd0a2c7c9",
+      "query_id": "1f03a5761a7a060f30569e36d2345636faa5fb209276f35a6f97e73f108548c8",
+      "query_ids": [
+        "1f03a5761a7a060f30569e36d2345636faa5fb209276f35a6f97e73f108548c8"
+      ],
+      "task_id": "look_at_obj_in_light-Newspaper-None-DeskLamp-216/trial_T20190908_143004_004127",
+      "tokens": 974,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "86b7b5445ed9917f005605a9f4b3d9d4c6ad07a36541530ecded9b0972a044f8",
+          "task_id": "look_at_obj_in_light-Pen-None-DeskLamp-305/trial_T20190907_115838_075745",
+          "tokens": 6389,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "6f1c7b027941a1d860eb54d307f2da4cc91a325c35a2bc455e35665de4fde79e",
+      "query_id": "86b7b5445ed9917f005605a9f4b3d9d4c6ad07a36541530ecded9b0972a044f8",
+      "query_ids": [
+        "86b7b5445ed9917f005605a9f4b3d9d4c6ad07a36541530ecded9b0972a044f8"
+      ],
+      "task_id": "look_at_obj_in_light-Pen-None-DeskLamp-305/trial_T20190907_115838_075745",
+      "tokens": 6389,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "89a6717984ba98bdd130e5a13b1a20281865dabb3aa2bbed9320e72ca0915f4f",
+          "task_id": "look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034918_885162",
+          "tokens": 156,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "460cba062e1ec151282f342d8ab1ed9e0a2bdccc05d16c772d5da7e445249fdf",
+      "query_id": "89a6717984ba98bdd130e5a13b1a20281865dabb3aa2bbed9320e72ca0915f4f",
+      "query_ids": [
+        "89a6717984ba98bdd130e5a13b1a20281865dabb3aa2bbed9320e72ca0915f4f"
+      ],
+      "task_id": "look_at_obj_in_light-Pillow-None-DeskLamp-303/trial_T20190907_034918_885162",
+      "tokens": 156,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "e4696dac6bfa034610c7073db5ceea2a512fe532c7b51ce3b725415838af539e",
+          "task_id": "look_at_obj_in_light-Pillow-None-DeskLamp-314/trial_T20190908_115833_802764",
+          "tokens": 219,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "de5f0afdda0dd9c30224a5290c90c421792c6abfffff9734e3d9241cea0fd1dc",
+      "query_id": "e4696dac6bfa034610c7073db5ceea2a512fe532c7b51ce3b725415838af539e",
+      "query_ids": [
+        "e4696dac6bfa034610c7073db5ceea2a512fe532c7b51ce3b725415838af539e"
+      ],
+      "task_id": "look_at_obj_in_light-Pillow-None-DeskLamp-314/trial_T20190908_115833_802764",
+      "tokens": 219,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d228b625c27b8e662da0d041bbfb5e23809d960789f372b88bb0997bf6cca6b7",
+          "task_id": "look_at_obj_in_light-Statue-None-DeskLamp-319/trial_T20190907_035512_450549",
+          "tokens": 408,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8542f7e5fddf25d2ad87b33830fd163a589cf12e0f545b5247c13ef0956af501",
+      "query_id": "d228b625c27b8e662da0d041bbfb5e23809d960789f372b88bb0997bf6cca6b7",
+      "query_ids": [
+        "d228b625c27b8e662da0d041bbfb5e23809d960789f372b88bb0997bf6cca6b7"
+      ],
+      "task_id": "look_at_obj_in_light-Statue-None-DeskLamp-319/trial_T20190907_035512_450549",
+      "tokens": 408,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d951640e5f0ce1afc3a1f3ee672ad14d5e618a623d1991db502f86fd8ce72c9a",
+          "task_id": "pick_and_place_simple-AlarmClock-None-Desk-314/trial_T20190908_185924_234584",
+          "tokens": 585,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "7f1b5f9249e0562ef85557e4fc4983046284d45fca51e73e93f990b092fa32c3",
+      "query_id": "d951640e5f0ce1afc3a1f3ee672ad14d5e618a623d1991db502f86fd8ce72c9a",
+      "query_ids": [
+        "d951640e5f0ce1afc3a1f3ee672ad14d5e618a623d1991db502f86fd8ce72c9a"
+      ],
+      "task_id": "pick_and_place_simple-AlarmClock-None-Desk-314/trial_T20190908_185924_234584",
+      "tokens": 585,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "e4084ec496e22bf93485a92e1f19b10c4f70016c73ffcc25c4fa2d1f8ab5a52c",
+          "task_id": "pick_and_place_simple-Book-None-Sofa-209/trial_T20190909_035124_250394",
+          "tokens": 621,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "98cbe733346dfdd3b93d869dbb40942fbfa97278a872e2638b2c03e20e46e29a",
+      "query_id": "e4084ec496e22bf93485a92e1f19b10c4f70016c73ffcc25c4fa2d1f8ab5a52c",
+      "query_ids": [
+        "e4084ec496e22bf93485a92e1f19b10c4f70016c73ffcc25c4fa2d1f8ab5a52c"
+      ],
+      "task_id": "pick_and_place_simple-Book-None-Sofa-209/trial_T20190909_035124_250394",
+      "tokens": 621,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "cb3962c4c6c76d2b460248e5c1fc87dcd5b0151c445631679289d60aa1416e4a",
+          "task_id": "pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171756_784651",
+          "tokens": 668,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "6787baaf4ebe208868ad767cbd0ba11263555dac7f750d979bc548c454a10194",
+      "query_id": "cb3962c4c6c76d2b460248e5c1fc87dcd5b0151c445631679289d60aa1416e4a",
+      "query_ids": [
+        "cb3962c4c6c76d2b460248e5c1fc87dcd5b0151c445631679289d60aa1416e4a"
+      ],
+      "task_id": "pick_and_place_simple-Bowl-None-CoffeeTable-201/trial_T20190907_171756_784651",
+      "tokens": 668,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "1ba7766ac5b8d834f6b7cf92e44d98774ad26c1b41768878059aa59a83d2be9c",
+          "task_id": "pick_and_place_simple-Box-None-Sofa-220/trial_T20190907_165554_112021",
+          "tokens": 232,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "05616e304e2a566054dce22e763e848138a4d851a01b29f53d17ebe4e17456cf",
+      "query_id": "1ba7766ac5b8d834f6b7cf92e44d98774ad26c1b41768878059aa59a83d2be9c",
+      "query_ids": [
+        "1ba7766ac5b8d834f6b7cf92e44d98774ad26c1b41768878059aa59a83d2be9c"
+      ],
+      "task_id": "pick_and_place_simple-Box-None-Sofa-220/trial_T20190907_165554_112021",
+      "tokens": 232,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "8afe27a46d266627baca71b246924e35ed39f37cdae8efc449dd7c131a847162",
+          "task_id": "pick_and_place_simple-CD-None-Dresser-323/trial_T20190908_005514_476729",
+          "tokens": 216,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "5a0f32f8031a6479e936c75be79b607df0f03a4c72fe04447ff9c50576d67aee",
+      "query_id": "8afe27a46d266627baca71b246924e35ed39f37cdae8efc449dd7c131a847162",
+      "query_ids": [
+        "8afe27a46d266627baca71b246924e35ed39f37cdae8efc449dd7c131a847162"
+      ],
+      "task_id": "pick_and_place_simple-CD-None-Dresser-323/trial_T20190908_005514_476729",
+      "tokens": 216,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "b74a9874895f0eb272bdabcef23b8f7f3bb39fa697e6fa7fb7a96b566b461ac1",
+          "task_id": "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+          "tokens": 2115,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "ec6130aae180346364cb58de1759821a72bd7891db92d5a415df3300f6ca1e59",
+          "task_id": "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+          "tokens": 1979,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "0d5316c164b72c826e3ee003695783fa3e838ddd1e7af13661f40f09dfa5be3d",
+          "task_id": "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+          "tokens": 2251,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "91e5032c23cf021c47964c1d17643c00e1c36207196b8e3f8f3576ee8545ce0e",
+      "query_id": "b74a9874895f0eb272bdabcef23b8f7f3bb39fa697e6fa7fb7a96b566b461ac1",
+      "query_ids": [
+        "0d5316c164b72c826e3ee003695783fa3e838ddd1e7af13661f40f09dfa5be3d",
+        "b74a9874895f0eb272bdabcef23b8f7f3bb39fa697e6fa7fb7a96b566b461ac1",
+        "ec6130aae180346364cb58de1759821a72bd7891db92d5a415df3300f6ca1e59"
+      ],
+      "task_id": "pick_and_place_simple-CD-None-Shelf-330/trial_T20190906_201356_091911",
+      "tokens": 6345,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "bb2b9fbaa0e49c032085ca592e4f6fb8a826c0193a1c511ad5be68f043a2554c",
+          "task_id": "pick_and_place_simple-CD-None-SideTable-329/trial_T20190908_002233_981326",
+          "tokens": 1096,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "f2fa3d7546ba477dd7503db177ffeef4c17ac894372181b815f44a758f04d497",
+      "query_id": "bb2b9fbaa0e49c032085ca592e4f6fb8a826c0193a1c511ad5be68f043a2554c",
+      "query_ids": [
+        "bb2b9fbaa0e49c032085ca592e4f6fb8a826c0193a1c511ad5be68f043a2554c"
+      ],
+      "task_id": "pick_and_place_simple-CD-None-SideTable-329/trial_T20190908_002233_981326",
+      "tokens": 1096,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "5e45b86ad87427a22df47f0929fc5e6f1ddf740b835aea3092b3c7cb18f48739",
+          "task_id": "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+          "tokens": 2281,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "5cff542545cd1fcae42925d809109c567fb6ae25efb44d9b9c5fc8e1284b7b4c",
+          "task_id": "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+          "tokens": 2294,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "312fa3131862ddd97df208123c56633f5c5b5effe59b9f6f0b6beaaccbf2cf64",
+          "task_id": "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+          "tokens": 2313,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8acd2a4a528a8d8194e1fd6806e134b3b10e754542f163b0c9da51a991b0b589",
+      "query_id": "5e45b86ad87427a22df47f0929fc5e6f1ddf740b835aea3092b3c7cb18f48739",
+      "query_ids": [
+        "312fa3131862ddd97df208123c56633f5c5b5effe59b9f6f0b6beaaccbf2cf64",
+        "5cff542545cd1fcae42925d809109c567fb6ae25efb44d9b9c5fc8e1284b7b4c",
+        "5e45b86ad87427a22df47f0929fc5e6f1ddf740b835aea3092b3c7cb18f48739"
+      ],
+      "task_id": "pick_and_place_simple-CellPhone-None-Bed-322/trial_T20190907_163932_211569",
+      "tokens": 6888,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "165f39c5496f4de19fb4a4d9b57fd5c6c7795195224a6b543b21bafce4904a31",
+          "task_id": "pick_and_place_simple-CellPhone-None-Desk-327/trial_T20190907_162420_449542",
+          "tokens": 682,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "093f7270c862c7f06230832c85bb6713642f5a82ed4f29d165fe5cab1b8809cf",
+      "query_id": "165f39c5496f4de19fb4a4d9b57fd5c6c7795195224a6b543b21bafce4904a31",
+      "query_ids": [
+        "165f39c5496f4de19fb4a4d9b57fd5c6c7795195224a6b543b21bafce4904a31"
+      ],
+      "task_id": "pick_and_place_simple-CellPhone-None-Desk-327/trial_T20190907_162420_449542",
+      "tokens": 682,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "8994d5eb0bb2730a1ef0d63d1f3a2f4ab052980c2363a678622f285d5ca24b6c",
+          "task_id": "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+          "tokens": 2262,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "1b752aa35d533127478311ae660c98e737fce1cf23959b9e4b289be415fc0d62",
+          "task_id": "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+          "tokens": 2289,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "fbfb3a1f2264c9dd3c7549b676f6d07fead975ea4febec7d1f3c6e0a52707a2f",
+          "task_id": "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+          "tokens": 2252,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "21cab3e3b7cb1b2d53ca7585e42e9c1cd019280ea0b0a612986811758cb39ab2",
+      "query_id": "8994d5eb0bb2730a1ef0d63d1f3a2f4ab052980c2363a678622f285d5ca24b6c",
+      "query_ids": [
+        "1b752aa35d533127478311ae660c98e737fce1cf23959b9e4b289be415fc0d62",
+        "8994d5eb0bb2730a1ef0d63d1f3a2f4ab052980c2363a678622f285d5ca24b6c",
+        "fbfb3a1f2264c9dd3c7549b676f6d07fead975ea4febec7d1f3c6e0a52707a2f"
+      ],
+      "task_id": "pick_and_place_simple-CellPhone-None-Dresser-317/trial_T20190908_033503_132415",
+      "tokens": 6803,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "96ac054d3e22a866016b8260f28382543865422b0e9631ac2a03ca6ef706d4b6",
+          "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+          "tokens": 2055,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "218d0441a6233144ff768254e2fb3ef7b2e99bd7cbba2bbe93b639afe7ace213",
+          "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+          "tokens": 2039,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "86e42a38a889a95c0be03c9cd750e22281e0ccbd8f7124637f9855199625fb60",
+          "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+          "tokens": 2118,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a145fefe5e3dc0c8839867daf86fac8fbc568c1e975b1b39f8413f24657ead6b",
+      "query_id": "96ac054d3e22a866016b8260f28382543865422b0e9631ac2a03ca6ef706d4b6",
+      "query_ids": [
+        "218d0441a6233144ff768254e2fb3ef7b2e99bd7cbba2bbe93b639afe7ace213",
+        "86e42a38a889a95c0be03c9cd750e22281e0ccbd8f7124637f9855199625fb60",
+        "96ac054d3e22a866016b8260f28382543865422b0e9631ac2a03ca6ef706d4b6"
+      ],
+      "task_id": "pick_and_place_simple-CellPhone-None-SideTable-317/trial_T20190909_234652_764208",
+      "tokens": 6212,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "978162ea28c19bd4b753d73fb38ad410ec6b37fbf9ffbc3e089a299046149d67",
+          "task_id": "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+          "tokens": 8061,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "9804fcfff28934c6befc37e79a3280b582c2e6a0ac956d4c157bb61f8070c54d",
+          "task_id": "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+          "tokens": 6536,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b399c75aa25d7384f3b29e91b5d5ee2822a4c94b5b23f64a2d9b350f4518d9b8",
+          "task_id": "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+          "tokens": 6860,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "dad63ab6aeb237d4faf8d0e19c45dbc828dd802fff293467d22fb49f83f1ca86",
+      "query_id": "978162ea28c19bd4b753d73fb38ad410ec6b37fbf9ffbc3e089a299046149d67",
+      "query_ids": [
+        "978162ea28c19bd4b753d73fb38ad410ec6b37fbf9ffbc3e089a299046149d67",
+        "9804fcfff28934c6befc37e79a3280b582c2e6a0ac956d4c157bb61f8070c54d",
+        "b399c75aa25d7384f3b29e91b5d5ee2822a4c94b5b23f64a2d9b350f4518d9b8"
+      ],
+      "task_id": "pick_and_place_simple-Cloth-None-Cart-401/trial_T20190909_054512_021256",
+      "tokens": 21457,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "df354f69aef61ef9dc50c7612befdecde44914ecaffefe60890fbfc0f1363cd7",
+          "task_id": "pick_and_place_simple-CreditCard-None-Sofa-220/trial_T20190909_110856_321744",
+          "tokens": 534,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "dd174fea82d2e63139e7e6d72fcfa655a0bbb11fb93ca0b3a41b4100c8d7dcc3",
+      "query_id": "df354f69aef61ef9dc50c7612befdecde44914ecaffefe60890fbfc0f1363cd7",
+      "query_ids": [
+        "df354f69aef61ef9dc50c7612befdecde44914ecaffefe60890fbfc0f1363cd7"
+      ],
+      "task_id": "pick_and_place_simple-CreditCard-None-Sofa-220/trial_T20190909_110856_321744",
+      "tokens": 534,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "1903e30c9eeabbe49b6d316ccddab3d0011e4990a799ab25c52bf81a96570d25",
+          "task_id": "pick_and_place_simple-Kettle-None-StoveBurner-2/trial_T20190918_152051_373060",
+          "tokens": 485,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a98a5b271d3bc269476b810089a6a4acee0a434d77b5b214fb461317b4bc588f",
+      "query_id": "1903e30c9eeabbe49b6d316ccddab3d0011e4990a799ab25c52bf81a96570d25",
+      "query_ids": [
+        "1903e30c9eeabbe49b6d316ccddab3d0011e4990a799ab25c52bf81a96570d25"
+      ],
+      "task_id": "pick_and_place_simple-Kettle-None-StoveBurner-2/trial_T20190918_152051_373060",
+      "tokens": 485,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "52082898de199fc38361f5b8d29e6582227a5b9da5e26c663f3f5c122ebc3fd9",
+          "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+          "tokens": 2221,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "d60189e20a3cedd7641664edf2f99e15798e6d3c72faa00078b5883e4077b7bc",
+          "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+          "tokens": 2313,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b02352ebf66681699793a41f2da3763ee1d91b8fda44af940a51f86e3a086c0a",
+          "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+          "tokens": 2265,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a4a2ac5a30bd426bed4e2cb63a890476b656c726288f8d6ca8ccb5f086080fca",
+      "query_id": "52082898de199fc38361f5b8d29e6582227a5b9da5e26c663f3f5c122ebc3fd9",
+      "query_ids": [
+        "52082898de199fc38361f5b8d29e6582227a5b9da5e26c663f3f5c122ebc3fd9",
+        "b02352ebf66681699793a41f2da3763ee1d91b8fda44af940a51f86e3a086c0a",
+        "d60189e20a3cedd7641664edf2f99e15798e6d3c72faa00078b5883e4077b7bc"
+      ],
+      "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-318/trial_T20190909_114706_369286",
+      "tokens": 6799,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "ee851783a53c9ec9ff3b3773dc81eb4678e2230007b8c7bf9114e1a751e1a494",
+          "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-322/trial_T20190908_223409_609518",
+          "tokens": 616,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "598ce7aa874b95896355d1601dc1e6787de3873fcbe9a439bb24bb6da08d37d6",
+      "query_id": "ee851783a53c9ec9ff3b3773dc81eb4678e2230007b8c7bf9114e1a751e1a494",
+      "query_ids": [
+        "ee851783a53c9ec9ff3b3773dc81eb4678e2230007b8c7bf9114e1a751e1a494"
+      ],
+      "task_id": "pick_and_place_simple-KeyChain-None-ArmChair-322/trial_T20190908_223409_609518",
+      "tokens": 616,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "18e5f28dc3a4c42425cc32b891bfe8847a77f0fde8eb8a78aa5d901befb9eadb",
+          "task_id": "pick_and_place_simple-Newspaper-None-GarbageCan-214/trial_T20190907_181248_411320",
+          "tokens": 167,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "77b99bf098c99197ee31c26616e71b54f88a1ae47e38eab37cd8fb9b219be791",
+      "query_id": "18e5f28dc3a4c42425cc32b891bfe8847a77f0fde8eb8a78aa5d901befb9eadb",
+      "query_ids": [
+        "18e5f28dc3a4c42425cc32b891bfe8847a77f0fde8eb8a78aa5d901befb9eadb"
+      ],
+      "task_id": "pick_and_place_simple-Newspaper-None-GarbageCan-214/trial_T20190907_181248_411320",
+      "tokens": 167,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0dc5c772606bed8b8fe34604c5a42172cea41e73e0c52d7c35a80130e6412a3a",
+          "task_id": "pick_and_place_simple-Pen-None-Shelf-310/trial_T20190909_113535_223329",
+          "tokens": 177,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "75352a4e831b631fba3a9da90c1b8534ced69f003b9734fd0252d56ceaf93323",
+      "query_id": "0dc5c772606bed8b8fe34604c5a42172cea41e73e0c52d7c35a80130e6412a3a",
+      "query_ids": [
+        "0dc5c772606bed8b8fe34604c5a42172cea41e73e0c52d7c35a80130e6412a3a"
+      ],
+      "task_id": "pick_and_place_simple-Pen-None-Shelf-310/trial_T20190909_113535_223329",
+      "tokens": 177,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "e3ec363b23dfe64b45ec81706d7a10c0ee4d176bba5d9b71f846dc41faba9063",
+          "task_id": "pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151",
+          "tokens": 182,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ea5fe5505e8e235a31f189a7064cad7d3d23a6c7bdd63911085fa76fb3a0d3c9",
+      "query_id": "e3ec363b23dfe64b45ec81706d7a10c0ee4d176bba5d9b71f846dc41faba9063",
+      "query_ids": [
+        "e3ec363b23dfe64b45ec81706d7a10c0ee4d176bba5d9b71f846dc41faba9063"
+      ],
+      "task_id": "pick_and_place_simple-Pencil-None-Shelf-310/trial_T20190908_023553_529151",
+      "tokens": 182,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "00fca82d8806bfbef7a193a7b539ef494236f3456db6b53d72d61481ebcdb54f",
+          "task_id": "pick_and_place_simple-RemoteControl-None-Sofa-216/trial_T20190909_150037_262342",
+          "tokens": 1529,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0a57a53e5ae3c58eaac22da2feae5652d2283501dac42bb45b2031adb333ed1c",
+      "query_id": "00fca82d8806bfbef7a193a7b539ef494236f3456db6b53d72d61481ebcdb54f",
+      "query_ids": [
+        "00fca82d8806bfbef7a193a7b539ef494236f3456db6b53d72d61481ebcdb54f"
+      ],
+      "task_id": "pick_and_place_simple-RemoteControl-None-Sofa-216/trial_T20190909_150037_262342",
+      "tokens": 1529,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "af1bdf80e596c388be6076302da98c5f62b57de5453019de0ab63a0f4f1ce512",
+          "task_id": "pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015616_880449",
+          "tokens": 190,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "675589de02a194d76932252e4ad363da8899f550d5fe97c643b7b5a1b45b611c",
+      "query_id": "af1bdf80e596c388be6076302da98c5f62b57de5453019de0ab63a0f4f1ce512",
+      "query_ids": [
+        "af1bdf80e596c388be6076302da98c5f62b57de5453019de0ab63a0f4f1ce512"
+      ],
+      "task_id": "pick_and_place_simple-SoapBottle-None-Toilet-405/trial_T20190908_015616_880449",
+      "tokens": 190,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "cc5e7a5ebabc5bc2af2867bcb49a14b19ad88fa922a09fb3a977d893d9ca931f",
+          "task_id": "pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104226_709618",
+          "tokens": 389,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "13742d58160e8f5bd475a7c4586ff92e3f379da1cabb1d10e06aa2892b57eb4c",
+      "query_id": "cc5e7a5ebabc5bc2af2867bcb49a14b19ad88fa922a09fb3a977d893d9ca931f",
+      "query_ids": [
+        "cc5e7a5ebabc5bc2af2867bcb49a14b19ad88fa922a09fb3a977d893d9ca931f"
+      ],
+      "task_id": "pick_and_place_simple-SoapBottle-None-Toilet-406/trial_T20190909_104226_709618",
+      "tokens": 389,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c5a5ec7bde63112a82c212c02849dfd44cada2b3bcc1a17e23dfe22872c289b7",
+          "task_id": "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+          "tokens": 2719,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "f831bb60ebf163b5086262faeddbefa9b203cdc3d6eeb91c51e89ffc35e90174",
+          "task_id": "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+          "tokens": 2862,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b0233fdf88f85578284dc70a481eddaccb69a9813ff7a9162b9efa2c6cdddb94",
+          "task_id": "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+          "tokens": 2710,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0b38ce75488d6a1e7c1162b48a4db25910b01de21640e2758fa1b06d9ace1726",
+      "query_id": "c5a5ec7bde63112a82c212c02849dfd44cada2b3bcc1a17e23dfe22872c289b7",
+      "query_ids": [
+        "b0233fdf88f85578284dc70a481eddaccb69a9813ff7a9162b9efa2c6cdddb94",
+        "c5a5ec7bde63112a82c212c02849dfd44cada2b3bcc1a17e23dfe22872c289b7",
+        "f831bb60ebf163b5086262faeddbefa9b203cdc3d6eeb91c51e89ffc35e90174"
+      ],
+      "task_id": "pick_and_place_simple-SprayBottle-None-CounterTop-427/trial_T20190908_232532_117315",
+      "tokens": 8291,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f33af8e40a57200f255f3f16aebb2babf444d3c27a89e82c2eeafb1ea472bbcd",
+          "task_id": "pick_and_place_simple-SprayBottle-None-Drawer-423/trial_T20190909_071924_418051",
+          "tokens": 440,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "3d3a4190f526b0c453b9713fe11988b8836473a77024663f241046a79bd9be60",
+      "query_id": "f33af8e40a57200f255f3f16aebb2babf444d3c27a89e82c2eeafb1ea472bbcd",
+      "query_ids": [
+        "f33af8e40a57200f255f3f16aebb2babf444d3c27a89e82c2eeafb1ea472bbcd"
+      ],
+      "task_id": "pick_and_place_simple-SprayBottle-None-Drawer-423/trial_T20190909_071924_418051",
+      "tokens": 440,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "5db47a350d86f583ec37f02ccbdd85e8c890efb6151bf2524d1d29bfe5c72d98",
+          "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042148_900573",
+          "tokens": 225,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "389a1c8c5848fd9f3a1670a60a5e522c76e74146fa744bf83381a7a103024c17",
+      "query_id": "5db47a350d86f583ec37f02ccbdd85e8c890efb6151bf2524d1d29bfe5c72d98",
+      "query_ids": [
+        "5db47a350d86f583ec37f02ccbdd85e8c890efb6151bf2524d1d29bfe5c72d98"
+      ],
+      "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-403/trial_T20190908_042148_900573",
+      "tokens": 225,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d37ad2f404c47dcacdfecf804a9dbcc46f46aec7e76839d70a0ff057b244b645",
+          "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-418/trial_T20190906_190906_143249",
+          "tokens": 141,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "64e371f7b6f7e3ec59f3ff4e2f661e0b75a328ec987da10781a3d9ecc421b6e2",
+      "query_id": "d37ad2f404c47dcacdfecf804a9dbcc46f46aec7e76839d70a0ff057b244b645",
+      "query_ids": [
+        "d37ad2f404c47dcacdfecf804a9dbcc46f46aec7e76839d70a0ff057b244b645"
+      ],
+      "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-418/trial_T20190906_190906_143249",
+      "tokens": 141,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "600f420b113fd9349ac2b3d8de935e54abceb8ecb3fb747568a8750623785153",
+          "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-426/trial_T20190908_155236_907481",
+          "tokens": 176,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "53a146390b1b0321364a05014e54a170e0321d036f5719d32474efd808338ffa",
+      "query_id": "600f420b113fd9349ac2b3d8de935e54abceb8ecb3fb747568a8750623785153",
+      "query_ids": [
+        "600f420b113fd9349ac2b3d8de935e54abceb8ecb3fb747568a8750623785153"
+      ],
+      "task_id": "pick_and_place_simple-SprayBottle-None-Toilet-426/trial_T20190908_155236_907481",
+      "tokens": 176,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "1321b6783f0a516ad7ee24cf76ffab23ce7db00452a76a9eb7b7db007ad79788",
+          "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002335_756186",
+          "tokens": 232,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4fa75fb26d601728394840286483e65f20e9c7a7acdd91ad48c2a158588489ac",
+      "query_id": "1321b6783f0a516ad7ee24cf76ffab23ce7db00452a76a9eb7b7db007ad79788",
+      "query_ids": [
+        "1321b6783f0a516ad7ee24cf76ffab23ce7db00452a76a9eb7b7db007ad79788"
+      ],
+      "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002335_756186",
+      "tokens": 232,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "107530e5732747c03071a0685e6274fb9d7132851edace8e1a2a4d6a19f88998",
+          "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002434_086261",
+          "tokens": 952,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4fa75fb26d601728394840286483e65f20e9c7a7acdd91ad48c2a158588489ac",
+      "query_id": "107530e5732747c03071a0685e6274fb9d7132851edace8e1a2a4d6a19f88998",
+      "query_ids": [
+        "107530e5732747c03071a0685e6274fb9d7132851edace8e1a2a4d6a19f88998"
+      ],
+      "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-419/trial_T20190908_002434_086261",
+      "tokens": 952,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0f1b38d12802bb823374997cb9c7dc63394912c578bb2355024c1ebd79a40bd8",
+          "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-429/trial_T20190907_215139_316260",
+          "tokens": 136,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "e747054469ef4a31c074cf506beb9f34f20abe8dd60a5fb9e53de83715bfa70a",
+      "query_id": "0f1b38d12802bb823374997cb9c7dc63394912c578bb2355024c1ebd79a40bd8",
+      "query_ids": [
+        "0f1b38d12802bb823374997cb9c7dc63394912c578bb2355024c1ebd79a40bd8"
+      ],
+      "task_id": "pick_and_place_simple-ToiletPaper-None-Toilet-429/trial_T20190907_215139_316260",
+      "tokens": 136,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2723fff853af085beaf076b2621bde0a653fcac81ef5127d371aaa184384b642",
+          "task_id": "pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_030848_480173",
+          "tokens": 629,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "164465a11f7b5aa1ca557ffa7690b8b7740539905edff6200424a329db7cb25a",
+      "query_id": "2723fff853af085beaf076b2621bde0a653fcac81ef5127d371aaa184384b642",
+      "query_ids": [
+        "2723fff853af085beaf076b2621bde0a653fcac81ef5127d371aaa184384b642"
+      ],
+      "task_id": "pick_and_place_simple-ToiletPaper-None-ToiletPaperHanger-402/trial_T20190908_030848_480173",
+      "tokens": 629,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "baa11d9185d00eae045ce26e2228429f43ffcecb3c99b5cfc154d63328647c14",
+          "task_id": "pick_clean_then_place_in_recep-Apple-None-DiningTable-4/trial_T20190908_104413_450768",
+          "tokens": 437,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0c40957ec92497e73c37c027b8b7f836f4aabd01d0c58b9bbe42aa6d8a0f4611",
+      "query_id": "baa11d9185d00eae045ce26e2228429f43ffcecb3c99b5cfc154d63328647c14",
+      "query_ids": [
+        "baa11d9185d00eae045ce26e2228429f43ffcecb3c99b5cfc154d63328647c14"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Apple-None-DiningTable-4/trial_T20190908_104413_450768",
+      "tokens": 437,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "33ff83bf97c4f64e2fda5d087c481a329435bc1bd7ac68ff79cdb18474fa7233",
+          "task_id": "pick_clean_then_place_in_recep-Apple-None-Fridge-24/trial_T20190907_210711_329362",
+          "tokens": 3668,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "0e8d558d8ece32455d88cdfe3fad6e5ffbc9c19c143c4681f7f096fbb8fa85f3",
+          "task_id": "pick_clean_then_place_in_recep-Apple-None-Fridge-24/trial_T20190907_210711_329362",
+          "tokens": 778,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "827b1c4db920b46bfc1123dd046ed251a9987a4cd86d1fb1f5b0d67efd591f23",
+      "query_id": "0e8d558d8ece32455d88cdfe3fad6e5ffbc9c19c143c4681f7f096fbb8fa85f3",
+      "query_ids": [
+        "0e8d558d8ece32455d88cdfe3fad6e5ffbc9c19c143c4681f7f096fbb8fa85f3",
+        "33ff83bf97c4f64e2fda5d087c481a329435bc1bd7ac68ff79cdb18474fa7233"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Apple-None-Fridge-24/trial_T20190907_210711_329362",
+      "tokens": 4446,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "04d190a130485718c7e2902e070c33e123866f3181d02439c3f7a1cbfdcb8b19",
+          "task_id": "pick_clean_then_place_in_recep-Bowl-None-Fridge-21/trial_T20190909_014405_823537",
+          "tokens": 1480,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "aa097c2e9c8a3cd796cab4f4c7640a987571c8ddce256ca9f1c610d79d13e88a",
+      "query_id": "04d190a130485718c7e2902e070c33e123866f3181d02439c3f7a1cbfdcb8b19",
+      "query_ids": [
+        "04d190a130485718c7e2902e070c33e123866f3181d02439c3f7a1cbfdcb8b19"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Bowl-None-Fridge-21/trial_T20190909_014405_823537",
+      "tokens": 1480,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "da1aefc80142c6474cd9c0562f7c6be72bbaf7a11f9a78b3380f71aaa76029af",
+          "task_id": "pick_clean_then_place_in_recep-Cloth-None-Drawer-423/trial_T20190908_140626_609969",
+          "tokens": 827,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0341a61dcdb71e2840b5f45e6d49c5858a9bc399d1e4676d829c277ca614f9b6",
+      "query_id": "da1aefc80142c6474cd9c0562f7c6be72bbaf7a11f9a78b3380f71aaa76029af",
+      "query_ids": [
+        "da1aefc80142c6474cd9c0562f7c6be72bbaf7a11f9a78b3380f71aaa76029af"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Cloth-None-Drawer-423/trial_T20190908_140626_609969",
+      "tokens": 827,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "14361f21dbabf012bb7dca791f94aa772b2f00bf149cf48f23a272fa1c444c75",
+          "task_id": "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+          "tokens": 3052,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "60f198aeff9f0b5b8da7907d14f480eb7c9f9ce82d5def9b35ec77939b3ab64c",
+          "task_id": "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+          "tokens": 3447,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b44684f2e7e84710c29c17b4570d86581b31f5e25c866ad654903f5d348a95b5",
+          "task_id": "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+          "tokens": 3048,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "e5a3837c8cb3322ca469bf1aa9967824eb8f0b46ec625067d7819eeacc8519c5",
+      "query_id": "14361f21dbabf012bb7dca791f94aa772b2f00bf149cf48f23a272fa1c444c75",
+      "query_ids": [
+        "14361f21dbabf012bb7dca791f94aa772b2f00bf149cf48f23a272fa1c444c75",
+        "60f198aeff9f0b5b8da7907d14f480eb7c9f9ce82d5def9b35ec77939b3ab64c",
+        "b44684f2e7e84710c29c17b4570d86581b31f5e25c866ad654903f5d348a95b5"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Cup-None-Microwave-1/trial_T20190909_150920_919213",
+      "tokens": 9547,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "64d8f12b8593ed4475176f24862787fa14096fa179ac0a7ee70dc9d8369a0e03",
+          "task_id": "pick_clean_then_place_in_recep-Cup-None-Shelf-20/trial_T20190909_150550_335621",
+          "tokens": 353,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c813c2a6ac4d8b387057dbb23f3ef167652e3a000a890711d8df4ff7e6ba0435",
+      "query_id": "64d8f12b8593ed4475176f24862787fa14096fa179ac0a7ee70dc9d8369a0e03",
+      "query_ids": [
+        "64d8f12b8593ed4475176f24862787fa14096fa179ac0a7ee70dc9d8369a0e03"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Cup-None-Shelf-20/trial_T20190909_150550_335621",
+      "tokens": 353,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "03e6dfd10dd755af500c08a0e19c11e81d6a1e87fa45cf65f6ab50a9bf08d801",
+          "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+          "tokens": 3116,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "821eca107493ab60d43260ce4717b5b4654213c98d8bd9a301b494ff08b3ec45",
+          "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+          "tokens": 3256,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "149a0a8543b2b3ec0599c0f6e94360260e4d9ed03d304ca2808f3afe0d771ab9",
+          "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+          "tokens": 3257,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "3cc146184226442d2cf35f7ec5f5f0f4feda0c78a27cb63f2d617f803a5bab23",
+      "query_id": "03e6dfd10dd755af500c08a0e19c11e81d6a1e87fa45cf65f6ab50a9bf08d801",
+      "query_ids": [
+        "03e6dfd10dd755af500c08a0e19c11e81d6a1e87fa45cf65f6ab50a9bf08d801",
+        "149a0a8543b2b3ec0599c0f6e94360260e4d9ed03d304ca2808f3afe0d771ab9",
+        "821eca107493ab60d43260ce4717b5b4654213c98d8bd9a301b494ff08b3ec45"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Drawer-427/trial_T20190909_095203_563442",
+      "tokens": 9629,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "e02d947ba116f28ce3af172ad303b7214d41b31f578448a6d11fde33f4da8bff",
+          "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Toilet-427/trial_T20190908_234308_183420",
+          "tokens": 276,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "73ab0a5b16d25cab4fa61959e7777d83575ccbb4dc779c0391dee9c3a69ed80b",
+      "query_id": "e02d947ba116f28ce3af172ad303b7214d41b31f578448a6d11fde33f4da8bff",
+      "query_ids": [
+        "e02d947ba116f28ce3af172ad303b7214d41b31f578448a6d11fde33f4da8bff"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-DishSponge-None-Toilet-427/trial_T20190908_234308_183420",
+      "tokens": 276,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "8bc492706202e6676b7e3fb2ea7dd182323cb550a35cb1f4c93fb0380635f010",
+          "task_id": "pick_clean_then_place_in_recep-Ladle-None-CounterTop-14/trial_T20190909_114001_668818",
+          "tokens": 372,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c29dcd1be4f8999696e2848761c8f3f65952b715081d07b1ddb526357b63705f",
+      "query_id": "8bc492706202e6676b7e3fb2ea7dd182323cb550a35cb1f4c93fb0380635f010",
+      "query_ids": [
+        "8bc492706202e6676b7e3fb2ea7dd182323cb550a35cb1f4c93fb0380635f010"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Ladle-None-CounterTop-14/trial_T20190909_114001_668818",
+      "tokens": 372,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "150a430ffdd3493958f1650c9b056a2c5e28b56a9651284a2f4b5fcbcb9ba4a5",
+          "task_id": "pick_clean_then_place_in_recep-Lettuce-None-DiningTable-20/trial_T20190906_191148_519826",
+          "tokens": 3426,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "34205ed644ac12dd3e968e29f56a93735dea0ff22ef0ef33f19a5cd197ff657e",
+          "task_id": "pick_clean_then_place_in_recep-Lettuce-None-DiningTable-20/trial_T20190906_191148_519826",
+          "tokens": 3284,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "0ef1a4adf8b4fa66c0f46b416bb86d8bbe088c4d93532fe5068a077ab282ace3",
+          "task_id": "pick_clean_then_place_in_recep-Lettuce-None-DiningTable-20/trial_T20190906_191148_519826",
+          "tokens": 2134,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "604697abaa62737d2565ef98386258a8c5b071c434540eeeefffd0f494cc9f0c",
+      "query_id": "0ef1a4adf8b4fa66c0f46b416bb86d8bbe088c4d93532fe5068a077ab282ace3",
+      "query_ids": [
+        "0ef1a4adf8b4fa66c0f46b416bb86d8bbe088c4d93532fe5068a077ab282ace3",
+        "150a430ffdd3493958f1650c9b056a2c5e28b56a9651284a2f4b5fcbcb9ba4a5",
+        "34205ed644ac12dd3e968e29f56a93735dea0ff22ef0ef33f19a5cd197ff657e"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Lettuce-None-DiningTable-20/trial_T20190906_191148_519826",
+      "tokens": 8844,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c88e152efcfc3a305207a84966ea044c78eeea8e7cd7750f1c6d6a38d91f5817",
+          "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+          "tokens": 2963,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "5269ada69d3a45c0f35a77b1cf5f31a9e43ed6cf9e97b9cf53c9729fb1324750",
+          "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+          "tokens": 2562,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "39e5981f9b363a55cdcc1e3994fd4b87ebddb6b8aaeebc8e21b67204f64f234d",
+          "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+          "tokens": 3110,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ee3b1982055497806506afad5dada37cb7234e0d634b84ed62d87c3afc2d169b",
+      "query_id": "c88e152efcfc3a305207a84966ea044c78eeea8e7cd7750f1c6d6a38d91f5817",
+      "query_ids": [
+        "39e5981f9b363a55cdcc1e3994fd4b87ebddb6b8aaeebc8e21b67204f64f234d",
+        "5269ada69d3a45c0f35a77b1cf5f31a9e43ed6cf9e97b9cf53c9729fb1324750",
+        "c88e152efcfc3a305207a84966ea044c78eeea8e7cd7750f1c6d6a38d91f5817"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-11/trial_T20190909_100519_428325",
+      "tokens": 8635,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "bb46c7e8d9ac69c080daf0157de3cd8233be417973d21d9c3a44c50b4603c5fd",
+          "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-18/trial_T20190909_101110_748348",
+          "tokens": 365,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "f63c0fd2cd77e4e8188ea42f311d85814ac4b0d7eb61d8fd6ee38487170b5ca2",
+      "query_id": "bb46c7e8d9ac69c080daf0157de3cd8233be417973d21d9c3a44c50b4603c5fd",
+      "query_ids": [
+        "bb46c7e8d9ac69c080daf0157de3cd8233be417973d21d9c3a44c50b4603c5fd"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-18/trial_T20190909_101110_748348",
+      "tokens": 365,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "17df0d5d69af49c336143e59a37d8374b2203c00377586f97c59163624198aca",
+          "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-25/trial_T20190907_223942_379753",
+          "tokens": 316,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "88241460072b8822bc961035f55e1c0fa4c385dbafd429199916fe82b38e3f40",
+      "query_id": "17df0d5d69af49c336143e59a37d8374b2203c00377586f97c59163624198aca",
+      "query_ids": [
+        "17df0d5d69af49c336143e59a37d8374b2203c00377586f97c59163624198aca"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Mug-None-CoffeeMachine-25/trial_T20190907_223942_379753",
+      "tokens": 316,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "3bdcb9ede4336d260ba7f1ce32f8e0c76062d6d00a7e2125979e2408f5193f49",
+          "task_id": "pick_clean_then_place_in_recep-Pan-None-StoveBurner-5/trial_T20190907_124437_794732",
+          "tokens": 714,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "7844c662fb71c9228f2f7b842552c36d5409dfe33a5b1f5238088be9bd5b1472",
+      "query_id": "3bdcb9ede4336d260ba7f1ce32f8e0c76062d6d00a7e2125979e2408f5193f49",
+      "query_ids": [
+        "3bdcb9ede4336d260ba7f1ce32f8e0c76062d6d00a7e2125979e2408f5193f49"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Pan-None-StoveBurner-5/trial_T20190907_124437_794732",
+      "tokens": 714,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "7e7f8b4a81381fce0e0795fafcfed1ffdc6ba18932d07321fcd77fc961019ad9",
+          "task_id": "pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114616_377252",
+          "tokens": 618,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "cb92c245f920546cb0db2db4963f45238219c65959e5ea83f37c7c3278ce8494",
+      "query_id": "7e7f8b4a81381fce0e0795fafcfed1ffdc6ba18932d07321fcd77fc961019ad9",
+      "query_ids": [
+        "7e7f8b4a81381fce0e0795fafcfed1ffdc6ba18932d07321fcd77fc961019ad9"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Plate-None-Shelf-1/trial_T20190907_114616_377252",
+      "tokens": 618,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d3141088f16e2169a45ff5ee3872e8333fdfea3fb95f6ec1ef302ebe2c80fc3e",
+          "task_id": "pick_clean_then_place_in_recep-Potato-None-SideTable-21/trial_T20190906_192526_089769",
+          "tokens": 1023,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8f9979109a070c9d79250e7ad912efcd0e7d4ba6f6535858c6c9f68dc6c94295",
+      "query_id": "d3141088f16e2169a45ff5ee3872e8333fdfea3fb95f6ec1ef302ebe2c80fc3e",
+      "query_ids": [
+        "d3141088f16e2169a45ff5ee3872e8333fdfea3fb95f6ec1ef302ebe2c80fc3e"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Potato-None-SideTable-21/trial_T20190906_192526_089769",
+      "tokens": 1023,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c5e85e0b31e40182c22bbf62f0fa5289f3f813c624466ff867120a66465744cd",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-409/trial_T20190908_025437_027878",
+          "tokens": 1228,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "57e81e1c032c9bb9294ccebde7497ea6296433b0e805e5ce6f6a197d25f656ee",
+      "query_id": "c5e85e0b31e40182c22bbf62f0fa5289f3f813c624466ff867120a66465744cd",
+      "query_ids": [
+        "c5e85e0b31e40182c22bbf62f0fa5289f3f813c624466ff867120a66465744cd"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-409/trial_T20190908_025437_027878",
+      "tokens": 1228,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "cb3648ae07ad8232173908f9a1a0175d4b8807d176c49bf50be79ac401cbbbff",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-414/trial_T20190908_215405_138970",
+          "tokens": 507,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8c7fc2b45cb15c6bfbb066ef8ca993ea517de025ea4e780c5ebe77a982c247be",
+      "query_id": "cb3648ae07ad8232173908f9a1a0175d4b8807d176c49bf50be79ac401cbbbff",
+      "query_ids": [
+        "cb3648ae07ad8232173908f9a1a0175d4b8807d176c49bf50be79ac401cbbbff"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-CounterTop-414/trial_T20190908_215405_138970",
+      "tokens": 507,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "55efcdd974ca48e6a9c6d2186fd1965139016fea4c863d5cf1767045c22eb29e",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052929_590517",
+          "tokens": 460,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "19e282b189f3c03a8080d499645dabfac8952a5e08192521a8862e038e360280",
+      "query_id": "55efcdd974ca48e6a9c6d2186fd1965139016fea4c863d5cf1767045c22eb29e",
+      "query_ids": [
+        "55efcdd974ca48e6a9c6d2186fd1965139016fea4c863d5cf1767045c22eb29e"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052929_590517",
+      "tokens": 460,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "04b86304f7b996c904e670f02eb827686e9bff9d4a8cc9c76db9144064c49c38",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052957_687258",
+          "tokens": 337,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "19e282b189f3c03a8080d499645dabfac8952a5e08192521a8862e038e360280",
+      "query_id": "04b86304f7b996c904e670f02eb827686e9bff9d4a8cc9c76db9144064c49c38",
+      "query_ids": [
+        "04b86304f7b996c904e670f02eb827686e9bff9d4a8cc9c76db9144064c49c38"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-Drawer-415/trial_T20190909_052957_687258",
+      "tokens": 337,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "60ce86046ecfc3315a2f01ea9bd34a933c5827e23f928b68e892d2fe6a7ad87f",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-420/trial_T20190906_201023_015139",
+          "tokens": 831,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "3132d751948b6f1d6e153ffc2d5f725b7ce9154afca7d7d8d1f375f7de556c9e",
+      "query_id": "60ce86046ecfc3315a2f01ea9bd34a933c5827e23f928b68e892d2fe6a7ad87f",
+      "query_ids": [
+        "60ce86046ecfc3315a2f01ea9bd34a933c5827e23f928b68e892d2fe6a7ad87f"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-420/trial_T20190906_201023_015139",
+      "tokens": 831,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "dd094069a6aec4d9c5d79fcf19611d165c02324906df527d04f7d0334ac8810c",
+          "task_id": "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-429/trial_T20190909_015333_203352",
+          "tokens": 724,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "1aec1f65035444b4ed9ab2da11d7f12183ed41ccfffeb99c08b001e57fd212d6",
+      "query_id": "dd094069a6aec4d9c5d79fcf19611d165c02324906df527d04f7d0334ac8810c",
+      "query_ids": [
+        "dd094069a6aec4d9c5d79fcf19611d165c02324906df527d04f7d0334ac8810c"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-429/trial_T20190909_015333_203352",
+      "tokens": 724,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "19d4b0a8e67bb96eaa4e4c568be6ac7e15b2fbf5824d4fe16c76577fe543bd1c",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+          "tokens": 2816,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "311dca9a34eae1e395b6da0a63c82e369f56c980bf28e8a5aac3c74289c2f3f3",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+          "tokens": 2785,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "dde67de673b6d3c43479a8e84648019b3e0b2c57a5325ddba118f49dd50fb6df",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+          "tokens": 2630,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "5e8721c186c2674599bd8803e88d9138ee35b6f5472b7836f4456bcd932943ca",
+      "query_id": "19d4b0a8e67bb96eaa4e4c568be6ac7e15b2fbf5824d4fe16c76577fe543bd1c",
+      "query_ids": [
+        "19d4b0a8e67bb96eaa4e4c568be6ac7e15b2fbf5824d4fe16c76577fe543bd1c",
+        "311dca9a34eae1e395b6da0a63c82e369f56c980bf28e8a5aac3c74289c2f3f3",
+        "dde67de673b6d3c43479a8e84648019b3e0b2c57a5325ddba118f49dd50fb6df"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-23/trial_T20190909_103345_050416",
+      "tokens": 8231,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0140f6f9d44952e3bda2439b068fccfe4b7f969bbb94d3d2fa10a84d58853b26",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-24/trial_T20190909_021012_621960",
+          "tokens": 3172,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "154d941fa09bca15be6986015f8d89d5cfd0cc07bda9d553c7359adc3e71eae7",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-24/trial_T20190909_021012_621960",
+          "tokens": 3255,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "7185860c5fb79a001529837fdd6a9aa09adfd49e1d47e5a51d3f173374398c81",
+          "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-24/trial_T20190909_021012_621960",
+          "tokens": 1810,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "8a48b29147c9c3d0431025a0bb78a2534cc9e45eac4fbfb2c5cb4a13c2feff7a",
+      "query_id": "7185860c5fb79a001529837fdd6a9aa09adfd49e1d47e5a51d3f173374398c81",
+      "query_ids": [
+        "0140f6f9d44952e3bda2439b068fccfe4b7f969bbb94d3d2fa10a84d58853b26",
+        "154d941fa09bca15be6986015f8d89d5cfd0cc07bda9d553c7359adc3e71eae7",
+        "7185860c5fb79a001529837fdd6a9aa09adfd49e1d47e5a51d3f173374398c81"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Spatula-None-DiningTable-24/trial_T20190909_021012_621960",
+      "tokens": 8237,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "4d2085a5d9c2614a34a91819f11dd8b9fe2bf8b2e05e953df99e8007b9d05ef4",
+          "task_id": "pick_clean_then_place_in_recep-Spoon-None-DiningTable-18/trial_T20190909_102022_120766",
+          "tokens": 987,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "b9437684ea9c6b9bea2e60d0cb8868ce05025b60b16177a61e47b8bdd4144ab2",
+      "query_id": "4d2085a5d9c2614a34a91819f11dd8b9fe2bf8b2e05e953df99e8007b9d05ef4",
+      "query_ids": [
+        "4d2085a5d9c2614a34a91819f11dd8b9fe2bf8b2e05e953df99e8007b9d05ef4"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Spoon-None-DiningTable-18/trial_T20190909_102022_120766",
+      "tokens": 987,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "bd57f19538da5bfec33de667a73933d4361c68a314bd6c88365704ecb5836f0b",
+          "task_id": "pick_clean_then_place_in_recep-Tomato-None-SideTable-21/trial_T20190907_165032_703898",
+          "tokens": 1840,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0b45703ab6dd2294086f47cfd3370f1df51b0bb78a7fb7e419b2aadbd85ae4ce",
+      "query_id": "bd57f19538da5bfec33de667a73933d4361c68a314bd6c88365704ecb5836f0b",
+      "query_ids": [
+        "bd57f19538da5bfec33de667a73933d4361c68a314bd6c88365704ecb5836f0b"
+      ],
+      "task_id": "pick_clean_then_place_in_recep-Tomato-None-SideTable-21/trial_T20190907_165032_703898",
+      "tokens": 1840,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0472adedaaf16259a1675fe653521b038ff555c7489d0f730957b04110243fd8",
+          "task_id": "pick_cool_then_place_in_recep-Apple-None-DiningTable-16/trial_T20190909_075846_194710",
+          "tokens": 555,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ba577ed6740c55b78c0aa10f46396b624daccbd74ae7f4c4fa900917b2058949",
+      "query_id": "0472adedaaf16259a1675fe653521b038ff555c7489d0f730957b04110243fd8",
+      "query_ids": [
+        "0472adedaaf16259a1675fe653521b038ff555c7489d0f730957b04110243fd8"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Apple-None-DiningTable-16/trial_T20190909_075846_194710",
+      "tokens": 555,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0c87d05ede6fbda698b32613a336f3ad3ac6ad1053a8eda8b757e360069e1932",
+          "task_id": "pick_cool_then_place_in_recep-Apple-None-GarbageCan-5/trial_T20190908_111700_053859",
+          "tokens": 2281,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "e5f7e654345ccaab7a2bf63ff7b2f9d282125c4cc0eb4dbd3c3beae8df9a0aae",
+      "query_id": "0c87d05ede6fbda698b32613a336f3ad3ac6ad1053a8eda8b757e360069e1932",
+      "query_ids": [
+        "0c87d05ede6fbda698b32613a336f3ad3ac6ad1053a8eda8b757e360069e1932"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Apple-None-GarbageCan-5/trial_T20190908_111700_053859",
+      "tokens": 2281,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f6ecd4895450e79be281fbf524729527d6db83f8bf408741e8491211eef21ea6",
+          "task_id": "pick_cool_then_place_in_recep-Bowl-None-Cabinet-20/trial_T20190909_112802_913273",
+          "tokens": 457,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "488c869daa0f58fbfd5bb42366a442c4ea857877de73e12e2255cdcf88e7da0d",
+      "query_id": "f6ecd4895450e79be281fbf524729527d6db83f8bf408741e8491211eef21ea6",
+      "query_ids": [
+        "f6ecd4895450e79be281fbf524729527d6db83f8bf408741e8491211eef21ea6"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Bowl-None-Cabinet-20/trial_T20190909_112802_913273",
+      "tokens": 457,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "a7b809f22ae5b4ef5bb2617a08686635fa69f6012a6525a91fe0c0720f80a106",
+          "task_id": "pick_cool_then_place_in_recep-Bowl-None-DiningTable-23/trial_T20190908_140248_782127",
+          "tokens": 547,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "18d868ef2ee49c2ada9421c8bc17cbf67f4ce833d09ef78069b386477adc1efa",
+      "query_id": "a7b809f22ae5b4ef5bb2617a08686635fa69f6012a6525a91fe0c0720f80a106",
+      "query_ids": [
+        "a7b809f22ae5b4ef5bb2617a08686635fa69f6012a6525a91fe0c0720f80a106"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Bowl-None-DiningTable-23/trial_T20190908_140248_782127",
+      "tokens": 547,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f5f3d436f71d736408774f376d205e80dabe12fd6fccee895e28cb0f7b8ce621",
+          "task_id": "pick_cool_then_place_in_recep-Bowl-None-Microwave-7/trial_T20190908_231310_981246",
+          "tokens": 1067,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "aee4cbe6420409baf4dc3e9969463f081a8bc9fe705ea88dc3f5769ce8b6cd03",
+      "query_id": "f5f3d436f71d736408774f376d205e80dabe12fd6fccee895e28cb0f7b8ce621",
+      "query_ids": [
+        "f5f3d436f71d736408774f376d205e80dabe12fd6fccee895e28cb0f7b8ce621"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Bowl-None-Microwave-7/trial_T20190908_231310_981246",
+      "tokens": 1067,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "dd8796c8f8bbf40b1409b2f22e948bd84576b388ed5300cfd8347a0116b0c81c",
+          "task_id": "pick_cool_then_place_in_recep-Bread-None-DiningTable-26/trial_T20190906_183934_151879",
+          "tokens": 2927,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "2d8e19add801b130eb27762bc9748928df4365fea1c23d2efd900cedb982fd14",
+          "task_id": "pick_cool_then_place_in_recep-Bread-None-DiningTable-26/trial_T20190906_183934_151879",
+          "tokens": 615,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c8648e8f3f287b91a405cead9364f4247916fe3f2a31cf550d4d7d2a02461f8e",
+      "query_id": "2d8e19add801b130eb27762bc9748928df4365fea1c23d2efd900cedb982fd14",
+      "query_ids": [
+        "2d8e19add801b130eb27762bc9748928df4365fea1c23d2efd900cedb982fd14",
+        "dd8796c8f8bbf40b1409b2f22e948bd84576b388ed5300cfd8347a0116b0c81c"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Bread-None-DiningTable-26/trial_T20190906_183934_151879",
+      "tokens": 3542,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "06571b556e55dd740af90199ac0af190d1d49d930977e87f3f65e3d5ed68b4a3",
+          "task_id": "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+          "tokens": 2328,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "a76721f869d67409f68bf288e76570f98a94dfff0d53b909a3466cd122f45ff4",
+          "task_id": "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+          "tokens": 2237,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "154e25e15b82c23f13d382e721780c4a1315b4952dbeb01ebc5d86a2000ce4c2",
+          "task_id": "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+          "tokens": 2082,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "328edf4bd1f4d110f054cf24380c29820bd3afe6349d5561d9ced334704d68b1",
+      "query_id": "06571b556e55dd740af90199ac0af190d1d49d930977e87f3f65e3d5ed68b4a3",
+      "query_ids": [
+        "06571b556e55dd740af90199ac0af190d1d49d930977e87f3f65e3d5ed68b4a3",
+        "154e25e15b82c23f13d382e721780c4a1315b4952dbeb01ebc5d86a2000ce4c2",
+        "a76721f869d67409f68bf288e76570f98a94dfff0d53b909a3466cd122f45ff4"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Cup-None-Shelf-1/trial_T20190907_181551_510121",
+      "tokens": 6647,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "207e30c2127feed811e73f779734b5c276595a1fc7c61e50fe438846e592952f",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+          "tokens": 6795,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "7565c161d46288fe5749dda430fabcf3bda7b13a40b57be5b01d1c016662c762",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+          "tokens": 3927,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "84b03b00d35f7683705944357f6665e364cb8682de0ec128d76a678155ab3241",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+          "tokens": 3886,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "84c325c8c49c1828edb979e0b16e624c7d413b30e21bdcca0dbae60f636ad4bc",
+      "query_id": "207e30c2127feed811e73f779734b5c276595a1fc7c61e50fe438846e592952f",
+      "query_ids": [
+        "207e30c2127feed811e73f779734b5c276595a1fc7c61e50fe438846e592952f",
+        "7565c161d46288fe5749dda430fabcf3bda7b13a40b57be5b01d1c016662c762",
+        "84b03b00d35f7683705944357f6665e364cb8682de0ec128d76a678155ab3241"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-21/trial_T20190908_034155_073328",
+      "tokens": 14608,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "421427d444ae5a7a37a6933da3e5dee3c0109ec45e611ad5cfa9df2a0eae2441",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+          "tokens": 2703,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "e3a7b6b7c20624f81e6af481f9a00145c49baff6380f0f7b901e93b84fe507a0",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+          "tokens": 2498,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b3d6e08328d4145df7e6602fe1c9e631ffd4724d55b86ebb58365218aafa44d0",
+          "task_id": "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+          "tokens": 2902,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c4cc907002e6c24b1830b1c9d77aa35065db40fd81e6279806c323495fecb67c",
+      "query_id": "421427d444ae5a7a37a6933da3e5dee3c0109ec45e611ad5cfa9df2a0eae2441",
+      "query_ids": [
+        "421427d444ae5a7a37a6933da3e5dee3c0109ec45e611ad5cfa9df2a0eae2441",
+        "b3d6e08328d4145df7e6602fe1c9e631ffd4724d55b86ebb58365218aafa44d0",
+        "e3a7b6b7c20624f81e6af481f9a00145c49baff6380f0f7b901e93b84fe507a0"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Mug-None-SideTable-21/trial_T20190907_153718_648592",
+      "tokens": 8103,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f7c06fa04a3f35bf90bca90470ca3a153aa9cc3680122e15f65f89ab8a0e3966",
+          "task_id": "pick_cool_then_place_in_recep-Pan-None-Cabinet-5/trial_T20190919_052755_008638",
+          "tokens": 1756,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4dff95282b62d334f0284090c4f8d28ecfc68132d000cf5c1f19b1ffe903edcc",
+      "query_id": "f7c06fa04a3f35bf90bca90470ca3a153aa9cc3680122e15f65f89ab8a0e3966",
+      "query_ids": [
+        "f7c06fa04a3f35bf90bca90470ca3a153aa9cc3680122e15f65f89ab8a0e3966"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Pan-None-Cabinet-5/trial_T20190919_052755_008638",
+      "tokens": 1756,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "aa00f1f298d7c7bb6798ea0c23acac2931c2be8bb8cbc942cc0081502ba8d546",
+          "task_id": "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+          "tokens": 2316,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "361e402409cb400700bca3f17a2d09d0b60acd4e0ed13c66f713183599f43b7f",
+          "task_id": "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+          "tokens": 2144,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "9b5efc0f3c99cea9060581db3ff461696dcc30b0e613f4daa83e4e43776f55f3",
+          "task_id": "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+          "tokens": 2282,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "300b41f3176febb879240ba615d2d03c81aec188d66a945f99a5a9f60a80a0e9",
+      "query_id": "aa00f1f298d7c7bb6798ea0c23acac2931c2be8bb8cbc942cc0081502ba8d546",
+      "query_ids": [
+        "361e402409cb400700bca3f17a2d09d0b60acd4e0ed13c66f713183599f43b7f",
+        "9b5efc0f3c99cea9060581db3ff461696dcc30b0e613f4daa83e4e43776f55f3",
+        "aa00f1f298d7c7bb6798ea0c23acac2931c2be8bb8cbc942cc0081502ba8d546"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Pan-None-DiningTable-11/trial_T20190908_204315_625279",
+      "tokens": 6742,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d69aa53e084e1fbe9f763fdd43588ab8cb07edf84354fc289645ae4d15739612",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+          "tokens": 2664,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "04be6ca194eac0450ea8f194873172afd3636037de57365d12643d3b00f73b47",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+          "tokens": 3202,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "ab0e6cab53ffec1c185f369822d71b7b1c5e723e86e85ba0353ccb17894b89ca",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+          "tokens": 3372,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4aed7a43aaf62482261750b644e3117037d96d6909aeec7fb07b6a3f5525f6cf",
+      "query_id": "d69aa53e084e1fbe9f763fdd43588ab8cb07edf84354fc289645ae4d15739612",
+      "query_ids": [
+        "04be6ca194eac0450ea8f194873172afd3636037de57365d12643d3b00f73b47",
+        "ab0e6cab53ffec1c185f369822d71b7b1c5e723e86e85ba0353ccb17894b89ca",
+        "d69aa53e084e1fbe9f763fdd43588ab8cb07edf84354fc289645ae4d15739612"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Plate-None-Cabinet-22/trial_T20190907_200807_715947",
+      "tokens": 9238,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "711c6154847b78633e021a18966f74ea82834d8cf11ab1a9b00e77ed9321c270",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Microwave-7/trial_T20190909_130643_778745",
+          "tokens": 2197,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "d80d7120e74c0929f5008f369810b87b5f841ac07a3a9a2c0988119f969f4b6c",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Microwave-7/trial_T20190909_130643_778745",
+          "tokens": 2283,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "0b5880da4a07b0d80285f55234d471f8f8c825b7ceadb4d429ae9edf8f237fdb",
+          "task_id": "pick_cool_then_place_in_recep-Plate-None-Microwave-7/trial_T20190909_130643_778745",
+          "tokens": 1563,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "191ea32ddd4bf879365680b21be1e28ffe83193935b0bd98c5b4d0eb19f7473c",
+      "query_id": "0b5880da4a07b0d80285f55234d471f8f8c825b7ceadb4d429ae9edf8f237fdb",
+      "query_ids": [
+        "0b5880da4a07b0d80285f55234d471f8f8c825b7ceadb4d429ae9edf8f237fdb",
+        "711c6154847b78633e021a18966f74ea82834d8cf11ab1a9b00e77ed9321c270",
+        "d80d7120e74c0929f5008f369810b87b5f841ac07a3a9a2c0988119f969f4b6c"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Plate-None-Microwave-7/trial_T20190909_130643_778745",
+      "tokens": 6043,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c8a079572136c8fc2163ec25820dc9c2297aad8517c6401f90dd49871f044ffe",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-DiningTable-21/trial_T20190909_004420_892970",
+          "tokens": 2790,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "cb26cb9c43f4dfe0894b47b393de01d3773dee08c61eae302247b61c2b4e979e",
+      "query_id": "c8a079572136c8fc2163ec25820dc9c2297aad8517c6401f90dd49871f044ffe",
+      "query_ids": [
+        "c8a079572136c8fc2163ec25820dc9c2297aad8517c6401f90dd49871f044ffe"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Pot-None-DiningTable-21/trial_T20190909_004420_892970",
+      "tokens": 2790,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0c40f8eb39a04d99ffffcb4f911eb7f0d0712384cf14e99eb8a5a0a04f12d068",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+          "tokens": 2261,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "5dd62b7d76059c33d5f1ea8d071253b3ba4bf932e28ee81e6cfd5000d3446326",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+          "tokens": 2451,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "6f8625bc61489db3f6642604b440fce266df4acf8ea4bf3173fa74d27c80b688",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+          "tokens": 2362,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c7ab7de5118bbb43efa89f08fb8789cac6b13f64de6ceaf2dda0835ea67ee23c",
+      "query_id": "0c40f8eb39a04d99ffffcb4f911eb7f0d0712384cf14e99eb8a5a0a04f12d068",
+      "query_ids": [
+        "0c40f8eb39a04d99ffffcb4f911eb7f0d0712384cf14e99eb8a5a0a04f12d068",
+        "5dd62b7d76059c33d5f1ea8d071253b3ba4bf932e28ee81e6cfd5000d3446326",
+        "6f8625bc61489db3f6642604b440fce266df4acf8ea4bf3173fa74d27c80b688"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Pot-None-Shelf-1/trial_T20190906_234856_560153",
+      "tokens": 7074,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "789531bd5b4412ee78ad486e62ff7fe6f619671851295536769ebf03967eef68",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+          "tokens": 3120,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "3642d0ad9cc93d34c5b406366ebd723784a1d054c2732726ee9d48076d314efa",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+          "tokens": 2905,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "0b373dac477f24d791df94d2b477ceefb701aa821dbeddc7c45369db372702aa",
+          "task_id": "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+          "tokens": 3251,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "7b6f2902759d311465f5807f0b3210911595910bfc54b9c444697cd50d2db7c9",
+      "query_id": "789531bd5b4412ee78ad486e62ff7fe6f619671851295536769ebf03967eef68",
+      "query_ids": [
+        "0b373dac477f24d791df94d2b477ceefb701aa821dbeddc7c45369db372702aa",
+        "3642d0ad9cc93d34c5b406366ebd723784a1d054c2732726ee9d48076d314efa",
+        "789531bd5b4412ee78ad486e62ff7fe6f619671851295536769ebf03967eef68"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Pot-None-StoveBurner-4/trial_T20190906_190656_137258",
+      "tokens": 9276,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "9ccedb746844ba2cb9d37ccd4c5cd5fdf5a0e453c02e22aeafa2c4508eee7457",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+          "tokens": 2745,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "b26227d620d829786e5b580d3f4b16e346737e70aa805136918a47a457363590",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+          "tokens": 2457,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "d0abe8ac14cad7570aecd612331abba9336ab4f7177458b3bb333bc463772b93",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+          "tokens": 2722,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c0bd2378b7fe781bb1615ed977c9f1e53bb809e91ed82b358bb680360027c426",
+      "query_id": "9ccedb746844ba2cb9d37ccd4c5cd5fdf5a0e453c02e22aeafa2c4508eee7457",
+      "query_ids": [
+        "9ccedb746844ba2cb9d37ccd4c5cd5fdf5a0e453c02e22aeafa2c4508eee7457",
+        "b26227d620d829786e5b580d3f4b16e346737e70aa805136918a47a457363590",
+        "d0abe8ac14cad7570aecd612331abba9336ab4f7177458b3bb333bc463772b93"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+      "tokens": 7924,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "aab4e842a6d9609a4d0bad2c2a494284ad1cb00a99d76d9258c527040dd8ad68",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+          "tokens": 2494,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "04bbcc6ff1699763bdc71747c85b83bf8bd4ec640cce666442ef8525ab148166",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+          "tokens": 2462,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "a22e17c248750c0138a0abac40982007c9a70b3a873bf181caf7870ab27e7f8c",
+          "task_id": "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+          "tokens": 2313,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "771f5456ed40352f78331d23032b45440063a9ffd5245e438bd95fc035227612",
+      "query_id": "aab4e842a6d9609a4d0bad2c2a494284ad1cb00a99d76d9258c527040dd8ad68",
+      "query_ids": [
+        "04bbcc6ff1699763bdc71747c85b83bf8bd4ec640cce666442ef8525ab148166",
+        "a22e17c248750c0138a0abac40982007c9a70b3a873bf181caf7870ab27e7f8c",
+        "aab4e842a6d9609a4d0bad2c2a494284ad1cb00a99d76d9258c527040dd8ad68"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Potato-None-Microwave-5/trial_T20190909_102546_579154",
+      "tokens": 7269,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "295a8219e77442951e2b62781e07bc316585112932abc9da6dc031bc00b90251",
+          "task_id": "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+          "tokens": 2425,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "ea7fd04e34f82aaa59af84f9896966a8d0915159a307342212588ed490ad0133",
+          "task_id": "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+          "tokens": 2704,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "59165541776ced58b59d4723808d93c31042aee6b60621502a82499505033acf",
+          "task_id": "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+          "tokens": 2721,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "10bd77f78767806e3ef4a6793e592a7752e6f35cfae2d6656f04982e09722f42",
+      "query_id": "295a8219e77442951e2b62781e07bc316585112932abc9da6dc031bc00b90251",
+      "query_ids": [
+        "295a8219e77442951e2b62781e07bc316585112932abc9da6dc031bc00b90251",
+        "59165541776ced58b59d4723808d93c31042aee6b60621502a82499505033acf",
+        "ea7fd04e34f82aaa59af84f9896966a8d0915159a307342212588ed490ad0133"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Tomato-None-CounterTop-11/trial_T20190908_073503_844263",
+      "tokens": 7850,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "3c4574cbc4150b58e123a7756c7d12b1fd0a8e259eb9f9a26824556f224a46c6",
+          "task_id": "pick_cool_then_place_in_recep-Tomato-None-Microwave-27/trial_T20190909_145459_922990",
+          "tokens": 377,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "21624f5ed83c862d978bd665a8c3825f3b626e89175c85be6d417f8a97652229",
+      "query_id": "3c4574cbc4150b58e123a7756c7d12b1fd0a8e259eb9f9a26824556f224a46c6",
+      "query_ids": [
+        "3c4574cbc4150b58e123a7756c7d12b1fd0a8e259eb9f9a26824556f224a46c6"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-Tomato-None-Microwave-27/trial_T20190909_145459_922990",
+      "tokens": 377,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "0099ab81a4583554caeec223703fe3d79589bcfd761056d14319776c6d666e7e",
+          "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-16/trial_T20190907_015045_510934",
+          "tokens": 2417,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "3e455c4d6f854c33e7a0ad366dd27a0c753833c7d2b8bacc71785c67fc891234",
+      "query_id": "0099ab81a4583554caeec223703fe3d79589bcfd761056d14319776c6d666e7e",
+      "query_ids": [
+        "0099ab81a4583554caeec223703fe3d79589bcfd761056d14319776c6d666e7e"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-16/trial_T20190907_015045_510934",
+      "tokens": 2417,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "09b7fad4e678d317ba36ed63f3dafd981dc50da0629becdd0eeebb2c6f7df923",
+          "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+          "tokens": 2765,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "bf170368cc58d6957be57837e64fe0c3e785c3e082ae87850d2bf54d4de53c0b",
+          "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+          "tokens": 2710,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "737e3158999579349a4c457a41d4de034ce09b2b5dd31a9f97fb795073bf2fb6",
+          "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+          "tokens": 2587,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "aed35becbaa26134a76456027c15b5bb973211f9e337a9c23d9a081722f8bde5",
+      "query_id": "09b7fad4e678d317ba36ed63f3dafd981dc50da0629becdd0eeebb2c6f7df923",
+      "query_ids": [
+        "09b7fad4e678d317ba36ed63f3dafd981dc50da0629becdd0eeebb2c6f7df923",
+        "737e3158999579349a4c457a41d4de034ce09b2b5dd31a9f97fb795073bf2fb6",
+        "bf170368cc58d6957be57837e64fe0c3e785c3e082ae87850d2bf54d4de53c0b"
+      ],
+      "task_id": "pick_cool_then_place_in_recep-WineBottle-None-GarbageCan-17/trial_T20190907_144031_217697",
+      "tokens": 8062,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "00a1d9f95fd4da24564abf4735a64fcddbe6eb27d138ec6e9c928524a6e80137",
+          "task_id": "pick_heat_then_place_in_recep-Apple-None-CounterTop-5/trial_T20190907_113507_490654",
+          "tokens": 1547,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "e489b2047cf16b5da52c918ec58cb5a2cea5edf19f6e95835b299f24612f9304",
+      "query_id": "00a1d9f95fd4da24564abf4735a64fcddbe6eb27d138ec6e9c928524a6e80137",
+      "query_ids": [
+        "00a1d9f95fd4da24564abf4735a64fcddbe6eb27d138ec6e9c928524a6e80137"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Apple-None-CounterTop-5/trial_T20190907_113507_490654",
+      "tokens": 1547,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d9d3309ac6505aae03f4a1f78c5a6b4acfcd9ff917fe61deb631d31af3b82acb",
+          "task_id": "pick_heat_then_place_in_recep-Apple-None-DiningTable-23/trial_T20190909_082324_376707",
+          "tokens": 408,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4e84f053696cdbc20f7571e2eab77365b47dd8e7fded732cc01a28f03e3355fe",
+      "query_id": "d9d3309ac6505aae03f4a1f78c5a6b4acfcd9ff917fe61deb631d31af3b82acb",
+      "query_ids": [
+        "d9d3309ac6505aae03f4a1f78c5a6b4acfcd9ff917fe61deb631d31af3b82acb"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Apple-None-DiningTable-23/trial_T20190909_082324_376707",
+      "tokens": 408,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "61d2d2938fb3fc1865db043b0a251c8ed6a0b6ac5727a23d2c7475b043403ed9",
+          "task_id": "pick_heat_then_place_in_recep-Apple-None-Fridge-22/trial_T20190908_210321_417277",
+          "tokens": 429,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c1ed2e7236cadb999803657b5c795e7b5d9f36d89ca387bdda5f36fce8e2199d",
+      "query_id": "61d2d2938fb3fc1865db043b0a251c8ed6a0b6ac5727a23d2c7475b043403ed9",
+      "query_ids": [
+        "61d2d2938fb3fc1865db043b0a251c8ed6a0b6ac5727a23d2c7475b043403ed9"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Apple-None-Fridge-22/trial_T20190908_210321_417277",
+      "tokens": 429,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f97e8f7e370c91e552a8e7077606dbf379425bcbc045104a7e1ad594be6fa1ac",
+          "task_id": "pick_heat_then_place_in_recep-Apple-None-Fridge-25/trial_T20190908_050852_487447",
+          "tokens": 2604,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "606a6ebd6734a7498de1a54a1f515856d371d50489d654ec9fadae2b9f317b9f",
+      "query_id": "f97e8f7e370c91e552a8e7077606dbf379425bcbc045104a7e1ad594be6fa1ac",
+      "query_ids": [
+        "f97e8f7e370c91e552a8e7077606dbf379425bcbc045104a7e1ad594be6fa1ac"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Apple-None-Fridge-25/trial_T20190908_050852_487447",
+      "tokens": 2604,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "7845db6c1a0c0403b718dad8c279f5d355781aeddc133a1c040f09235e24e2a6",
+          "task_id": "pick_heat_then_place_in_recep-Apple-None-SideTable-21/trial_T20190908_235409_008266",
+          "tokens": 1314,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ca64bc1aed52adecb85808ea3aafa30685511d2781bbd89e0cfee50ba98a238c",
+      "query_id": "7845db6c1a0c0403b718dad8c279f5d355781aeddc133a1c040f09235e24e2a6",
+      "query_ids": [
+        "7845db6c1a0c0403b718dad8c279f5d355781aeddc133a1c040f09235e24e2a6"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Apple-None-SideTable-21/trial_T20190908_235409_008266",
+      "tokens": 1314,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "f5badae7d1657b364faefada9a1f983fd664f76651b3738739f77e81791075b9",
+          "task_id": "pick_heat_then_place_in_recep-Bread-None-DiningTable-15/trial_T20190907_030851_016828",
+          "tokens": 261,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a64feb52e2014bf15cad56c0e4b7a19cdb550e3bb58ba6fced9c7d177f4e552a",
+      "query_id": "f5badae7d1657b364faefada9a1f983fd664f76651b3738739f77e81791075b9",
+      "query_ids": [
+        "f5badae7d1657b364faefada9a1f983fd664f76651b3738739f77e81791075b9"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Bread-None-DiningTable-15/trial_T20190907_030851_016828",
+      "tokens": 261,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "434dc066625245b85d9615c7e13cfb3772e5720fa09b0b44f5422908c5d58d09",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-12/trial_T20190907_210848_644854",
+          "tokens": 447,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "9c8530a013f4a8ad97acb9cd6430da644b9a07db40338f10f30c581f01e2cd3e",
+      "query_id": "434dc066625245b85d9615c7e13cfb3772e5720fa09b0b44f5422908c5d58d09",
+      "query_ids": [
+        "434dc066625245b85d9615c7e13cfb3772e5720fa09b0b44f5422908c5d58d09"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-12/trial_T20190907_210848_644854",
+      "tokens": 447,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "a5139a5e6f4feb6fe716c02757e50454902caf117ec2cb8c52693ac01cab6915",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-15/trial_T20190908_055531_226087",
+          "tokens": 661,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4b78af2e94afdc30ac0c74b7de99d13a49ba4f89e11a8a76f8304030fab143f0",
+      "query_id": "a5139a5e6f4feb6fe716c02757e50454902caf117ec2cb8c52693ac01cab6915",
+      "query_ids": [
+        "a5139a5e6f4feb6fe716c02757e50454902caf117ec2cb8c52693ac01cab6915"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-15/trial_T20190908_055531_226087",
+      "tokens": 661,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "fe4db69a94cd8e8dbb991a55efc9c315f824f7dfb06a20d4b5f7934424b958bd",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+          "tokens": 5393,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "292d2f884a597ca324c7ff62ea4a873a717ad93973b1e319c41a76d4fa35cced",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+          "tokens": 5234,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "56fd156da75b3a2337349d717f56a3b7908cd65b90b26bc5e3813c7b505a8b96",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+          "tokens": 5694,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "1279b5786582e5f3cc27b1fe69eaec66a1d8cb0f1a64067748f5e34d37265ee5",
+      "query_id": "fe4db69a94cd8e8dbb991a55efc9c315f824f7dfb06a20d4b5f7934424b958bd",
+      "query_ids": [
+        "292d2f884a597ca324c7ff62ea4a873a717ad93973b1e319c41a76d4fa35cced",
+        "56fd156da75b3a2337349d717f56a3b7908cd65b90b26bc5e3813c7b505a8b96",
+        "fe4db69a94cd8e8dbb991a55efc9c315f824f7dfb06a20d4b5f7934424b958bd"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-27/trial_T20190908_123907_725964",
+      "tokens": 16321,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "20a5ea7956aa509d50f26696c4617e09b9c01d57c838cc67a895b80b2621a836",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+          "tokens": 4277,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "2519d37358db2018c315da7919aabb9f35df7996644e87c1f58663b7a3218815",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+          "tokens": 5090,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "aa36280f6eb7c58b572c4f9626ee2ec6abcdad92caf694fc5e1a1e210589008a",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+          "tokens": 4098,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "08a379be5b0a1fa30f32f10802cd6edfdb8c888591c58d95a15ebdfd27c27f67",
+      "query_id": "20a5ea7956aa509d50f26696c4617e09b9c01d57c838cc67a895b80b2621a836",
+      "query_ids": [
+        "20a5ea7956aa509d50f26696c4617e09b9c01d57c838cc67a895b80b2621a836",
+        "2519d37358db2018c315da7919aabb9f35df7996644e87c1f58663b7a3218815",
+        "aa36280f6eb7c58b572c4f9626ee2ec6abcdad92caf694fc5e1a1e210589008a"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-Cabinet-30/trial_T20190906_200421_362725",
+      "tokens": 13465,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "403afb390eaa7c85bf4e257ee5b67718d09cde7cfc44001539d9d75b102761d9",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-CounterTop-13/trial_T20190907_013610_766116",
+          "tokens": 488,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "3bb9da8241fecba10e1dcf9862cdc9b472214cef474e0dbe3e720b8e8a5504e9",
+      "query_id": "403afb390eaa7c85bf4e257ee5b67718d09cde7cfc44001539d9d75b102761d9",
+      "query_ids": [
+        "403afb390eaa7c85bf4e257ee5b67718d09cde7cfc44001539d9d75b102761d9"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-CounterTop-13/trial_T20190907_013610_766116",
+      "tokens": 488,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "395408cad5536a5c6f0fcbea25d4a073ab1b5bbf6d9b9f125aeb790bc54e731f",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+          "tokens": 3068,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "62730d1aaec1dc65c115a2f89feda00e368beb03d05bda1d1964cd1d6ba26162",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+          "tokens": 4404,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "2087980d55b9fc3cac78dec0aedadf97192a0be6ee11445c369458c7edaeac91",
+          "task_id": "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+          "tokens": 2608,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "de427807a473a3e247c2a47e6e4782ef97b415e6902f8d29c407b4b138a800e2",
+      "query_id": "395408cad5536a5c6f0fcbea25d4a073ab1b5bbf6d9b9f125aeb790bc54e731f",
+      "query_ids": [
+        "2087980d55b9fc3cac78dec0aedadf97192a0be6ee11445c369458c7edaeac91",
+        "395408cad5536a5c6f0fcbea25d4a073ab1b5bbf6d9b9f125aeb790bc54e731f",
+        "62730d1aaec1dc65c115a2f89feda00e368beb03d05bda1d1964cd1d6ba26162"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Cup-None-Fridge-23/trial_T20190908_045529_826062",
+      "tokens": 10080,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "36a2ce52bb84bb22ec52b721b1e73ef6486c044953b75945443eea2bdf605f84",
+          "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+          "tokens": 2389,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "654e9609c372700c0edbb8c3f49f21d850a316bbc938e95ecba9f14745564c3f",
+          "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+          "tokens": 2327,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "2536930e8b53bb1f7a62f47c2d7ffc1fa53d3176e596f367bccddfd4a2847fc7",
+          "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+          "tokens": 2812,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "0f856eded20c99dc810350607a82d61531ef99facffffa26596aadf9ee9a04b5",
+      "query_id": "36a2ce52bb84bb22ec52b721b1e73ef6486c044953b75945443eea2bdf605f84",
+      "query_ids": [
+        "2536930e8b53bb1f7a62f47c2d7ffc1fa53d3176e596f367bccddfd4a2847fc7",
+        "36a2ce52bb84bb22ec52b721b1e73ef6486c044953b75945443eea2bdf605f84",
+        "654e9609c372700c0edbb8c3f49f21d850a316bbc938e95ecba9f14745564c3f"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+      "tokens": 7528,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "08f1d880ca22a671adc5fcd48ce754a154589d8dcb2c4721e9ee9f205c88be1d",
+          "task_id": "pick_heat_then_place_in_recep-Mug-None-Cabinet-22/trial_T20190908_073018_399742",
+          "tokens": 2465,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "32331fe21beb2db20a08cda6a6d5b0263c00c66767ffe3cb819f5be2076c5984",
+      "query_id": "08f1d880ca22a671adc5fcd48ce754a154589d8dcb2c4721e9ee9f205c88be1d",
+      "query_ids": [
+        "08f1d880ca22a671adc5fcd48ce754a154589d8dcb2c4721e9ee9f205c88be1d"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Mug-None-Cabinet-22/trial_T20190908_073018_399742",
+      "tokens": 2465,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "07fabff93509f42f4936267c68a7ba970fae377a1a9a283660231f7484a261a2",
+          "task_id": "pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-2/trial_T20190907_070817_015451",
+          "tokens": 257,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "422009c208d9db135d0eaa481341634d9edc056b4dbd78c1816bddfef81afa2d",
+      "query_id": "07fabff93509f42f4936267c68a7ba970fae377a1a9a283660231f7484a261a2",
+      "query_ids": [
+        "07fabff93509f42f4936267c68a7ba970fae377a1a9a283660231f7484a261a2"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-2/trial_T20190907_070817_015451",
+      "tokens": 257,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "3738240c27d8382e7f4198b592a89fe43c494ab823d04e9ff244148ac0178ef4",
+          "task_id": "pick_heat_then_place_in_recep-Mug-None-Shelf-5/trial_T20190906_203817_948928",
+          "tokens": 315,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "247b0342df5c9ee557e872afdd8f221c6b61d1c3ba9b7c647a66558e7c886d84",
+      "query_id": "3738240c27d8382e7f4198b592a89fe43c494ab823d04e9ff244148ac0178ef4",
+      "query_ids": [
+        "3738240c27d8382e7f4198b592a89fe43c494ab823d04e9ff244148ac0178ef4"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Mug-None-Shelf-5/trial_T20190906_203817_948928",
+      "tokens": 315,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "8bc97500d5cf729c2737cfa9be59e4967b4fa298abdc4ee19b4ea08d9b8fc994",
+          "task_id": "pick_heat_then_place_in_recep-Plate-None-Fridge-13/trial_T20190907_040058_909208",
+          "tokens": 2483,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "954df6919d61554ada826315cf1db3af29868410edf85a2854ceacb4e7926f8f",
+          "task_id": "pick_heat_then_place_in_recep-Plate-None-Fridge-13/trial_T20190907_040058_909208",
+          "tokens": 2904,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "de2b27b2ae336d45e41e24d6c72fc697dd3971b26bd721b2a4ad78dbbc5e71ed",
+      "query_id": "954df6919d61554ada826315cf1db3af29868410edf85a2854ceacb4e7926f8f",
+      "query_ids": [
+        "8bc97500d5cf729c2737cfa9be59e4967b4fa298abdc4ee19b4ea08d9b8fc994",
+        "954df6919d61554ada826315cf1db3af29868410edf85a2854ceacb4e7926f8f"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Plate-None-Fridge-13/trial_T20190907_040058_909208",
+      "tokens": 5387,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "6956654f6221f98664651ecfab43c36d99a88eee90c938afca7abc1815a4d40f",
+          "task_id": "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+          "tokens": 2266,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "3b32d7ab5337caecc53238f9b1621b4ac402dadf89189a32fbfe4eb57686746c",
+          "task_id": "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+          "tokens": 2512,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "4dca922032aeca168b389f7c5a49e502c1f58e82724f342fafcfd25a3b5dbba9",
+          "task_id": "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+          "tokens": 2741,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "d88ef85c3eeb2adfc672d6c44769e1bc96e5ad69bdc3366b66efdfc52d718bc4",
+      "query_id": "6956654f6221f98664651ecfab43c36d99a88eee90c938afca7abc1815a4d40f",
+      "query_ids": [
+        "3b32d7ab5337caecc53238f9b1621b4ac402dadf89189a32fbfe4eb57686746c",
+        "4dca922032aeca168b389f7c5a49e502c1f58e82724f342fafcfd25a3b5dbba9",
+        "6956654f6221f98664651ecfab43c36d99a88eee90c938afca7abc1815a4d40f"
+      ],
+      "task_id": "pick_heat_then_place_in_recep-Potato-None-Fridge-5/trial_T20190908_140513_739727",
+      "tokens": 7519,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "4b8c77196ee1237e3271cde6d6df35251cb5a8577c4f90677ff74ebe3fbedee0",
+          "task_id": "pick_two_obj_and_place-Book-None-Bed-316/trial_T20190909_032358_551783",
+          "tokens": 838,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "e4a9fb8f53f0b3a9b6067f62e5480d084ba0cbd2a4450f09b13dd9863a10c35e",
+      "query_id": "4b8c77196ee1237e3271cde6d6df35251cb5a8577c4f90677ff74ebe3fbedee0",
+      "query_ids": [
+        "4b8c77196ee1237e3271cde6d6df35251cb5a8577c4f90677ff74ebe3fbedee0"
+      ],
+      "task_id": "pick_two_obj_and_place-Book-None-Bed-316/trial_T20190909_032358_551783",
+      "tokens": 838,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "ecabe46c5041741ffdc5951f4168e545e8c29c9a2d497166b1390792fa208a5e",
+          "task_id": "pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190908_022158_405498",
+          "tokens": 493,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a036fc98f4c313b0fbe15151dc3e18fc3bff609f9e25636c22517df118003d84",
+      "query_id": "ecabe46c5041741ffdc5951f4168e545e8c29c9a2d497166b1390792fa208a5e",
+      "query_ids": [
+        "ecabe46c5041741ffdc5951f4168e545e8c29c9a2d497166b1390792fa208a5e"
+      ],
+      "task_id": "pick_two_obj_and_place-Book-None-Drawer-304/trial_T20190908_022158_405498",
+      "tokens": 493,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "cbf8b989778eece1f42a94c672c80053d5017026f93ab4f0df875997fe7e06cd",
+          "task_id": "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+          "tokens": 2515,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "d2e25b79fa8ec11f659938a36843b81547b005db66eca757948d8e4539f1d86b",
+          "task_id": "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+          "tokens": 2341,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "91545b553f56afc04a0b900ead1f362478c27ca467111197ea1cafdc01019794",
+          "task_id": "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+          "tokens": 2528,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "d6ff93b18c31ae2c56659d1662b5126d9f1388661bca4c68aa16dbea7d2082ba",
+      "query_id": "cbf8b989778eece1f42a94c672c80053d5017026f93ab4f0df875997fe7e06cd",
+      "query_ids": [
+        "91545b553f56afc04a0b900ead1f362478c27ca467111197ea1cafdc01019794",
+        "cbf8b989778eece1f42a94c672c80053d5017026f93ab4f0df875997fe7e06cd",
+        "d2e25b79fa8ec11f659938a36843b81547b005db66eca757948d8e4539f1d86b"
+      ],
+      "task_id": "pick_two_obj_and_place-Box-None-CoffeeTable-213/trial_T20190906_200855_584466",
+      "tokens": 7384,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d33747d9b70d400626af09e7ee835b7b81042cbe83ad79da046058a3a479c3a4",
+          "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084818_682608",
+          "tokens": 683,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "c38b443ee73b8c9b04cfab2f2db3028a12e81e2883905805b60a36780f28e228",
+      "query_id": "d33747d9b70d400626af09e7ee835b7b81042cbe83ad79da046058a3a479c3a4",
+      "query_ids": [
+        "d33747d9b70d400626af09e7ee835b7b81042cbe83ad79da046058a3a479c3a4"
+      ],
+      "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-402/trial_T20190909_084818_682608",
+      "tokens": 683,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c9126db3ace711eecc41f9a00c0e1e0f24035d0738545667f8e9f80c497ee048",
+          "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+          "tokens": 2881,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "1389c72b324f159d69c5b886908563981d7c5d41b6194576ecd93747f3c4c9bd",
+          "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+          "tokens": 4162,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "71d28d62bbcfcaf71b436246045d6a489999df4c817b57f0c7c6fb3a3f466287",
+          "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+          "tokens": 3965,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "6b2101c1ec626bad3352167489c3aa5b354bebeeb4d1fcc3d11c4fb5daa3c5d6",
+      "query_id": "c9126db3ace711eecc41f9a00c0e1e0f24035d0738545667f8e9f80c497ee048",
+      "query_ids": [
+        "1389c72b324f159d69c5b886908563981d7c5d41b6194576ecd93747f3c4c9bd",
+        "71d28d62bbcfcaf71b436246045d6a489999df4c817b57f0c7c6fb3a3f466287",
+        "c9126db3ace711eecc41f9a00c0e1e0f24035d0738545667f8e9f80c497ee048"
+      ],
+      "task_id": "pick_two_obj_and_place-Candle-None-Cabinet-414/trial_T20190908_190650_163902",
+      "tokens": 11008,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "ebd97e2692bbb131363d0420188014a425c044822401489528e9c5417b22984b",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+          "tokens": 3680,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "1656613ca19e3272d4f91b3c63747c0c575b48f15e0e674142dae8c34329639b",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+          "tokens": 3909,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "061ee2d8d8cf98585c389a3448db69397348d36d6f2406c55726876416596c1d",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+          "tokens": 3695,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "cab12b888099b60833f956557ee310688ddb64f644a21a001ac881a5a29a5a53",
+      "query_id": "ebd97e2692bbb131363d0420188014a425c044822401489528e9c5417b22984b",
+      "query_ids": [
+        "061ee2d8d8cf98585c389a3448db69397348d36d6f2406c55726876416596c1d",
+        "1656613ca19e3272d4f91b3c63747c0c575b48f15e0e674142dae8c34329639b",
+        "ebd97e2692bbb131363d0420188014a425c044822401489528e9c5417b22984b"
+      ],
+      "task_id": "pick_two_obj_and_place-Candle-None-Drawer-409/trial_T20190909_060303_838571",
+      "tokens": 11284,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2533a4e56e688b6e9b5d86ab2a131bad4e1beee8cc638c82d34cba4d35499739",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+          "tokens": 2578,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "245206e0724ebfd8b7e8c55297234e1526ecbea2e3b2e4a7321da8856f437ecc",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+          "tokens": 2765,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "a6a628f182d1ff17eca3c565af30f5e89970035f7fca109e2795d619337f6686",
+          "task_id": "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+          "tokens": 2657,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "19c96252ef8c2b690932098840525c247d97d9738d9d34550ca5f43df624e433",
+      "query_id": "2533a4e56e688b6e9b5d86ab2a131bad4e1beee8cc638c82d34cba4d35499739",
+      "query_ids": [
+        "245206e0724ebfd8b7e8c55297234e1526ecbea2e3b2e4a7321da8856f437ecc",
+        "2533a4e56e688b6e9b5d86ab2a131bad4e1beee8cc638c82d34cba4d35499739",
+        "a6a628f182d1ff17eca3c565af30f5e89970035f7fca109e2795d619337f6686"
+      ],
+      "task_id": "pick_two_obj_and_place-Candle-None-Drawer-426/trial_T20190907_133551_259209",
+      "tokens": 8000,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "84fa2d312020b6686b8e73402fb7174e2abe2822c8a9b3dc6f8c91c347548091",
+          "task_id": "pick_two_obj_and_place-Candle-None-Shelf-429/trial_T20190909_075128_271977",
+          "tokens": 935,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a3f187905c88c6063d126ee67038dbdcbc58c474f75601bf47e695c0cf333e29",
+      "query_id": "84fa2d312020b6686b8e73402fb7174e2abe2822c8a9b3dc6f8c91c347548091",
+      "query_ids": [
+        "84fa2d312020b6686b8e73402fb7174e2abe2822c8a9b3dc6f8c91c347548091"
+      ],
+      "task_id": "pick_two_obj_and_place-Candle-None-Shelf-429/trial_T20190909_075128_271977",
+      "tokens": 935,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "9df7d5d275faf0142799bbb04f05242a166c71d75333b5070ea3ea9276e4823a",
+          "task_id": "pick_two_obj_and_place-CellPhone-None-Bed-314/trial_T20190909_013435_646326",
+          "tokens": 1243,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "910a58bb24042e30202d55e3d59d8bf6e73b9b3d2419f3a6ab074cef856c0771",
+      "query_id": "9df7d5d275faf0142799bbb04f05242a166c71d75333b5070ea3ea9276e4823a",
+      "query_ids": [
+        "9df7d5d275faf0142799bbb04f05242a166c71d75333b5070ea3ea9276e4823a"
+      ],
+      "task_id": "pick_two_obj_and_place-CellPhone-None-Bed-314/trial_T20190909_013435_646326",
+      "tokens": 1243,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "578949c0e66c69e51121eddccb9aa0a356b384c51337606fad8168a73a72975a",
+          "task_id": "pick_two_obj_and_place-CellPhone-None-Bed-324/trial_T20190907_143501_605409",
+          "tokens": 2580,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "59bb857f29eec27c269b9c2a1a0044087a458e90e7d8cc4bab41f15e08a12ea8",
+          "task_id": "pick_two_obj_and_place-CellPhone-None-Bed-324/trial_T20190907_143501_605409",
+          "tokens": 2245,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "297b1d6d660216d65514331bfddb51cf6ca577775f50a7e922e50b4c31bf94c1",
+      "query_id": "59bb857f29eec27c269b9c2a1a0044087a458e90e7d8cc4bab41f15e08a12ea8",
+      "query_ids": [
+        "578949c0e66c69e51121eddccb9aa0a356b384c51337606fad8168a73a72975a",
+        "59bb857f29eec27c269b9c2a1a0044087a458e90e7d8cc4bab41f15e08a12ea8"
+      ],
+      "task_id": "pick_two_obj_and_place-CellPhone-None-Bed-324/trial_T20190907_143501_605409",
+      "tokens": 4825,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "a13c87dfb15dcdfae238d19135c68fbbc0e135c6196b9f63a3c0498f4491d4a2",
+          "task_id": "pick_two_obj_and_place-CellPhone-None-Desk-312/trial_T20190908_122308_202330",
+          "tokens": 3228,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "adcbd9c6a135fed7c9c5412680f2b015690be4ce8398e4f85f2d08fc2e289f84",
+          "task_id": "pick_two_obj_and_place-CellPhone-None-Desk-312/trial_T20190908_122308_202330",
+          "tokens": 3019,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ab2111e923e73d11755b5757db8981a73a5944131c6a63f5df1a79d9d6f3ddd3",
+      "query_id": "adcbd9c6a135fed7c9c5412680f2b015690be4ce8398e4f85f2d08fc2e289f84",
+      "query_ids": [
+        "a13c87dfb15dcdfae238d19135c68fbbc0e135c6196b9f63a3c0498f4491d4a2",
+        "adcbd9c6a135fed7c9c5412680f2b015690be4ce8398e4f85f2d08fc2e289f84"
+      ],
+      "task_id": "pick_two_obj_and_place-CellPhone-None-Desk-312/trial_T20190908_122308_202330",
+      "tokens": 6247,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "dc62ae7e36a194535ee0c661719aa8fc60364d3865218bd34382c2a53a40ea6f",
+          "task_id": "pick_two_obj_and_place-CreditCard-None-DiningTable-329/trial_T20190909_001332_765357",
+          "tokens": 920,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "cbad465c4b0f51d2a03b475933a50a8f6452e265d52a203af3cbc27542a1367c",
+      "query_id": "dc62ae7e36a194535ee0c661719aa8fc60364d3865218bd34382c2a53a40ea6f",
+      "query_ids": [
+        "dc62ae7e36a194535ee0c661719aa8fc60364d3865218bd34382c2a53a40ea6f"
+      ],
+      "task_id": "pick_two_obj_and_place-CreditCard-None-DiningTable-329/trial_T20190909_001332_765357",
+      "tokens": 920,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "9562a2ec5316b31e0f71722c6acd4335793b082d17b06f82e3a05dee95d11e3c",
+          "task_id": "pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_054258_649233",
+          "tokens": 1031,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "60b89056b45e5a51c7bf3c949b03a93a7df9f4fa11f1babee34e075a89b695ed",
+      "query_id": "9562a2ec5316b31e0f71722c6acd4335793b082d17b06f82e3a05dee95d11e3c",
+      "query_ids": [
+        "9562a2ec5316b31e0f71722c6acd4335793b082d17b06f82e3a05dee95d11e3c"
+      ],
+      "task_id": "pick_two_obj_and_place-DishSponge-None-Cart-401/trial_T20190909_054258_649233",
+      "tokens": 1031,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "fb2ea29ca38d5f1b1cd7bb3fe6ce1eac5ddf17a9ff65afe5cdf548d7749169be",
+          "task_id": "pick_two_obj_and_place-Kettle-None-Cabinet-3/trial_T20190918_152724_975980",
+          "tokens": 666,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "aff21f4794e6d03c9d11f4414b8ff15d812a3ffc904e689946592fb1add3c734",
+      "query_id": "fb2ea29ca38d5f1b1cd7bb3fe6ce1eac5ddf17a9ff65afe5cdf548d7749169be",
+      "query_ids": [
+        "fb2ea29ca38d5f1b1cd7bb3fe6ce1eac5ddf17a9ff65afe5cdf548d7749169be"
+      ],
+      "task_id": "pick_two_obj_and_place-Kettle-None-Cabinet-3/trial_T20190918_152724_975980",
+      "tokens": 666,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "eeae76963e713bc7b0345e45bd345e2a173604b2e3a48b053ded274f0dad991b",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+          "tokens": 2979,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "d1dffcd9ef5e2e70e44c554519d5a202f7465f23a835600c3009cc35a815b624",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+          "tokens": 2545,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "bed58fcff6458615c2d4d2b3736a7b3004ec5bf2ed1d5d7c553cb0fc67ad7407",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+          "tokens": 2737,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "29dfc989d98e583929e1d9fc176e71ac1bc038d3d100e16f7e392c8f8d80de52",
+      "query_id": "eeae76963e713bc7b0345e45bd345e2a173604b2e3a48b053ded274f0dad991b",
+      "query_ids": [
+        "bed58fcff6458615c2d4d2b3736a7b3004ec5bf2ed1d5d7c553cb0fc67ad7407",
+        "d1dffcd9ef5e2e70e44c554519d5a202f7465f23a835600c3009cc35a815b624",
+        "eeae76963e713bc7b0345e45bd345e2a173604b2e3a48b053ded274f0dad991b"
+      ],
+      "task_id": "pick_two_obj_and_place-KeyChain-None-Drawer-317/trial_T20190911_161750_831181",
+      "tokens": 8261,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "a67c0bdb1520858ede8d59b3b76cf09a99ed27611e95cce03bd5dd0273541f53",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+          "tokens": 2647,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "cde573032abf0331cc5f1fd6e3540f818f5e12baf1743b46d44c026a6449313c",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+          "tokens": 2767,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "9d1ea7cf225f683a4db7a6bf8cdd43ffb4944b7a4d65600dd977c14edc308667",
+          "task_id": "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+          "tokens": 2516,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "70fe7224ba056bd34c3ddab1cd5314e4f3b02b5c28f6520daf7d2b6e3d53751e",
+      "query_id": "a67c0bdb1520858ede8d59b3b76cf09a99ed27611e95cce03bd5dd0273541f53",
+      "query_ids": [
+        "9d1ea7cf225f683a4db7a6bf8cdd43ffb4944b7a4d65600dd977c14edc308667",
+        "a67c0bdb1520858ede8d59b3b76cf09a99ed27611e95cce03bd5dd0273541f53",
+        "cde573032abf0331cc5f1fd6e3540f818f5e12baf1743b46d44c026a6449313c"
+      ],
+      "task_id": "pick_two_obj_and_place-KeyChain-None-SideTable-326/trial_T20190908_161022_255067",
+      "tokens": 7930,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "81a29c941404ca8fa3f16633e5bca090594d6c8b873bd02227a3f73198594a6c",
+          "task_id": "pick_two_obj_and_place-Ladle-None-Drawer-2/trial_T20190906_162750_791095",
+          "tokens": 2653,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "498a3f6696755a5dbdd12228e6986bef4b1c59071b8974a73f8c80e73d215d8a",
+      "query_id": "81a29c941404ca8fa3f16633e5bca090594d6c8b873bd02227a3f73198594a6c",
+      "query_ids": [
+        "81a29c941404ca8fa3f16633e5bca090594d6c8b873bd02227a3f73198594a6c"
+      ],
+      "task_id": "pick_two_obj_and_place-Ladle-None-Drawer-2/trial_T20190906_162750_791095",
+      "tokens": 2653,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "45f53f9d32adb80128410648f045b02749f8b0c7e415e2e1bf71e66e4efe9046",
+          "task_id": "pick_two_obj_and_place-Laptop-None-Desk-309/trial_T20190907_151204_265576",
+          "tokens": 1671,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "a3e407fbc4d1599b97dd236373c170468a3d5e9f5efba5b8ddc6c231d46c64cc",
+      "query_id": "45f53f9d32adb80128410648f045b02749f8b0c7e415e2e1bf71e66e4efe9046",
+      "query_ids": [
+        "45f53f9d32adb80128410648f045b02749f8b0c7e415e2e1bf71e66e4efe9046"
+      ],
+      "task_id": "pick_two_obj_and_place-Laptop-None-Desk-309/trial_T20190907_151204_265576",
+      "tokens": 1671,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "936fcbdcedf57293df99f5e1ca84f072485c63213fbfd1e82f7452c5cc6093da",
+          "task_id": "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112632_208041",
+          "tokens": 409,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "eec41a1ff32079725686faa26e7cbc1fea39256b4e8f875db61ff55455da40b5",
+      "query_id": "936fcbdcedf57293df99f5e1ca84f072485c63213fbfd1e82f7452c5cc6093da",
+      "query_ids": [
+        "936fcbdcedf57293df99f5e1ca84f072485c63213fbfd1e82f7452c5cc6093da"
+      ],
+      "task_id": "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112632_208041",
+      "tokens": 409,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2fa815d2ccc0144c270020c9fd1898052bb302b9959946f517d3fb5f898cfbda",
+          "task_id": "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112704_150966",
+          "tokens": 822,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "eec41a1ff32079725686faa26e7cbc1fea39256b4e8f875db61ff55455da40b5",
+      "query_id": "2fa815d2ccc0144c270020c9fd1898052bb302b9959946f517d3fb5f898cfbda",
+      "query_ids": [
+        "2fa815d2ccc0144c270020c9fd1898052bb302b9959946f517d3fb5f898cfbda"
+      ],
+      "task_id": "pick_two_obj_and_place-Newspaper-None-Sofa-212/trial_T20190908_112704_150966",
+      "tokens": 822,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "5739d3ee71715a83e4e7d5d5601e272626b8645376599d30d70d6e782f2cba05",
+          "task_id": "pick_two_obj_and_place-Pen-None-Dresser-318/trial_T20190912_171559_010465",
+          "tokens": 1493,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "52de438e7b15438215e210a6d016ef0dd3ac82030119faf54e9c6f7206fac9ac",
+      "query_id": "5739d3ee71715a83e4e7d5d5601e272626b8645376599d30d70d6e782f2cba05",
+      "query_ids": [
+        "5739d3ee71715a83e4e7d5d5601e272626b8645376599d30d70d6e782f2cba05"
+      ],
+      "task_id": "pick_two_obj_and_place-Pen-None-Dresser-318/trial_T20190912_171559_010465",
+      "tokens": 1493,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2f439675edf3b2adade86d7a6e7868dafadd7e2c69179ab22f19c688838773cb",
+          "task_id": "pick_two_obj_and_place-Pencil-None-Desk-327/trial_T20190911_224556_462302",
+          "tokens": 2939,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "95b26706b0f6e4efced158e6ddc59a175b53d84d1bd6d62fb925cc8525fa75b7",
+          "task_id": "pick_two_obj_and_place-Pencil-None-Desk-327/trial_T20190911_224556_462302",
+          "tokens": 3468,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "b779f26c3458a5e626830606882c89d4b954422b8da19191989d2bfdd0db0ea1",
+          "task_id": "pick_two_obj_and_place-Pencil-None-Desk-327/trial_T20190911_224556_462302",
+          "tokens": 2540,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "781900118fe04240c85d77490b1dd4af8122eb45ab2daf1212ddcafb719be5fb",
+      "query_id": "b779f26c3458a5e626830606882c89d4b954422b8da19191989d2bfdd0db0ea1",
+      "query_ids": [
+        "2f439675edf3b2adade86d7a6e7868dafadd7e2c69179ab22f19c688838773cb",
+        "95b26706b0f6e4efced158e6ddc59a175b53d84d1bd6d62fb925cc8525fa75b7",
+        "b779f26c3458a5e626830606882c89d4b954422b8da19191989d2bfdd0db0ea1"
+      ],
+      "task_id": "pick_two_obj_and_place-Pencil-None-Desk-327/trial_T20190911_224556_462302",
+      "tokens": 8947,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "95171ccd57cdb8a30f675e086c7728cdc08b4148425dd87874e1091c579afce9",
+          "task_id": "pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114",
+          "tokens": 2800,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "ed8dece12789a4fed3a91cd78336a0564f3f5e9c776b4acb80d21ce4157dc361",
+      "query_id": "95171ccd57cdb8a30f675e086c7728cdc08b4148425dd87874e1091c579afce9",
+      "query_ids": [
+        "95171ccd57cdb8a30f675e086c7728cdc08b4148425dd87874e1091c579afce9"
+      ],
+      "task_id": "pick_two_obj_and_place-Pot-None-Shelf-1/trial_T20190907_210536_883114",
+      "tokens": 2800,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "e76744cc02b436c46deac5eb75fab993e7a9b7fa846fa18af5067e9f49b6eb42",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-ArmChair-214/trial_T20190909_020949_765614",
+          "tokens": 705,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "2c2d39b976b1f6a01e1bf4c8311303f6183f164cf288f7a8ff920b740a1b39c9",
+      "query_id": "e76744cc02b436c46deac5eb75fab993e7a9b7fa846fa18af5067e9f49b6eb42",
+      "query_ids": [
+        "e76744cc02b436c46deac5eb75fab993e7a9b7fa846fa18af5067e9f49b6eb42"
+      ],
+      "task_id": "pick_two_obj_and_place-RemoteControl-None-ArmChair-214/trial_T20190909_020949_765614",
+      "tokens": 705,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "df4774db64391c56957240bc3333a875d73d579ab42611b604452acf3e2c7d0c",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-Ottoman-208/trial_T20190908_004505_362807",
+          "tokens": 3498,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "d7435894e2e817a9fcbf6d36e0506fd8468b7c147f76873e0cbab2b34a84b32a",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-Ottoman-208/trial_T20190908_004505_362807",
+          "tokens": 3264,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "969cb2997639c3e51a356b1857af95020cc35acc7ed98a3f6c8f63b851b951fb",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-Ottoman-208/trial_T20190908_004505_362807",
+          "tokens": 3244,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "575e2b5d07f579ef959e5d586dd85907e15d93c77fb8c95217796232d3b033b1",
+      "query_id": "969cb2997639c3e51a356b1857af95020cc35acc7ed98a3f6c8f63b851b951fb",
+      "query_ids": [
+        "969cb2997639c3e51a356b1857af95020cc35acc7ed98a3f6c8f63b851b951fb",
+        "d7435894e2e817a9fcbf6d36e0506fd8468b7c147f76873e0cbab2b34a84b32a",
+        "df4774db64391c56957240bc3333a875d73d579ab42611b604452acf3e2c7d0c"
+      ],
+      "task_id": "pick_two_obj_and_place-RemoteControl-None-Ottoman-208/trial_T20190908_004505_362807",
+      "tokens": 10006,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "ace618fd5c4783553ff8055a24dd9f25baae871c742d0b8190bc5f51904edae1",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-Sofa-212/trial_T20190907_235247_981744",
+          "tokens": 3917,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "7bdc6c37295bfa21dea4ef01f737658685f8c8d37e1555d91703e83ef9d830b7",
+          "task_id": "pick_two_obj_and_place-RemoteControl-None-Sofa-212/trial_T20190907_235247_981744",
+          "tokens": 3791,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "1c93411c92c2e7045e1a633f7aaab4b381cc5508e496475e05188560ec09f621",
+      "query_id": "7bdc6c37295bfa21dea4ef01f737658685f8c8d37e1555d91703e83ef9d830b7",
+      "query_ids": [
+        "7bdc6c37295bfa21dea4ef01f737658685f8c8d37e1555d91703e83ef9d830b7",
+        "ace618fd5c4783553ff8055a24dd9f25baae871c742d0b8190bc5f51904edae1"
+      ],
+      "task_id": "pick_two_obj_and_place-RemoteControl-None-Sofa-212/trial_T20190907_235247_981744",
+      "tokens": 7708,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "d1c9b89233f04af67ab8c01e6ad227b5e4686a9d6941421548f4ea4b5ca9366c",
+          "task_id": "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+          "tokens": 3123,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "7bfd30670037331b9ea7ca126f817ddaa648c37fb34479e84730705a99497845",
+          "task_id": "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+          "tokens": 3298,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "0ac40b7b779fc6da1e434ebcc612bb04c26747d7f6c599ad894bd70f904db186",
+          "task_id": "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+          "tokens": 5132,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "fc3e470e6180e59d92386e15e03c73cbb69b3b8460e965f1357a968e8808465a",
+      "query_id": "d1c9b89233f04af67ab8c01e6ad227b5e4686a9d6941421548f4ea4b5ca9366c",
+      "query_ids": [
+        "0ac40b7b779fc6da1e434ebcc612bb04c26747d7f6c599ad894bd70f904db186",
+        "7bfd30670037331b9ea7ca126f817ddaa648c37fb34479e84730705a99497845",
+        "d1c9b89233f04af67ab8c01e6ad227b5e4686a9d6941421548f4ea4b5ca9366c"
+      ],
+      "task_id": "pick_two_obj_and_place-SaltShaker-None-Cabinet-26/trial_T20190908_113251_841003",
+      "tokens": 11553,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "4c19a540e18e3b52031665fe1cf7ba105e9eb85987d2bd927b316c3a507eaae7",
+          "task_id": "pick_two_obj_and_place-SaltShaker-None-Drawer-12/trial_T20190907_175233_453383",
+          "tokens": 835,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "2adfb446e97079cd26853cd89cee6d9ab6173fde9a9661cd84ca3d6a73f52fab",
+      "query_id": "4c19a540e18e3b52031665fe1cf7ba105e9eb85987d2bd927b316c3a507eaae7",
+      "query_ids": [
+        "4c19a540e18e3b52031665fe1cf7ba105e9eb85987d2bd927b316c3a507eaae7"
+      ],
+      "task_id": "pick_two_obj_and_place-SaltShaker-None-Drawer-12/trial_T20190907_175233_453383",
+      "tokens": 835,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "da63d08bbfe8e887dc11ce93d46dc6483e3e83c78c3a54a7f5b566523f1d46e7",
+          "task_id": "pick_two_obj_and_place-SaltShaker-None-Drawer-5/trial_T20190907_151045_928468",
+          "tokens": 1139,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "6c6a16199a46ed3196dc49e410dec4dd318bf5bd8f29350119c6bcb3686b030e",
+      "query_id": "da63d08bbfe8e887dc11ce93d46dc6483e3e83c78c3a54a7f5b566523f1d46e7",
+      "query_ids": [
+        "da63d08bbfe8e887dc11ce93d46dc6483e3e83c78c3a54a7f5b566523f1d46e7"
+      ],
+      "task_id": "pick_two_obj_and_place-SaltShaker-None-Drawer-5/trial_T20190907_151045_928468",
+      "tokens": 1139,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "394286646a2314aafc7805590a173bc42c9fc64b1d02d70f4a993cd5e0c980ca",
+          "task_id": "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172",
+          "tokens": 5278,
+          "verified": false
+        },
+        {
+          "attempt_index": 1,
+          "cost_confidence": "estimated",
+          "query_id": "995b17d36b341e5c7ddbf64d6b7584970587e167eddc1825bdebceb3e7ee1690",
+          "task_id": "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172",
+          "tokens": 6541,
+          "verified": false
+        },
+        {
+          "attempt_index": 2,
+          "cost_confidence": "estimated",
+          "query_id": "8cac6ed1ce4917346ab35b8d925fba6a9b71194dfb9da80d6cf221fb859df8e4",
+          "task_id": "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172",
+          "tokens": 4856,
+          "verified": false
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "bd21829d0bd72f1e0e07db82e0a5f7e3e4638f11045d52bab42461cd78a2c947",
+      "query_id": "394286646a2314aafc7805590a173bc42c9fc64b1d02d70f4a993cd5e0c980ca",
+      "query_ids": [
+        "394286646a2314aafc7805590a173bc42c9fc64b1d02d70f4a993cd5e0c980ca",
+        "8cac6ed1ce4917346ab35b8d925fba6a9b71194dfb9da80d6cf221fb859df8e4",
+        "995b17d36b341e5c7ddbf64d6b7584970587e167eddc1825bdebceb3e7ee1690"
+      ],
+      "task_id": "pick_two_obj_and_place-SoapBar-None-Drawer-421/trial_T20190908_130732_924172",
+      "tokens": 16675,
+      "usable": false
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "c1681866890f3f4a3ffde4d8b242db19da81d3e55da657748c402d2a79494c09",
+          "task_id": "pick_two_obj_and_place-SoapBottle-None-GarbageCan-416/trial_T20190909_003015_267270",
+          "tokens": 551,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4375c4eac45340112c6f673c544ea296b2fe29127c212452f8354400264cccd9",
+      "query_id": "c1681866890f3f4a3ffde4d8b242db19da81d3e55da657748c402d2a79494c09",
+      "query_ids": [
+        "c1681866890f3f4a3ffde4d8b242db19da81d3e55da657748c402d2a79494c09"
+      ],
+      "task_id": "pick_two_obj_and_place-SoapBottle-None-GarbageCan-416/trial_T20190909_003015_267270",
+      "tokens": 551,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "630e9a92fc77c646a2467dedab804bd93cdc57784c2c506bd71b5db8fe77a359",
+          "task_id": "pick_two_obj_and_place-SoapBottle-None-Toilet-408/trial_T20190910_093824_432980",
+          "tokens": 901,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "2c6ffdc1655ab48ed4d3073867318bad48d0df06b02cf79beba6d1c472e12eae",
+      "query_id": "630e9a92fc77c646a2467dedab804bd93cdc57784c2c506bd71b5db8fe77a359",
+      "query_ids": [
+        "630e9a92fc77c646a2467dedab804bd93cdc57784c2c506bd71b5db8fe77a359"
+      ],
+      "task_id": "pick_two_obj_and_place-SoapBottle-None-Toilet-408/trial_T20190910_093824_432980",
+      "tokens": 901,
+      "usable": true
+    },
+    {
+      "attempts": [
+        {
+          "attempt_index": 0,
+          "cost_confidence": "estimated",
+          "query_id": "2dc4ae3464a3583157b292e44135848887765690396ec82f4ab5f27cfb1eb159",
+          "task_id": "pick_two_obj_and_place-SprayBottle-None-Cabinet-417/trial_T20190909_112634_915921",
+          "tokens": 1317,
+          "verified": true
+        }
+      ],
+      "cost_confidence": "estimated",
+      "parent_hash": "4a21b287b78db1d2338ece048ea3fb84d0d32b55ab83e7e8b3c06f4910e88db6",
+      "query_id": "2dc4ae3464a3583157b292e44135848887765690396ec82f4ab5f27cfb1eb159",
+      "query_ids": [
+        "2dc4ae3464a3583157b292e44135848887765690396ec82f4ab5f27cfb1eb159"
+      ],
+      "task_id": "pick_two_obj_and_place-SprayBottle-None-Cabinet-417/trial_T20190909_112634_915921",
+      "tokens": 1317,
+      "usable": true
+    }
+  ],
+  "version": 1
+}

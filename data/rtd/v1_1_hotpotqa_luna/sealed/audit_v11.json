@@ -1,0 +1,40 @@
+{
+  "available_cost_by_confidence": {
+    "estimated": 8033,
+    "exact": 58767
+  },
+  "available_packages": 113,
+  "bank_public_cap_sum": 925696,
+  "budget_basis": "usable_recorded_output_tokens",
+  "budget_ceilings": [
+    6680,
+    16700
+  ],
+  "budget_denominator": 66800,
+  "cap_certificate_sha256": "951a37e71266a45eb54a75704f211c0731bfefb3ead46b9bc0aa0ae0bbe897a0",
+  "cost_scope": "cached-content cost; not the full teacher bill",
+  "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+  "recorded_bank_usage": 66800,
+  "teacher_accounting": {
+    "cost_confidence": "estimated",
+    "estimated_output_tokens": 28390,
+    "exact_output_tokens": 507176,
+    "failed_attempts": 306,
+    "failed_output_tokens": 468766,
+    "historical_attempts": 419,
+    "historical_output_tokens": 535566,
+    "historical_tasks": 200,
+    "later_verified_attempts": 0,
+    "new_teacher_calls": 0,
+    "new_teacher_tokens": 0,
+    "scope": "completed ledger prefix; each attempt charged separately",
+    "usage": {
+      "cached_tokens": 402477,
+      "completion_tokens": 535566,
+      "prompt_tokens": 6422285
+    },
+    "verified_episodes": 113,
+    "verified_tasks": 113
+  },
+  "version": "rtd-v1.1.0-state-bank"
+}

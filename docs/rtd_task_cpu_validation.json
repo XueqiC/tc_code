@@ -1,0 +1,454 @@
+{
+  "protocol": "all_recorded_task_attempts",
+  "date": "2026-09-11",
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "PYTHONPATH": "src:."
+  },
+  "tests": {
+    "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest -q tests/ -k 'broker or bank or preflight or unified_p1 or acquisition'",
+    "exit_code": 0,
+    "passed": 314,
+    "skipped": 1,
+    "deselected": 3069,
+    "warnings": 1,
+    "seconds": 104.93,
+    "stdout": "...............s........................................................ [ 22%]\n........................................................................ [ 45%]\n........................................................................ [ 68%]\n........................................................................ [ 91%]\n...........................                                              [100%]\n=============================== warnings summary ===============================\ntests/test_rtd_v11_acquisition.py::test_batch_same_start_finite_difference_exposure_and_empty[0]\n  /home/xueqi/hq/projects/tc-alignment-uni/tests/test_rtd_v11_acquisition.py:49: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\n  Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)\n    return float(step.update(p, g)['x'].square().sum())\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n314 passed, 1 skipped, 3069 deselected, 1 warning in 104.93s (0:01:44)\n",
+    "log": "/tmp/rtd-task-requested-tests-complete.log",
+    "log_sha256": "13a005e1d3fdbd9a3d4f48a8a87c87bee85d900075e256906fa302d7a208135b"
+  },
+  "preflights": [
+    {
+      "benchmark": "alfworld",
+      "arm": "V0",
+      "config": "configs/rtd/v1_1_alfworld_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_alfworld_luna.yaml --arm V0",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 104,
+          "checkpoints": [
+            {
+              "attempts_purchased": 0,
+              "budget_tokens": 11879,
+              "individually_affordable_at_zero_spend": 132,
+              "next_query_id": "978162ea28c19bd4b753d73fb38ad410ec6b37fbf9ffbc3e089a299046149d67",
+              "next_reservation_tokens": 21457,
+              "purchase_count": 0,
+              "purchased_query_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "remaining_tokens": 11879,
+              "spent_tokens": 0,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 0,
+              "usable_packages": 0
+            },
+            {
+              "attempts_purchased": 3,
+              "budget_tokens": 29698,
+              "individually_affordable_at_zero_spend": 138,
+              "next_query_id": "03e6dfd10dd755af500c08a0e19c11e81d6a1e87fa45cf65f6ab50a9bf08d801",
+              "next_reservation_tokens": 9629,
+              "purchase_count": 1,
+              "purchased_query_ids_sha256": "94c0f2f8a28206ecd04dc76bf856e7ec20e425d5bd43a6cdff13ac6e0e463e22",
+              "remaining_tokens": 8241,
+              "spent_tokens": 21457,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 1,
+              "usable_packages": 0
+            }
+          ],
+          "inventory_tasks": 138,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "f5f8ad58d0e8d58b1110e4f7232552509370fb4570fec52b3b87091261ade254",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "V0",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "1.1.0",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      },
+      "log": "/tmp/rtd-task-preflight-alfworld-V0.log",
+      "log_sha256": "6c70704e65083ebaacc76e66c070e432939ea6734565664f102a593df55b0ca7"
+    },
+    {
+      "benchmark": "alfworld",
+      "arm": "D3",
+      "config": "configs/rtd/unified_alfworld_gemma4_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_alfworld_gemma4_luna.yaml --arm D3",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 104,
+          "checkpoints": [
+            {
+              "attempts_purchased": 0,
+              "budget_tokens": 11879,
+              "individually_affordable_at_zero_spend": 132,
+              "next_query_id": "978162ea28c19bd4b753d73fb38ad410ec6b37fbf9ffbc3e089a299046149d67",
+              "next_reservation_tokens": 21457,
+              "purchase_count": 0,
+              "purchased_query_ids_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "remaining_tokens": 11879,
+              "spent_tokens": 0,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 0,
+              "usable_packages": 0
+            },
+            {
+              "attempts_purchased": 3,
+              "budget_tokens": 29698,
+              "individually_affordable_at_zero_spend": 138,
+              "next_query_id": "03e6dfd10dd755af500c08a0e19c11e81d6a1e87fa45cf65f6ab50a9bf08d801",
+              "next_reservation_tokens": 9629,
+              "purchase_count": 1,
+              "purchased_query_ids_sha256": "94c0f2f8a28206ecd04dc76bf856e7ec20e425d5bd43a6cdff13ac6e0e463e22",
+              "remaining_tokens": 8241,
+              "spent_tokens": 21457,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 1,
+              "usable_packages": 0
+            }
+          ],
+          "inventory_tasks": 138,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "f5f8ad58d0e8d58b1110e4f7232552509370fb4570fec52b3b87091261ade254",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "D3",
+        "available_packages": 104,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna",
+        "config_protocol_version": "unified-p0-1",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 135,
+        "status": "OK",
+        "support_states": 135,
+        "tokenizer": "local cache"
+      },
+      "log": "/tmp/rtd-task-preflight-alfworld-D3.log",
+      "log_sha256": "16931b6dfd183532c96dd996ae14fa919f36ddcc9d200111dba1e7392c003c68"
+    },
+    {
+      "benchmark": "bfcl",
+      "arm": "V0",
+      "config": "configs/rtd/v1_1_bfcl_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0",
+      "exit_code": 1,
+      "result": "[rtd-preflight] FAIL KeyError: 'memory_kv_141-notetaker-11'",
+      "log": "/tmp/rtd-task-preflight-bfcl-V0.log",
+      "log_sha256": "2c6073510807c1fcc14a849adaf4a0db66dd3ef1a2965e10d1fb73976a2c9266"
+    },
+    {
+      "benchmark": "bfcl",
+      "arm": "V0",
+      "config": "configs/rtd/v1_1_bfcl_luna.yaml",
+      "acquisition_only": true,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_bfcl_luna.yaml --arm V0 --acquisition-only",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 20,
+          "checkpoints": [
+            {
+              "attempts_purchased": 19,
+              "budget_tokens": 15000,
+              "individually_affordable_at_zero_spend": 36,
+              "next_query_id": "f1c6cd6b90790984910226df3b23f78159ee26fbd1556d4a264c93fbf6d4eaf0",
+              "next_reservation_tokens": 80878,
+              "purchase_count": 9,
+              "purchased_query_ids_sha256": "46461878633f54d5231ef4da8b6ba1c7109085a12fd3e3da5beab7cee9c236b5",
+              "remaining_tokens": 12140,
+              "spent_tokens": 2860,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 9,
+              "usable_packages": 4
+            },
+            {
+              "attempts_purchased": 19,
+              "budget_tokens": 30000,
+              "individually_affordable_at_zero_spend": 38,
+              "next_query_id": "f1c6cd6b90790984910226df3b23f78159ee26fbd1556d4a264c93fbf6d4eaf0",
+              "next_reservation_tokens": 80878,
+              "purchase_count": 9,
+              "purchased_query_ids_sha256": "46461878633f54d5231ef4da8b6ba1c7109085a12fd3e3da5beab7cee9c236b5",
+              "remaining_tokens": 27140,
+              "spent_tokens": 2860,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 9,
+              "usable_packages": 4
+            }
+          ],
+          "inventory_tasks": 40,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "0c9ac58333721efd5b953d891ba634239029f9780e4b138566327e1469218b0c",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "V0",
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_bfcl_luna",
+        "cap_certificate_sha256": "8ec661e92767056f2cf2ed4432d6f371409f7d185c0d5be5f8bbabb8af47a55b",
+        "mode": "acquisition_only",
+        "status": "OK"
+      },
+      "log": "/tmp/rtd-task-preflight-bfcl-V0-acquisition.log",
+      "log_sha256": "685ab3c1e82b6e075ce830bfe6ba814b157f3e58b28e021b90151007f48a8a0d"
+    },
+    {
+      "benchmark": "bfcl",
+      "arm": "D3",
+      "config": "configs/rtd/unified_bfcl_gemma4_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_bfcl_gemma4_luna.yaml --arm D3",
+      "exit_code": 1,
+      "result": "[rtd-preflight] FAIL KeyError: 'memory_kv_141-notetaker-11'",
+      "log": "/tmp/rtd-task-preflight-bfcl-D3.log",
+      "log_sha256": "e847280ce96da3447cf992d8edd2b56c0db1664bdc8e71bfe0a38bf16f5dbd75"
+    },
+    {
+      "benchmark": "bfcl",
+      "arm": "D3",
+      "config": "configs/rtd/unified_bfcl_gemma4_luna.yaml",
+      "acquisition_only": true,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_bfcl_gemma4_luna.yaml --arm D3 --acquisition-only",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 20,
+          "checkpoints": [
+            {
+              "attempts_purchased": 19,
+              "budget_tokens": 15000,
+              "individually_affordable_at_zero_spend": 36,
+              "next_query_id": "f1c6cd6b90790984910226df3b23f78159ee26fbd1556d4a264c93fbf6d4eaf0",
+              "next_reservation_tokens": 80878,
+              "purchase_count": 9,
+              "purchased_query_ids_sha256": "46461878633f54d5231ef4da8b6ba1c7109085a12fd3e3da5beab7cee9c236b5",
+              "remaining_tokens": 12140,
+              "spent_tokens": 2860,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 9,
+              "usable_packages": 4
+            },
+            {
+              "attempts_purchased": 19,
+              "budget_tokens": 30000,
+              "individually_affordable_at_zero_spend": 38,
+              "next_query_id": "f1c6cd6b90790984910226df3b23f78159ee26fbd1556d4a264c93fbf6d4eaf0",
+              "next_reservation_tokens": 80878,
+              "purchase_count": 9,
+              "purchased_query_ids_sha256": "46461878633f54d5231ef4da8b6ba1c7109085a12fd3e3da5beab7cee9c236b5",
+              "remaining_tokens": 27140,
+              "spent_tokens": 2860,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 9,
+              "usable_packages": 4
+            }
+          ],
+          "inventory_tasks": 40,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "0c9ac58333721efd5b953d891ba634239029f9780e4b138566327e1469218b0c",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "D3",
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_bfcl_luna",
+        "cap_certificate_sha256": "8ec661e92767056f2cf2ed4432d6f371409f7d185c0d5be5f8bbabb8af47a55b",
+        "mode": "acquisition_only",
+        "status": "OK"
+      },
+      "log": "/tmp/rtd-task-preflight-bfcl-D3-acquisition.log",
+      "log_sha256": "9aa03a91a79e8e4e84647d81cf5dc67df278216c0e8f0c6dbc56a65fdb354628"
+    },
+    {
+      "benchmark": "hotpotqa",
+      "arm": "V0",
+      "config": "configs/rtd/v1_1_hotpotqa_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/v1_1_hotpotqa_luna.yaml --arm V0",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 113,
+          "checkpoints": [
+            {
+              "attempts_purchased": 16,
+              "budget_tokens": 15000,
+              "individually_affordable_at_zero_spend": 197,
+              "next_query_id": "244bc95dc8498a0c40fe4f64b2df6ff3d7a1eb5918a83a63dcd5141bcb05f5d5",
+              "next_reservation_tokens": 2472,
+              "purchase_count": 8,
+              "purchased_query_ids_sha256": "c80d7f1a8daa8adb8291d60a56285f238195f2e1de2cd5ce6a7e8bffbe774569",
+              "remaining_tokens": 2330,
+              "spent_tokens": 12670,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 8,
+              "usable_packages": 4
+            },
+            {
+              "attempts_purchased": 23,
+              "budget_tokens": 30000,
+              "individually_affordable_at_zero_spend": 200,
+              "next_query_id": "b0112c185481d35a0cb45f78040e07083275492bf7c9b1e728cf9969ffbde55f",
+              "next_reservation_tokens": 9362,
+              "purchase_count": 11,
+              "purchased_query_ids_sha256": "ea7ea45a786c48c8586d17a273af010d2586e746bedfd8bec00248655d4431db",
+              "remaining_tokens": 9056,
+              "spent_tokens": 20944,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 11,
+              "usable_packages": 5
+            }
+          ],
+          "inventory_tasks": 200,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "1a4d669859687c8d045ccc128d106083817ea8fe7c85f4e5b3b4f8c5991c74c3",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "V0",
+        "available_packages": 113,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+        "config_protocol_version": "1.1.0",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 200,
+        "status": "OK",
+        "support_states": 200,
+        "tokenizer": "local cache"
+      },
+      "log": "/tmp/rtd-task-preflight-hotpotqa-V0.log",
+      "log_sha256": "a19356450f3e56b9de1017ce6fa9a3a0d231bdddf9007dfb4f3f2cc0fada05cf"
+    },
+    {
+      "benchmark": "hotpotqa",
+      "arm": "D3",
+      "config": "configs/rtd/unified_hotpotqa_gemma4_luna.yaml",
+      "acquisition_only": false,
+      "command": "/home/xueqi/hq/projects/tc-alignment/.venv/bin/python tools/rtd_preflight.py --config configs/rtd/unified_hotpotqa_gemma4_luna.yaml --arm D3",
+      "exit_code": 0,
+      "result": {
+        "acquisition": {
+          "available_packages": 113,
+          "checkpoints": [
+            {
+              "attempts_purchased": 16,
+              "budget_tokens": 15000,
+              "individually_affordable_at_zero_spend": 197,
+              "next_query_id": "244bc95dc8498a0c40fe4f64b2df6ff3d7a1eb5918a83a63dcd5141bcb05f5d5",
+              "next_reservation_tokens": 2472,
+              "purchase_count": 8,
+              "purchased_query_ids_sha256": "c80d7f1a8daa8adb8291d60a56285f238195f2e1de2cd5ce6a7e8bffbe774569",
+              "remaining_tokens": 2330,
+              "spent_tokens": 12670,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 8,
+              "usable_packages": 4
+            },
+            {
+              "attempts_purchased": 23,
+              "budget_tokens": 30000,
+              "individually_affordable_at_zero_spend": 200,
+              "next_query_id": "b0112c185481d35a0cb45f78040e07083275492bf7c9b1e728cf9969ffbde55f",
+              "next_reservation_tokens": 9362,
+              "purchase_count": 11,
+              "purchased_query_ids_sha256": "ea7ea45a786c48c8586d17a273af010d2586e746bedfd8bec00248655d4431db",
+              "remaining_tokens": 9056,
+              "spent_tokens": 20944,
+              "stop_reason": "first_overflow",
+              "tasks_purchased": 11,
+              "usable_packages": 5
+            }
+          ],
+          "inventory_tasks": 200,
+          "order": "sorted_task_ids_random_seed_0",
+          "order_sha256": "1a4d669859687c8d045ccc128d106083817ea8fe7c85f4e5b3b4f8c5991c74c3",
+          "reservation_basis": "all_recorded_task_attempts",
+          "scope": "all legal support parents; cumulative prefix without training window quotas"
+        },
+        "arm": "D3",
+        "available_packages": 113,
+        "bank_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_hotpotqa_luna",
+        "config_protocol_version": "unified-p0-1",
+        "deferred": [],
+        "generation_batch": {
+          "max_batch_tokens": 16384,
+          "prompts_per_batch": 8
+        },
+        "gpu_required": [
+          "hardware binding",
+          "model/LoRA initialization and replay parameter identity",
+          "generation/scoring numerical consistency, gradients and peak memory"
+        ],
+        "ledger_spent": 0,
+        "protocol_version": "1.1.0",
+        "rendered_states": 200,
+        "status": "OK",
+        "support_states": 200,
+        "tokenizer": "local cache"
+      },
+      "log": "/tmp/rtd-task-preflight-hotpotqa-D3.log",
+      "log_sha256": "7f2945a9efbe54314c975287c68ea97c8a57e18a5288e0a15188cec161bbc9e9"
+    }
+  ],
+  "bank_artifacts_rechecked_after_tests": true,
+  "source_sha256": {
+    "src/bfas/rtd/broker.py": "6d0aa45af43ceff7f9a74abee49a8cef93197cd3b08c489df71d7140abd8562d",
+    "src/bfas/rtd/bank_build.py": "b3a5068076fad5ae26d4847117030f9752842620ac5c7cdcc68f3cba3d7e9ed8",
+    "src/bfas/rtd/task_packages.py": "ae60b77e25f5a721d037143ea2687f8386f205c39a1f444debe8469cf8bbd6e4",
+    "src/bfas/rtd/experiment_v11.py": "520c975b9191fa7773972268c5e6773b97747fc428df14b00708a71958cd385f",
+    "src/bfas/rtd/experiment_alpha_d.py": "d64a2f451889c9588a3afebb1b42f43e95298d4f663d24a99cce60e7723cc337",
+    "src/bfas/rtd/experiment.py": "26979fb29db3cc2660099cca8a05a8ebcd471a5ae9dad58885b99c636ace577b",
+    "src/bfas/rtd/preflight.py": "a22f7cf9dec175f3c7ba1f2eefaa4a260c2492c2ad96a0015bfa956e198605af",
+    "src/bfas/rtd/unified/experiment.py": "788e95f8ef8179d8a35133e4756f18b336dc7228243819b5e173136d22af3aa3"
+  },
+  "gpu_runs": 0,
+  "api_calls": 0,
+  "new_teacher_tokens": 0,
+  "commit_created": false,
+  "staging_scope": "All task code, tests, docs, receipts, and the three complete Luna banks; pre-existing .cache excluded"
+}

@@ -1,0 +1,354 @@
+{
+  "query_id": "ca52252a9ad82b9f3dedca5ef40d1816b49601662eb3b1576dccb3ecef0f9d76",
+  "request_state_hash": "c539e9303d7924f7eac1d4024bf4eb5bb0803eb205de89a43fcb9b370d195925",
+  "dependencies": [],
+  "status": "usable",
+  "unavailable_reason": null,
+  "exclusion_reasons": [],
+  "success": true,
+  "payload_kind": "extracted_teacher_commands",
+  "commands": [
+    "go to desk 1",
+    "go to shelf 1",
+    "go to shelf 2",
+    "take cellphone 1 from shelf 2",
+    "use desklamp 1"
+  ],
+  "behaviors": [
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\n\nYour task is to: look at cellphone under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      "text": "go to desk 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake pencil 1 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      "text": "go to shelf 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nAdmissible commands:\nexamine shelf 1\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cd 1 from shelf 1\ntake keychain 1 from shelf 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      "text": "go to shelf 2"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 2\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cellphone 1 from shelf 2\", \"use desklamp 1\"], \"content\": \"You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nAdmissible commands:\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cellphone 1 from shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      "text": "take cellphone 1 from shelf 2"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 2\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cellphone 1 from shelf 2\", \"use desklamp 1\"], \"content\": \"You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}, {\"content\": \"take cellphone 1 from shelf 2\", \"index\": 4, \"role\": \"assistant\"}, {\"admissible\": [\"examine cellphone 1\", \"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"move cellphone 1 to shelf 2\", \"use desklamp 1\"], \"content\": \"You pick up the cellphone 1 from the shelf 2.\", \"done\": false, \"index\": 4, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou pick up the cellphone 1 from the shelf 2.\n\nAdmissible commands:\nexamine cellphone 1\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\nmove cellphone 1 to shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n> take cellphone 1 from shelf 2\nYou pick up the cellphone 1 from the shelf 2.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      "text": "use desklamp 1"
+    }
+  ],
+  "cost": 404,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 1989,
+    "cached_tokens": 0,
+    "completion_tokens": 404
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 2,
+    "task_id": "look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T03:36:37.399756Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "C26-B real state replay",
+    "original_request_state_hash": "8b9208e4b7722b9a21a42e5f34d60e9ed7ac9fda7401586279c78e76462f7bb4",
+    "source_request_state_hash": "8b9208e4b7722b9a21a42e5f34d60e9ed7ac9fda7401586279c78e76462f7bb4",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 404,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:36:37.399756Z",
+    "demo": {
+      "turns": [
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\n\nYour task is to: look at cellphone under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to desk 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\n\nYour task is to: look at cellphone under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake pencil 1 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to shelf 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake pencil 1 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nAdmissible commands:\nexamine shelf 1\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cd 1 from shelf 1\ntake keychain 1 from shelf 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to shelf 2",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nAdmissible commands:\nexamine shelf 1\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cd 1 from shelf 1\ntake keychain 1 from shelf 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nAdmissible commands:\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cellphone 1 from shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "take cellphone 1 from shelf 2",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nAdmissible commands:\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cellphone 1 from shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou pick up the cellphone 1 from the shelf 2.\n\nAdmissible commands:\nexamine cellphone 1\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\nmove cellphone 1 to shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n> take cellphone 1 from shelf 2\nYou pick up the cellphone 1 from the shelf 2.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "use desklamp 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou pick up the cellphone 1 from the shelf 2.\n\nAdmissible commands:\nexamine cellphone 1\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\nmove cellphone 1 to shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n> take cellphone 1 from shelf 2\nYou pick up the cellphone 1 from the shelf 2.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        }
+      ],
+      "worked_example": "go to desk 1\ngo to shelf 1\ngo to shelf 2\ntake cellphone 1 from shelf 2\nuse desklamp 1"
+    },
+    "usage": {
+      "prompt_tokens": 1989,
+      "cached_tokens": 0,
+      "completion_tokens": 404
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":true,\"tokens_spent\":404,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T03:36:37.399756Z\",\"demo\":{\"turns\":[{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to desk 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n\\nAdmissible commands:\\nexamine desk 1\\ngo to bed 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake alarmclock 1 from desk 1\\ntake pencil 1 from desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to shelf 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n\\nAdmissible commands:\\nexamine desk 1\\ngo to bed 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake alarmclock 1 from desk 1\\ntake pencil 1 from desk 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n\\nAdmissible commands:\\nexamine shelf 1\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake cd 1 from shelf 1\\ntake keychain 1 from shelf 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to shelf 2\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n\\nAdmissible commands:\\nexamine shelf 1\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 2\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake cd 1 from shelf 1\\ntake keychain 1 from shelf 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n\\nAdmissible commands:\\nexamine shelf 2\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake cellphone 1 from shelf 2\\nuse desklamp 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n> go to shelf 2\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"take cellphone 1 from shelf 2\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n\\nAdmissible commands:\\nexamine shelf 2\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\ntake cellphone 1 from shelf 2\\nuse desklamp 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n> go to shelf 2\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou pick up the cellphone 1 from the shelf 2.\\n\\nAdmissible commands:\\nexamine cellphone 1\\nexamine shelf 2\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\nmove cellphone 1 to shelf 2\\nuse desklamp 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n> go to shelf 2\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n> take cellphone 1 from shelf 2\\nYou pick up the cellphone 1 from the shelf 2.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"use desklamp 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cellphone under the desklamp.\\n\\nCurrent observation:\\nYou pick up the cellphone 1 from the shelf 2.\\n\\nAdmissible commands:\\nexamine cellphone 1\\nexamine shelf 2\\ngo to bed 1\\ngo to desk 1\\ngo to desk 2\\ngo to garbagecan 1\\ngo to shelf 1\\ngo to shelf 3\\ngo to shelf 4\\ngo to shelf 5\\nhelp\\ninventory\\nlook\\nmove cellphone 1 to shelf 2\\nuse desklamp 1\\n\\nHistory:\\n> go to desk 1\\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\\n> go to shelf 1\\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\\n> go to shelf 2\\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\\n> take cellphone 1 from shelf 2\\nYou pick up the cellphone 1 from the shelf 2.\\n\\nReply with exactly one admissible command and nothing else.\"}]}],\"worked_example\":\"go to desk 1\\ngo to shelf 1\\ngo to shelf 2\\ntake cellphone 1 from shelf 2\\nuse desklamp 1\"},\"usage\":{\"prompt_tokens\":1989,\"cached_tokens\":0,\"completion_tokens\":404}}",
+  "historical_events": [],
+  "verification": {
+    "replayed": true,
+    "success_reproduced": true,
+    "unavailable_reason": null,
+    "error_type": null,
+    "done": true,
+    "won": true,
+    "transcript_hash": "2aaf2b2074351620d95636018c5cf82f828657fb1443c49b376241a80a38e889",
+    "states": [
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\n\nYour task is to: look at cellphone under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nAdmissible commands:\nexamine desk 1\ngo to bed 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake alarmclock 1 from desk 1\ntake pencil 1 from desk 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nAdmissible commands:\nexamine shelf 1\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 2\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cd 1 from shelf 1\ntake keychain 1 from shelf 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 2\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cellphone 1 from shelf 2\", \"use desklamp 1\"], \"content\": \"You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nAdmissible commands:\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\ntake cellphone 1 from shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 2\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cellphone 1 from shelf 2\", \"use desklamp 1\"], \"content\": \"You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}, {\"content\": \"take cellphone 1 from shelf 2\", \"index\": 4, \"role\": \"assistant\"}, {\"admissible\": [\"examine cellphone 1\", \"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"move cellphone 1 to shelf 2\", \"use desklamp 1\"], \"content\": \"You pick up the cellphone 1 from the shelf 2.\", \"done\": false, \"index\": 4, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou pick up the cellphone 1 from the shelf 2.\n\nAdmissible commands:\nexamine cellphone 1\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\nmove cellphone 1 to shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n> take cellphone 1 from shelf 2\nYou pick up the cellphone 1 from the shelf 2.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cellphone under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CellPhone-None-DeskLamp-320/trial_T20190908_093231_036941\", \"world_files\": {\"game.tw-pddl\": \"ac309cf8cad618eaba73e708be3864b8bcfdb4c38922f402d1aa092ebefee8f7\", \"initial_state.pddl\": \"2919cca6903b21a29ad9b455927b847b24bae142978ca9b3047f60022b1f34e5\", \"traj_data.json\": \"edcff83faa52b23c8362fdd4d97d4103f9f88eff44e95a3a67ed6e767cc36038\"}, \"world_hash\": \"1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\\n\\nYour task is to: look at cellphone under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to desk 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine desk 1\", \"go to bed 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take alarmclock 1 from desk 1\", \"take pencil 1 from desk 1\"], \"content\": \"You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"go to shelf 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 1\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 2\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cd 1 from shelf 1\", \"take keychain 1 from shelf 1\"], \"content\": \"You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"go to shelf 2\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"take cellphone 1 from shelf 2\", \"use desklamp 1\"], \"content\": \"You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\", \"done\": false, \"index\": 3, \"role\": \"tool\"}, {\"content\": \"take cellphone 1 from shelf 2\", \"index\": 4, \"role\": \"assistant\"}, {\"admissible\": [\"examine cellphone 1\", \"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"move cellphone 1 to shelf 2\", \"use desklamp 1\"], \"content\": \"You pick up the cellphone 1 from the shelf 2.\", \"done\": false, \"index\": 4, \"role\": \"tool\"}, {\"content\": \"use desklamp 1\", \"index\": 5, \"role\": \"assistant\"}, {\"admissible\": [\"examine cellphone 1\", \"examine shelf 2\", \"go to bed 1\", \"go to desk 1\", \"go to desk 2\", \"go to garbagecan 1\", \"go to shelf 1\", \"go to shelf 3\", \"go to shelf 4\", \"go to shelf 5\", \"help\", \"inventory\", \"look\", \"move cellphone 1 to shelf 2\", \"use desklamp 1\"], \"content\": \"You turn on the desklamp 1.\", \"done\": true, \"index\": 5, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cellphone under the desklamp.\n\nCurrent observation:\nYou turn on the desklamp 1.\n\nAdmissible commands:\nexamine cellphone 1\nexamine shelf 2\ngo to bed 1\ngo to desk 1\ngo to desk 2\ngo to garbagecan 1\ngo to shelf 1\ngo to shelf 3\ngo to shelf 4\ngo to shelf 5\nhelp\ninventory\nlook\nmove cellphone 1 to shelf 2\nuse desklamp 1\n\nHistory:\n> go to desk 1\nYou arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.\n> go to shelf 1\nYou arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.\n> go to shelf 2\nYou arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.\n> take cellphone 1 from shelf 2\nYou pick up the cellphone 1 from the shelf 2.\n> use desklamp 1\nYou turn on the desklamp 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "d60f92fd9fafbe862b4e21b4bff50e5ee3ceb76f4e42bdd66c953447f4cca6bd"
+      }
+    ],
+    "raw_observations": [
+      {
+        "index": 0,
+        "observation": "-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a desk 2, a desk 1, a garbagecan 1, a shelf 5, a shelf 4, a shelf 3, a shelf 2, and a shelf 1.\n\nYour task is to: look at cellphone under the desklamp.",
+        "admissible": [
+          "go to bed 1",
+          "go to desk 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to shelf 2",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 1,
+        "observation": "You arrive at desk 1. On the desk 1, you see a alarmclock 1, and a pencil 1.",
+        "admissible": [
+          "examine desk 1",
+          "go to bed 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to shelf 2",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look",
+          "take alarmclock 1 from desk 1",
+          "take pencil 1 from desk 1"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 2,
+        "observation": "You arrive at shelf 1. On the shelf 1, you see a cd 1, and a keychain 1.",
+        "admissible": [
+          "examine shelf 1",
+          "go to bed 1",
+          "go to desk 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 2",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look",
+          "take cd 1 from shelf 1",
+          "take keychain 1 from shelf 1"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 3,
+        "observation": "You arrive at shelf 2. On the shelf 2, you see a cellphone 1, and a desklamp 1.",
+        "admissible": [
+          "examine shelf 2",
+          "go to bed 1",
+          "go to desk 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look",
+          "take cellphone 1 from shelf 2",
+          "use desklamp 1"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 4,
+        "observation": "You pick up the cellphone 1 from the shelf 2.",
+        "admissible": [
+          "examine cellphone 1",
+          "examine shelf 2",
+          "go to bed 1",
+          "go to desk 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look",
+          "move cellphone 1 to shelf 2",
+          "use desklamp 1"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 5,
+        "observation": "You turn on the desklamp 1.",
+        "admissible": [
+          "examine cellphone 1",
+          "examine shelf 2",
+          "go to bed 1",
+          "go to desk 1",
+          "go to desk 2",
+          "go to garbagecan 1",
+          "go to shelf 1",
+          "go to shelf 3",
+          "go to shelf 4",
+          "go to shelf 5",
+          "help",
+          "inventory",
+          "look",
+          "move cellphone 1 to shelf 2",
+          "use desklamp 1"
+        ],
+        "world_hash": "1932a6c9458a2cf984c5bd52b2be7f348a4a2f11ec28233bf221f7a1e160378d",
+        "done": true,
+        "won": true
+      }
+    ],
+    "archived_context_checks": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "completed_commands": 5
+  }
+}

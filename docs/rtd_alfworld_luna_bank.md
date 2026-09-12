@@ -253,6 +253,11 @@ support: 34 training tasks have no usable Luna package but remain in support.
 | All-attempt recorded output-token estimate | 521,643 |
 | New teacher calls / GPU use during repair | 0 / 0 |
 
+The former usable-attempt reservation audit (7/24 packages at 11,879/29,698)
+is superseded by attempt purchase accounting. The class cap and denominator remain
+archival; the runtime charge now sums every attempt for the selected task.
+See the correction and exact baseline comparison below.
+
 All 142 reset states also match the GPT-5.4 bank exactly, so feedback and fixed
 diagnostic task selection share the same requests, histories, prompts and hashes.
 All 1,535 converted behavior states pass the frozen support's ownership/fold
@@ -293,3 +298,35 @@ The combined CPU regression run passed **67 tests** across
 `test_rtd_v11_alfworld_conversion.py`, `test_alfworld_teacher_pool.py` and
 `test_rtd_preflight.py`; output is in
 `logs/alfworld_luna_frozen_support_tests.log`.
+
+## Attempt purchase correction (2026-09-11)
+
+Each teacher attempt is a separate package at its original ledger token cost,
+including failed attempts and recorded reasoning. Sort the original query IDs,
+shuffle once with `random.Random(0)`, and stop before the first overflow.
+The per-task ledger retains each attempt's task/parent dependency; it does not
+combine retry costs. All bank bytes, including support/folds, per-task ledgers,
+sealed payloads and certificates, are unchanged; no rebuild was needed.
+
+RTD and the read-only paper reader bought exactly the same ordered attempt IDs
+and usable IDs at all four budgets, with equal spend and next blocker:
+
+| Budget | Attempts | Usable | Tokens charged |
+| ---: | ---: | ---: | ---: |
+| 7,500 | 4 | 2 | 6,535 |
+| 15,000 | 9 | 5 | 13,342 |
+| 30,000 | 13 | 5 | 29,229 |
+| 60,000 | 24 | 9 | 58,602 |
+
+The cited 30k receipt is reproduced: **13 attempts, 5 usable, 29,229 tokens**.
+The task-level zero-usable result is superseded. Denominator 118,792 and configured
+fraction caps 11,879 / 29,698 remain unchanged. V0/D3 full CPU preflight passes.
+
+Purchases use the whole bank prefix, independently of training seed/fold.
+Only exposure is restricted to the active parent fold. Failed and other-fold
+purchases remain in V0/D3 receipts. Window limits pause and resume the same order.
+
+[Shared protocol](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11),
+[both code paths' attempt IDs](rtd_attempt_purchase_validation.json),
+[CPU and byte-preservation receipts](rtd_attempt_cpu_validation.json).
+No GPU/API calls were made. Older task-purchase receipts are superseded.

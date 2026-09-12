@@ -1,0 +1,177 @@
+{
+  "attempts": 233,
+  "candidate_packages": 104,
+  "cap_audit": {
+    "B_bank": 136314880,
+    "bank_public_cap_sum": 136314880,
+    "budget_affordability": [
+      {
+        "bank_public_cap_sum": 136314880,
+        "basis": "usable_public_cap_sum",
+        "budget": 13631488,
+        "by_inner_fold": {
+          "0": 62,
+          "1": 42
+        },
+        "percent": 10
+      },
+      {
+        "bank_public_cap_sum": 136314880,
+        "basis": "usable_public_cap_sum",
+        "budget": 34078720,
+        "by_inner_fold": {
+          "0": 62,
+          "1": 42
+        },
+        "percent": 25
+      },
+      {
+        "bank_public_cap_sum": 136314880,
+        "basis": "usable_public_cap_sum",
+        "budget": 68157440,
+        "by_inner_fold": {
+          "0": 62,
+          "1": 42
+        },
+        "percent": 50
+      }
+    ],
+    "budget_basis": "usable_public_cap_sum",
+    "cap_provenance_by_class": {
+      "alf_demo_episode": {
+        "basis": "class_uniform_public_fallback",
+        "configuration": {
+          "client_attempts": 8,
+          "empty_response_calls": 2,
+          "max_completion_tokens": 2048,
+          "max_episode_steps": 40
+        },
+        "decision": "readiness \u00a72.5 implementation convention; historical request envelope missing",
+        "derivation": "2048 \u00d7 40 \u00d7 2 \u00d7 8 = 1310720",
+        "evidence": [],
+        "limitations": "current-code reconstruction; quota recovery probes and lost responses unknown; not a hard upper bound on the complete historical provider bill",
+        "online_authorized": false,
+        "output_token_cap": 1310720,
+        "request_class": "alf_demo_episode",
+        "source_reason": "appworld_teacher.MAX_COMPLETION_TOKENS=2048; episode default 40 steps; one extra empty-content call; max(CHAT_COMPLETION_RETRIES+1, RATE_LIMIT_RETRIES+1)=8",
+        "version": "c26-a"
+      },
+      "alf_teacher_turn": {
+        "basis": "class_uniform_public_fallback",
+        "configuration": {
+          "client_attempts": 8,
+          "empty_response_calls": 2,
+          "max_completion_tokens": 2048,
+          "max_episode_steps": 40
+        },
+        "decision": "readiness \u00a72.5 implementation convention; historical request envelope missing",
+        "derivation": "2048 \u00d7 1 \u00d7 2 \u00d7 8 = 32768",
+        "evidence": [],
+        "limitations": "current-code reconstruction; quota recovery probes and lost responses unknown; not a hard upper bound on the complete historical provider bill",
+        "online_authorized": false,
+        "output_token_cap": 32768,
+        "request_class": "alf_teacher_turn",
+        "source_reason": "appworld_teacher.MAX_COMPLETION_TOKENS=2048; episode default 40 steps; one extra empty-content call; max(CHAT_COMPLETION_RETRIES+1, RATE_LIMIT_RETRIES+1)=8",
+        "version": "c26-a"
+      }
+    },
+    "conditional_107_candidate_example": {
+      "B_bank": 140247040,
+      "ceilings": {
+        "10": 14024704,
+        "25": 35061760,
+        "50": 70123520
+      },
+      "condition": "all 107 pass C26-B state/support audit with no exclusions"
+    },
+    "inventory_by_class": {
+      "alf_demo_episode": 233,
+      "alf_teacher_turn": 0
+    },
+    "missing_cost_query_ids": [],
+    "public_caps": {
+      "alf_demo_episode": 1310720,
+      "alf_teacher_turn": 32768
+    }
+  },
+  "command_turns": 1535,
+  "fold_parent_counts": {
+    "0": 79,
+    "1": 56
+  },
+  "fold_task_counts": {
+    "0": 81,
+    "1": 57
+  },
+  "gpu_used": false,
+  "historical_inventory": {
+    "source_files": [
+      {
+        "path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+        "sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8"
+      }
+    ]
+  },
+  "legacy_token_estimate": 521643,
+  "limitations": [
+    "Survivorship bias: only successful attempts retained command payloads; failed responses are missing.",
+    "payload_kind=extracted_teacher_commands, not original API response/reasoning; deployment prompts differ from teacher requests.",
+    "Legacy tokens_spent uses sum(ceil(len(response)/4)); tokenizer recount measures retained strings only and never replaces cost.",
+    "Input, reasoning, discarded output, complete retries and monetary costs unknown, not zero.",
+    "L=40 and public caps are current-code retrospective conventions, not recorded-only request envelopes or provider guarantees.",
+    "Event thought+ACTION is a derived transformation, not raw teacher output; r2 carries CE checkpoint/evidence dependencies and stays diagnostic.",
+    "Selector isolation is cooperative, not an OS sandbox; production import-guard integration is deferred to C26-F.",
+    "Full ordered states are reconstructed now, not recovered historical raw API states.",
+    "Every saved deployment context is compared; historical context was windowed, so hidden historical world evolution cannot be proven beyond retained evidence.",
+    "State hashes bind per-trial world bytes, installed environment, tokenizer and frozen ReAct scaffold.",
+    "Aliases remain historical origin mappings, not validated off-policy event targets; only replayed command behaviors are usable.",
+    "valid_seen name/world overlap is disclosed in support; no independent certification claim.",
+    "No existing interfaces changed. BoundedEnvBridge subclasses the adapter; the C26-B auditor is additive because the C26-A auditor rejects usable evidence.",
+    "Training, P/normalizer integration and production selector import dispatch remain later C26 stages."
+  ],
+  "m": 135,
+  "new_teacher_calls": 0,
+  "new_teacher_tokens": 0,
+  "per_fold_usable": {
+    "0": 62,
+    "1": 42
+  },
+  "per_fold_usable_parents": {
+    "0": 60,
+    "1": 41
+  },
+  "scope": "exploratory",
+  "support_binding": {
+    "changed_request_identities": 142,
+    "frozen_support_manifest_hash": "c9e94738a072548a1b61333ef67b324005c995dd713d870dda035651067ab0f6",
+    "frozen_support_sha256": "d6f3dbf6fddca162472982b14ab55888e3b55862fa64c4abc1e5d753290c161b",
+    "packages_dropped": 0,
+    "source_environment": {
+      "collection": "alfworld_teacher_pool",
+      "environment_hash": "e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f",
+      "historical_environment_hash": "1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c",
+      "max_episode_steps": 40,
+      "rendering": "portable ReAct messages; student rendered at conversion",
+      "source_files": {
+        "src/appworld_teacher.py": "b80a1589ab2c0966ef580acf269323b6a88cd3348991718f4be89e2742f87032",
+        "src/bfas/adapters/alfworld.py": "585b15a9dfb4749e522a680d34c8df245a7fd9d4a519a581f94fd85f83b674e8",
+        "src/bfas/rtd/benchmarks/alfworld_support.py": "d210fe3dc6c05bb45a4f069a641884f37350fd9e5847a7aff5284e6196af15c4",
+        "tools/alfworld_teacher_pool.py": "b631c1b6a875aa1d178db7a21e49775eb83ba7800a7ea1d70eab86f8238f7fe5"
+      }
+    },
+    "source_support_manifest_hash": "38f4fa7f7a4a31d37244cfa43fe717a40b9613c1e647db87b6ed2c5a17983c5c",
+    "task_ids_added": [],
+    "task_ids_dropped": [],
+    "verification_scope": "original collector evidence; runtime states rebound to frozen requests"
+  },
+  "support_manifest_hash": "c9e94738a072548a1b61333ef67b324005c995dd713d870dda035651067ab0f6",
+  "task_ids": 138,
+  "unavailable_candidates": 0,
+  "unavailable_packages": 129,
+  "unavailable_reasons": {
+    "failed, interrupted, or protected attempt": 129
+  },
+  "usable_legacy_token_estimate": 118792,
+  "usable_packages": 104,
+  "version": "rtd-v1-alfworld-c26-b"
+}

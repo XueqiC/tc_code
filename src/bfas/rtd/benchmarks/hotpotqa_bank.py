@@ -1,5 +1,5 @@
-"""Offline Luna episode ingestion; ledger costs include every failed attempt."""
-from collections import defaultdict
+"""Offline Luna attempt packages; preserve each attempt and its task dependency."""
+from collections import Counter, defaultdict
 from dataclasses import asdict
 import hashlib
 import json
@@ -8,6 +8,7 @@ from pathlib import Path
 from ... import hotpotqa as hp
 from ...adapters.hotpotqa import HotpotQAAdapter
 from ..bank_build import privileged, load_student_tokenizer, ledger_cost, state_record, seal_v11
+from ..caps import resolve_budget_checkpoints
 from ..persistence import digest
 from ..transport import FullState
 from .hotpotqa_support import freeze_support, parent_hash, reset_state, task_request
@@ -21,6 +22,18 @@ def _snapshot(path, *, lines=False):
     content = raw[:end]
     value = [json.loads(line) for line in content.splitlines() if line.strip()] if lines else json.loads(content)
     return value, dict(sha256=hashlib.sha256(content).hexdigest(), bytes=len(content), trailing_bytes=len(raw)-end)
+
+
+def _validate_usage(usage):
+    if (any(type(usage.get(k)) is not int or usage[k] < 0
+            for k in ('prompt_tokens', 'completion_tokens', 'cached_tokens'))
+            or usage['cached_tokens'] > usage['prompt_tokens']):
+        raise ValueError('invalid HotpotQA recorded usage')
+
+
+def _confidence(row):
+    return 'estimated' if (row['usage_status'] == 'estimated'
+                          or row.get('cost_confidence') == 'estimated') else 'exact'
 
 
 def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None, wiki_factory=None):
@@ -55,26 +68,25 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
     if identity is not None and (identity['teacher'] != archive['teacher']
             or identity['prompt_version'] != hp.PROMPT_VERSION or identity['support'] != support['split']):
         raise ValueError('HotpotQA collector identity differs')
-    paid = {}
+    paid, grouped = {}, defaultdict(list)
     totals = defaultdict(int)
-    for row in rows:
+    for index, row in enumerate(rows):
+        if row.get('task_id') not in questions:
+            raise ValueError('HotpotQA ledger attempt has missing or unknown task')
         key = row['task_id'], row['attempt_index']
         ledger_cost(row, default_confidence='exact' if row.get('usage_status') == 'reported' else 'estimated')
-        if (key in paid or key[0] not in questions or not 0 <= key[1] < 3
+        if (key in paid
                 or row['teacher'] != archive['teacher'] or row['prompt_version'] != hp.PROMPT_VERSION
                 or row.get('usage_status') not in {'reported', 'estimated'}):
             raise ValueError('duplicate, outside, or incompatible HotpotQA ledger attempt')
         usage = row['usage']
-        if (any(type(usage[k]) is not int or usage[k] < 0 for k in ('prompt_tokens', 'completion_tokens', 'cached_tokens'))
-                or usage['cached_tokens'] > usage['prompt_tokens'] or usage['completion_tokens'] != row['tokens_spent']):
+        _validate_usage(usage)
+        if usage['completion_tokens'] != row['tokens_spent']:
             raise ValueError('HotpotQA ledger cost differs from recorded usage')
         for k, v in usage.items():
             totals[k] += v
         paid[key] = row
-    for tid in {t for t, _ in paid}:
-        attempts = sorted(i for t, i in paid if t == tid)
-        if attempts != list(range(len(attempts))):
-            raise ValueError('HotpotQA teacher attempts are not contiguous')
+        grouped[key[0]].append((index, row))
     archived_keys = set()
     for row in optional.get('attempts.jsonl', []):
         key = row['task_id'], row['attempt_index']
@@ -88,6 +100,9 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
     latest = {r['id']: r for r in optional.get('usage.jsonl', [])}
     by_attempt = defaultdict(list)
     for row in latest.values():
+        if row.get('task_id') not in questions:
+            raise ValueError('HotpotQA request usage has missing or unknown task')
+        _validate_usage(row['usage'])
         by_attempt[row['task_id'], row['attempt_index']].append(row)
     if latest:
         for key, row in paid.items():
@@ -97,20 +112,14 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
                 raise ValueError('HotpotQA request journal differs from episode usage')
             if row['usage_status'] == 'reported' and any(c['status'] != 'reported' for c in calls):
                 raise ValueError('exact HotpotQA episode contains uncertain request usage')
-    records, payloads, demos = [], {}, {}
+    records, payloads, demos = [], {}, defaultdict(list)
+    replayed = {}
     for index, row in enumerate(rows):
         tid, attempt = row['task_id'], row['attempt_index']
-        total = row['tokens_spent']
-        confidence = 'exact' if row['usage_status'] == 'reported' else 'estimated'
-        qid = digest(['hotpotqa-paid-episode', row['teacher'], tid, attempt, hp.PROMPT_VERSION])
         behaviors, verification, empty_targets = [], None, []
         if row['verified']:
-            if confidence != 'exact' or tid in demos:
-                raise ValueError('HotpotQA positive demos require unique success and exact reported usage')
             demo = row['demo']
-            if tid in archive['demos'] and archive['demos'][tid] != demo:
-                raise ValueError('HotpotQA pool demo differs from paid ledger')
-            demos[tid] = demo
+            demos[tid].append(demo)
             turns = iter(demo['turns'])
             # Replay cached tools and compare every archived context. No model,
             # token estimation, or regenerated teacher output is involved.
@@ -141,25 +150,46 @@ def build_hotpotqa_bank(root, directory, *, pool, ledger, config, tokenizer=None
                     or len(behaviors) != len(demo['turns'])
                     or demo['worked_example'] != f"Question: {questions[tid]['question']}\n" + verification['transcript']):
                 raise ValueError('HotpotQA paid demo does not replay to official EM=1')
-        state = FullState(**behaviors[0]['state']) if behaviors else None
-        records.append(state_record(qid, state, 'hotpotqa_demo_episode', total, confidence,
-            parent=parent_hash(tid), unavailable=None if row['verified'] else 'unverified teacher attempt'))
-        payloads[qid] = dict(cost=total, cost_confidence=confidence, usage=row['usage'],
-            provenance=dict(task_id=tid, attempt_index=attempt, teacher=row['teacher'], ledger_row=index,
-                ledger_sha256=ledger_binding['sha256'], verified=row['verified'], rendering_student=config['student'],
-                empty_targets_rendered_with_native_eos=empty_targets),
-            historical_response=row, behaviors=behaviors, verification=verification)
+        replayed[tid, attempt] = behaviors, verification, empty_targets
     if set(archive['demos']) - set(demos):
         raise ValueError('HotpotQA pool includes unpurchased demos; retry a consistent snapshot')
+    for tid, demo in archive['demos'].items():
+        # Collectors may publish a later success. It must still match a paid,
+        # replay-verified attempt, even when the package uses the earlier one.
+        if demo not in demos[tid]:
+            raise ValueError('HotpotQA pool demo differs from paid ledger')
+    for index, row in enumerate(rows):
+        tid, attempt = row['task_id'], row['attempt_index']
+        total, confidence, usage = row['tokens_spent'], _confidence(row), row['usage']
+        qid = digest(['hotpotqa-paid-episode', row['teacher'], tid, attempt, hp.PROMPT_VERSION])
+        behaviors, verification, empty_targets = replayed[tid, attempt]
+        state = FullState(**behaviors[0]['state']) if behaviors else None
+        records.append(state_record(qid, state, 'hotpotqa_demo_episode', total, confidence,
+            parent=parent_hash(tid), unavailable=None if row['verified'] else 'failed teacher attempt'))
+        payloads[qid] = dict(cost=total, cost_confidence=confidence, usage=usage,
+            provenance=dict(task_id=tid, attempt_index=attempt, teacher=row['teacher'], ledger_row=index,
+                cost_scope='recorded_teacher_attempt',
+                ledger_sha256=ledger_binding['sha256'], verified=row['verified'], rendering_student=config['student'],
+                empty_targets_rendered_with_native_eos=empty_targets),
+            historical_response=row,
+            behaviors=behaviors, verification=verification)
     accounting = dict(historical_output_tokens=sum(r['tokens_spent'] for r in rows),
-        historical_attempts=len(rows), verified_episodes=len(demos),
+        historical_attempts=len(rows), verified_episodes=sum(r['verified'] for r in rows),
+        historical_tasks=len(grouped), verified_tasks=len(demos),
+        later_verified_attempts=sum(len(ds)-1 for ds in demos.values()),
         failed_attempts=sum(not r['verified'] for r in rows),
         failed_output_tokens=sum(r['tokens_spent'] for r in rows if not r['verified']),
-        exact_output_tokens=sum(r['tokens_spent'] for r in rows if r['usage_status'] == 'reported'),
-        estimated_output_tokens=sum(r['tokens_spent'] for r in rows if r['usage_status'] != 'reported'),
-        usage=dict(totals), scope='completed ledger prefix; failed attempts retained as unavailable paid packages',
+        exact_output_tokens=sum(r['tokens_spent'] for r in rows if _confidence(r) == 'exact'),
+        estimated_output_tokens=sum(r['tokens_spent'] for r in rows if _confidence(r) == 'estimated'),
+        cost_confidence='estimated' if any(_confidence(r) == 'estimated' for r in rows) else 'exact',
+        usage=dict(totals), scope='completed ledger prefix; each attempt charged separately',
         new_teacher_calls=0, new_teacher_tokens=0)
     audit = dict(m=200, **accounting, snapshot=inputs, pool_demos=len(archive['demos']),
+        packages=len(records), unavailable_packages=sum(not r['verified'] for r in rows),
+        available_packages_by_confidence=dict(Counter(p['cost_confidence'] for p in payloads.values()
+            if p['provenance']['verified'])),
+        budget_checkpoints_tokens=resolve_budget_checkpoints(config,
+            sum(p['cost'] for p in payloads.values() if p['provenance']['verified'])),
         ledger_demos_not_yet_in_pool=sorted(set(demos)-set(archive['demos'])),
         attempts_with_trajectory_archive=len(archived_keys),
         request_calls_outside_completed_ledger=sum((r['task_id'], r['attempt_index']) not in paid for r in latest.values()))

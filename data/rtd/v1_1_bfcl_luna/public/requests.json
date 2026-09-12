@@ -4,7 +4,7 @@
     "parent_hash": "fdfbe76ec2577c4737496747fb266b28739e0978a78501e80d187b123b917b5f",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -22,7 +22,7 @@
     "parent_hash": "57ab3ca03bff4a5e7efe71e858a3f8e417ad9c45fdfc778a2a58d6a42a5b13b0",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -40,7 +40,7 @@
     "parent_hash": "f2b70f584f0579c6f340875d41d9f5c51297ab4a460ff891f8047dbcf1604c1d",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -58,7 +58,7 @@
     "parent_hash": "2f6d5712e34e2c9a47488162e7cc52bb13d799de1d97fdd96658a59e9ea966fe",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -76,7 +76,7 @@
     "parent_hash": "228db8e32c972531ec4bf0dfba59a1e6951429bb3a0a2066e41a6f107efcc894",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -148,7 +148,7 @@
     "parent_hash": "90526be7704c51cdba2e6c2100b9384d4f9cabe28e54ded3d08518680936dc3e",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -220,7 +220,7 @@
     "parent_hash": "cd71fb35d29db50ba9dc456631adb23c8dc1648a449399e48176788fc5773b76",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -292,7 +292,7 @@
     "parent_hash": "4107b612f3ee8746a46c700b09c301e73532df39e7e50a878f2b8fc775145e6d",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -310,7 +310,7 @@
     "parent_hash": "83a37e45e1e65b95dc969392d959fab89a019f33e5d9c88cec93de48cb9972a5",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -382,7 +382,7 @@
     "parent_hash": "cef6d45857c7a119737bfcfd29237fbaf611eba5a77189df69461ae8c908cd00",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -400,7 +400,7 @@
     "parent_hash": "2b6ca7a4d5a8b2b63be4e47f819263ae9dab56e17431592d0342ed4b26e1b04a",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -904,7 +904,7 @@
     "parent_hash": "44a99deabb82b8b1e19f94539dc70ac7367582d6ad783d5ac9d5ac01053aa2b0",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -922,7 +922,7 @@
     "parent_hash": "be67c3770bd19db790bf3cced364a3d6a4e1157b161f6c1d8079cf54ace1c1a5",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -940,7 +940,7 @@
     "parent_hash": "b67f184cd7f9cfaeb1e8f7b5e558ed7088b75543a6bb7a8bb23fa6d4f7ef4cd3",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -958,7 +958,7 @@
     "parent_hash": "476b24923ac4902aa4f11106735eb776eff9b0dca20db7d9d58d7a204f909b13",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -976,7 +976,7 @@
     "parent_hash": "c60ac21b6b103fde566d6bc625097921fb6e41b4530d1c707138c005c3eef4f1",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -1102,7 +1102,7 @@
     "parent_hash": "7b1d3828c7d8dbbd4d29dd2903cf65200e16a5adebf1ec8c087dff83af47fc74",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -1174,7 +1174,7 @@
     "parent_hash": "c1cf12e70abfaba2c1fc8e7a9ad7c629137010325ad5d971ff4c00481fe2075d",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -1192,7 +1192,7 @@
     "parent_hash": "12938679499ff0a4ba33c02bf532042b2c39e9d7fad47d6aae9fe5acd3e02bf2",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {
@@ -1210,7 +1210,7 @@
     "parent_hash": "af48b0cd189788b5aa6dca5834821babc7b00ba25f68c5bc6db29507515940bc",
     "spec": {
       "L": 1,
-      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
+      "cap_provenance": "{\"basis\": \"sealed_bank_class_content_envelope\", \"certificate_core_hash\": \"1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf\", \"online_authorized\": false, \"output_token_cap\": 256, \"request_class\": \"demo_attempt\"}",
       "cost_confidence": "exact",
       "cost_upper_bound": 256,
       "features": {

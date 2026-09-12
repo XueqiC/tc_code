@@ -85,16 +85,16 @@ partial. The zero extra-call fields describe this offline import.
 `configs/rtd/v1_1_bfcl_luna.yaml` copies `v1_1_bfcl.yaml`, changing only the bank
 path, student, Gemma call format, and the 60 GB resource declaration already
 used by the Gemma config. `configs/rtd/unified_bfcl_gemma4_luna.yaml` copies
-`unified_bfcl_gemma4.yaml`, changing the bank path and its displayed integer
-budget caps to `[142, 355]`. Every other YAML value, including frozen P1 values,
-is unchanged. Both configs pass the existing protocol validators.
+`unified_bfcl_gemma4.yaml`, changing the bank path. Both Luna configs now use
+absolute cumulative budgets `[15000, 30000]`; the table's 142/355 amounts are
+the archived bank's 10%/25% reference amounts. Both configs pass the existing
+protocol validators.
 
-The legacy historical-token constants and public-cap mapping are frozen
-protocol fields. Actual luna costs and the 256-token class cap come from the
-bound bank certificate. The 142-token first checkpoint is below one class-cap
-reservation; it cannot acquire a package under hard reservation. The second
-checkpoint permits a reservation. Budget fractions and the certificate's
-next-power-of-two cap rule are unchanged.
+The 256-token cap and 1,418-token denominator remain archival identities.
+The former ascending-query-ID receipt (20 usable packages for 1,418 tokens)
+is superseded by attempt accounting, including paid failures. Full BFCL startup
+currently fails on the missing local harness task `memory_kv_141-notetaker-11`;
+the historical startup receipts below describe the earlier build environment.
 
 Validation completed:
 
@@ -152,3 +152,40 @@ G4_ROOT=/home/xueqi/hq/projects/tc-alignment-g4
 
 Bank creation refuses an existing output directory. Reproduction requires a
 fresh bank path; preserve the certified bank when checking it again.
+
+## Attempt purchase correction (2026-09-11)
+
+Each teacher attempt is a separate package at its original ledger token cost,
+including failed attempts and recorded reasoning. Sort the original query IDs,
+shuffle once with `random.Random(0)`, and stop before the first overflow.
+The per-task ledger retains each attempt's task/parent dependency; it does not
+combine retry costs. All bank bytes, including support/folds, per-task ledgers,
+sealed payloads and certificates, are unchanged; no rebuild was needed.
+
+RTD and the read-only paper reader bought exactly the same ordered attempt IDs
+and usable IDs at all four budgets, with equal spend and next blocker:
+
+| Budget | Attempts | Usable | Tokens charged |
+| ---: | ---: | ---: | ---: |
+| 7,500 | 11 | 3 | 5,289 |
+| 15,000 | 11 | 3 | 5,289 |
+| 30,000 | 11 | 3 | 5,289 |
+| 60,000 | 23 | 8 | 59,951 |
+
+Denominator 1,418 and absolute configured caps 15,000 / 30,000 remain unchanged.
+V0/D3 full CPU preflight passes with `BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl`.
+The reported missing `memory_kv_141-notetaker-11` entry exists: the official loader
+expands raw `memory_141-notetaker-11` into that backend ID. It needs a writable
+runtime lock directory; otherwise the adapter swallows EROFS and omits memory
+entries. The expanded entry matches the frozen parent hash and fold exactly.
+No data entry, support or harness edit was required.
+[Diagnosis](rtd_bfcl_memory_harness_diagnosis.json).
+
+Purchases use the whole bank prefix, independently of training seed/fold.
+Only exposure is restricted to the active parent fold. Failed and other-fold
+purchases remain in V0/D3 receipts. Window limits pause and resume the same order.
+
+[Shared protocol](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11),
+[both code paths' attempt IDs](rtd_attempt_purchase_validation.json),
+[CPU and byte-preservation receipts](rtd_attempt_cpu_validation.json).
+No GPU/API calls were made. Older task-purchase receipts are superseded.

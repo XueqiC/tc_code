@@ -10,7 +10,7 @@ ALFWorld 现有 bank 的 CPU 审计：107 个包，135 个父任务，36,294 est
 
 P1 预算配置必须且只能声明一种形式：`budget_checkpoints_bank_fraction: [0.1, 0.25]`，或绝对累计教师输出 token 上限 `budget_checkpoints_tokens: [B_half, B]`。两者同时出现或均未声明都会拒绝；token 形式要求每轮一个严格递增的正整数，不乘 bank 分母、不按 bank 大小缩放、不强制花满。fraction 保留对 certified usable recorded-output-token 分母的 half-up 整数舍入。两种形式使用相同 sealed-pool 采购顺序及计费规则：已产生计费输出的失败 attempt 仍计费，在首次溢出前停止（stop before the first overflow），不删失败项、不重排或跳过它来填满预算；hard reservation / replay ledger 规则不变，也不授权新增 API 调用。
 
-Luna 的 V0 与统一臂必须使用同一预算形式：BFCL 的 `v1_1_bfcl_luna.yaml` / `unified_bfcl_gemma4_luna.yaml` 设为 `[2500, 5000]`；HotpotQA 的 `v1_1_hotpotqa_luna.yaml` / `unified_hotpotqa_gemma4_luna.yaml` / D0 变体设为 `[10000, 20000]`。ALFWorld Luna 的配置与在跑 V0 保持 fraction：25% 的实际 cap 为 **29,698 tokens**，论文报告记为 **B=30k**，不将运行 cap 改为 30,000。上面的 36,294 分母属于历史 bank，不是 Luna bank。
+Luna 的 V0 与统一臂必须使用同一预算形式：BFCL 的 `v1_1_bfcl_luna.yaml` / `unified_bfcl_gemma4_luna.yaml` 设为 `[15000, 30000]`；HotpotQA 的 `v1_1_hotpotqa_luna.yaml` / `unified_hotpotqa_gemma4_luna.yaml` / D0 变体设为 `[15000, 30000]`。ALFWorld Luna 的配置与在跑 V0 保持 fraction：25% 的实际 cap 为 **29,698 tokens**，论文报告记为 **B=30k**，不将运行 cap 改为 30,000。上面的 36,294 分母属于历史 bank，不是 Luna bank。
 
 manifest 的 `budget_checkpoint_form` 记录 `bank_fraction` 或 `tokens`，`budget_ceilings` 记录解析后的绝对累计 caps，`config` 保留原声明；token 形式的 `budget_rounding=none_absolute_tokens`。即使解析出相同 caps，fraction 与 token 配置仍是不同 config/campaign/replay 身份，complete/streaming replay 不能混用。旧 fraction schedule 的身份结构保持兼容。
 
@@ -121,3 +121,47 @@ PYTHONPATH=src:. /home/xueqi/hq/projects/tc-alignment/.venv/bin/python -m pytest
 ```
 
 最终 focused CPU 检查：55 passed，33.83 s（P1、P0 QP、P0 execution）。最终全 suite：**2,436 passed、4 skipped、6 warnings，931.44 s（15:31），退出码 0**。命令与环境设置见上，完整原始日志在本次 workspace 的 `/tmp/rtd-unified-p1-pytest.log`。GPU/API 运行次数为 0。
+
+## 2026-09-11 attempt 采购口径修正
+
+采购单位改正为 **一次 teacher attempt**：保留原 query ID，按该次 ledger completion
+tokens（已含 reasoning）单独付费；失败照付且没有 positive。排序全部 attempt IDs 后
+`random.Random(0).shuffle`，首个溢出即停。采购顺序不按当前 fold 过滤，才能与 paper
+baseline 的全 inventory 前缀一致；训练曝光仍严格检查原 task parent/fold。
+每 task 的 `public/task_attempts.json` 保留，用于 attempt 到 task 的依赖。
+
+ALFWorld/BFCL 的所有 bank bytes 未变。仅 HotpotQA 因 sealed payload 原先合并 task
+而重建：相同 frozen ledger 输入、419 attempts、113 usable，support/reset/folds bytes
+逐项断言相同。历史总 tokens 535,566 不变，usable denominator 为 66,800；原 task
+分母 133,206 包含成功 task 的失败重试费用。绝对预算 15k/30k 不变。
+
+实际执行只读 sibling `paper_data.load_purchased` 和 RTD broker，逐个预算断言完整
+ordered purchased IDs、usable IDs/counts、spend、blocker 和全序 hash 相等：
+
+| Bank | Budget | Attempts | Usable | Tokens charged |
+| --- | ---: | ---: | ---: | ---: |
+| alfworld | 7,500 | 4 | 2 | 6,535 |
+| alfworld | 15,000 | 9 | 5 | 13,342 |
+| alfworld | 30,000 | 13 | 5 | 29,229 |
+| alfworld | 60,000 | 24 | 9 | 58,602 |
+| bfcl | 7,500 | 11 | 3 | 5,289 |
+| bfcl | 15,000 | 11 | 3 | 5,289 |
+| bfcl | 30,000 | 11 | 3 | 5,289 |
+| bfcl | 60,000 | 23 | 8 | 59,951 |
+| hotpotqa | 7,500 | 6 | 1 | 7,207 |
+| hotpotqa | 15,000 | 11 | 3 | 12,134 |
+| hotpotqa | 30,000 | 17 | 4 | 29,663 |
+| hotpotqa | 60,000 | 35 | 8 | 59,859 |
+
+V0/D3 的六次 full CPU preflight 均通过。BFCL 的 `memory_kv_141-notetaker-11`
+不是删除或改名；原始 `memory_141-notetaker-11` 经官方 loader 展开为 memory_kv。
+共享 checkout 的 `.file_locks` 不可写，异常被 adapter 吞掉才造成 KeyError。
+设置 `BFCL_PROJECT_ROOT=/tmp/rtd-attempt-bfcl` 后父任务 hash/fold 与冻结 support 完全
+相同；只移动运行时锁目录，不改 harness data。GPU/API 次数为 0。
+
+完整双路径 IDs：[parity](rtd_attempt_purchase_validation.json)；
+[CPU 与 bytes 验证](rtd_attempt_cpu_validation.json)；
+[BFCL diagnosis](rtd_bfcl_memory_harness_diagnosis.json)；
+[英文协议与重现命令](rtd_hotpotqa.md#attempt-purchase-correction-2026-09-11)。
+
+本次指定 CPU filter 最终：**316 passed、1 skipped、3069 deselected、1 warning，112.72 s**。

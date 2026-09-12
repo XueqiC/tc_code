@@ -1,0 +1,18 @@
+{
+  "available_cost_by_confidence": {
+    "estimated": 118792
+  },
+  "available_packages": 104,
+  "bank_public_cap_sum": 1703936,
+  "budget_basis": "usable_recorded_output_tokens",
+  "budget_ceilings": [
+    11879,
+    29698
+  ],
+  "budget_denominator": 118792,
+  "cap_certificate_sha256": "b36c601fdfc68c50952c3dfcf504f300068bf7dd6bb312fcbb0aaba3264c5fcb",
+  "cost_scope": "cached-content cost; not the full teacher bill",
+  "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+  "recorded_bank_usage": 118792,
+  "version": "rtd-v1.1.0-state-bank"
+}

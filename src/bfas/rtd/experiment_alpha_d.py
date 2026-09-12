@@ -243,6 +243,7 @@ class AlphaDExperimentMixin:
     def alpha_revealed(self):
         s = self.state
         pending = [self.broker.acquire(q) for q in s['selected']]
+        pending = [p for p in pending if p.behaviors and self.broker.training_eligible(p.query_id)]
         if not s['calibrated'] and pending:
             self.alpha_calibrate(pending)
         records = []
@@ -361,6 +362,10 @@ class AlphaDExperimentMixin:
     def alpha_acquisition_labels(self):
         """Paid-only labels at the virtual old reference; never actual feedback."""
         s, ref = self.state, self.state['d_reference']
+        if self.broker.attempt_packages:
+            # The frozen baseline prefix has no learned acquisition policy.
+            s.update(labels={}, value_statistics=dict(query_ids=[], values=[], covariance=[]))
+            return
         acquisition = s['reference']
         shares = {}
         for pair, weight in zip(s['alpha_pairs'], ref.weights):

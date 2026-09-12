@@ -1,8 +1,10 @@
 """Privileged sealed-cache broker. Selectors import selector.py only.
 
 A bank has public/request metadata and a separate sealed/ JSON directory, never
-inside src or on sys.path. Only acquire reads response files, after dependency,
-fold, and hard-cap checks. No teacher API exists on this path.
+inside src or on sys.path. Ledger banks buy individual teacher attempts, including
+failures, in one seed-zero order across all parents. Public costs are reservation
+bounds. Training eligibility remains subject to the active parent fold.
+No teacher API exists on this path.
 """
 from __future__ import annotations
 
@@ -61,7 +63,8 @@ def seal_bank(directory, records: list[RequestRecord], payloads: dict[str, dict]
     """Offline ingestion only; the selector never receives this callable.
 
     Payload hashes belong to the privileged integrity index, not selector features.
-    Original costs/provenance remain in payload files until acquisition.
+    Original costs/provenance remain archived in payload files. Certified state
+    replay may disclose the recorded cost as a runtime reservation bound.
     """
     directory = Path(directory).resolve()
     source = Path(__file__).resolve().parents[2]
@@ -116,9 +119,99 @@ class SealedReplayBroker:
             self._records[spec.query_id] = RequestRecord(spec, raw["parent_hash"],
                                                        tuple(raw["dependencies"]), raw["unavailable_reason"])
         self._integrity = json.loads((self.directory / "sealed/integrity.json").read_text())
+        self.reservation_basis = 'public_class_cap'
+        self.attempt_packages = {}
+        self.purchase_order = ()
+        self._load_recorded_reservations()
+        if self.attempt_packages and any(q not in self.attempt_packages or cost != self.attempt_packages[q]['tokens']
+                                      for q, cost in ledger.charges.items()):
+            raise LedgerError('restored ledger uses different attempt purchase accounting')
+        if self.attempt_packages:
+            revealed = [e['query_id'] for e in ledger.events if e['kind'] == 'reveal']
+            if revealed != list(self.purchase_order[:len(revealed)]):
+                raise LedgerError('restored ledger is not a frozen attempt prefix')
         self._purchased: dict[str, PurchasedEvidencePackage] = {}
         self._offered: set[str] = set()
         self._ever_offered: set[str] = set()
+
+    def _load_recorded_reservations(self):
+        """Use ledger costs for certified, already-paid benchmark packages.
+
+        Keep the archived certificate/class caps intact. Only the runtime public
+        bound changes, so candidate filtering, cost prediction and reservation
+        agree. Estimated historical usage stays estimated: the reservation is
+        exact with respect to the recorded ledger, not the provider bill.
+        Legacy banks and WebShop retain their public-class-cap convention.
+        """
+        from .bank_v11 import CERTIFICATE
+        certificate = self.directory / CERTIFICATE
+        if not certificate.exists():
+            return
+        core = json.loads(certificate.read_text())['core']
+        if (core['version'] != 'rtd-v1.1.0-state-bank'
+                or core['benchmark'] not in {'hotpotqa', 'alfworld', 'bfcl'}):
+            return
+        from .bank_build import validate_state_certificate
+        validate_state_certificate(self.directory)
+        from .task_packages import ATTEMPT_LEDGER, PURCHASE_BASIS, attempt_packages, frozen_attempt_order
+        if ATTEMPT_LEDGER in core['public_artifacts']:
+            summary = json.loads((self.directory / 'public' / ATTEMPT_LEDGER).read_text())
+            self.attempt_packages = attempt_packages(summary, self._records)
+            self.purchase_order = tuple(frozen_attempt_order(self._records))
+            for q, attempt in self.attempt_packages.items():
+                record = self._records[q]
+                provenance = json.loads(record.spec.cap_provenance)
+                provenance.update(basis=PURCHASE_BASIS, archived_class_cap=record.spec.cost_upper_bound,
+                                  output_token_cap=attempt['tokens'], purchase_unit='teacher_attempt')
+                self._records[q] = replace(record, spec=replace(record.spec,
+                    cost_upper_bound=attempt['tokens'],
+                    cap_provenance=json.dumps(provenance, sort_keys=True)))
+            self.reservation_basis = PURCHASE_BASIS
+            return
+        total = 0
+        for q, record in self._records.items():
+            if record.unavailable_reason is not None:
+                continue
+            payload = self._read_payload(q)
+            cost = payload['cost']
+            if (type(cost) is not int or not 0 <= cost <= record.spec.cost_upper_bound
+                    or payload['cost_confidence'] != record.spec.cost_confidence):
+                raise LedgerError('invalid recorded package cost/confidence')
+            total += cost
+            provenance = json.loads(record.spec.cap_provenance)
+            provenance.update(basis='recorded_package_cost',
+                archived_class_cap=record.spec.cost_upper_bound, output_token_cap=cost)
+            self._records[q] = replace(record, spec=replace(record.spec,
+                cost_upper_bound=cost, cap_provenance=json.dumps(provenance, sort_keys=True)))
+        if total != core['budget_denominator']:
+            raise LedgerError('recorded package costs differ from certified denominator')
+        self.reservation_basis = 'recorded_package_cost'
+
+    def _read_payload(self, query_id):
+        payload = json.loads((self.directory / 'sealed' / (query_id + '.json')).read_text())
+        if digest(payload) != self._integrity[query_id]:
+            raise LedgerError('sealed payload integrity failure')
+        return payload
+
+    def _read_attempt_payload(self, query_id):
+        from .task_packages import attempt_summary
+        attempt = self.attempt_packages[query_id]
+        payload = self._read_payload(query_id)
+        summary = attempt_summary(payload['historical_response'], confidence=payload['cost_confidence'])
+        if (any(summary[k] != attempt[k] for k in summary)
+                or payload['cost'] != attempt['tokens']
+                or payload['provenance']['task_id'] != attempt['task_id']
+                or len(payload.get('historical_attempts', [payload['historical_response']])) != 1):
+            raise LedgerError('attempt ledger changed on reveal')
+        return payload
+
+    def frozen_unowned(self):
+        """One global purchase prefix, independent of training seed and fold."""
+        return [q for q in self.purchase_order if q not in self.ledger.owned_ids]
+
+    def training_eligible(self, query_id):
+        record = self._records[query_id]
+        return record.unavailable_reason is None and record.parent_hash in self.inner_parent_hashes
 
     def set_inner_parents(self, parent_hashes):
         """Rotate folds before constructing features, candidates and D_inner."""
@@ -126,6 +219,8 @@ class SealedReplayBroker:
         self._offered.clear()
 
     def _legal(self, record):
+        if self.attempt_packages:
+            return True  # Paying for an attempt does not make its parent trainable.
         return (record.unavailable_reason is None and record.parent_hash in self.inner_parent_hashes
                 and all(self._records[d].parent_hash in self.inner_parent_hashes
                         and self._records[d].unavailable_reason is None for d in record.dependencies))
@@ -141,16 +236,25 @@ class SealedReplayBroker:
             budget = min(remaining_budget, self.ledger.remaining, self.ledger.window_remaining)
             features = dict(student_snapshot.state_features)
             candidates = []
-            for q, record in sorted(self._records.items()):
+            order = ((q, self._records[q]) for q in self.purchase_order) if self.attempt_packages else sorted(self._records.items())
+            prefix_cost = 0
+            for q, record in order:
                 # Even state hashes/features of locked prefix requests are withheld.
                 if (q in owned_ids or not self._legal(record)
                         or (self.ledger.window is not None and self.ledger.window_purchases +
                             len(self.ledger.reservations) >= self.ledger.window['max_packages'])
-                        or not set(record.dependencies) <= self.ledger.owned_ids
-                        or record.spec.cost_upper_bound > budget):
+                        or not set(record.dependencies) <= self.ledger.owned_ids):
+                    continue
+                if record.spec.cost_upper_bound + prefix_cost > budget:
+                    if self.attempt_packages:
+                        break
                     continue
                 spec = replace(record.spec, features=features.get(record.spec.state_hash, PublicFeatures()))
                 candidates.append(spec)
+                if self.attempt_packages:
+                    prefix_cost += spec.cost_upper_bound
+                    if self.ledger.window is not None and len(candidates) + self.ledger.window_purchases >= self.ledger.window['max_packages']:
+                        break
             self._offered = {s.query_id for s in candidates}
             self._ever_offered.update(self._offered)
             return candidates
@@ -166,16 +270,27 @@ class SealedReplayBroker:
                 raise UnavailableError("purchase prefix dependencies first")
             if query_id not in self._offered and query_id not in self.ledger.owned_ids:
                 raise UnavailableError("request was not offered in the current candidate view")
+            if self.attempt_packages and query_id not in self.ledger.owned_ids:
+                if query_id != self.frozen_unowned()[0]:
+                    raise UnavailableError('purchase must follow the frozen attempt order')
             self.ledger.reserve(query_id, record.spec.cost_upper_bound)
             try:
-                payload = json.loads((self.directory / "sealed" / (query_id + ".json")).read_text())
-                if digest(payload) != self._integrity[query_id]:
-                    raise LedgerError("sealed payload integrity failure")
+                payload = self._read_attempt_payload(query_id) if self.attempt_packages else self._read_payload(query_id)
+                if (self.reservation_basis == 'recorded_package_cost'
+                        and payload['cost'] != record.spec.cost_upper_bound):
+                    raise LedgerError('recorded package cost changed on reveal')
                 if payload["cost_confidence"] != record.spec.cost_confidence:
                     raise LedgerError("cost confidence changed on reveal")
                 behaviors = tuple(Behavior(FullState(**r["state"]), r["text"]) for r in payload["behaviors"])
-                if not behaviors or any(b.state.parent_hash != record.parent_hash for b in behaviors):
+                if ((not behaviors and (not self.attempt_packages or self.attempt_packages[query_id]['usable']))
+                        or any(b.state.parent_hash != record.parent_hash for b in behaviors)):
                     raise ValueError("missing/full-state parent mismatch in sealed behaviors")
+                if self.attempt_packages:
+                    if not self.attempt_packages[query_id]['usable']:
+                        behaviors = ()
+                    elif (payload['historical_response'].get('verified') is False
+                          or payload.get('success') is False):
+                        raise ValueError('unverified positive package')
                 package = PurchasedEvidencePackage(query_id, record.dependencies, behaviors, payload["cost"],
                     payload["cost_confidence"], payload["usage"], payload["provenance"], payload["historical_response"],
                     tuple(payload.get("historical_events", ())))

@@ -1,0 +1,51 @@
+{
+  "query_id": "654e9609c372700c0edbb8c3f49f21d850a316bbc938e95ecba9f14745564c3f",
+  "request_state_hash": "e61ce86f7c32431948236d4185a7c0f1bf65c529375f668380490270b9a0ca82",
+  "dependencies": [],
+  "status": "unavailable",
+  "unavailable_reason": "failed, interrupted, or protected attempt",
+  "exclusion_reasons": [],
+  "success": false,
+  "payload_kind": null,
+  "commands": [],
+  "behaviors": [],
+  "cost": 2327,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 29484,
+    "cached_tokens": 0,
+    "completion_tokens": 2327
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 163,
+    "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+    "attempt_index": 1,
+    "timestamp": "2026-09-11T04:46:42.249146Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "pending CPU replay",
+    "source_request_state_hash": "3c7e0c18c2958077d223914e130cdb90f1a07f4d6dd23ebe10231b930e733cb3",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 1,
+    "temperature": 0.7,
+    "verified": false,
+    "tokens_spent": 2327,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T04:46:42.249146Z",
+    "usage": {
+      "prompt_tokens": 29484,
+      "cached_tokens": 0,
+      "completion_tokens": 2327
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"pick_heat_then_place_in_recep-Egg-None-GarbageCan-12/trial_T20190910_151939_914332\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":1,\"temperature\":0.7,\"verified\":false,\"tokens_spent\":2327,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T04:46:42.249146Z\",\"usage\":{\"prompt_tokens\":29484,\"cached_tokens\":0,\"completion_tokens\":2327}}",
+  "historical_events": []
+}

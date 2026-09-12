@@ -134,12 +134,111 @@ def test_hotpotqa_bank_build_exact_costs_folds_and_native_rendering(synthetic):
     assert audit['snapshot']['attempts.jsonl'] is None
 
 
-@pytest.mark.parametrize('change', ['cost', 'context', 'target', 'pool', 'usage'])
+@pytest.mark.parametrize('pool_attempt', ['earliest', 'later'])
+def test_hotpotqa_bank_build_multiple_successes_charge_all_attempts(synthetic, pool_attempt):
+    from bfas.adapter import Demo, Turn
+    from bfas.ledger import demo_payload
+    c = synthetic; rows = deepcopy(c.rows)
+    first = rows[0]; first['attempt_index'] = 1
+    later = deepcopy(first)
+    later.update(attempt_index=4, tokens_spent=13)
+    later['usage']['completion_tokens'] = 13
+    turns = []
+    replies = iter(['Action 1: search[later article]', 'Action 2: finish[SYNTHETIC_GOLD]'])
+    def generate(messages, stop, temperature):
+        reply = next(replies)
+        turns.append(Turn('portable archive', reply, deepcopy(messages)))
+        return reply
+    record = hp.run_episode(c.questions[0], Wiki(), generate)
+    later['demo'] = demo_payload(Demo(first['task_id'], tuple(turns),
+        f"Question: {c.questions[0]['question']}\n"+record['transcript'], record))
+    failed = dict(deepcopy(rows[2]), task_id=first['task_id'])
+    # Selection follows attempt index even with out-of-order, gapped retries.
+    rows = [later, *rows, failed]
+    archive = json.loads(c.pool.read_text())
+    archive['demos'][first['task_id']] = (first if pool_attempt == 'earliest' else later)['demo']
+    c.pool.write_text(json.dumps(archive))
+    c.ledger.write_text(''.join(json.dumps(r)+'\n' for r in rows))
+    bank = c.root/'retry-bank'
+    result = build_hotpotqa_bank(ROOT, bank, pool=c.pool, ledger=c.ledger,
+        config=c.config, tokenizer=c.tokenizer, wiki_factory=Wiki)
+    requests = json.loads((bank/'public/requests.json').read_text())
+    payloads = [json.loads((bank/'sealed'/f"{r['spec']['query_id']}.json").read_text()) for r in requests]
+    attempts = {p['provenance']['attempt_index']: p for p in payloads
+                if p['provenance']['task_id'] == first['task_id']}
+    assert len(requests) == 5 and result['available_packages'] == 3
+    assert set(attempts) == {0, 1, 4}
+    for row in (failed, first, later):
+        payload = attempts[row['attempt_index']]
+        assert payload['cost'] == payload['usage']['completion_tokens'] == row['tokens_spent']
+        assert payload['historical_response'] == row
+        assert 'historical_attempts' not in payload
+        assert [b['text'] for b in payload['behaviors']] == (
+            [t['target'] for t in row['demo']['turns']] if row['verified'] else [])
+    assert sum(p['cost'] for p in payloads) == sum(r['tokens_spent'] for r in rows) == 49
+    assert result['budget_denominator'] == 35
+    assert result['available_cost_by_confidence'] == {'exact': 35}
+    assert result['teacher_accounting']['verified_episodes'] == 3
+    assert result['teacher_accounting']['verified_tasks'] == 2
+    assert result['teacher_accounting']['later_verified_attempts'] == 1
+    assert validate_state_certificate(bank)['core']['class_caps'] == {'hotpotqa_demo_episode': 16}
+    assert (bank/'public/support.json').read_bytes() == (c.bank/'public/support.json').read_bytes()
+
+
+@pytest.mark.parametrize('estimated_attempt', ['selected', 'failed', 'later_success'])
+def test_hotpotqa_bank_build_estimated_usage_charged_and_propagated(synthetic, estimated_attempt):
+    c = synthetic; rows = deepcopy(c.rows)
+    estimated = rows[0]
+    if estimated_attempt != 'selected':
+        estimated = deepcopy(rows[0] if estimated_attempt == 'later_success' else rows[2])
+        estimated.update(task_id=rows[0]['task_id'], attempt_index=1)
+        rows.append(estimated)
+    estimated['usage_status'] = 'estimated'
+    c.ledger.write_text(''.join(json.dumps(r)+'\n' for r in rows))
+    (c.root/'attempts.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
+    calls = []
+    for i, r in enumerate(rows):
+        call = dict(id=i, task_id=r['task_id'], attempt_index=r['attempt_index'], usage=r['usage'])
+        calls.extend([dict(call, status='reserved'),
+                      dict(call, status='estimated' if r is estimated else 'reported')])
+    (c.root/'usage.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in calls))
+    bank = c.root/'estimated-bank'
+    result = build_hotpotqa_bank(ROOT, bank, pool=c.pool, ledger=c.ledger,
+        config=c.config, tokenizer=c.tokenizer, wiki_factory=Wiki)
+    requests = json.loads((bank/'public/requests.json').read_text())
+    request = next(r for r in requests if r['spec']['cost_confidence'] == 'estimated')
+    payload = json.loads((bank/'sealed'/f"{request['spec']['query_id']}.json").read_text())
+    cost = estimated['tokens_spent']
+    assert (request['unavailable_reason'] is None) == estimated['verified']
+    assert payload['provenance']['attempt_index'] == estimated['attempt_index']
+    assert payload['cost'] == payload['usage']['completion_tokens'] == cost
+    assert payload['historical_response'] == estimated
+    assert payload['cost_confidence'] == 'estimated'
+    expected_costs = {'exact': sum(r['tokens_spent'] for r in rows if r is not estimated and r['verified'])}
+    if estimated['verified']:
+        expected_costs['estimated'] = cost
+    assert result['available_cost_by_confidence'] == expected_costs
+    assert result['teacher_accounting']['cost_confidence'] == 'estimated'
+    assert result['teacher_accounting']['estimated_output_tokens'] == cost
+    assert result['teacher_accounting']['exact_output_tokens'] == sum(r['tokens_spent'] for r in rows if r is not estimated)
+    assert result['teacher_accounting']['historical_output_tokens'] == sum(r['tokens_spent'] for r in rows)
+    assert result['budget_denominator'] == sum(expected_costs.values())
+    cert = validate_state_certificate(bank)
+    assert cert['core']['teacher_accounting'] == result['teacher_accounting']
+    assert (bank/'public/support.json').read_bytes() == (c.bank/'public/support.json').read_bytes()
+
+
+@pytest.mark.parametrize('change', ['cost', 'context', 'target', 'pool', 'usage',
+                                   'missing_task', 'unknown_task', 'negative_tokens', 'negative_usage'])
 def test_hotpotqa_bank_build_rejects_corrupt_evidence(synthetic, change):
     c = synthetic; rows = deepcopy(c.rows)
     if change == 'cost': rows[0]['tokens_spent'] += 1
     elif change == 'context': rows[0]['demo']['turns'][0]['context'][0]['content'] += 'gold leak'
     elif change == 'target': rows[1]['demo']['turns'][-1]['target'] = 'finish[wrong]'
+    elif change == 'missing_task': rows[2].pop('task_id')
+    elif change == 'unknown_task': rows[2]['task_id'] = 'outside-support'
+    elif change == 'negative_tokens': rows[2]['tokens_spent'] = rows[2]['usage']['completion_tokens'] = -1
+    elif change == 'negative_usage': rows[2]['usage']['prompt_tokens'] = -1
     elif change == 'pool':
         value = json.loads(c.pool.read_text());value['teacher'] = 'wrong';c.pool.write_text(json.dumps(value))
     else:
@@ -282,7 +381,7 @@ def test_hotpotqa_registry_and_frozen_p1_configs():
                     'rounds', 'memory_peak_budget_gb',
                     'training_seed', 'score_consistency_tolerance', 'rollouts_per_meta_task'):
             assert config[key] == reference[key]
-        assert config['budget_checkpoints_tokens'] == [10000, 20000]
+        assert config['budget_checkpoints_tokens'] == [15000, 30000]
         assert 'budget_checkpoints_bank_fraction' not in config
         assert reference['budget_checkpoints_bank_fraction'] == [.1, .25]
         assert get_benchmark(config).support_protocol is HotpotQASupport

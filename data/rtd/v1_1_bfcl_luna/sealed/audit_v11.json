@@ -10,7 +10,7 @@
     355
   ],
   "budget_denominator": 1418,
-  "cap_certificate_sha256": "8581088aafc6aafa354a561cced19aa1f7fa4040d6dc2665c777be1aa53810cc",
+  "cap_certificate_sha256": "8ec661e92767056f2cf2ed4432d6f371409f7d185c0d5be5f8bbabb8af47a55b",
   "cost_scope": "cached-content cost; not the full teacher bill",
   "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
   "recorded_bank_usage": 1418,

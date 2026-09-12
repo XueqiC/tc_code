@@ -1,0 +1,51 @@
+{
+  "query_id": "9ccedb746844ba2cb9d37ccd4c5cd5fdf5a0e453c02e22aeafa2c4508eee7457",
+  "request_state_hash": "41776bc7b350810025f4eb538691c6bd46ecf37f45e170470bb2f9a190c6cdf2",
+  "dependencies": [],
+  "status": "unavailable",
+  "unavailable_reason": "failed, interrupted, or protected attempt",
+  "exclusion_reasons": [],
+  "success": false,
+  "payload_kind": null,
+  "commands": [],
+  "behaviors": [],
+  "cost": 2745,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 29636,
+    "cached_tokens": 0,
+    "completion_tokens": 2745
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 132,
+    "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T04:33:48.388262Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "pending CPU replay",
+    "source_request_state_hash": "a650fe84499fe888e4e0f99e647e7d77a9b5129a29fa9d5a9db157e12e48c34b",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": false,
+    "tokens_spent": 2745,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T04:33:48.388262Z",
+    "usage": {
+      "prompt_tokens": 29636,
+      "cached_tokens": 0,
+      "completion_tokens": 2745
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"pick_cool_then_place_in_recep-Potato-None-GarbageCan-17/trial_T20190908_204236_762891\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":false,\"tokens_spent\":2745,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T04:33:48.388262Z\",\"usage\":{\"prompt_tokens\":29636,\"cached_tokens\":0,\"completion_tokens\":2745}}",
+  "historical_events": []
+}

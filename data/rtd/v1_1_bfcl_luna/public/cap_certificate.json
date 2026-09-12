@@ -23,7 +23,8 @@
     "online_authorized": false,
     "protocol_version": "1.1.0",
     "public_artifacts": {
-      "support.json": "a9139a2ee4b1dda283bc652e55584bd75ab5786109da41d841b16781ba9599fc"
+      "support.json": "a9139a2ee4b1dda283bc652e55584bd75ab5786109da41d841b16781ba9599fc",
+      "task_attempts.json": "9656f4cfc8ee888b2195dc2e561ced76348bcab6b461ca59c39824306d7ad881"
     },
     "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
     "rounding": "positive_integer_half_up",
@@ -40,6 +41,6 @@
     "usable_set_hash": "b367c52b3721de4290d21245ed62ad9dd6d3a015b368b06216e5865428d36505",
     "version": "rtd-v1.1.0-state-bank"
   },
-  "core_hash": "398d72070eda9df6497bfae7538f6586ed5892d9ff250cc2a2a7f83fa061908f",
-  "public_sha256": "2529b5e9de7fc80e78840f3562c908e6e99bcbb9b8be134afb4dbb976dc0d255"
+  "core_hash": "1ca36ccb11af9da3338c3056527be09a7accc4df55c3f58c25ca1a58fb0bd9cf",
+  "public_sha256": "d58e9ad03ca7ee25a05c66e83801f9d0aae78e2fd386a649cc80da27c6a1158c"
 }

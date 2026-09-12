@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an offline v1.1 bank from paid teacher pools and their ledger."""
+"""Build an offline v1.1 bank with public per-task attempt ledger accounting."""
 import argparse
 import json
 from pathlib import Path

@@ -364,7 +364,8 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
 
     def packages(self):
         return [self.broker.acquire(q) for q in self.state['owned']
-                if self.broker._records[q].parent_hash in self.state['inner']]
+                if self.broker._records[q].parent_hash in self.state['inner']
+                and self.broker._records[q].unavailable_reason is None]
 
     def sample_state(self, state, *, refresh=False, cache=True):
         s = self.state
@@ -979,7 +980,9 @@ class RTDExperiment(AlphaDExperimentMixin, BatchExperimentMixin):
         while pending:
             view = StudentSnapshot('fixed-evidence-initialization', frozenset(self.support.parents))
             candidates = self.broker.list_candidates(view, self.ledger.owned_ids, self.ledger.remaining)
-            legal = sorted(q.query_id for q in candidates if q.query_id in pending)
+            legal = [q.query_id for q in candidates if q.query_id in pending]
+            if not self.broker.attempt_packages:
+                legal.sort()
             if not legal:
                 raise ValueError('fixed ledger has missing dependencies, unavailable packages or insufficient caps')
             self.broker.acquire(legal[0])

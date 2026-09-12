@@ -1,0 +1,288 @@
+{
+  "query_id": "0140d71a1281ac67750a3e2907b6baccc62a62da1379dc2d2ba7a140cbe2989a",
+  "request_state_hash": "812535e43442cad0d90ef364f1c709246ae654ab88b4b2dc0ab0c51eb97d4334",
+  "dependencies": [],
+  "status": "usable",
+  "unavailable_reason": null,
+  "exclusion_reasons": [],
+  "success": true,
+  "payload_kind": "extracted_teacher_commands",
+  "commands": [
+    "go to sidetable 1",
+    "take cd 1 from sidetable 1",
+    "use desklamp 1"
+  ],
+  "behaviors": [
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\n\nYour task is to: look at cd under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      "text": "go to sidetable 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to sidetable 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"take cd 1 from sidetable 1\", \"take cd 2 from sidetable 1\", \"take pen 1 from sidetable 1\", \"use desklamp 1\"], \"content\": \"You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nAdmissible commands:\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\ntake cd 1 from sidetable 1\ntake cd 2 from sidetable 1\ntake pen 1 from sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      "text": "take cd 1 from sidetable 1"
+    },
+    {
+      "state": {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to sidetable 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"take cd 1 from sidetable 1\", \"take cd 2 from sidetable 1\", \"take pen 1 from sidetable 1\", \"use desklamp 1\"], \"content\": \"You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take cd 1 from sidetable 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine cd 1\", \"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"move cd 1 to sidetable 1\", \"use desklamp 1\"], \"content\": \"You pick up the cd 1 from the sidetable 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "<bos><|turn>system\nYou are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.<turn|>\n<|turn>user\nCanonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou pick up the cd 1 from the sidetable 1.\n\nAdmissible commands:\nexamine cd 1\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\nmove cd 1 to sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n> take cd 1 from sidetable 1\nYou pick up the cd 1 from the sidetable 1.\n\nThink step by step, then give the next ACTION.<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      "text": "use desklamp 1"
+    }
+  ],
+  "cost": 235,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 1354,
+    "cached_tokens": 0,
+    "completion_tokens": 235
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 1,
+    "task_id": "look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T03:36:17.367350Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "C26-B real state replay",
+    "original_request_state_hash": "554a4fa6a88073e87ea46bb7ec6ca275c5d6ee9061fde5d108727a86bf2f7931",
+    "source_request_state_hash": "554a4fa6a88073e87ea46bb7ec6ca275c5d6ee9061fde5d108727a86bf2f7931",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": true,
+    "tokens_spent": 235,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:36:17.367350Z",
+    "demo": {
+      "turns": [
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\n\nYour task is to: look at cd under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else.",
+          "target": "go to sidetable 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\n\nYour task is to: look at cd under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nAdmissible commands:\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\ntake cd 1 from sidetable 1\ntake cd 2 from sidetable 1\ntake pen 1 from sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "take cd 1 from sidetable 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nAdmissible commands:\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\ntake cd 1 from sidetable 1\ntake cd 2 from sidetable 1\ntake pen 1 from sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        },
+        {
+          "prompt": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou pick up the cd 1 from the sidetable 1.\n\nAdmissible commands:\nexamine cd 1\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\nmove cd 1 to sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n> take cd 1 from sidetable 1\nYou pick up the cd 1 from the sidetable 1.\n\nReply with exactly one admissible command and nothing else.",
+          "target": "use desklamp 1",
+          "context": [
+            {
+              "role": "user",
+              "content": "You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou pick up the cd 1 from the sidetable 1.\n\nAdmissible commands:\nexamine cd 1\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\nmove cd 1 to sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n> take cd 1 from sidetable 1\nYou pick up the cd 1 from the sidetable 1.\n\nReply with exactly one admissible command and nothing else."
+            }
+          ]
+        }
+      ],
+      "worked_example": "go to sidetable 1\ntake cd 1 from sidetable 1\nuse desklamp 1"
+    },
+    "usage": {
+      "prompt_tokens": 1354,
+      "cached_tokens": 0,
+      "completion_tokens": 235
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":true,\"tokens_spent\":235,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T03:36:17.367350Z\",\"demo\":{\"turns\":[{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"go to sidetable 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\n-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\\n\\nAdmissible commands:\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\ngo to sidetable 1\\nhelp\\ninventory\\nlook\\n\\nHistory:\\n(start)\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cd under the desklamp.\\n\\nCurrent observation:\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n\\nAdmissible commands:\\nexamine sidetable 1\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\nhelp\\ninventory\\nlook\\ntake cd 1 from sidetable 1\\ntake cd 2 from sidetable 1\\ntake pen 1 from sidetable 1\\nuse desklamp 1\\n\\nHistory:\\n> go to sidetable 1\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"take cd 1 from sidetable 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cd under the desklamp.\\n\\nCurrent observation:\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n\\nAdmissible commands:\\nexamine sidetable 1\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\nhelp\\ninventory\\nlook\\ntake cd 1 from sidetable 1\\ntake cd 2 from sidetable 1\\ntake pen 1 from sidetable 1\\nuse desklamp 1\\n\\nHistory:\\n> go to sidetable 1\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]},{\"prompt\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cd under the desklamp.\\n\\nCurrent observation:\\nYou pick up the cd 1 from the sidetable 1.\\n\\nAdmissible commands:\\nexamine cd 1\\nexamine sidetable 1\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\nhelp\\ninventory\\nlook\\nmove cd 1 to sidetable 1\\nuse desklamp 1\\n\\nHistory:\\n> go to sidetable 1\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n> take cd 1 from sidetable 1\\nYou pick up the cd 1 from the sidetable 1.\\n\\nReply with exactly one admissible command and nothing else.\",\"target\":\"use desklamp 1\",\"context\":[{\"role\":\"user\",\"content\":\"You are an agent in a household. Complete the task by issuing one command at a time from the admissible commands.\\n\\nTask context:\\nGoal: look at cd under the desklamp.\\n\\nCurrent observation:\\nYou pick up the cd 1 from the sidetable 1.\\n\\nAdmissible commands:\\nexamine cd 1\\nexamine sidetable 1\\ngo to bed 1\\ngo to drawer 1\\ngo to drawer 10\\ngo to drawer 11\\ngo to drawer 2\\ngo to drawer 3\\ngo to drawer 4\\ngo to drawer 5\\ngo to drawer 6\\ngo to drawer 7\\ngo to drawer 8\\ngo to drawer 9\\ngo to dresser 1\\ngo to garbagecan 1\\ngo to laundryhamper 1\\ngo to safe 1\\nhelp\\ninventory\\nlook\\nmove cd 1 to sidetable 1\\nuse desklamp 1\\n\\nHistory:\\n> go to sidetable 1\\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\\n> take cd 1 from sidetable 1\\nYou pick up the cd 1 from the sidetable 1.\\n\\nReply with exactly one admissible command and nothing else.\"}]}],\"worked_example\":\"go to sidetable 1\\ntake cd 1 from sidetable 1\\nuse desklamp 1\"},\"usage\":{\"prompt_tokens\":1354,\"cached_tokens\":0,\"completion_tokens\":235}}",
+  "historical_events": [],
+  "verification": {
+    "replayed": true,
+    "success_reproduced": true,
+    "unavailable_reason": null,
+    "error_type": null,
+    "done": true,
+    "won": true,
+    "transcript_hash": "af6927e786a7b352ae5e056fbdd58826ccfbddd143cb0943c348f1b0437940af",
+    "states": [
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\n-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\n\nYour task is to: look at cd under the desklamp.\n\nAdmissible commands:\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\ngo to sidetable 1\nhelp\ninventory\nlook\n\nHistory:\n(start)\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to sidetable 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"take cd 1 from sidetable 1\", \"take cd 2 from sidetable 1\", \"take pen 1 from sidetable 1\", \"use desklamp 1\"], \"content\": \"You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nAdmissible commands:\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\ntake cd 1 from sidetable 1\ntake cd 2 from sidetable 1\ntake pen 1 from sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to sidetable 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"take cd 1 from sidetable 1\", \"take cd 2 from sidetable 1\", \"take pen 1 from sidetable 1\", \"use desklamp 1\"], \"content\": \"You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take cd 1 from sidetable 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine cd 1\", \"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"move cd 1 to sidetable 1\", \"use desklamp 1\"], \"content\": \"You pick up the cd 1 from the sidetable 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou pick up the cd 1 from the sidetable 1.\n\nAdmissible commands:\nexamine cd 1\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\nmove cd 1 to sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n> take cd 1 from sidetable 1\nYou pick up the cd 1 from the sidetable 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      },
+      {
+        "task_json": "{\"benchmark\": \"alfworld\", \"environment_hash\": \"e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f\", \"goal\": \"look at cd under the desklamp.\", \"max_episode_steps\": 40, \"split\": \"train\", \"state_kind\": \"train_reset_request\", \"task_id\": \"look_at_obj_in_light-CD-None-DeskLamp-317/trial_T20190908_032847_688091\", \"world_files\": {\"game.tw-pddl\": \"93caf8340f089f41e88f7294b7f9714954d7497730649ffefdaff83395064171\", \"initial_state.pddl\": \"3d4ba3e265eb7fe0b0491feef60722762ab242580ef0c87e33b7c5beb3175a4d\", \"traj_data.json\": \"2f431db7705e6118c239a7e29036d367b86895ad0a628ada9a66ef886f514a20\"}, \"world_hash\": \"6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885\"}",
+        "history_json": "[{\"admissible\": [\"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"go to sidetable 1\", \"help\", \"inventory\", \"look\"], \"content\": \"-= Welcome to TextWorld, ALFRED! =-\\n\\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\\n\\nYour task is to: look at cd under the desklamp.\", \"done\": false, \"index\": 0, \"role\": \"user\"}, {\"content\": \"go to sidetable 1\", \"index\": 1, \"role\": \"assistant\"}, {\"admissible\": [\"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"take cd 1 from sidetable 1\", \"take cd 2 from sidetable 1\", \"take pen 1 from sidetable 1\", \"use desklamp 1\"], \"content\": \"You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\", \"done\": false, \"index\": 1, \"role\": \"tool\"}, {\"content\": \"take cd 1 from sidetable 1\", \"index\": 2, \"role\": \"assistant\"}, {\"admissible\": [\"examine cd 1\", \"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"move cd 1 to sidetable 1\", \"use desklamp 1\"], \"content\": \"You pick up the cd 1 from the sidetable 1.\", \"done\": false, \"index\": 2, \"role\": \"tool\"}, {\"content\": \"use desklamp 1\", \"index\": 3, \"role\": \"assistant\"}, {\"admissible\": [\"examine cd 1\", \"examine sidetable 1\", \"go to bed 1\", \"go to drawer 1\", \"go to drawer 10\", \"go to drawer 11\", \"go to drawer 2\", \"go to drawer 3\", \"go to drawer 4\", \"go to drawer 5\", \"go to drawer 6\", \"go to drawer 7\", \"go to drawer 8\", \"go to drawer 9\", \"go to dresser 1\", \"go to garbagecan 1\", \"go to laundryhamper 1\", \"go to safe 1\", \"help\", \"inventory\", \"look\", \"move cd 1 to sidetable 1\", \"use desklamp 1\"], \"content\": \"You turn on the desklamp 1.\", \"done\": true, \"index\": 3, \"role\": \"tool\"}]",
+        "prompt": "system: You are an expert ALFWorld household agent. Think step by step about the goal, observation, history, and admissible commands before choosing one command. End each reply with `ACTION: <one admissible command>`.\n\nuser: Canonical worked example for task type look_at_obj_in_light:\nTask: Look at creditcard 1 under the light of desklamp 1.\nTHOUGHT: I need to pick up the credit card.\nACTION: go to sidetable 1\nTHOUGHT: The credit card is here.\nACTION: take creditcard 1 from sidetable 1\nTHOUGHT: I should carry it to the desk lamp.\nACTION: go to desk 1\nTHOUGHT: Using the lamp while holding the card completes the task.\nACTION: use desklamp 1\n\nNow solve the current episode one command at a time.\n\nTask context:\nGoal: look at cd under the desklamp.\n\nCurrent observation:\nYou turn on the desklamp 1.\n\nAdmissible commands:\nexamine cd 1\nexamine sidetable 1\ngo to bed 1\ngo to drawer 1\ngo to drawer 10\ngo to drawer 11\ngo to drawer 2\ngo to drawer 3\ngo to drawer 4\ngo to drawer 5\ngo to drawer 6\ngo to drawer 7\ngo to drawer 8\ngo to drawer 9\ngo to dresser 1\ngo to garbagecan 1\ngo to laundryhamper 1\ngo to safe 1\nhelp\ninventory\nlook\nmove cd 1 to sidetable 1\nuse desklamp 1\n\nHistory:\n> go to sidetable 1\nYou arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.\n> take cd 1 from sidetable 1\nYou pick up the cd 1 from the sidetable 1.\n> use desklamp 1\nYou turn on the desklamp 1.\n\nThink step by step, then give the next ACTION.",
+        "parent_hash": "c94c22fc78e61ba1b08983e25e4cdbccceb166493cae9e473d047eb9aaedbdee"
+      }
+    ],
+    "raw_observations": [
+      {
+        "index": 0,
+        "observation": "-= Welcome to TextWorld, ALFRED! =-\n\nYou are in the middle of a room. Looking quickly around you, you see a bed 1, a drawer 11, a drawer 10, a drawer 9, a drawer 8, a drawer 7, a drawer 6, a drawer 5, a drawer 4, a drawer 3, a drawer 2, a drawer 1, a dresser 1, a garbagecan 1, a laundryhamper 1, a safe 1, and a sidetable 1.\n\nYour task is to: look at cd under the desklamp.",
+        "admissible": [
+          "go to bed 1",
+          "go to drawer 1",
+          "go to drawer 10",
+          "go to drawer 11",
+          "go to drawer 2",
+          "go to drawer 3",
+          "go to drawer 4",
+          "go to drawer 5",
+          "go to drawer 6",
+          "go to drawer 7",
+          "go to drawer 8",
+          "go to drawer 9",
+          "go to dresser 1",
+          "go to garbagecan 1",
+          "go to laundryhamper 1",
+          "go to safe 1",
+          "go to sidetable 1",
+          "help",
+          "inventory",
+          "look"
+        ],
+        "world_hash": "6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 1,
+        "observation": "You arrive at sidetable 1. On the sidetable 1, you see a cd 2, a cd 1, a desklamp 1, and a pen 1.",
+        "admissible": [
+          "examine sidetable 1",
+          "go to bed 1",
+          "go to drawer 1",
+          "go to drawer 10",
+          "go to drawer 11",
+          "go to drawer 2",
+          "go to drawer 3",
+          "go to drawer 4",
+          "go to drawer 5",
+          "go to drawer 6",
+          "go to drawer 7",
+          "go to drawer 8",
+          "go to drawer 9",
+          "go to dresser 1",
+          "go to garbagecan 1",
+          "go to laundryhamper 1",
+          "go to safe 1",
+          "help",
+          "inventory",
+          "look",
+          "take cd 1 from sidetable 1",
+          "take cd 2 from sidetable 1",
+          "take pen 1 from sidetable 1",
+          "use desklamp 1"
+        ],
+        "world_hash": "6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 2,
+        "observation": "You pick up the cd 1 from the sidetable 1.",
+        "admissible": [
+          "examine cd 1",
+          "examine sidetable 1",
+          "go to bed 1",
+          "go to drawer 1",
+          "go to drawer 10",
+          "go to drawer 11",
+          "go to drawer 2",
+          "go to drawer 3",
+          "go to drawer 4",
+          "go to drawer 5",
+          "go to drawer 6",
+          "go to drawer 7",
+          "go to drawer 8",
+          "go to drawer 9",
+          "go to dresser 1",
+          "go to garbagecan 1",
+          "go to laundryhamper 1",
+          "go to safe 1",
+          "help",
+          "inventory",
+          "look",
+          "move cd 1 to sidetable 1",
+          "use desklamp 1"
+        ],
+        "world_hash": "6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885",
+        "done": false,
+        "won": false
+      },
+      {
+        "index": 3,
+        "observation": "You turn on the desklamp 1.",
+        "admissible": [
+          "examine cd 1",
+          "examine sidetable 1",
+          "go to bed 1",
+          "go to drawer 1",
+          "go to drawer 10",
+          "go to drawer 11",
+          "go to drawer 2",
+          "go to drawer 3",
+          "go to drawer 4",
+          "go to drawer 5",
+          "go to drawer 6",
+          "go to drawer 7",
+          "go to drawer 8",
+          "go to drawer 9",
+          "go to dresser 1",
+          "go to garbagecan 1",
+          "go to laundryhamper 1",
+          "go to safe 1",
+          "help",
+          "inventory",
+          "look",
+          "move cd 1 to sidetable 1",
+          "use desklamp 1"
+        ],
+        "world_hash": "6388d6dce57f4a47fd0c70f4902bf7ca50618dbd21ef58095ab5ca500ee02885",
+        "done": true,
+        "won": true
+      }
+    ],
+    "archived_context_checks": [
+      0,
+      1,
+      2
+    ],
+    "completed_commands": 3
+  }
+}

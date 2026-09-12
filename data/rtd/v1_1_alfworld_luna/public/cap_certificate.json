@@ -1,0 +1,69 @@
+{
+  "core": {
+    "all_actual_within_class_cap": true,
+    "audit_sha256": "cba70ef43a67f05fae3bbdb4d1cc6d3c5941212d1bfc18aaf1462635cdc40842",
+    "available_packages": 104,
+    "benchmark": "alfworld",
+    "budget_basis": "usable_recorded_output_tokens",
+    "budget_denominator": 118792,
+    "cap_basis": "sealed_bank_class_content_envelope",
+    "cap_rule": "next_power_of_two_of_usable_class_maximum",
+    "class_caps": {
+      "alf_demo_episode": 16384
+    },
+    "class_counts": {
+      "alf_demo_episode": 104
+    },
+    "cost_scope": "cached-content cost; not the full teacher bill",
+    "inputs": {
+      "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+      "source_integrity": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+      "source_manifest": "e66aa1c37385709ce5a383be1c1b5d3fa61b27053a42533055348fe4993b699b",
+      "support_binding": {
+        "changed_request_identities": 142,
+        "frozen_support_manifest_hash": "c9e94738a072548a1b61333ef67b324005c995dd713d870dda035651067ab0f6",
+        "frozen_support_sha256": "d6f3dbf6fddca162472982b14ab55888e3b55862fa64c4abc1e5d753290c161b",
+        "packages_dropped": 0,
+        "source_environment": {
+          "collection": "alfworld_teacher_pool",
+          "environment_hash": "e41d30cb94b9d8cc734876ede1ba010e369be3ccbdb47a86238801b3efa4200f",
+          "historical_environment_hash": "1b32da65642c49df341fee991cfa75f4b6276ac6d2e2161dccc816d16bd3aa3c",
+          "max_episode_steps": 40,
+          "rendering": "portable ReAct messages; student rendered at conversion",
+          "source_files": {
+            "src/appworld_teacher.py": "b80a1589ab2c0966ef580acf269323b6a88cd3348991718f4be89e2742f87032",
+            "src/bfas/adapters/alfworld.py": "585b15a9dfb4749e522a680d34c8df245a7fd9d4a519a581f94fd85f83b674e8",
+            "src/bfas/rtd/benchmarks/alfworld_support.py": "d210fe3dc6c05bb45a4f069a641884f37350fd9e5847a7aff5284e6196af15c4",
+            "tools/alfworld_teacher_pool.py": "b631c1b6a875aa1d178db7a21e49775eb83ba7800a7ea1d70eab86f8238f7fe5"
+          }
+        },
+        "source_support_manifest_hash": "38f4fa7f7a4a31d37244cfa43fe717a40b9613c1e647db87b6ed2c5a17983c5c",
+        "task_ids_added": [],
+        "task_ids_dropped": [],
+        "verification_scope": "original collector evidence; runtime states rebound to frozen requests"
+      },
+      "verification": {
+        "attempts": 233,
+        "manifest_sha256": "e66aa1c37385709ce5a383be1c1b5d3fa61b27053a42533055348fe4993b699b",
+        "passed": true,
+        "support_manifest_hash": "38f4fa7f7a4a31d37244cfa43fe717a40b9613c1e647db87b6ed2c5a17983c5c",
+        "usable_packages": 104
+      }
+    },
+    "online_authorized": false,
+    "protocol_version": "1.1.0",
+    "public_artifacts": {
+      "reset_states.json": "9eae2a7f6f64ab439dd143f933670c10a439d8f19c82b99a88dd825e25afc814",
+      "support.json": "d6f3dbf6fddca162472982b14ab55888e3b55862fa64c4abc1e5d753290c161b",
+      "task_attempts.json": "7395a43b61b8855258559c7aab45c02a1a7720b7a091baa119be4f4b3d2b06d7"
+    },
+    "public_cost_assumption": "bank-dependent class bounds and total; not a provider guarantee",
+    "rounding": "positive_integer_half_up",
+    "sealed_integrity_sha256": "9f43778910b0fc8b37d6217e886c3b275db65f730debe66f12e78182e628f6ab",
+    "student": "google/gemma-4-12B-it",
+    "usable_set_hash": "c3ecc56a8f045319f7299ef6590779745e36466ffaf6f0e2c5504cc13f6e97b1",
+    "version": "rtd-v1.1.0-state-bank"
+  },
+  "core_hash": "32ee677a680c84dccf7320ba70bb00cc81ca9e79e09cd46c6bf239f6b7362a58",
+  "public_sha256": "f8144a312c9bd6db33de9a6f78113258a8bf5e8758408174d79e43c147635ed4"
+}

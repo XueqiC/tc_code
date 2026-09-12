@@ -1,0 +1,51 @@
+{
+  "query_id": "2ccd6ada6e5d073259ec1c80d25bb4093fdad74aa1c12ee58305aceb2d457e2e",
+  "request_state_hash": "d5e2593d4727595f34a8f408ef7aa6cacc05c2c1f33e5bafbd00248245afca9d",
+  "dependencies": [],
+  "status": "unavailable",
+  "unavailable_reason": "failed, interrupted, or protected attempt",
+  "exclusion_reasons": [],
+  "success": false,
+  "payload_kind": null,
+  "commands": [],
+  "behaviors": [],
+  "cost": 9046,
+  "cost_basis": "reported_or_reserved",
+  "cost_confidence": "estimated",
+  "usage": {
+    "prompt_tokens": 24747,
+    "cached_tokens": 0,
+    "completion_tokens": 9046
+  },
+  "provenance": {
+    "kind": "alf_demo_episode",
+    "ledger_path": "/home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl",
+    "ledger_sha256": "70e02f868a574d110540ed8c6f25c4be98c5b4d036570f5a3cb3c5254cf71bc8",
+    "line": 11,
+    "task_id": "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+    "attempt_index": 0,
+    "timestamp": "2026-09-11T03:42:15.443814Z",
+    "teacher": "openai/gpt-5.6-luna",
+    "state_validation": "pending CPU replay",
+    "source_request_state_hash": "0cdd9afce428e45722c95488a2c11a9e09efc1b6d91368e02b40991ea8477ee0",
+    "source_bank_integrity_sha256": "cbc1f66373389b3237a86e27243a680f11f5bbb262f992b6e52bd81a3a9b87a6",
+    "rendering_student": "google/gemma-4-12B-it"
+  },
+  "historical_response": {
+    "task_id": "look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114",
+    "teacher": "openai/gpt-5.6-luna",
+    "attempt_index": 0,
+    "temperature": 0.0,
+    "verified": false,
+    "tokens_spent": 9046,
+    "purpose": "teacher",
+    "timestamp": "2026-09-11T03:42:15.443814Z",
+    "usage": {
+      "prompt_tokens": 24747,
+      "cached_tokens": 0,
+      "completion_tokens": 9046
+    }
+  },
+  "raw_ledger_line": "{\"task_id\":\"look_at_obj_in_light-Mug-None-DeskLamp-301/trial_T20190908_045036_103114\",\"teacher\":\"openai/gpt-5.6-luna\",\"attempt_index\":0,\"temperature\":0.0,\"verified\":false,\"tokens_spent\":9046,\"purpose\":\"teacher\",\"timestamp\":\"2026-09-11T03:42:15.443814Z\",\"usage\":{\"prompt_tokens\":24747,\"cached_tokens\":0,\"completion_tokens\":9046}}",
+  "historical_events": []
+}
