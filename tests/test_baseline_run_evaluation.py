@@ -184,3 +184,192 @@ def test_official_alfworld_metrics_and_dispatch_use_existing_adapter(tmp_path, m
     assert result["complete"] and result["overall_accuracy_percent"] == 100
     assert result["per_category"]["fake"]["accuracy_percent"] == 100
     assert calls == ["renderer", "release"]
+
+
+def test_smoke_alfworld_runs_exactly_three_and_restores_environment(tmp_path, monkeypatch):
+    import os
+    from contextlib import nullcontext
+    from bfas.rtd.baselines import paper_evaluation
+    from bfas.rtd.benchmarks import alfworld_identity
+    from bfas.adapters import alfworld
+    from bfas import run
+    ids = [f"task{i}" for i in range(140)]
+    class Adapter:
+        def __init__(self, **kwargs):
+            pass
+        def prepare_renderer(self, model):
+            pass
+        def evaluate(self, model, out):
+            assert os.environ["BFAS_ALFWORLD_EVAL_GAMES"] == "3"
+            (out/"records.jsonl").write_text("\n".join(json.dumps(dict(task_id=t, won=True, steps=1)) for t in ids[:3]))
+            return dict(success_rate=1., per_category={"fake": 1.})
+        def release_policy(self):
+            pass
+    monkeypatch.setattr(alfworld, "ALFWorldAdapter", Adapter)
+    monkeypatch.setattr(alfworld_identity, "official_expectations", lambda _: dict(task_ids=ids))
+    monkeypatch.setattr(run, "serving_lane", lambda *a, **kw: nullcontext())
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    monkeypatch.setenv("BFAS_ALFWORLD_EVAL_GAMES", "77")
+    result = paper_evaluation.run_alfworld(ROOT, tmp_path/"model", tmp_path/"eval", kang=False, port=1, smoke=True)
+    assert result["tasks"] == 3 and result["smoke"] and not result["official_full"]
+    assert os.environ["BFAS_ALFWORLD_EVAL_GAMES"] == "77"
+    assert protocol("alfworld", smoke=True)["tasks"] == 3
+
+
+def test_smoke_bfcl_selection_and_partial_validation(tmp_path, monkeypatch):
+    from bfas.rtd import evaluation
+    from bfas.rtd.baselines.paper_evaluation import bfcl_metrics
+    ids = [f"simple_python_{i}" for i in range(5217)]
+    monkeypatch.setattr(evaluation, "official_expectations",
+                        lambda root: dict(generation={"simple_python": ids}, scoring={"simple_python": ids}))
+    generate, evaluate, env = bfcl_commands(ROOT, tmp_path/"model", tmp_path, smoke=True)
+    assert "--skip-server-setup" in generate and "--run-ids" in generate
+    assert "--partial-eval" in evaluate
+    assert evaluate[evaluate.index("--test-category")+1] == "simple_python"
+    (tmp_path/"resultdir").mkdir()
+    (tmp_path/"scoredir").mkdir()
+    result_path = tmp_path/"resultdir/BFCL_v4_simple_python_result.json"
+    result_path.write_text("\n".join(json.dumps(dict(id=tid)) for tid in ids[:3]))
+    (tmp_path/"scoredir/BFCL_v4_simple_python_score.json").write_text(
+        json.dumps(dict(correct_count=2, total_count=3))+"\n"+json.dumps(dict(id=ids[0], valid=False)))
+    result = bfcl_metrics(ROOT, tmp_path, smoke=True)
+    assert result["tasks"] == 3 and not result["official_full"]
+    assert result["overall_accuracy_percent"] == pytest.approx(200/3)
+    result_path.write_text(json.dumps(dict(id=ids[0])))
+    with pytest.raises(ValueError, match="incomplete evaluation generation"):
+        bfcl_metrics(ROOT, tmp_path, smoke=True)
+
+
+@pytest.mark.parametrize("leader_exits", [False, True])
+def test_vllm_setsid_cleanup_kills_engine_descendants_without_server(tmp_path, monkeypatch, leader_exits):
+    """Real harmless Python process tree, mocked readiness; no network or GPU."""
+    import os
+    import subprocess
+    import time
+    from contextlib import nullcontext
+    from bfas import run
+    original_popen = subprocess.Popen
+    pid_file = tmp_path/"child.pid"
+    child_code = "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready', flush=True); time.sleep(60)"
+    leader_code = (
+        "import subprocess,sys,pathlib,time\n"
+        f"child = subprocess.Popen([sys.executable, '-c', {child_code!r}], stdout=subprocess.PIPE, text=True)\n"
+        "child.stdout.readline()\n"
+        f"pathlib.Path({str(pid_file)!r}).write_text(str(child.pid))\n"
+        + ("sys.exit(0)\n" if leader_exits else "time.sleep(60)\n"))
+    def spawn(command, **kwargs):
+        assert kwargs["start_new_session"] is True  # Popen invokes setsid before exec.
+        return original_popen([sys.executable, "-c", leader_code], **kwargs)
+    monkeypatch.setattr(run.subprocess, "Popen", spawn)
+    monkeypatch.setattr(run.urllib.request, "urlopen", lambda *a, **kw: nullcontext(SimpleNamespace(status=200)))
+    server = run.VLLMServer("tiny", "", 12345, tmp_path/"server.log", "tiny")
+    try:
+        server.start()
+        deadline = time.monotonic()+5
+        while not pid_file.exists() and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert pid_file.exists()
+        child_pid = int(pid_file.read_text())
+        assert os.getpgid(child_pid) == os.getsid(child_pid) == server.process.pid
+        if leader_exits:
+            server.process.wait(timeout=5)
+        server.close()
+        deadline = time.monotonic()+5
+        while time.monotonic() < deadline:
+            stat = Path(f"/proc/{child_pid}/stat")
+            if not stat.exists() or stat.read_text().split()[2] == "Z":
+                break
+            time.sleep(.01)
+        else:
+            pytest.fail("EngineCore-like descendant survived close()")
+        assert server.process is None and server._log is None
+        server.close()  # Idempotent after cleanup.
+    finally:
+        server.close()
+
+
+def test_vllm_kills_group_on_term_timeout(monkeypatch):
+    import signal
+    import subprocess
+    from bfas import processes
+    sent, waits = [], []
+    monkeypatch.setattr(processes.os, "killpg", lambda pid, sig: sent.append((pid, sig)))
+    def wait(**kwargs):
+        waits.append(kwargs)
+        if kwargs:
+            raise subprocess.TimeoutExpired("fake", kwargs["timeout"])
+    processes.stop_process_group(SimpleNamespace(pid=123456, wait=wait), timeout=.01)
+    assert sent == [(123456, signal.SIGTERM), (123456, signal.SIGKILL)]
+    assert waits == [{"timeout": .01}, {}]
+
+
+def test_runner_interrupt_gives_worker_time_to_close_server(tmp_path, monkeypatch):
+    import signal
+    from tools import baseline_run
+    from bfas import processes
+    sent, waits = [], []
+    def wait(**kwargs):
+        waits.append(kwargs)
+        if len(waits) == 1:
+            raise KeyboardInterrupt
+        return 0
+    process = SimpleNamespace(pid=123456, wait=wait)
+    def spawn(command, **kwargs):
+        assert kwargs["start_new_session"]
+        return process
+    monkeypatch.setattr(baseline_run.subprocess, "Popen", spawn)
+    monkeypatch.setattr(processes.os, "killpg", lambda pid, sig: sent.append((pid, sig)))
+    with (tmp_path/"worker.log").open("w") as log, pytest.raises(KeyboardInterrupt):
+        baseline_run.run_worker(["fake"], log)
+    assert waits == [{}, {"timeout": 45}, {}]
+    assert sent == [(123456, signal.SIGTERM), (123456, signal.SIGKILL)]
+
+
+@pytest.mark.parametrize("fail_generation", [False, True])
+def test_bfcl_runner_owns_server_and_always_closes(tmp_path, monkeypatch, fail_generation):
+    from contextlib import contextmanager
+    from bfas import run
+    from bfas.rtd import evaluation, evaluation_lock
+    from bfas.rtd.baselines import paper_evaluation
+    events = []
+    class Server:
+        def __init__(self, *args, **kwargs):
+            assert kwargs["server_args"] == ["--dtype", "bfloat16", "--tensor-parallel-size", "1",
+                "--gpu-memory-utilization", "0.85", "--trust-remote-code"]
+        def start(self):
+            events.append("start")
+        def close(self):
+            events.append("close")
+    @contextmanager
+    def reserve(*a, **kw):
+        yield 12345, None
+    monkeypatch.setattr(run, "VLLMServer", Server)
+    monkeypatch.setattr(evaluation_lock, "reserve_port", reserve)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    monkeypatch.setenv("BFCL_PROJECT_ROOT", str(tmp_path/"old"))
+    ids = [f"simple_python_{i}" for i in range(3)]
+    monkeypatch.setattr(evaluation, "official_expectations", lambda _: dict(generation={"simple_python": ids}))
+    def execute(command, **kwargs):
+        if "generate" in command:
+            assert "--skip-server-setup" in command and "--run-ids" in command
+            from pathlib import Path
+            path = Path(kwargs["env"]["BFCL_PROJECT_ROOT"])/"test_case_ids_to_generate.json"
+            assert json.loads(path.read_text()) == {"simple_python": ids}
+            events.append("generate")
+            if fail_generation:
+                raise RuntimeError("fake generation failure")
+        else:
+            assert events[-1] == "close"
+            assert "--partial-eval" in command
+            events.append("score")
+    monkeypatch.setattr(paper_evaluation.subprocess, "run", execute)
+    monkeypatch.setattr(paper_evaluation, "bfcl_metrics", lambda *a, **kw: dict(tasks=3, smoke=kw["smoke"]))
+    if fail_generation:
+        with pytest.raises(RuntimeError, match="fake generation failure"):
+            paper_evaluation.run_bfcl(ROOT, tmp_path/"model", tmp_path/"eval", kang=False, port=12345, smoke=True)
+        assert events == ["start", "generate", "close"]
+    else:
+        result = paper_evaluation.run_bfcl(ROOT, tmp_path/"model", tmp_path/"eval", kang=False, port=12345, smoke=True)
+        assert result == dict(tasks=3, smoke=True)
+        assert events == ["start", "generate", "close", "score"]
+    assert (tmp_path/"eval/gpu_usage.json").exists()

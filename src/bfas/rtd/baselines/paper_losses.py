@@ -1,5 +1,6 @@
 """Generated-span CE and small separate GAD discriminator; CPU-testable."""
 from dataclasses import dataclass
+from bisect import bisect_right
 import re
 
 import torch
@@ -62,9 +63,16 @@ def token_kinds(tokenizer, text, *, benchmark, final_step=False):
     """Classify exact target IDs using fast-tokenizer offsets, never re-tokenize spans."""
     encoded = tokenizer(text, add_special_tokens=False, return_offsets_mapping=True)
     spans = segment_spans(text, benchmark=benchmark, final_step=final_step)
+    ends = [s.end for s in spans]
     kinds = []
     for start, end in encoded["offset_mapping"]:
-        overlap = [s for s in spans if s.start < end and s.end > start]
+        # Disjoint spans are ordered. Avoid scanning every trajectory span for
+        # every token (quadratic on long alternating action/observation text).
+        index = bisect_right(ends, start)
+        overlap = []
+        while index < len(spans) and spans[index].start < end:
+            overlap.append(spans[index])
+            index += 1
         if any(s.kind == "observation" for s in overlap):
             kind = "observation"  # mask any boundary token touching environment text
         elif overlap:

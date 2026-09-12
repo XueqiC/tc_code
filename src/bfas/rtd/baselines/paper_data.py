@@ -160,7 +160,7 @@ def load_purchased(bank, benchmark, fraction=None, *, budget_tokens=None):
     return purchase, rows
 
 
-def select_smartad(rows, nll):
+def select_smartad(rows, nll, *, on_progress=None):
     """One purchased verified trajectory per exact task, scored at base student.
 
     nll(row) returns (total NLL, generated token count). Pool all generated
@@ -170,8 +170,14 @@ def select_smartad(rows, nll):
     for row in rows:
         packages.setdefault((row.task_id, row.package_id), []).append(row)
     selected, scores = {}, {}
+    completed = 0
     for (task, qid), trajectory in sorted(packages.items()):
-        values = [nll(row) for row in trajectory]
+        values = []
+        for row in trajectory:
+            values.append(nll(row))
+            completed += 1
+            if on_progress:
+                on_progress(completed=completed, total=len(rows), package_id=qid, index=row.index)
         score = sum(v[0] for v in values) / sum(v[1] for v in values)
         if not math.isfinite(score):
             raise ValueError("nonfinite base-student NLL")

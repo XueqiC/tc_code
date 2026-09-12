@@ -10,6 +10,7 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import time
@@ -43,6 +44,8 @@ def arguments(argv=None):
     parser.add_argument("--run-dir", required=True, type=Path)
     parser.add_argument("--port", type=int, default=8930)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--smoke", action="store_true",
+                        help="2 student steps (2 rows each), at most 2 preconditioner prompts, 3 evaluation tasks")
     parser.add_argument("--_phase", choices=("train", "evaluate"), help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args._phase and args.budget_tokens is not None and len(args.budget_tokens) != 1:
@@ -76,19 +79,23 @@ def prepare(args):
         config[key] = shared[key]
     config.update(student=STUDENT, training_seed=0, replay_bank_path=str(args.bank),
         model_local_files_only=True, new_teacher_calls=False, new_teacher_tokens=0,
-        initial_eta=1e-5, optimizer="fixed_preconditioned_single_step")
+        initial_eta=1e-5, optimizer="fixed_preconditioned_single_step", smoke=args.smoke,
+        training_device="cuda:0", cpu_threads=4, score_position_chunk_size=32)
     if args.benchmark == "bfcl":
         config["student_call_format"] = "gemma4"
     purchase, rows = load_purchased(args.bank, args.benchmark, args.budget_fraction,
                                    budget_tokens=args.budget_tokens)
     source_files = [Path(__file__), *sorted((ROOT/"src/bfas/rtd/baselines").glob("paper_*.py")),
                     ROOT/"tools/baseline_bfcl.py", ROOT/"src/bfas/adapters/alfworld.py",
+                    ROOT/"src/bfas/run.py", ROOT/"src/bfas/processes.py",
                     *[ROOT/"src/bfas/rtd"/name for name in ("runtime.py", "functional_step.py",
-                        "return_gradient.py", "student.py", "transport.py", "evaluation.py")]]
+                        "return_gradient.py", "student.py", "transport.py", "evaluation.py",
+                        "source_scoring.py", "persistence.py")]]
     manifest = dict(version="budgeted-paper-baselines-v1", method=args.method, benchmark=args.benchmark,
         seed=0, student=STUDENT, teacher="gpt-5.6-luna", **purchase, config=config,
         config_sources={str(p.relative_to(ROOT)): file_hash(p) for p in (cfg_path, shared_path)},
-        hyperparameters=hyperparameters(config, args.method), evaluation_protocol=protocol(args.benchmark),
+        hyperparameters=hyperparameters(config, args.method), evaluation_protocol=protocol(args.benchmark, smoke=args.smoke),
+        smoke=args.smoke,
         source_hashes={str(p.relative_to(ROOT)): file_hash(p) for p in source_files},
         port=args.port, status="prepared", gpu_hours=0., gpu_accounting="single GPU reserved wall time; export/scoring CPU excluded",
         deviations_document="docs/PAPER_BASELINES.md", rows_hash=digest([asdict(r) for r in rows]))
@@ -99,6 +106,13 @@ def prepare(args):
 
 
 def train_worker(directory, manifest):
+    import torch
+    from bfas.rtd.baselines.paper_progress import progress, stage
+    threads = max(1, min(4, int(manifest["config"].get("cpu_threads", 4))))
+    torch.set_num_threads(threads)
+    progress("runtime", "configured", cpu_threads=torch.get_num_threads(),
+             cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"), logical_device="cuda:0",
+             position_chunk_size=manifest["config"]["score_position_chunk_size"])
     from bfas.rtd.baselines.paper_data import TeacherRow
     from bfas.rtd.baselines.paper_train import PaperTrainer
     from bfas.rtd.persistence import ComputeJournal, atomic_json, digest, file_hash, tree_hash
@@ -110,20 +124,29 @@ def train_worker(directory, manifest):
         raise ValueError("purchased rows changed")
     if not rows:
         raise ValueError("budget purchased no usable trajectory; inspect the charged-attempt manifest")
-    model = _snapshot_for_model(manifest["student"])
-    manifest.update(model_path=str(model), base_checkpoint_hash=tree_hash(model),
-        tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob("*"))
-                              if p.is_file() and any(s in p.name for s in ("token", "vocab", "merges", "chat_template"))]),
-        harness_hash=digest(manifest["source_hashes"]), hardware=hardware_identity())
+    manifest["status"] = "training"
     atomic_json(directory/"manifest.json", manifest)
-    journal = ComputeJournal(directory/"compute.jsonl", cuda=True)
+    with stage("model_identity"):
+        model = _snapshot_for_model(manifest["student"])
+        manifest.update(model_path=str(model), base_checkpoint_hash=tree_hash(model),
+            tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob("*"))
+                                  if p.is_file() and any(s in p.name for s in ("token", "vocab", "merges", "chat_template"))]),
+            harness_hash=digest(manifest["source_hashes"]), hardware=hardware_identity())
+    atomic_json(directory/"manifest.json", manifest)
+    # Baselines keep one action graph live. Reclaiming the whole Python heap
+    # twice per forward is CPU-bound and defeats CUDA's reusable allocator.
+    journal = ComputeJournal(directory/"compute.jsonl", cuda=True, release_phase_cache=False)
     start = time.monotonic()
     try:
-        backend = load_backend(manifest["config"], manifest, journal)
+        with stage("model_load"):
+            backend = load_backend(manifest["config"], manifest, journal)
         trainer = PaperTrainer(backend, [TeacherRow(**r) for r in rows], manifest["config"],
                                manifest["method"], directory, journal)
         result = trainer.train()
         manifest.update(training=result, checkpoint_sha256=tree_hash(directory/"checkpoint"), status="trained")
+    except BaseException as error:
+        manifest.update(status="failed", error=f"{type(error).__name__}: {error}")
+        raise
     finally:
         manifest["training_gpu_hours"] = (time.monotonic()-start)/3600
         atomic_json(directory/"manifest.json", manifest)
@@ -143,11 +166,12 @@ def run_budget(args):
     worker = [sys.executable, str(Path(__file__).resolve()), "--method", args.method,
         "--benchmark", args.benchmark, "--bank", str(args.bank), *budget,
         "--seed", "0", "--run-dir", str(args.run_dir)]
+    if args.smoke:
+        worker.append("--smoke")
     try:
         for phase in ("train", "evaluate"):
             with (args.run_dir/f"{phase}.log").open("w") as log:
-                subprocess.run([*worker, "--_phase", phase], cwd=ROOT, check=True,
-                               stdout=log, stderr=subprocess.STDOUT)
+                run_worker([*worker, "--_phase", phase], log)
         manifest = json.loads(path.read_text())
         manifest["status"] = "complete"
     except BaseException as error:
@@ -162,10 +186,31 @@ def run_budget(args):
     return 0
 
 
+def run_worker(command, log):
+    """Let a cancelled evaluation worker unwind its vLLM cleanup before exit."""
+    from bfas.processes import stop_process_group
+    process = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                               start_new_session=True)
+    try:
+        code = process.wait()
+        if code:
+            raise subprocess.CalledProcessError(code, command)
+    finally:
+        # Workers handle TERM through Python finally blocks. subprocess.run's
+        # immediate kill on KeyboardInterrupt would strand their setsid server.
+        stop_process_group(process, timeout=45)
+
+
+def terminate_worker(signum, frame):
+    raise SystemExit(128+signum)
+
+
 def main(argv=None):
     args = arguments(argv)
     args.run_dir = args.run_dir.resolve()
-    os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", PYTHONHASHSEED="0")
+    os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", PYTHONHASHSEED="0",
+                      PYTHONUNBUFFERED="1", OMP_NUM_THREADS="4", MKL_NUM_THREADS="4",
+                      RAYON_NUM_THREADS="4", TOKENIZERS_PARALLELISM="false")
     if args._phase:
         from bfas.rtd.persistence import file_hash
         manifest = json.loads((args.run_dir/"manifest.json").read_text())
@@ -193,4 +238,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, terminate_worker)
     raise SystemExit(main())

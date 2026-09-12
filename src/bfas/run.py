@@ -194,12 +194,15 @@ class VLLMServer:
         port: int,
         log_path: Path,
         served_model_name: str,
+        *,
+        server_args: Sequence[str] | None = None,
     ):
         self.model = str(model)
         self.gpu = gpu
         self.port = port
         self.log_path = log_path
         self.served_model_name = served_model_name
+        self.server_args = server_args
         self.process: subprocess.Popen[Any] | None = None
         self._log: Any = None
 
@@ -215,18 +218,20 @@ class VLLMServer:
                 "serve", self.model,
                 "--served-model-name", self.served_model_name,
                 "--port", str(self.port),
-                "--gpu-memory-utilization", os.environ.get("GPU_UTIL", "0.85"),
-                "--max-model-len", "32768",
-                # tau2's official harness sends tool_choice="auto"; vllm refuses
-                # it unless a tool-call parser is enabled (2026-09-01: every
-                # tau2 student rollout was an infra error before this).
-                "--enable-auto-tool-choice",
-                "--tool-call-parser", os.environ.get("BFAS_TOOL_PARSER", "hermes"),
+                *(self.server_args if self.server_args is not None else [
+                    "--gpu-memory-utilization", os.environ.get("GPU_UTIL", "0.85"),
+                    "--max-model-len", "32768",
+                    # tau2's official harness sends tool_choice="auto"; vLLM
+                    # requires a tool-call parser for those requests.
+                    "--enable-auto-tool-choice",
+                    "--tool-call-parser", os.environ.get("BFAS_TOOL_PARSER", "hermes"),
+                ]),
             ],
             cwd=ROOT,
             env=env,
             stdout=self._log,
             stderr=subprocess.STDOUT,
+            start_new_session=True,  # setsid: vLLM workers share an owned group.
         )
         deadline = time.monotonic() + 600
         while time.monotonic() < deadline:
@@ -246,15 +251,15 @@ class VLLMServer:
         raise TimeoutError(f"vLLM server did not become ready on port {self.port}")
 
     def close(self) -> None:
-        if self.process is not None and self.process.poll() is None:
-            self.process.send_signal(signal.SIGTERM)
-            try:
-                self.process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
-        if self._log is not None:
-            self._log.close()
+        from .processes import stop_process_group
+        try:
+            if self.process is not None:
+                stop_process_group(self.process)
+        finally:
+            self.process = None
+            if self._log is not None:
+                self._log.close()
+                self._log = None
 
 
 class PortRegistry:

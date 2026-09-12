@@ -44,6 +44,48 @@ files are mandatory; Hub downloads are disabled. Banks must be absolute paths
 and are opened read-only. All baseline artifacts live in the specified run
 directory, except the existing serving/port locks.
 
+Append `--smoke` to a fresh run for **2 student commits, 2 rows per commit,
+at most 2 distinct preconditioner prompts, and 3 evaluation tasks**. ALFWorld
+uses the first three valid_seen tasks; BFCL uses the first three sorted
+simple_python IDs with the official partial evaluator. Purchase/selection
+still use the complete purchased data. Smoke receipts are marked
+`official_full: false` and written to `smoke_metrics.json` rather than
+`official_metrics.json`; they are not paper results. Kang's additional SAG
+campaign uses the same three tasks.
+
+Workers flush timestamped JSON progress to `train.log` and `evaluate.log`,
+including rendering, selection, preconditioner rollouts, training loss and
+generated tokens/s, export, and evaluation. Long stages emit a heartbeat every
+30 seconds. Training throughput excludes preconditioner refresh time and counts
+supervised/generated tokens, not prompt tokens. Manifest status changes to
+`training` and `evaluating` while the workers run.
+
+The B7500 run's existing `compute.jsonl` shows completed selection, a
+52-response preconditioner refresh, and eight student commits by the end of
+the reported silent interval. It was not stuck in reference soft targets:
+these baselines use hard-label CE and have no frozen-reference soft-target
+loss. The refresh took about 18 minutes, followed by roughly three minutes per
+commit. The shared forward journal invoked full Python garbage collection and
+CUDA cache clearing twice per forward, a source of CPU overhead removed for
+this runner. These are log/code findings, not a measured GPU speedup.
+
+Scoring now captures hidden states before the LM head, projects only action
+positions in chunks of 32, and checkpoints those chunks during backward so
+vocabulary tensors do not accumulate across the trajectory. SmartAD's initial
+student NLL uses the same chunked path under no-grad. Model parameters/buffers
+and scoring tensors must stay on logical `cuda:0` within the inherited
+`CUDA_VISIBLE_DEVICES`; a device mismatch raises instead of offloading a loss.
+Rendering is cached and token/span lookup avoids a full span scan per token.
+PyTorch CPU threads are bounded to four. The shared frozen-source soft-gradient
+routine also checks reference hidden states, logits, and labels before loss
+computation; it remains separate from these baseline objectives.
+
+Both evaluation paths use the runner-owned vLLM server with
+`start_new_session=True` (POSIX `setsid`). Shutdown sends TERM to its whole
+process group and KILL to any remaining descendants even if the server leader
+has already exited. On interruption the parent lets the worker run its server
+cleanup before forcing it to exit.
+
 ## Purchase contract
 
 Choose the absolute **teacher-output-token cap B a priori**, before inspecting

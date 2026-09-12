@@ -216,6 +216,25 @@ def test_cli_prepare_manifest_has_no_worker_or_model_call(tmp_path, monkeypatch)
     assert not (out/"metrics.json").exists()
 
 
+def test_smoke_cli_pins_training_and_evaluation_caps(tmp_path, monkeypatch):
+    from tools import baseline_run
+    bank = make_bank(tmp_path)
+    def forbidden(*a, **kw):
+        pytest.fail("smoke prepare must not load models or call services")
+    monkeypatch.setattr(baseline_run.subprocess, "run", forbidden)
+    out = tmp_path/"smoke"
+    assert baseline_run.main(["--method", "smartad", "--benchmark", "bfcl", "--bank", str(bank),
+        "--budget-tokens", "33", "--run-dir", str(out), "--smoke", "--prepare-only"]) == 0
+    manifest = json.loads((out/"manifest.json").read_text())
+    assert manifest["smoke"] and manifest["config"]["smoke"]
+    assert manifest["hyperparameters"]["student_steps"] == 2
+    assert manifest["evaluation_protocol"]["tasks"] == 3
+    assert manifest["evaluation_protocol"]["official_full"] is False
+    assert manifest["config"]["training_device"] == "cuda:0"
+    assert manifest["config"]["score_position_chunk_size"] == 32
+    assert 1 <= manifest["config"]["cpu_threads"] <= 4
+
+
 @pytest.mark.parametrize("budget", [[], ["--budget-tokens", "10", "--budget-fraction", ".25"]])
 def test_cli_requires_exactly_one_budget(tmp_path, budget):
     from tools import baseline_run
@@ -313,7 +332,7 @@ def test_cli_run_dispatches_each_budget_to_both_workers_on_cpu(tmp_path, monkeyp
                         lambda directory, manifest: record_worker("train", directory, manifest))
     monkeypatch.setattr(paper_evaluation, "evaluate_run",
                         lambda root, directory, manifest: record_worker("evaluate", directory, manifest))
-    def fake_subprocess(command, **kwargs):
+    def fake_subprocess(command, log):
         worker = baseline_run.arguments(command[2:])
         assert worker._phase in ("train", "evaluate")
         if budget[0] == "--budget-tokens":
@@ -322,7 +341,7 @@ def test_cli_run_dispatches_each_budget_to_both_workers_on_cpu(tmp_path, monkeyp
         else:
             assert worker.budget_fraction == "1" and worker.budget_tokens is None
         assert baseline_run.main(command[2:]) == 0
-    monkeypatch.setattr(baseline_run.subprocess, "run", fake_subprocess)
+    monkeypatch.setattr(baseline_run, "run_worker", fake_subprocess)
     assert baseline_run.main(["--method", "sad", "--benchmark", "bfcl", "--bank", str(bank),
                              "--run-dir", str(prefix), *budget]) == 0
     directories = [prefix.with_name(f"curve_B{cap}") if len(levels) > 1 else prefix for cap in levels]

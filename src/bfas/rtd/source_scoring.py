@@ -8,6 +8,8 @@ from contextlib import nullcontext
 
 import torch
 from torch.func import functional_call
+from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 
 from .functional_step import _matching, lora_parameters
 from .transport import validate_sampled_action
@@ -16,6 +18,86 @@ from .transport import validate_sampled_action
 class _HeadInput(Exception):
     def __init__(self, hidden):
         self.hidden = hidden
+
+
+def require_device(device, **tensors):
+    """Fail before a projection/loss can silently run on an offloaded tensor."""
+    for name, tensor in tensors.items():
+        if tensor.device != device:
+            raise ValueError(f'{name} device {tensor.device} differs from scoring device {device}')
+
+
+def generated_token_scores(scores, ids, *, device, position_chunk_size=32):
+    """Reduce HF generation scores on device; copy only chosen-token scalars."""
+    if len(scores) != len(ids) or not ids or position_chunk_size < 1:
+        raise ValueError('aligned generation scores and positive chunk size required')
+    values = []
+    with torch.no_grad():
+        for start in range(0, len(ids), position_chunk_size):
+            end = start+position_chunk_size
+            logits = torch.cat(scores[start:end], dim=0)
+            require_device(device, generation_logits=logits)
+            labels = torch.tensor(ids[start:end], device=device)
+            dtype = torch.float64 if logits.dtype == torch.float64 else torch.float32
+            values.append(-F.cross_entropy(logits.to(dtype), labels, reduction='none'))
+    return tuple(torch.cat(values).tolist())
+
+
+def chunked_token_scores(backend, prompt_ids, action_ids, parameters, *, eos_token_id,
+                         truncated=False, position_chunk_size=32):
+    """Native hard-label CE with bounded vocabulary tensors, also under backward.
+
+    Capture the head input once, then project only action prediction positions.
+    Non-reentrant checkpoints retain hidden states/labels, never every chunk's
+    vocabulary-sized CE graph. The base-equivalent SmartAD reference uses this
+    same path under no_grad; reference logits never leave the model device.
+    """
+    if type(position_chunk_size) is not int or position_chunk_size < 1:
+        raise ValueError('positive position chunk size required')
+    if not prompt_ids:
+        raise ValueError('complete prompt/state required')
+    validate_sampled_action(action_ids, eos_token_id, truncated)
+    _matching(lora_parameters(backend.model), parameters)
+    device = next(iter(parameters.values())).device
+    head = backend.model.get_output_embeddings()
+    if head is None:
+        raise ValueError('chunked scoring requires a positionwise output head')
+    prefix = next(n for n, module in backend.model.named_modules() if module is head)
+    prefix = prefix + '.' if prefix else ''
+    bound = {n[len(prefix):]: p for n, p in parameters.items() if n.startswith(prefix)}
+    ids = torch.tensor([tuple(prompt_ids) + tuple(action_ids)], device=device)
+    hidden = _hidden_at_head(backend, head, parameters, ids)
+    require_device(device, hidden=hidden, input_ids=ids, **dict(head.named_parameters()))
+    softcap = logit_softcap(backend.model)
+    logits_dtype = None
+
+    def score_chunk(h, labels, head_parameters):
+        nonlocal logits_dtype
+        require_device(device, hidden=h, labels=labels, **head_parameters)
+        logits = cap_logits(functional_call(head, head_parameters, (h,)), softcap)
+        require_device(device, logits=logits)
+        logits_dtype = str(logits.dtype)
+        dtype = torch.float64 if logits.dtype == torch.float64 else torch.float32
+        return -F.cross_entropy(logits.to(dtype), labels, reduction='none')
+
+    chunks = []
+    for start in range(0, len(action_ids), position_chunk_size):
+        end = min(start+position_chunk_size, len(action_ids))
+        h = hidden[0, len(prompt_ids)-1+start:len(prompt_ids)-1+end]
+        labels = ids[0, len(prompt_ids)+start:len(prompt_ids)+end]
+        values = (checkpoint(score_chunk, h, labels, bound, use_reentrant=False)
+                  if torch.is_grad_enabled() else score_chunk(h, labels, bound))
+        require_device(device, token_logprobs=values)
+        chunks.append(values)
+    values = torch.cat(chunks)
+    score = values.sum()
+    from .scoring import attention_implementation
+    return score, values, dict(implementation='torch-functional-chunked-native-ce-v1',
+        use_cache=False, cache_type=None, attention=attention_implementation(backend.model),
+        logits_dtype=logits_dtype, logprob_dtype=str(values.dtype), reduction_dtype=str(score.dtype),
+        parameter_dtypes=sorted({str(p.dtype) for p in parameters.values()}),
+        model_class=type(backend.model).__name__, torch_version=torch.__version__,
+        position_chunk_size=position_chunk_size, logical_device=str(device))
 
 
 def sampled_prefix_positions(source, prompt_ids):
@@ -41,13 +123,19 @@ def _hidden_at_head(backend, head, parameters, ids):
 
 def _position_vjps(head, current_head, frozen_head, hidden, frozen_hidden, labels, *, softcap=None):
     """All vocabulary-sized temporaries die on return from this function."""
+    device = hidden.device
+    require_device(device, reference_hidden=frozen_hidden, labels=labels,
+                   **{**dict(head.named_parameters()), **current_head})
+    require_device(device, **frozen_head)
     leaf = hidden.detach().requires_grad_(True)
     with torch.no_grad():
         old = functional_call(head, frozen_head, (frozen_hidden,))
+        require_device(device, reference_logits=old)
         old = cap_logits(old, softcap)
         dtype = torch.float64 if old.dtype == torch.float64 else torch.float32
         logp = old.to(dtype).log_softmax(-1)
     new = cap_logits(functional_call(head, current_head, (leaf,)), softcap)
+    require_device(device, student_logits=new)
     logq = new.to(dtype).log_softmax(-1)
     hard = -logq.gather(-1, labels[:, None]).sum()
     # Analytic CE/KL logit derivative q-p. Integrate this cotangent through the
