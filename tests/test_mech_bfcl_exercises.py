@@ -109,7 +109,7 @@ from pathlib import Path
 import os
 from bfcl_eval.constants.model_config import MODEL_CONFIG_MAPPING
 from bfas.mech_bfcl.common import REGISTRY, STUDENT
-from bfas.mech_bfcl.harness import frames
+from bfas.mech_bfcl.harness import frames, unpack
 class Tokenizer:
     def apply_chat_template(self,*a,**k):
         assert k['enable_thinking'] is False
@@ -117,6 +117,7 @@ class Tokenizer:
     def encode(self,*a,**k): return [1,2,3]
     def convert_tokens_to_ids(self,t): return 4
 class Client:
+    text='<|tool_call>call:add{x:2}<tool_call|>'
     def __init__(self): self.completions=self
     def with_options(self,**k):
         assert k['max_retries']==0
@@ -124,7 +125,7 @@ class Client:
     def create(self,**k):
         assert k['model']==STUDENT and k['extra_body']['top_k']==1 and k['temperature']==.001
         usage=SimpleNamespace(prompt_tokens=3,completion_tokens=6,model_dump=lambda:{'prompt_tokens':3,'completion_tokens':6})
-        return SimpleNamespace(choices=[SimpleNamespace(text='<|tool_call>call:add{x:2}<tool_call|>',finish_reason='stop')],usage=usage)
+        return SimpleNamespace(choices=[SimpleNamespace(text=self.text,finish_reason='stop')],usage=usage)
 capture=Path(os.environ['BFCL_PROJECT_ROOT'])/'capture'
 os.environ.update(MECH_CAPTURE_DIR=str(capture),MECH_SERVED_MODEL=STUDENT)
 cls=MODEL_CONFIG_MAPPING[REGISTRY].model_handler
@@ -134,6 +135,21 @@ result,metadata=h.inference(dict(id='simple_python_0',question=[[{'role':'user',
 captured=frames(capture)
 assert len(captured)==1 and captured[0]['response']==result
 assert captured[0]['messages']==[{'role':'user','content':'Add two'}]
+# Memory initialization injects Path objects; capture must not stop the write
+# phase before the official executor can materialise its snapshots.
+from bfcl_eval.utils import (load_dataset_entry, populate_initial_settings_for_memory_test_cases,
+                             populate_test_cases_with_predefined_functions)
+entry=next(e for e in load_dataset_entry('memory_kv') if e['id']=='memory_kv_prereq_32-notetaker-0')
+model_result_dir=Path(os.environ['BFCL_PROJECT_ROOT'])/'result'
+entry=populate_initial_settings_for_memory_test_cases([entry],model_result_dir)[0]
+entry=populate_test_cases_with_predefined_functions([entry])[0]
+h.model_name_underline_replaced=REGISTRY.replace('/','_')
+h.client.text='Recorded.'
+result,metadata=h.inference(entry,True,False)
+memory=[f for f in frames(capture) if f['task_id']==entry['id']]
+assert memory and all(f['snapshot_error'] is None for f in memory)
+assert unpack(memory[0]['initial_config'])['MemoryAPI_kv']['model_result_dir']==model_result_dir
+assert list(model_result_dir.rglob('*.json')), 'memory write phase never flushed its snapshot'
 print('official CPU checks passed')
 '''
     env=dict(os.environ,PYTHONPATH=str(ROOT/'src'),BFCL_PROJECT_ROOT=str(tmp_path/'runtime'),

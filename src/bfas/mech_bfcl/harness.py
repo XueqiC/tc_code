@@ -125,7 +125,7 @@ def register_capture():
                          functions=copy.deepcopy(inference_data["function"]),
                          snapshot=copy.deepcopy(active["snapshot"]),
                          snapshot_error=active["snapshot_error"],
-                         initial_config=active["entry"].get("initial_config", {}),
+                         initial_config=pack(active["entry"].get("initial_config", {})),
                          involved_classes=active["entry"].get("involved_classes", []))
             proxy = SimpleNamespace(tokenizer=NoThinking(self.tokenizer),
                                     client=CompletionProxy(self.client), temperature=0.001,
@@ -155,11 +155,49 @@ def frames(directory):
     return result
 
 
+def expand_memory_ids(ids, entries):
+    """Order the official dependency closure, sharing each prerequisite once."""
+    ordered, visited, visiting = [], set(), set()
+
+    def visit(tid):
+        if tid in visited:
+            return
+        if tid in visiting:
+            raise ValueError(f"Cyclic BFCL memory dependency: {tid}")
+        if tid not in entries:
+            raise ValueError(f"BFCL dependency missing from official inventory: {tid}")
+        visiting.add(tid)
+        if tid.startswith("memory_"):
+            for dependency in entries[tid].get("depends_on", []):
+                visit(dependency)
+        visiting.remove(tid)
+        visited.add(tid)
+        ordered.append(tid)
+
+    for tid in ids:
+        visit(tid)
+    return ordered
+
+
+def generation_cost(states):
+    """Charge every completed query, including queries in failed episodes."""
+    return dict(generations=len(states),
+                input_tokens=sum(f["usage"]["prompt_tokens"] for f in states),
+                output_tokens=sum(f["usage"]["completion_tokens"] for f in states))
+
+
 def official_run(args, ids, destination, adapter, splits):
     from bfas.adapters.bfcl import extract_verdicts, read_score_summaries
     from bfas.bfcl_teacher import read_results
+    entries, categories = adapter._load_entries()
+    ids = list(dict.fromkeys(ids))
+    expanded = expand_memory_ids(ids, entries)
+    requested = set(ids)
+    prerequisite_ids = [tid for tid in expanded if tid not in requested]
     destination = Path(destination).resolve()
-    metadata = dict(ids=ids, split_hash=digest(splits), base_url=args.base_url,
+    metadata = dict(version=2, ids=ids, expanded_ids=expanded, prerequisite_ids=prerequisite_ids,
+                    source_hash=digest({tid: entries[tid] for tid in expanded}),
+                    split_hash=digest(splits), base_url=args.base_url,
                     served_model=args.served_model, temperature=0.001, top_k=1, seed=splits["seed"])
     if (destination / "items.json").exists():
         from .common import read_json
@@ -170,7 +208,9 @@ def official_run(args, ids, destination, adapter, splits):
         raise ValueError(f"Incomplete harness run preserved at {destination}; use a new run directory")
     destination.mkdir(parents=True)
     write_json(destination / "run.json", metadata)
-    write_json(destination / "test_case_ids_to_generate.json", adapter._selective_file(ids))
+    # One batch lets the official scheduler materialise each persona/backend's
+    # stores in dependency order, including prerequisites shared by requests.
+    write_json(destination / "test_case_ids_to_generate.json", adapter._selective_file(expanded))
     env = os.environ.copy()
     env.update(BFCL_PROJECT_ROOT=str(destination), REMOTE_OPENAI_BASE_URL=args.base_url,
                REMOTE_OPENAI_TOKENIZER_PATH=args.tokenizer, MECH_SERVED_MODEL=args.served_model,
@@ -187,26 +227,44 @@ def official_run(args, ids, destination, adapter, splits):
         outcome = subprocess.run(command + ["evaluate", "--model", REGISTRY,
             "--result-dir", "result", "--score-dir", "score", "--partial-eval"],
             env=env, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
-    expected = {t: splits["items"][t]["category"] for t in ids}
+    results = {r["id"]: r for r in read_results(destination / "result")}
+    captured = frames(destination / "trajectories")
+    by_task = {}
+    for frame in captured:
+        by_task.setdefault(frame["task_id"], []).append(frame)
+    write_json(destination / "cost.json", dict(layer=3, **generation_cost(captured),
+        requested=generation_cost([f for f in captured if f["task_id"] in requested]),
+        prerequisites=generation_cost([f for f in captured if f["task_id"] not in requested])))
+    write_json(destination / "prerequisites.json", [dict(id=tid, role="prerequisite", layer=3,
+        category=categories[tid], trajectory_path=f"trajectories/{tid}.jsonl",
+        frame_ids=[f["frame_id"] for f in by_task.get(tid, [])],
+        checker_result=results.get(tid), cost=generation_cost(by_task.get(tid, [])))
+        for tid in prerequisite_ids])
+    write_json(destination / "timing.json", dict(wall_seconds=time.monotonic()-start,
+                                                 evaluator_returncode=outcome.returncode))
+    # Inspect the whole batch before reporting omissions; an error result alone
+    # does not establish that the student ever completed a query for that ID.
+    missing_results = sorted(set(expanded) - results.keys())
+    missing_trajectories = sorted(set(expanded) - by_task.keys())
+    if missing_results or missing_trajectories:
+        raise RuntimeError("BFCL batch finished after memory prerequisite expansion; "
+            f"missing result ids: {missing_results}; "
+            f"missing completed student trajectory ids: {missing_trajectories}. "
+            f"Inspect {destination / 'generate.log'} and {destination / 'evaluate.log'}")
+    # Reconcile all scored questions, even if a question itself was a dependency.
+    # Official write-phase prerequisites are unscored but remain fully charged.
+    expected = {tid: categories[tid] for tid in expanded if tid not in adapter._prereq_ids}
     summaries = read_score_summaries(destination / "score")
     if set(expected.values()) - summaries.keys():
         raise RuntimeError("Official checker omitted categories; inspect evaluate.log")
     verdicts = extract_verdicts(destination / "score", expected)
-    results = {r["id"]: r for r in read_results(destination / "result")}
-    if set(ids) - results.keys():
-        raise RuntimeError("Harness omitted requested tasks")
-    captured = frames(destination / "trajectories")
     items = []
     for tid in ids:
-        own = [f for f in captured if f["task_id"] == tid]
-        if not own:
-            raise RuntimeError(f"No completed student trajectory for {tid}")
+        own = by_task[tid]
         row = dict(id=tid, **splits["items"][tid], correct=verdicts[tid], layer=3,
                    checker_result=results[tid], metrics=trajectory_metrics(own, verdicts[tid]))
         items.append(row)
     write_json(destination / "items.json", items)
-    write_json(destination / "timing.json", dict(wall_seconds=time.monotonic()-start,
-                                                 evaluator_returncode=outcome.returncode))
     return items
 
 

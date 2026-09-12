@@ -39,6 +39,24 @@ snapshots, raw results, scores, and logs are retained. Successful completed runs
 are reusable; incomplete harness directories are preserved and rejected rather
 than silently mixing attempts. Use a new run directory for an abandoned run.
 
+Each support, calibration, or full-evaluation batch expands memory questions
+through their official `depends_on` chains, deduplicating shared prerequisites.
+One generation invocation runs the entire batch; the official scheduler orders
+each persona/backend's chain. The matching checker invocation scores questions
+while excluding write-phase prerequisites. `run.json` records requested and
+expanded IDs. Extra episodes retain their student captures in `trajectories/`
+and are indexed as prerequisite trajectories in `prerequisites.json`; only
+requested items enter `items.json`, and only support IDs can supply seeds.
+Memory initial configurations use the same reversible packing as executor
+snapshots so the harness's filesystem paths survive capture.
+
+The 256-question evaluation subset uses the same expansion. Prerequisites do
+not enlarge the scored subset. Each harness batch's `cost.json` totals captured
+generations and exact input/output tokens, with requested/prerequisite
+breakdowns; evaluation exposes these totals under `cost.json`'s `layer_3` key.
+Completed queries in failed episodes are included. Missing result and completed
+trajectory IDs are reported together after the batch and retained cost records.
+
 Run this sequence from the project root on **one A100 80GB**. The cached model
 and tokenizer, BFCL environment, vLLM environment, and training environment must
 already be installed. `envs/bfcl/.venv/bin/python` has the harness's provider

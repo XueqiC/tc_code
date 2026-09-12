@@ -52,7 +52,7 @@ def select_seeds(items, captured, splits, max_seeds=8):
     by_task = {}
     for state in captured:
         by_task.setdefault(state["task_id"], []).append(state)
-    failed = [i for i in items if not i["correct"]]
+    failed = [i for i in items if i["id"] in splits["support"] and not i["correct"]]
     priority = {"memory": 0, "multi_turn": 1, "irrelevance": 2, "live": 3, "non_live": 4}
     failed.sort(key=lambda i: (priority.get(stratum(i["category"]), 5), i["id"]))
     picked, parents, counts = [], set(), Counter()
@@ -359,6 +359,7 @@ def evaluate(args, splits):
             response=response, raw=raw, metrics=score, generation_group=exercise["generation_group"])
         append_row(destination / "local.jsonl", row)
     full = official_run(args, splits["evaluation"], destination / "full", adapter, splits)
+    write_json(destination / "cost.json", dict(layer_3=read_json(destination / "full/cost.json")))
     rows = read_rows(destination / "local.jsonl") + full
     write_json(destination / "items.json", rows)
     from .stats import refresh_pairs
