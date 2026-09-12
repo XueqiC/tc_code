@@ -1,4 +1,4 @@
-"""Versioned BFCL feedback streams, independent of source RNG and scheduling."""
+"""Versioned BFCL/HotpotQA feedback streams, independent of source RNG and scheduling."""
 from dataclasses import asdict, dataclass
 
 import torch
@@ -35,8 +35,8 @@ class FeedbackRNG:
 
 
 def feedback_rng_identity(config, manifest=None):
-    """Missing version in a saved BFCL manifest means shared-stream V1."""
-    if config.get('benchmark', 'bfcl') != 'bfcl':
+    """Missing version in a saved manifest means legacy shared-stream V1."""
+    if config.get('benchmark', 'bfcl') not in {'bfcl', 'hotpotqa'}:
         return {}
     return dict(feedback_rng_version=(FEEDBACK_RNG_VERSION if manifest is None else
                                       manifest.get('feedback_rng_version', 1)))
@@ -44,6 +44,6 @@ def feedback_rng_identity(config, manifest=None):
 
 def guard_feedback_rng_comparison(manifests):
     versions = {m.get('feedback_rng_version', 1) for m in manifests
-                if m['config'].get('benchmark', 'bfcl') == 'bfcl'}
+                if m['config'].get('benchmark', 'bfcl') in {'bfcl', 'hotpotqa'}}
     if len(versions) > 1:
-        raise ValueError('BFCL feedback RNG versions differ; matched-arm comparison refused')
+        raise ValueError('feedback RNG versions differ; matched-arm comparison refused')

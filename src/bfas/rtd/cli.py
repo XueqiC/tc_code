@@ -110,7 +110,7 @@ def validate_config(config, *, arm=None, replay_schedule=None, **replay_options)
     if benchmark == 'bfcl':
         caps.setdefault('bfcl', {})
     for cap_benchmark, limits in caps.items():
-        allowed = {'agent_action'} if cap_benchmark in {'alfworld', 'webshop'} else {'single_turn', 'multi_turn'}
+        allowed = {'agent_action'} if cap_benchmark in {'alfworld', 'webshop', 'hotpotqa'} else {'single_turn', 'multi_turn'}
         if not isinstance(cap_benchmark, str) or not isinstance(limits, dict) or set(limits)-allowed:
             raise ValueError('benchmark action caps require single_turn/multi_turn limits')
         if any(type(v) is not int or v < 1 for v in limits.values()):

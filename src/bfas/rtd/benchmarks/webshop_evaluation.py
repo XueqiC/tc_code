@@ -15,6 +15,8 @@ def frozen_environment(benchmark):
     if benchmark == 'alfworld':
         settings.update(BFAS_ALFWORLD_EVAL_SPLIT='valid_seen', BFAS_ALFWORLD_EVAL_GAMES='140',
                         BFAS_ALFWORLD_MAX_STEPS='40', BFAS_ALFWORLD_STUDENT_REACT='1')
+    if benchmark == 'hotpotqa':
+        settings.update(BFAS_HOTPOTQA_OFFLINE='1')
     old = {k: os.environ.get(k) for k in settings}
     os.environ.update(settings)
     try:
@@ -28,6 +30,9 @@ def frozen_environment(benchmark):
 
 
 def validate_records(benchmark, out, metrics, expected):
+    if benchmark == 'hotpotqa':
+        from .hotpotqa_evaluation import validate_records as validate_hotpotqa
+        return validate_hotpotqa(out, metrics, expected)
     rows = [json.loads(line) for line in (Path(out)/'records.jsonl').read_text().splitlines() if line.strip()]
     ids = [str(r['session']) if benchmark == 'webshop' else r['task_id'] for r in rows]
     wanted = [str(i) for i in range(500)] if benchmark == 'webshop' else expected['task_ids']
@@ -97,6 +102,9 @@ def evaluate_adapter(root, directory, round_number, *, port=None, base_evaluatio
         if benchmark == 'webshop':
             from ...adapters.webshop import WebShopAdapter
             adapter = WebShopAdapter(port=port or 8900)
+        elif benchmark == 'hotpotqa':
+            from ...adapters.hotpotqa import HotpotQAAdapter
+            adapter = HotpotQAAdapter(port=port or 8900, offline=True)
         else:
             from ...adapters.alfworld import ALFWorldAdapter
             adapter = ALFWorldAdapter(port=port or 8900)
@@ -110,15 +118,18 @@ def evaluate_adapter(root, directory, round_number, *, port=None, base_evaluatio
             adapter.release_policy()
         elapsed = time.monotonic()-start
         validation = validate_records(benchmark, out, metrics, expected)
+        metric = 'em' if benchmark == 'hotpotqa' else 'success_rate'
         result = dict(identity=identity, campaign_identity=identity, expected=expected,
             hardware_class=hardware['hard'], hardware_class_hash=digest(hardware['hard']), code_drift=drift,
             artifacts_hash=tree_hash(out), merged_hash=tree_hash(merged), validation=validation,
-            overall_accuracy_percent=100*metrics['success_rate'], overall_metric='success_rate',
-            success_rate=metrics['success_rate'], metrics=metrics,
+            overall_accuracy_percent=100*metrics[metric], overall_metric=metric,
+            success_rate=metrics[metric], metrics=metrics,
             checkpoint_spend=meta['actual_spend'], authorized_budget=meta['authorized_budget'],
             campaign_seconds=elapsed, campaign_log=str(out/'vllm.log'), reused_campaign=False,
             output_directory=str(out), port=port or 8900,
             evaluation_label='development evaluation', score_objective='official_greedy_score; separate from stochastic J')
+        if benchmark == 'hotpotqa':
+            result.update(em=metrics['em'], f1=metrics['f1'])
         if base_evaluation:
             base = json.loads(Path(base_evaluation).read_text())
             if (base['hardware_class_hash'] != result['hardware_class_hash'] or base['expected'] != expected

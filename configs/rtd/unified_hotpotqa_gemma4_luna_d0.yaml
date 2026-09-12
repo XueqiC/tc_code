@@ -1,0 +1,188 @@
+# D0 uses src/appworld_train.py AW_DISTILL=rtd_sft_kl. See P1_PREP doc.
+method: rtd_unified
+mode: sealed_replay
+training_seed: 0
+same_hardware_required: true
+harness_frozen: true
+teacher_access: text_only
+support_split: parent_hash_two_fold
+certificate_isolation: strict
+rounds: 2
+decision_steps_per_round:
+- 1
+- 4
+- 7
+- 10
+replay_is_explicit_choice: true
+budget_checkpoints_bank_fraction:
+- 0.1
+- 0.25
+online_max_teacher_turns: 8
+replay_request_lengths: recorded_only
+source_refresh: round
+source_estimator: alpha_d
+source_samples_per_state: 2
+source_temperature: 1.0
+source_top_p: 1.0
+loss: alpha_d_single_step_estimator
+behavior_probability: complete_action_with_termination
+exposure_unit: state_teacher_record_plus_two_source_actions
+microbatch_states: 4
+slots_per_step: 40
+exposure_slots_per_window: 40
+max_new_packages_per_window: 20
+drift_reference_packages: 4
+value_noise_floor: 1.0e-08
+committed_steps_per_round: 12
+gate: linear_sigmoid
+gate_mode: learned_alpha
+fixed_alpha: 0.5
+d_mode: learned
+acquisition_value_mode: joint
+d_lambda: 1.0
+d_lambda_normalisation: mean_diagonal
+d_warmup_windows: 1
+z_error_mode: loo
+d_solver_tolerance: 1.0e-08
+d_solver_max_iterations: 10000
+d_redundancy_cosine_threshold: 0.9
+gate_hidden_projection_dim: 32
+gate_initial_logit: 0.0
+gate_ridge: 1.0
+gate_learning_rate: 0.1
+gate_gradient_scale: running_rms_from_past_feedback_only
+optimizer: fixed_preconditioned_single_step
+preconditioner: train_only_rms_diagonal
+preconditioner_refresh: round
+preconditioner_damping_relative: 0.01
+preconditioner_mean_diagonal: 1.0
+step_size_selection: frozen_training_only_kl_pilot
+pilot_kl_target_per_step: 0.005
+meta_feedback_steps:
+- 1
+- 4
+- 7
+- 10
+insertion_reference: virtual_same_start
+extra_reference_compute_accounting: separate
+meta_tasks_per_feedback: 4
+rollouts_per_meta_task: 2
+reward: official_terminal_metric
+baseline: leave_one_out_same_task
+acquisition: bayesian_linear_posterior_sampling
+acquisition_prior_precision: 1.0
+acquisition_prior_noise_variance: 1.0
+acquisition_value: exposure_conserving_insertion
+acquisition_posterior_refresh: persistent
+hard_cost_reservation: true
+benchmark: hotpotqa
+gate_projection_seed: 0
+parameter_space: lora_trainables
+new_teacher_calls: false
+new_teacher_tokens: 0
+replay_bank_path: data/rtd/v1_1_hotpotqa_luna
+replay_public_cap_output_tokens_by_class: certificate
+replay_cap_scope: sealed_bank_class_content_envelope
+support_manifest: data/rtd/v1_1_hotpotqa_luna/public/support.json
+source_policy_generation: same_backend_torch_categorical
+feedback_scope: rotating_meta_training
+experiment_scope: exploratory
+support_parent_tasks_m: 200
+# Unified identity is frozen; runtime_config supplies protocol_version 1.1.0 to D12--D16.
+protocol_version: unified-p0-1
+budget_basis: usable_recorded_output_tokens
+student: google/gemma-4-12B-it
+model_local_files_only: true
+output_root: results/rtd_unified
+max_action_tokens_by_benchmark:
+  hotpotqa:
+    agent_action: 100
+max_context_tokens: 32768
+max_state_batch_size: 2
+memory_peak_budget_gb: 60
+memory_reserve_gb: 2
+memory_state_estimate_gb: 16
+pilot_eta_candidates:
+- 1.0e-06
+- 3.0e-06
+- 1.0e-05
+- 3.0e-05
+- 0.0001
+- 0.0003
+- 0.001
+initial_eta: 1.0e-05
+source_backend: hf_generate
+generation_batch:
+  prompts_per_batch: 8
+  max_batch_tokens: 16384
+  forward_prompts_per_batch: 0
+# D15: Gemma 4 12B bf16 decode/prefill drift; see docs/rtd_v1_1_d16.md.
+score_consistency_tolerance:
+  mean_abs: 0.15
+  max_abs: 2.0
+  max_abs_outlier_tokens: 4
+  max_abs_hard: 8.0
+lora_rank: 16
+lora_alpha: 32
+lora_target_modules:
+- q_proj
+- k_proj
+- v_proj
+- o_proj
+- gate_proj
+- up_proj
+- down_proj
+evaluate_after_round: true
+evaluation_temperature: 0.0
+metrics_v11:
+  enabled: true
+  variance_resamples: 4
+  archive_windows: true
+  short_fold: repeat
+hotpotqa_evaluation_split: dev_distractor_first500
+hotpotqa_expected_eval_tasks: 500
+hotpotqa_max_episode_steps: 7
+hotpotqa_data_root: envs/hotpotqa/data
+hotpotqa_cache_root: envs/hotpotqa/cache
+hotpotqa_offline: true
+meta_tasks_multi_turn: 4
+rollouts_multi_turn: 2
+unified:
+  m: 2
+  a_ref: 0.5
+  lambda: 1.0
+  H: inverse_diagonal_preconditioner
+  epsilon: feedback_standard_errors
+  uncertainty_label: uncertainty regulariser
+  qp_tolerance: 1.0e-08
+  qp_max_iterations: 10000
+  psd_tolerance: 1.0e-10
+  estimator: cv
+  loss_definition:
+    normalization: per_sequence_mean
+    soft_mode: length_corrected_prefix
+    retention_scale: 0.0009765625
+arm: D0
+
+# Explicit D0 calibration grid; these weights are not yet tuned.
+p1:
+  schedule: recorded_exposure
+  optimization: shared_fixed_eta
+  feedback: three_roles_rotating_training
+  sampling: shared_role_seed
+  smoke_slots: 2
+  smoke_packages: 1
+  smoke_feedback_tasks: 1
+  smoke_rollouts: 2
+  d0:
+    mode: rtd_sft_kl
+    teacher_weight: 1.0
+    kl_weight: 1.0
+    tuning_split: calibration_only
+    teacher_weight_grid:
+    - 0.5
+    - 1.0
+    kl_weight_grid:
+    - 0.1
+    - 1.0
+    - 10.0

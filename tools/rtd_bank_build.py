@@ -10,13 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--benchmark', choices=['bfcl', 'alfworld', 'webshop'], required=True)
+    p.add_argument('--benchmark', choices=['bfcl', 'alfworld', 'webshop', 'hotpotqa'], required=True)
     p.add_argument('--pool', type=Path, required=True)
     p.add_argument('--ledger', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--config', type=Path)
     args = p.parse_args(argv)
-    name = 'bfcl_gemma4' if args.benchmark == 'bfcl' else args.benchmark
+    name = {'bfcl': 'bfcl_gemma4', 'hotpotqa': 'hotpotqa_luna'}.get(args.benchmark, args.benchmark)
     config = load_config(args.config or ROOT/f'configs/rtd/v1_1_{name}.yaml')
     if config['benchmark'] != args.benchmark:
         p.error('config benchmark differs from --benchmark')
@@ -26,6 +26,9 @@ def main(argv=None):
     elif args.benchmark == 'bfcl':
         from bfas.rtd.benchmarks.bfcl_bank_v11 import build_bfcl_pool_bank
         result = build_bfcl_pool_bank(ROOT, args.out, pool=args.pool, ledger=args.ledger, config=config)
+    elif args.benchmark == 'hotpotqa':
+        from bfas.rtd.benchmarks.hotpotqa_bank import build_hotpotqa_bank
+        result = build_hotpotqa_bank(ROOT, args.out, pool=args.pool, ledger=args.ledger, config=config)
     else:
         from bfas.rtd.benchmarks.webshop_bank import build_webshop_bank
         result = build_webshop_bank(ROOT, args.out, pool=args.pool, ledger=args.ledger, config=config)

@@ -38,6 +38,7 @@ DEFAULT_MODELS = {
     "alfworld": "Qwen/Qwen3.5-4B",  # paper protocol: one fixed 4B student (2B base scored 0/134, 2026-09-02)
     "tau2": "Qwen/Qwen3.5-4B",
     "webshop": "google/gemma-4-12B-it",
+    "hotpotqa": "google/gemma-4-12B-it",
 }
 PHASE_CACHE_SCHEMA_VERSION = 1
 
@@ -80,6 +81,10 @@ def make_adapter(name: str, seed: int, port: int) -> BenchmarkAdapter:
         from .adapters.alfworld import ALFWorldAdapter
 
         return ALFWorldAdapter(seed, port=port)
+    if name == "hotpotqa":
+        from .adapters.hotpotqa import HotpotQAAdapter
+        return HotpotQAAdapter(seed=seed, port=port)
+
     if name == "webshop":
         from .adapters.webshop import WebShopAdapter
 

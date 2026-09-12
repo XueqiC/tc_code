@@ -71,7 +71,7 @@ def _json_safe(value: Any) -> Any:
 
 
 def demo_payload(demo: Demo) -> dict[str, Any]:
-    return {
+    payload = {
         "turns": [
             {
                 "prompt": turn.prompt,
@@ -82,6 +82,10 @@ def demo_payload(demo: Demo) -> dict[str, Any]:
         ],
         "worked_example": demo.worked_example,
     }
+
+    if isinstance(demo.raw, Mapping) and "prompt_version" in demo.raw:
+        payload["prompt_version"] = demo.raw["prompt_version"]
+    return payload
 
 
 def _demo_from_payload(task_id: str, value: Any, record: Mapping[str, Any]) -> Demo:
@@ -108,6 +112,7 @@ def _demo_from_payload(task_id: str, value: Any, record: Mapping[str, Any]) -> D
             "checker_verified": True,
             "teacher": str(record["teacher"]),
             "ledger_timestamp": str(record["timestamp"]),
+            **({"prompt_version": record["prompt_version"]} if "prompt_version" in record else {}),
         },
     )
 
@@ -149,11 +154,14 @@ def append_episode(
     timestamp: str | None = None,
     ledger_root: Path | None = None,
     source_id: str | None = None,
+    usage_status: str | None = None,
+    prompt_version: str | None = None,
 ) -> dict[str, Any]:
-    """Append an episode with optional reported counters in ``usage``.
+    """Append an episode with optional counters and provenance in ``usage``.
 
     ``completion_tokens``, ``prompt_tokens`` and ``cached_tokens`` are sums of
-    API counters; cached input is included in prompt_tokens. Older rows may
+    API counters (or bounds when usage_status=estimated); cached input is
+    included in prompt_tokens. Older rows may
     omit any counter or the entire usage object and remain readable.
     """
     if verified and demo is None:
@@ -178,6 +186,17 @@ def append_episode(
     }
     if demo is not None:
         record["demo"] = demo_payload(demo)
+        demo_version = record["demo"].get("prompt_version")
+        if prompt_version is None:
+            prompt_version = demo_version
+        elif demo_version is not None and demo_version != prompt_version:
+            raise ValueError("teacher demo prompt_version disagrees with ledger episode")
+        if prompt_version is not None:
+            record["demo"]["prompt_version"] = prompt_version
+    if prompt_version is not None:
+        record["prompt_version"] = prompt_version
+    if usage_status is not None:
+        record["usage_status"] = usage_status
     if usage:
         record["usage"] = dict(usage)
     if source_id is not None:
@@ -393,6 +412,9 @@ def acquire_demos(
 
     def current_states():
         records = read_records(benchmark, ledger_root=ledger_root)
+        version = getattr(adapter, "prompt_version", None)
+        if version is not None:
+            records = [r for r in records if r.get("prompt_version", "v1") == version]
         if getattr(adapter, "ledger_teacher_scoped", False):
             records = [record for record in records if record["teacher"] == teacher]
         return compact_records(records, attempts=attempts)
@@ -449,6 +471,7 @@ def acquire_demos(
                         verified=False,
                         tokens_spent=tokens_spent,
                         ledger_root=ledger_root,
+                        prompt_version=getattr(adapter, "prompt_version", None),
                     )
                     purchased = True
                     _PURCHASED_LEDGERS.add(path)
@@ -468,6 +491,8 @@ def acquire_demos(
                     verified=episode.verified,
                     tokens_spent=tokens_spent,
                     usage=episode.usage,
+                    usage_status=episode.usage_status,
+                    prompt_version=getattr(adapter, "prompt_version", None),
                     demo=episode.demo,
                     ledger_root=ledger_root,
                 )

@@ -28,7 +28,9 @@ def prepare_renderer(config, support, tokenizer, journal):
     context = support.feedback_context(1, backend, journal) if hasattr(support, 'feedback_context') else None
     count = 0
     for state in support.states.values():
-        if config['benchmark'] == 'alfworld':
+        if config['benchmark'] == 'hotpotqa':
+            rendered = context.renderer(json.loads(state.history_json))
+        elif config['benchmark'] == 'alfworld':
             rendered = context.renderer(json.loads(state.task_json), json.loads(state.history_json))
         elif config['benchmark'] == 'webshop':
             rendered = context.adapter_factory()._render(json.loads(state.history_json))

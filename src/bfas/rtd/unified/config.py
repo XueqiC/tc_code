@@ -49,7 +49,7 @@ def runtime_config(config):
     """Only the executor adapter sees v1.1 flags; manifest keeps unified identity."""
     benchmark = config['benchmark']
     base = ({} if config.get('p1_runtime_defaults_frozen') else
-            yaml.safe_load((ROOT/f'configs/rtd/v1_1_{benchmark}.yaml').read_text()))
+            yaml.safe_load((ROOT/f"configs/rtd/v1_1_{'hotpotqa_luna' if benchmark == 'hotpotqa' else benchmark}.yaml").read_text()))
     result = base | deepcopy(config)
     result.update(method='rtd_v1_1', protocol_version='1.1.0', source_estimator='alpha_d',
         loss='alpha_d_single_step_estimator', gate_mode='learned_alpha', d_mode='learned',

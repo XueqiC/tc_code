@@ -11,6 +11,7 @@ _MODULES = {
     "AppWorldAdapter": ".appworld",
     "BFCLAdapter": ".bfcl",
     "Tau2Adapter": ".tau2",
+    "HotpotQAAdapter": ".hotpotqa",
     "WebShopAdapter": ".webshop",
 }
 

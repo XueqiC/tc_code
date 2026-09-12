@@ -59,8 +59,11 @@ class TeacherEpisode:
     tokens_spent: int | None = None
     # Bind accounting to the actual request config, not a later env lookup.
     teacher: str | None = None
-    # Sums of reported API counters only; absent counters are not estimated.
+    # Recorded API counters; usage_status=estimated identifies conservative bounds.
     usage: Mapping[str, int] | None = None
+    usage_status: str | None = None
+    # Failed trajectories remain available independently of verified demos.
+    raw: Any = None
 
 
 COLLECTION_SCHEMA_VERSION = 1
