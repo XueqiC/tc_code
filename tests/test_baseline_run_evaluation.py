@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace, ModuleType
 import json
+import shlex
 import sys
 
 import pytest
@@ -11,6 +12,92 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/"src"), str(ROOT)]
 from bfas.rtd.baselines.paper_evaluation import bfcl_commands, protocol
 from bfas.rtd.baselines.paper_kang import alfworld_probe, consistency_vote, bfcl_execution_key
+
+
+def test_alfworld_vllm_command_uses_hub_id_and_absolute_lora_and_logs_before_launch(tmp_path, monkeypatch):
+    """Exercise the real command construction; block Popen before any server/API work."""
+    from contextlib import nullcontext, redirect_stdout
+    from bfas import run
+    from bfas.adapters import alfworld
+    from bfas.rtd.baselines import paper_evaluation
+    from bfas.rtd.benchmarks import alfworld_identity
+    monkeypatch.chdir(tmp_path)
+    lora = Path("run with spaces/checkpoint/lora")
+    lora.mkdir(parents=True)
+    model = "google/gemma-4-12B-it"
+    events = []
+    class Adapter:
+        name = "alfworld"
+        def __init__(self, **kwargs):
+            pass
+        def prepare_renderer(self, policy):
+            assert policy == model
+        def release_policy(self):
+            events.append("release")
+    log_path = tmp_path/"evaluate.log"
+    def spawn(command, **kwargs):
+        events.append("launch")
+        assert command[:3] == [str(ROOT/"envs/vllm-serve/.venv/bin/vllm"), "serve", model]
+        assert command[command.index("--served-model-name")+1] == model
+        assert "--enable-lora" in command
+        assert command[command.index("--max-lora-rank")+1] == "16"
+        name, path = command[command.index("--lora-modules")+1].split("=", 1)
+        assert name == alfworld.SERVER_MODEL_NAME == "bfas-policy"
+        assert Path(path).is_absolute() and Path(path) == lora.resolve()
+        assert command[command.index("--port")+1] == "12345"
+        assert kwargs["env"]["HF_HUB_OFFLINE"] == kwargs["env"]["TRANSFORMERS_OFFLINE"] == "1"
+        assert kwargs["env"]["CUDA_VISIBLE_DEVICES"] == ""
+        assert kwargs["start_new_session"] is True
+        # Read the file at the launch boundary to verify the command was flushed.
+        logged = log_path.read_text().removeprefix("vLLM server command: ").strip()
+        assert shlex.split(logged) == command
+        raise RuntimeError("CPU test blocked server launch")
+    monkeypatch.setattr(alfworld, "ALFWorldAdapter", Adapter)
+    monkeypatch.setattr(alfworld_identity, "official_expectations",
+                        lambda _: dict(task_ids=[f"task{i}" for i in range(140)]))
+    monkeypatch.setattr(run, "PortRegistry", lambda _: nullcontext())
+    monkeypatch.setattr(run.subprocess, "Popen", spawn)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
+    with log_path.open("w") as log, redirect_stdout(log), pytest.raises(RuntimeError, match="CPU test blocked"):
+        paper_evaluation.run_alfworld(ROOT, lora, tmp_path/"eval", kang=False, port=12345, smoke=True)
+    assert events == ["launch", "release"]
+    assert (tmp_path/"eval/gpu_usage.json").exists()
+
+
+@pytest.mark.parametrize("smoke", [False, True])
+@pytest.mark.parametrize("method", ["smartad", "kang"])
+def test_alfworld_dispatch_serves_checkpoint_lora_without_merge(tmp_path, monkeypatch, smoke, method):
+    from bfas.rtd import evaluation, hardware
+    from bfas.rtd.baselines import paper_evaluation
+    from bfas.rtd.persistence import tree_hash
+    model, lora = tmp_path/"snapshot", tmp_path/"checkpoint/lora"
+    model.mkdir()
+    lora.mkdir(parents=True)
+    (model/"config.json").write_text("{}")
+    (lora/"adapter_config.json").write_text('{"r": 16}')
+    manifest = dict(config={}, benchmark="alfworld", method=method, smoke=smoke,
+        checkpoint_sha256=tree_hash(lora.parent), base_checkpoint_hash=tree_hash(model),
+        model_path=str(model), hardware={"hard": "cpu-stub"}, teacher_tokens_charged=33, B=40, port=8930)
+    monkeypatch.setattr(hardware, "hardware_identity", lambda: manifest["hardware"])
+    def no_export(*args, **kwargs):
+        pytest.fail("ALFWorld LoRA serving must not flatten or merge the model")
+    monkeypatch.setattr(evaluation, "_flatten_adapter", no_export)
+    monkeypatch.setattr(paper_evaluation.subprocess, "run", no_export)
+    calls = []
+    def campaign(root, policy, out, **kwargs):
+        assert policy == lora and policy.is_absolute()
+        assert kwargs["smoke"] is smoke
+        calls.append((out.name, kwargs["kang"]))
+        return dict(tasks=3 if smoke else 140, overall_accuracy_percent=0.)
+    monkeypatch.setattr(paper_evaluation, "run_alfworld", campaign)
+    result = paper_evaluation.evaluate_run(ROOT, tmp_path, manifest)
+    assert calls == [("smoke" if smoke else "official", False)] + ([("kang_sag", True)] if method == "kang" else [])
+    assert result["checkpoint_sha256"] == manifest["checkpoint_sha256"]
+    assert result["export_sha256"] == tree_hash(lora)
+    assert not (tmp_path/"export").exists()
+    assert json.loads((tmp_path/"metrics.json").read_text()) == result
+    if method == "kang":
+        assert "kang_self_consistency" not in result["kang_self_consistency"]["official_single_sample"]
 
 
 def test_vote_uses_execution_equivalence_not_string_or_reward():

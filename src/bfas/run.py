@@ -6,6 +6,7 @@ import argparse
 import fcntl
 import json
 import os
+import shlex
 import shutil
 import signal
 import socket
@@ -217,21 +218,25 @@ class VLLMServer:
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = self.gpu
         env["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
+        command = [
+            str(ROOT / "envs/vllm-serve/.venv/bin/vllm"),
+            "serve", self.model,
+            "--served-model-name", self.served_model_name,
+            "--port", str(self.port),
+            *(self.server_args if self.server_args is not None else [
+                "--gpu-memory-utilization", os.environ.get("GPU_UTIL", "0.85"),
+                "--max-model-len", "32768",
+                # tau2's official harness sends tool_choice="auto"; vLLM
+                # requires a tool-call parser for those requests.
+                "--enable-auto-tool-choice",
+                "--tool-call-parser", os.environ.get("BFAS_TOOL_PARSER", "hermes"),
+            ]),
+        ]
+        # Evaluation workers redirect stdout to evaluate.log. Flush before
+        # spawning so failed launches still leave the exact command behind.
+        print("vLLM server command: " + shlex.join(command), flush=True)
         self.process = subprocess.Popen(
-            [
-                str(ROOT / "envs/vllm-serve/.venv/bin/vllm"),
-                "serve", self.model,
-                "--served-model-name", self.served_model_name,
-                "--port", str(self.port),
-                *(self.server_args if self.server_args is not None else [
-                    "--gpu-memory-utilization", os.environ.get("GPU_UTIL", "0.85"),
-                    "--max-model-len", "32768",
-                    # tau2's official harness sends tool_choice="auto"; vLLM
-                    # requires a tool-call parser for those requests.
-                    "--enable-auto-tool-choice",
-                    "--tool-call-parser", os.environ.get("BFAS_TOOL_PARSER", "hermes"),
-                ]),
-            ],
+            command,
             cwd=ROOT,
             env=env,
             stdout=self._log,
@@ -321,6 +326,9 @@ def serving_lane(
     gpu: str,
     port: int,
     log_path: Path,
+    *,
+    served_model_name: str | None = None,
+    server_args: Sequence[str] | None = None,
 ) -> Iterator[None]:
     if not getattr(adapter, "needs_server", True):
         yield
@@ -333,14 +341,15 @@ def serving_lane(
     if not server_backed:
         yield
         return
-    served_model_name = getattr(
+    served_model_name = served_model_name or getattr(
         adapter,
         "served_model_name",
         "Qwen/Qwen3.5-4B" if adapter.name == "bfcl" else "bfas-policy",
     )
     with PortRegistry(port):
         server = VLLMServer(
-            policy, gpu, port, log_path, served_model_name=served_model_name
+            policy, gpu, port, log_path, served_model_name=served_model_name,
+            server_args=server_args,
         )
         try:
             server.start()

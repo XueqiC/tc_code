@@ -277,7 +277,12 @@ def test_hotpotqa_evaluate_dispatch_keeps_checkpoint_receipts_and_never_mislabel
         model_path=str(model), hardware={"hard": "cpu-stub"}, teacher_tokens_charged=33, B=40, port=8930)
     monkeypatch.setattr(hardware, "hardware_identity", lambda: manifest["hardware"])
     monkeypatch.setattr(evaluation, "_flatten_adapter", lambda *a: None)
-    def export(*args, **kwargs):
+    def export(command, **kwargs):
+        assert command[command.index("--model")+1] == "google/gemma-4-12B-it"
+        assert command[command.index("--adapter")+1] == str(tmp_path/"export/adapter")
+        assert Path(command[command.index("--adapter")+1]).is_absolute()
+        assert kwargs["env"]["HF_HUB_OFFLINE"] == kwargs["env"]["TRANSFORMERS_OFFLINE"] == "1"
+        assert kwargs["env"]["CUDA_VISIBLE_DEVICES"] == ""
         merged = tmp_path/"export/hub_merged"
         merged.mkdir(parents=True)
         (merged/"config.json").write_text("{}")
