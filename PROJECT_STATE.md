@@ -2216,3 +2216,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   现剩 15,942 token / $4.92 → **钱用了 1.7%,token 用了 47%**,卡的是 token 不是钱。
   已请用户定:(a) 提 token 上限至约 16 万,或 (b) 维持 30k 但事先声明约 6 个父任务的小范围全覆盖。
   另请示:"目标含 gold"是否应收窄为"仅禁起点含 gold"——**放松检查不自行决定**。
+- 9/13 07:50 CDT **HotpotQA sad s2(1019751)训练期 FAILED**:`return_gradient.py:169
+  ValueError: generation/scoring backend or policy mismatch`(生成时的 policy_id 与打分时的参数身份不一致)。
+  同方法的 sad s1 与其余 4 格同代码正常训练中 → 疑为竞态/环境,非确定性缺陷。
+  失败目录移到 `results/_failed_cells/table1_hotpotqa_sad_s2_1019751`(未删),已重提 **1019797**。
+  **若同点再次失败即为确定性问题,须修而非重试。**
