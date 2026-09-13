@@ -2290,3 +2290,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   其中 `loss` 持图且跨 `yield` 存活,journal 的 diagnostic 回调也可能持有张量。
   审查时重点看:采样/打分是否把张量留在 backend 或 journal 里、`create_graph` 是否多余、
   以及每轮的图是否在下一轮开始前真正释放。
+- **9/13 14:20 CDT 按用户要求加实时监控**(不能再出现"烧了机时才发现没结果"):
+  `~/hq/ops/gpu_watch_loni.sh`(已同步到 LONI `/work/xueqic/hq/ops_gpu_watch_loni.sh`):
+  每 60s 对我们**所有在跑作业**采样显存,**只在越过阈值(默认 92%)或作业消失时**输出一行,
+  适合挂 Monitor。OOM 那次是单进程占满 79.15/79.25 GiB,这个阈值会在死前几分钟就报。
+  **执行纪律**:修好后**先单跑一格到出 metrics**,同时挂显存看门狗;确认能跑完再铺满六格。
