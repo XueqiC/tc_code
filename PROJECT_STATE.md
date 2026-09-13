@@ -1961,3 +1961,7 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   注意:成品目录名因此为 seed0 = `table1_b_m`、seed k = `table1_b_m_s<k>`,**Table 1 聚合脚本要按这个约定改**。
 - 9/13 02:50Z 单文件 safetensors 导出修复已提交(10d7466,26 测试)并同步到 LONI(md5 一致);BFCL 9 格已提交,现 19 跑 / 7 排队,27 格 Table 1 全部在队列里。
 - 9/13 02:55Z rai GPU4 已被 scaling-down-law 占用(91GB),修正版 HotpotQA 测床检查改在 LONI 上跑(hq2 树,作业 1019449,24 题:协议保持的闭卷对照、重放分歧归因、配对成品率原因)。hq@23bc7d3 已提交(56 测试)。
+- 9/13 03:12Z Table 1 目录命名现在是**混合的**,聚合时必须两种都认:
+  seed 0 的 ALFWorld/HotpotQA 格子(修命名之前提交的)在 `table1_<bench>_<method>_s0`;
+  修命名之后提交的 seed 0(BFCL 三格)在 `table1_<bench>_<method>`(无后缀);seed 1/2 一律 `..._s<k>`。
+  ALFWorld 三格 seed 0 正常训练中(step 19–21/24),HotpotQA 三格已跑 44 分钟。tools/table1_aggregate.py 需按此放宽匹配。
