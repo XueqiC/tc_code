@@ -1959,3 +1959,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   已修:脚本改为传不带后缀的 `table1_<bench>_<method>`,由跑器自己加后缀;清掉 18 个双后缀空目录;11 格 seed 1/2 重提,现在
   **17 格 ALFWorld+HotpotQA 同时在跑**。BFCL 9 格仍等单文件 safetensors 导出修复。
   注意:成品目录名因此为 seed0 = `table1_b_m`、seed k = `table1_b_m_s<k>`,**Table 1 聚合脚本要按这个约定改**。
+- 9/13 02:50Z 单文件 safetensors 导出修复已提交(10d7466,26 测试)并同步到 LONI(md5 一致);BFCL 9 格已提交,现 19 跑 / 7 排队,27 格 Table 1 全部在队列里。
