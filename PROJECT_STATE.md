@@ -2020,3 +2020,12 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   但我把 9 格 seed 1/2 与 seed 0 同时提交,参考还不存在 → `seed-zero guard: missing training_rows.json`,9 格全挂。
   已按 (bench, method) 分别处理:seed 0 已完成的直接提交,仍在跑的用 `--dependency=afterok:<seed0 jobid>`。
   现在 18 跑 / 6 排队。**规则:带种子参考校验的实验,seed 1/2 必须依赖 seed 0 完成。**
+- 9/13 06:50Z **用户指令(长期有效)**:Table 1 的**全部结果与原始产物必须妥善归档,以后不再重跑**;
+  27 格跑完后**所有算力转给新机制实验**。
+  归档要求(执行清单):
+  ① 每格保留 metrics.json、manifest.json、purchased_rows.json、training_rows.json、exposure_schedule.json、
+     compute.jsonl、train.log、evaluate.log、official/ 下的评测产物与 checkpoint 标识;
+  ② 用 tools/table1_aggregate.py 生成 JSON 汇总 + LaTeX 片段,连同每格的 per-seed 原值一起入库;
+  ③ 结果目录从 LONI 拉回 rai 并提交到 tc_code(大文件走 results/,不进 paper 仓);
+  ④ 在 notes/exp_log.md 为每格写一行(方法/benchmark/种子/分数/花费/路径);
+  ⑤ 归档完成前不释放 LONI 上的 results 目录。
