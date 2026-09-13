@@ -2065,3 +2065,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **不得在 Table 1 跑完前 sync 到集群**(评测阶段是新进程,会中途换代码)。
 - 9/13 02:35 CDT Table 1 第 6 格,**首个三种子齐全的格子**:ALFWorld × Agent Distillation
   = 57.86 / 60.71 / 57.86 → **58.81 ± 1.65**(base 56.4)。小产物已入 archive/table1/。
+- **9/13 02:45 CDT HotpotQA 全线 bug + 止损(顺着 GPU 利用率排查发现)**:
+  1019573 FAILED(2h18m),`OfflineCacheMiss: ... (--offline)`。根因 =
+  `src/bfas/rtd/benchmarks/webshop_evaluation.py:19` 硬编码 `BFAS_HOTPOTQA_OFFLINE='1'`;
+  之前"切在线检索"只删了 slurm 开关,**没改设置源**。缓存 2,020 条盖不住训练后模型的查询分布,
+  该格只评完 **1 道题**就死。计算节点外网可达(Wikipedia 403 是 UA 策略,我们代码已设 UA)。
+  **处置**:cancel 队列里 7 个 t1-hotpotqa-*(自有作业),省 ~12 GPU·h;ALFWorld/BFCL 不受影响。
+  **待办**:codex 修这处设置源 → 重提 9 个 HotpotQA(run 目录保留 checkpoint/export,可能跳过训练)。
+  三个 worktree 都占着 codex(一个 worktree 一个写者),等空位。
