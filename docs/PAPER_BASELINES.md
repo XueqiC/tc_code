@@ -1,5 +1,13 @@
 # Budgeted paper baseline runner
 
+The current table suite is ALFWorld, HotpotQA, Bamboogle, MuSiQue, and
+2WikiMultiHopQA. BFCL material below describes historical runs and existing
+runner support; BFCL is excluded from the current table aggregator. The three
+new QA sets evaluate already-trained checkpoints through the same HotpotQA
+ReAct/Wikipedia evaluator. See [multi-hop construction and evaluation](multihop_evaluation.md)
+for fixed selection, annotation limits, and the distinction between our EM/F1
+and SmartAD/Kang's LLM-judged factual answers. No OOD training or purchases are added.
+
 `tools/baseline_run.py` implements the four **protocol adaptations** for
 `google/gemma-4-12B-it` and the sealed `gpt-5.6-luna` banks. This delivery is CPU
 validated only: no model-weight loading, GPU experiment, teacher call, or

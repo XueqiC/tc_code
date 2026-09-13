@@ -136,6 +136,12 @@ eviction or refresh is performed automatically.
 
 ## Evaluation and BFAS
 
+The same standalone evaluator also accepts `--dataset 2wiki`, `musique`, or
+`bamboogle`. These use frozen local OOD inventories, with no new training or
+teacher collection path. See [the multi-hop construction report](multihop_evaluation.md)
+for selection, alias/abstention scoring, annotation granularity, and the EM/F1
+versus LLM-judge comparability limit.
+
 ```bash
 .venv/bin/python tools/hotpotqa_eval.py \
   --base-url http://localhost:8900/v1 --model bfas-policy \

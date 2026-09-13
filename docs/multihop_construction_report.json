@@ -1,0 +1,269 @@
+{
+  "version": "multihop-construction-report-v1",
+  "date": "2026-09-13",
+  "status": "construction_and_cpu_validation_complete",
+  "scope": {
+    "real_model_evaluations": 0,
+    "training_runs": 0,
+    "new_teacher_calls": 0,
+    "new_teacher_purchases": 0,
+    "external_api_calls": 0,
+    "network_in_tests": false,
+    "cluster_sync": false,
+    "commits": 0
+  },
+  "table": {
+    "benchmark_order": [
+      "alfworld",
+      "hotpotqa",
+      "bamboogle",
+      "musique",
+      "2wiki"
+    ],
+    "removed_benchmark": "bfcl",
+    "new_initial_student_scores": null,
+    "new_performance_scores": null
+  },
+  "harness": {
+    "entrypoint": "tools/hotpotqa_eval.py",
+    "episode_loop": "bfas.hotpotqa.episode_stream",
+    "prompt_version": "react6-e52ba17b32d9",
+    "prompt_sha256": "e52ba17b32d98144c4ee3f95f3cd5a2fec2016629219427f8aa9ddcfbdcc3fdf",
+    "max_steps": 7,
+    "max_tokens": 100,
+    "temperature": 0.0,
+    "generator": "bfas.hotpotqa.student_generator",
+    "retrieval": "shared live Wikipedia by default; explicit offline cache replay",
+    "wiki_version": "react-html-v1"
+  },
+  "selection": {
+    "seed": 0,
+    "construction": "fixed full-inventory random sample without replacement, stored once",
+    "runtime": "first n IDs in stored order",
+    "filtering": false,
+    "replacement": false,
+    "selection_by_student_outcomes": false,
+    "larger_n_is_strict_prefix_extension": true,
+    "hotpotqa_train_check_sample_size": 200,
+    "official_hotpotqa_dev_manifest_unchanged": true
+  },
+  "datasets": {
+    "2wiki": {
+      "version": "multihop-local-v1",
+      "dataset": "2wiki",
+      "source": "2wiki_dev.json",
+      "split": "dev",
+      "source_count": 12576,
+      "source_sha256": "48b9bdc69654dc580fda5f935a48b88cb89f11887587310af60d406c8d0111a6",
+      "source_ids_sha256": "cdeb6b05d3c08896b113329afa305c344a0edb902b476e8676bcffd7d450f1c3",
+      "normalized_rows_sha256": "72f98cca8e682fe363f743e4bfbfb392179bcefed84b3a46d394496131ff9d54",
+      "seed": 0,
+      "sample_size": 12576,
+      "selection": "random.Random(0).sample(source_ids, 12576)",
+      "rule": "First n IDs, in stored order, from configs/multihop_2wiki_eval_split.json. That dev inventory is random.Random(0).sample(source_ids, 12576). No filtering, replacement, or selection by student outcomes.",
+      "answerable_counts": {
+        "true": 12576
+      },
+      "rows_with_aliases": 0,
+      "excluded_rows": 0,
+      "annotation_status_counts": {
+        "available": 12576
+      },
+      "annotation_units": 30687,
+      "rows_without_complete_annotation": 0,
+      "prefix_check": {
+        "small_n": 24,
+        "large_n": 200,
+        "equal_prefix": true
+      },
+      "manifest_sha256": "464d0b5d8150bc77ee14ec4921fba1bbcd1126760a3d914a92f795c64a883ef4",
+      "source_sha256_unchanged": true
+    },
+    "musique": {
+      "version": "multihop-local-v1",
+      "dataset": "musique",
+      "source": "musique_validation.json",
+      "split": "validation",
+      "source_count": 2417,
+      "source_sha256": "e98fe26ff3cc71b0de3ae1ae969eca5ee33c69ad7da96a9d99524ccf36436196",
+      "source_ids_sha256": "81d498c3fe727fc76b19d0b410424bc20b7a0d53f3e8dc7e6b7b5e2ac74868b1",
+      "normalized_rows_sha256": "b3b9245b56c064e4a923d3f36094fa94931ca7cf3dc60fd558893e4b7fc25ac4",
+      "seed": 0,
+      "sample_size": 2417,
+      "selection": "random.Random(0).sample(source_ids, 2417)",
+      "rule": "First n IDs, in stored order, from configs/multihop_musique_eval_split.json. That validation inventory is random.Random(0).sample(source_ids, 2417). No filtering, replacement, or selection by student outcomes.",
+      "answerable_counts": {
+        "true": 2417
+      },
+      "rows_with_aliases": 680,
+      "excluded_rows": 0,
+      "annotation_status_counts": {
+        "coarser_than_sentence_level": 2417
+      },
+      "annotation_units": 6404,
+      "rows_without_complete_annotation": 0,
+      "prefix_check": {
+        "small_n": 24,
+        "large_n": 200,
+        "equal_prefix": true
+      },
+      "manifest_sha256": "5913f2b676a49c0425b186cc1af69059dee898793ff4c5e16445f65d054cda24",
+      "source_sha256_unchanged": true
+    },
+    "bamboogle": {
+      "version": "multihop-local-v1",
+      "dataset": "bamboogle",
+      "source": "bamboogle_test.json",
+      "split": "test",
+      "source_count": 125,
+      "source_sha256": "895fd972db8cf514a04a0d53ae0fd1c0d21994ee47d6a10b7086d9769a1b5f97",
+      "source_ids_sha256": "1454e31672171ce211ecd4484c64b5cd01ac6758218d86e7062976925c5b869e",
+      "normalized_rows_sha256": "ac31821188cbab953809c6ea893feea38345940363be141794c23b9cc3ab60b6",
+      "seed": 0,
+      "sample_size": 125,
+      "selection": "random.Random(0).sample(source_ids, 125)",
+      "rule": "First n IDs, in stored order, from configs/multihop_bamboogle_eval_split.json. That test inventory is random.Random(0).sample(source_ids, 125). No filtering, replacement, or selection by student outcomes.",
+      "answerable_counts": {
+        "true": 125
+      },
+      "rows_with_aliases": 0,
+      "excluded_rows": 0,
+      "annotation_status_counts": {
+        "unavailable": 125
+      },
+      "annotation_units": 0,
+      "rows_without_complete_annotation": 125,
+      "prefix_check": {
+        "small_n": 24,
+        "large_n": 125,
+        "equal_prefix": true
+      },
+      "manifest_sha256": "559d6c3437d3297df008ef0c1825c5c2bfb098ebffba79fe098e533b41a76068",
+      "source_sha256_unchanged": true
+    }
+  },
+  "scoring": {
+    "metrics": [
+      "em",
+      "f1"
+    ],
+    "version": "hotpotqa-em-f1-alias-abstention-v1",
+    "musique_aliases": "maximum EM and F1 independently over canonical answer and every alias",
+    "musique_unanswerable": "retain every row; whole normalized explicit abstention gets EM=F1=1, otherwise both zero",
+    "abstention_answers": [
+      "noanswer",
+      "unanswerable",
+      "cannot be answered",
+      "this question cannot be answered",
+      "i cannot answer this question",
+      "i cannot determine the answer",
+      "insufficient information",
+      "not enough information to answer"
+    ],
+    "unanswerable_source_answer_and_aliases": "retained as provenance, not accepted factual targets",
+    "judge_implemented": false,
+    "judge_seam": "bfas.hotpotqa.score_answer / reference_answers; separate post-generation metric in a future version",
+    "comparability": "SmartAD and Kang use an LLM judge for factual answers; our EM/F1 numbers will not match their judged scores.",
+    "known_false_failure": {
+      "prediction": "2240 feet",
+      "gold": "2240",
+      "em": 0.0,
+      "f1": 0.6666666666666666
+    }
+  },
+  "audit": {
+    "version": "hotpotqa-step-audit-v2",
+    "match_rule": "unicode-word-sequence-casefold-v1",
+    "report_only": true,
+    "field_applicability": {
+      "all_sets": [
+        "query_previous_observation_overlap (shared strings/count)",
+        "step_end_reason",
+        "episode_end_reason"
+      ],
+      "sentence": [
+        "supporting_fact_matches",
+        "all_supporting_facts_seen_before_step",
+        "query_previous_observation_overlap.supporting_title_reuse"
+      ],
+      "paragraph": [
+        "supporting_paragraph_matches",
+        "all_supporting_paragraphs_seen_before_step",
+        "query_previous_observation_overlap.supporting_title_reuse"
+      ],
+      "none": [],
+      "interpretation": "Lexical exposure only, not semantic sufficiency or a required retrieval path; null means unknown/inapplicable, never zero coverage."
+    },
+    "unavailable_coverage": null,
+    "semantic_sufficiency_claim": false,
+    "paragraphs_split_into_sentence_annotations": false
+  },
+  "tests": {
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "",
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1"
+    },
+    "runs": [
+      {
+        "command": "CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python -m pytest -q tests/test_multihop.py tests/test_hotpotqa_audit.py tests/test_hotpotqa.py tests/test_table1_aggregate.py tests/test_rtd_hotpotqa.py tests/test_baseline_run_hotpotqa.py",
+        "passed": 260,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 19.899
+      },
+      {
+        "command": "CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 .venv/bin/python -m pytest -q tests/test_multihop.py tests/test_table1_aggregate.py",
+        "passed": 76,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 1.172
+      }
+    ],
+    "latest_per_file": {
+      "tests/test_multihop.py": {
+        "passed": 36,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests/test_hotpotqa_audit.py": {
+        "passed": 21,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests/test_hotpotqa.py": {
+        "passed": 96,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests/test_table1_aggregate.py": {
+        "passed": 40,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests/test_rtd_hotpotqa.py": {
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0
+      },
+      "tests/test_baseline_run_hotpotqa.py": {
+        "passed": 39,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "distinct_passed": 263,
+    "failed": 0,
+    "skipped": 0
+  },
+  "source_hashes": {
+    "src/bfas/hotpotqa.py": "ed8a41306619f4a331d007f884ebdf2a4c8d40ed56f44f408b40cc7bcc9bff47",
+    "src/bfas/hotpotqa_audit.py": "8b4f548b4adaf6178dde3cfa4fdaa8a573e72e6bd523023dc6864a08d4928f60",
+    "src/bfas/multihop.py": "ab97c0a2536dd0abb61858b1815ffa07207f94185194fd959ddddcf6ceca26aa",
+    "tools/hotpotqa_eval.py": "51b1dbeaafc5776f682d87b8cca2c27be6d922e3b9853cb60b7325abdd366e32",
+    "tools/multihop_prepare.py": "913be5646a02ac31567dc79f8b349600e46c8f2ec1f540b0a35191b57bbd8943",
+    "tools/table1_aggregate.py": "65412c2e8df50120c6f49ca7e6f9a72426fac05ffd32c0391cad953e7a84fe3d",
+    "tools/baseline_run.py": "1c2ef84674b600ad8b5ef0acea9d62c639c1e0f8359ca0adc8cf04affe76a71e",
+    "src/bfas/rtd/benchmarks/hotpotqa_identity.py": "8d33d5bcebf2068ebbc9525e896db131b76b37c2b0b9ef0ce91be8c0d3742892"
+  }
+}
