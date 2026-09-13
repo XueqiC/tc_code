@@ -909,3 +909,4 @@ t1_alfworld_kang_s2 | Agent Distillation ALFWorld B=30k seed 2 | LONI | SR 57.86
 t1_hotpotqa_* | 9 cells | LONI | FAILED/cancelled | 根因 webshop_evaluation.py:19 硬编码 offline=1,评测只过 1 题;已 cancel 7 个待修后重提
 t1_bfcl_sad_s0 | SAD BFCL B=30k seed 0 | LONI | Overall 44.27 (NL 85.3/Live 80.4/MT 53.1/Mem 22.8/Irrel 73.6) | results/paper_baselines/table1_bfcl_sad
 t1_bfcl_smartad_s0 | SmartAD BFCL B=30k seed 0 | LONI | Overall 43.98 (NL 85.4/Live 80.3/MT 52.8/Mem 21.9/Irrel 73.6) | results/paper_baselines/table1_bfcl_smartad
+t1_alfworld_sad_s2 | SAD ALFWorld B=30k seed 2 | LONI | SR 57.14 | results/paper_baselines/table1_alfworld_sad_s2
