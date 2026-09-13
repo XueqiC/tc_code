@@ -1966,3 +1966,7 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   修命名之后提交的 seed 0(BFCL 三格)在 `table1_<bench>_<method>`(无后缀);seed 1/2 一律 `..._s<k>`。
   ALFWorld 三格 seed 0 正常训练中(step 19–21/24),HotpotQA 三格已跑 44 分钟。tools/table1_aggregate.py 需按此放宽匹配。
 - 9/13 03:35Z 第三个环境缺口:ALFWorld 评测需要 envs/alfworld/.venv(RPC 服务端),LONI 上只同步了数据没建 venv,9 格 ALFWorld 训练完在评测阶段全挂(ALFWorldRPCError: No such file .venv)。已提交构建作业 1019515(alfworld 0.4.2 + textworld 1.7.0),建好后重提这 9 格。教训重复:**跨机迁移要把每个 benchmark 的专用 venv 一并建好**(bfcl、vllm-serve、alfworld 三个都踩过)。
+- 9/13 03:45Z ALFWorld 环境修好并重提 9 格。真因:早先 `rsync envs/alfworld` **把 rai 的 .venv 一起拷过去了**,
+  其解释器软链指向 rai 的 /usr/local/anaconda3,在 LONI 上不存在,所以 venv 重建作业 1 秒即失败。
+  删掉残留后重建成功(alfworld 0.4.2 + textworld 1.7.0,import ok)。
+  **跨机迁移规则**:同步 envs 时必须排除 .venv,到对端重建;已踩三次(vllm-serve 路径、bfcl venv、alfworld venv)。
