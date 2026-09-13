@@ -2239,3 +2239,9 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **297 题全错中:176 题 gold 从未进过 observation(检索侧)、121 题 gold 曾可见;
   152 题给出了答案、145 题根本没结束。**
   这与路线 1 的诊断吻合(瓶颈在检索侧查询构造),也解释了为何模仿教师轨迹的三种方法都无增益。
+- 9/13 08:45 CDT **ALFWorld 三方法逐题比对(140 题)作为对照**:两两一致 90.7–95.0%;
+  74 全对 / 50 全错 → **124/140 = 88.6% 结果相同**,16 题有差异。
+  对比 HotpotQA:475/500 = **95.0% 相同**,25 题差异。
+  **收窄表述**:两个 benchmark 上方法间差异都很小(ALFWorld 略大),
+  所以"三方法收敛到几乎相同行为"不是 HotpotQA 独有——**真正的区别是这套共同行为在 ALFWorld 上比 base 高约 2 点,
+  在 HotpotQA 上完全不动 base**。不要把收敛本身说成 HotpotQA 的特殊现象。
