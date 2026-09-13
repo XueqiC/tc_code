@@ -1912,3 +1912,11 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
      这与 9/8 的 "shared tag lock serialised ALFWorld arms" 是同一类错误。
   2. **账号节点上限 MaxNodePerAccount ≈ 9 节点**:27 格 Table 1 占满配额后机制作业全部排队。
      按用户优先级(核心机制信号优先)取消/挂起全部 Table 1 作业,把配额让给 9 个机制作业;Table 1 稍后重排。
+- 9/13 01:10Z **新机制(保留交互依赖的局部教学 + 递归注意力)已评估并开始推进**
+  (评估见 docs/2026-09-13-dependency-mechanism-assessment-zh.md,已发用户):
+  第一阶段值得做;我加三处修改——① 第一轮就加等长连续片段对照臂 L(I/P/L × 2 种子 = 6 adapter,LONI 并行不增墙钟);
+  ② 取材从"诊断失败"放宽到"存在真实信息依赖",support 里可用多步任务从 5 个父任务增加到 9 个;
+  ③ 确认集先用 8 个父任务试产量成品率(R2 的确认集 16 题 calibration 只产出 16 项/8 配对)。
+  第二阶段(递归注意力)按原设计只跑三个读取对照的检索指标,预期在 BFCL 上为空(题目+工具说明可能已决定该取什么证据)。
+  执行顺序:LONI 跑完修复后 C/D 四种子(冻结剂量)→ GPU4 跑起点检查(纯推理,闸门)→ I/P/L 教学包 → 6 adapter。
+  Table 1 的 27 格在机制让出 LONI 节点配额后整夜重排(每账号约 9 节点上限,两条线错峰)。
