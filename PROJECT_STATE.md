@@ -1902,3 +1902,13 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - **判读协议(事先固定)**:只看多种子 pooled parent 配对;单列每种子 D−C;塌缩/截断运行照常报告
   (状态、截断比例、完成覆盖率),不报子集准确率;不得挑 checkpoint。
 - **两个仓库**:代码 tc_code、论文 tc-alignment(只含 paper/,本地 clone `~/hq/projects/tc-paper`),各只有 main。
+- 9/13 00:12Z 对齐作业 1019263 训练成功但评测阶段失败:基线评测按 envs/vllm-serve/.venv/bin/vllm 找,而 LONI 上 venv 建在 envs/vllm-serve/bin。已把 tc-alignment/envs/vllm-serve 改成目录,内含 .venv→真 venv 与 bin→真 venv/bin 两个软链,基线与机制两条路径同时可用;27 格 Table 1 作业尚未进入评测阶段,赶在前面修好。对齐检查改用 table1_alfworld_smartad_s0(B=30k)对照 rai 的 55.7,不再单独重跑 1019263。
+- 9/13 00:20Z 首个修复后训练臂完成:supervised_tokens = 16,440(修复前 15,850),即恢复终止监督后每条目标多占约 3.7% 的有效 token——正是评审要求追踪的量,exposure-audit 会给出内容/边界 token 的分项。单臂训练 45.5 min(A100 PCIe,比 rai 略慢)。roundtrip.slurm 已写好,等八臂训练完一次性对 C/D × seed 0-3 跑往返检查。
+- 9/13 00:32Z exposure-audit 首个完整臂(C seed 1):内容 token 15,850 | 工具交接 560 | 回合结束 30 | EOS 0 | 合计 16,440 | 40 步 / 10 pass。**关键性质:内容 token 曝光与修复前完全相同(15,850),终止监督是额外加上去的 590 个 token**,并非挤占内容曝光——所以修复前后的差异可以干净地归给边界监督本身,这比评审预期的情形更强(评审担心固定上限下内容曝光会减少)。
+- 9/13 00:55Z **两个并行陷阱,已解决**:
+  1. **共享 run 目录 = 全局串行**:`tools/mech_bfcl.py` 用 `with lock(run_dir/"pipeline.lock")` 包住整个 train/evaluate,
+     9 个作业共用一个 run 目录时被 flock 完全串行化——1.5 小时只训完 1 个臂,其余 8 个占着 GPU 空等。
+     改为每臂一个 run 目录(`runs/fixed_{base,C_s0..D_s3}`,输入用 `cp -al` 硬链共享,输出与锁各自独立),9 个作业真并行。
+     这与 9/8 的 "shared tag lock serialised ALFWorld arms" 是同一类错误。
+  2. **账号节点上限 MaxNodePerAccount ≈ 9 节点**:27 格 Table 1 占满配额后机制作业全部排队。
+     按用户优先级(核心机制信号优先)取消/挂起全部 Table 1 作业,把配额让给 9 个机制作业;Table 1 稍后重排。
