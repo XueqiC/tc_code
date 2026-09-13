@@ -2045,3 +2045,10 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
 **在跑的 codex(一个 worktree 一个写者)**:hq2 = 路线 2 转换器;hq = 记录粒度补齐
 (每步 supporting-fact 匹配位置、查询与上一观测的字符串重叠、显式结束原因、该步是否已集齐证据),
 纯落盘、不改学生所见/评分/检索;完成后才能重跑 v5 并开三个诊断条件(仅诊断,不进评测分数)。
+- **9/13 02:10 CDT 路线 1 数字更正**:counts 块的 "insufficient 66" 含成功 episode。按 EM 拆开后
+  98 段 = 成功 40 / 失败已定位 10 / 失败不足判断 44 / 失败无标签 4。方向不变,数字按此。
+  另两项发现:(1) autonomous 与 replay 四项拆分逐格相同(12/3/7/2)→ **重放确定性有直接证据**;
+  (2) closed-book 24 题答对 6(25%)→ 记忆污染,评机制收益时必须单列。
+  工具漏报待修:4 段 EM=0 却零事件,应显式记为"未观察到偏离"。
+- 9/13 02:08 CDT Table 1 第 4 格:ALFWorld Agent Distillation seed 0 = 57.86;
+  四格小产物已入库 `archive/table1/`(results/ 被 gitignore),权重留 rai + LONI。
