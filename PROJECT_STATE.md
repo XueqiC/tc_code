@@ -2245,3 +2245,4 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **收窄表述**:两个 benchmark 上方法间差异都很小(ALFWorld 略大),
   所以"三方法收敛到几乎相同行为"不是 HotpotQA 独有——**真正的区别是这套共同行为在 ALFWorld 上比 base 高约 2 点,
   在 HotpotQA 上完全不动 base**。不要把收敛本身说成 HotpotQA 的特殊现象。
+- 9/13 13:11Z Azure 仍 403(azure-p1 / azure-p2 均 forbidden / budget exhausted);ollama 两把 key 200 可用。未做任何教师调用。
