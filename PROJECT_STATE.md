@@ -2029,3 +2029,19 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   ③ 结果目录从 LONI 拉回 rai 并提交到 tc_code(大文件走 results/,不进 paper 仓);
   ④ 在 notes/exp_log.md 为每格写一行(方法/benchmark/种子/分数/花费/路径);
   ⑤ 归档完成前不释放 LONI 上的 results 目录。
+
+## 2026-09-13 02:00 CDT — 路线 1 结果:失败无法归因,样本定义不冻结
+**路线 1(离线失败定位,hq@c8386fe)** 跑完 v4 全部 98 段 episode(24 题 × 五种上下文):
+S1 查询构造 0 / S2 检索调整 9 / S3 答案 2 / S4 结束 0 / **S5 日志不足以判断 66**。
+最早可观察偏离:answer_score_mismatch 30、none_observed 29、step_limit 13、unjudgeable 14、
+result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_action 1。
+**发现即"当前保存的轨迹不足以把失败归因到四种教学关系"**;可靠表述只有"环境返回相关信息后学生仍常无法完成后续执行"。
+→ 六个 adapter **暂不启动**(11 段可判 episode 不足以选定教学对象)。
+产物:`results/failure_taxonomy_v4.json`(hq 树)、`docs/2026-09-13-route1-route2-analysis-zh.md`(已发频道)。
+
+**路线 2(N/O/R/M 读取诊断,hq2 分支 mech-reader)**:包 + 61 个 CPU 测试通过,但**只在合成 fixture 上跑过**;
+真实材料转换器 02:01 CDT 派给 codex(gold/supporting facts/确认答案/评分标注只进标注文件,不进读取器材料)。
+
+**在跑的 codex(一个 worktree 一个写者)**:hq2 = 路线 2 转换器;hq = 记录粒度补齐
+(每步 supporting-fact 匹配位置、查询与上一观测的字符串重叠、显式结束原因、该步是否已集齐证据),
+纯落盘、不改学生所见/评分/检索;完成后才能重跑 v5 并开三个诊断条件(仅诊断,不进评测分数)。

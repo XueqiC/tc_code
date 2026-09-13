@@ -902,3 +902,5 @@ bl_alfworld_sad_B60000 | SAD, ALFWorld, B=60k, 9 usable demos | rai GPU4 | SR 55
 mech_loni_base | mech pipeline base eval on LONI A100 | LONI 1019339 | L3 160/246, L1 18/33, L2 5/9, confirm 10/16 (identical to rai) | mech2/runs/fixed_base
 t1_alfworld_sad_s0 | SAD ALFWorld B=30k seed 0 | LONI | SR 60.0 | results/paper_baselines/table1_alfworld_sad
 t1_alfworld_smartad_s2 | SmartAD ALFWorld B=30k seed 2 | LONI | SR 55.71 | results/paper_baselines/table1_alfworld_smartad_s2
+S1 0 / S2 9 / S3 2 / S4 0 / S5 66 (98 eps) | route1 taxonomy v4 | hq@c8386fe | results/failure_taxonomy_v4.json | 结论:日志不足以归因,adapter 暂停
+t1_alfworld_kang_s0 | Agent Distillation ALFWorld B=30k seed 0 | LONI | SR 57.86 | results/paper_baselines/table1_alfworld_kang
