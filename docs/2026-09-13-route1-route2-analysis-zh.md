@@ -109,6 +109,41 @@ gold 答案字符串是否曾出现在某次 observation 里(`answer_string_pres
 把这两者分开,正是 codex 正在加的"查询与上一次 observation 的字符串重叠"字段要解决的问题。
 B4 说明 EM 会制造假失败,数量小(2/58)但评机制收益时要单列。
 
+
+### 1.7 补齐记录粒度后重跑:S1 从 0 变成 15(2026-09-13 02:55 CDT)
+记录粒度补齐已落地(每步:observation 与 supporting fact 的匹配位置、查询与上一次 observation 的
+字符串重叠、显式的结束原因、该步是否已集齐证据),纯落盘、不进 prompt、不改评分。
+**关键是不需要重跑 rollout**:这四个字段都是对已保存轨迹的纯函数,可以**离线回补**到 v4 记录上,
+所以零 GPU、零教师调用就拿到了结果(`results/hotpotqa_check_v4_audited.json`)。
+
+| | S1 查询构造 | S2 检索调整 | S3 答案 | S4 结束 | S5 不足 |
+|---|---:|---:|---:|---:|---:|
+| 回补前 | **0** | 9 | 2 | 0 | 66 |
+| 回补后 | **15** | 9 | 2 | 0 | 66 |
+
+最早可观察偏离也换了一副面貌(`unjudgeable` 从 14 降到 6):
+
+| 最早偏离 | 全部 98 | 其中闭卷 | **去掉闭卷** |
+|---|---:|---:|---:|
+| empty_retrieval(检索落空) | 53 | 24 | **29** |
+| 未观察到偏离 | 24 | 0 | 24 |
+| answer_score_mismatch | 6 | 0 | 6 |
+| observation_to_query | 4 | 0 | 4 |
+| result_to_retrieval_adjustment | 3 | 0 | 3 |
+| multiple_evidence_to_answer | 2 | 0 | 2 |
+| 不可判 | 6 | 0 | 6 |
+
+**必须区分的一点**:闭卷那 24 次 empty_retrieval 全是同一句
+"No matching page or passage was found."——那是闭卷对照**按设计**关掉检索的产物,不是失败。
+去掉闭卷后的 29 次是真实的 Wikipedia 检索落空("Could not find X. Similar: [...]")。
+
+**结论收紧为**:在可检索的 74 段 episode 里,**最早偏离点排第一的就是"第一次检索就落空"(29)**,
+这与 §1.6 的"70% 答案从未进过 observation"互相印证;而现在我们**手里有 15 个具体的
+"observation 里有相关内容、下一次查询没用上"的实例**,足以开始构造教学素材。
+
+顺带确认:v4 检查本身 `offline: False`,172 次查询全是缓存命中但**允许在线**,
+所以这批数据没有 Table 1 评测那条离线缺陷的污染。
+
 ---
 
 ## 二、路线 2:离线读取诊断(N / O / R / M)

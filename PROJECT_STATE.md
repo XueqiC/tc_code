@@ -2073,3 +2073,9 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **处置**:cancel 队列里 7 个 t1-hotpotqa-*(自有作业),省 ~12 GPU·h;ALFWorld/BFCL 不受影响。
   **待办**:codex 修这处设置源 → 重提 9 个 HotpotQA(run 目录保留 checkpoint/export,可能跳过训练)。
   三个 worktree 都占着 codex(一个 worktree 一个写者),等空位。
+- **9/13 02:55 CDT 记录粒度落地 + 离线回补**:四个新字段是对已存轨迹的纯函数,**回补到 v4 无需重跑**
+  (零 GPU/零教师):`results/hotpotqa_check_v4_audited.json`、`results/failure_taxonomy_v4_audited.json`。
+  **S1 查询构造 0 → 15**;unjudgeable 14 → 6。最早偏离:empty_retrieval 53(**其中 24 是闭卷按设计关检索,
+  非失败**;去掉闭卷 29 次是真实检索落空)、none 24、answer_score_mismatch 6、observation_to_query 4。
+  可检索的 74 段里"第一次检索就落空"排第一 → 与 §1.6"70% 答案从未进 observation"互证。
+  v4 检查本身 offline:False,未受 Table 1 那条离线缺陷污染。代码 hq@7ed5a79(分支 mech-hotpotqa)。
