@@ -2255,3 +2255,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **三个方法的三种子均值全部低于 base。** 与 ALFWorld(三方法均高于 base 1.7–2.4)形成明确对照。
   结论表述须谨慎:kang 的 −1.00 与其 sd 1.22 同量级,单看不显著;但**三个方法方向一致为负**,
   且逐题比对显示三者行为几乎相同(475/500),合起来支持"这类方法在 HotpotQA 上不带来增益"。
+- **9/13 12:20 CDT HotpotQA 9/9 全部完成并归档**(sad s2 = 37.0,第三次跑通;**"两次同点失败 = 确定性"的判断已撤回**,
+  更可能是第 13 步 preconditioner 的 44 个 rollout 命中率高)。最终列(base 38.2):
+  Agent Distillation **37.20 ± 1.22(−1.00)**、SAD **37.40 ± 0.40(−0.80)**、SmartAD **37.80 ± 0.72(−0.40)**。
+  三方法三种子均值**全部低于 base**;单个方法的下降均未超过自身种子标准差。
+  该格 `evaluation_export` 记录 `gpu_held: false` 且 export 走 /tmp —— 节点本地盘修复在生产中生效。

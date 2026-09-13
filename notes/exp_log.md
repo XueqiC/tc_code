@@ -921,3 +921,4 @@ t1_hotpotqa_kang_s2 | Agent Distillation HotpotQA B=30k seed 2 | LONI | EM 35.8 
 t1_hotpotqa_sad_s1 | SAD HotpotQA B=30k seed 1 | LONI | EM 37.8 | results/paper_baselines/table1_hotpotqa_sad_s1
 t1_hotpotqa_smartad_s1 | SmartAD HotpotQA B=30k seed 1 | LONI | EM 37.6 | results/paper_baselines/table1_hotpotqa_smartad_s1
 t1_hotpotqa_smartad_s2 | SmartAD HotpotQA B=30k seed 2 | LONI | EM 37.2 | results/paper_baselines/table1_hotpotqa_smartad_s2
+t1_hotpotqa_sad_s2 | SAD HotpotQA B=30k seed 2 | LONI | EM 37.0 | results/paper_baselines/table1_hotpotqa_sad_s2
