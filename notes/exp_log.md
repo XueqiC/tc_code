@@ -912,3 +912,5 @@ t1_bfcl_smartad_s0 | SmartAD BFCL B=30k seed 0 | LONI | Overall 43.98 (NL 85.4/L
 t1_alfworld_sad_s2 | SAD ALFWorld B=30k seed 2 | LONI | SR 57.14 | results/paper_baselines/table1_alfworld_sad_s2
 t1_alfworld_sad_s1 | SAD ALFWorld B=30k seed 1 | LONI | SR 59.29 | results/paper_baselines/table1_alfworld_sad_s1
 t1_alfworld_smartad_s1 | SmartAD ALFWorld B=30k seed 1 | LONI | SR 60.0 | results/paper_baselines/table1_alfworld_smartad_s1
+t1_hotpotqa_kang_s0 | Agent Distillation HotpotQA B=30k seed 0 | LONI | EM 38.0 (500 tasks) | results/paper_baselines/table1_hotpotqa_kang
+t1_hotpotqa_smartad_s0 | SmartAD HotpotQA B=30k seed 0 | LONI | EM 38.6 (500 tasks) | results/paper_baselines/table1_hotpotqa_smartad
