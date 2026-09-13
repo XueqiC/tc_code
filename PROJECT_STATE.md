@@ -2145,3 +2145,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   直接拿正在跑的 9 个 HotpotQA checkpoint 去评测即可。
   Table 1 因此变成:训练列 = ALFWorld(9 格,已跑完 6)+ HotpotQA(9 格,在跑);
   泛化列 = 2Wiki / MuSiQue / Bamboogle(纯评测,无训练、无购买)。比原先 27 格的 BFCL 方案更省。
+- **9/13 04:45 CDT 用户叫停扩展**:"这可能有点问题,先专注把 HotpotQA 和 ALFWorld 做完"。
+  → 三个新 benchmark(2Wiki/MuSiQue/Bamboogle)**暂停推进**:数据留沙箱,适配 codex 跑完即封存,
+  **不 sync 集群、不起任何作业**。上面那条"泛化列"协议澄清保留备查,但**不作为已确定方案**。
+  当前唯一目标:ALFWorld 9 格 + HotpotQA 9 格跑完并归档。
+  ETA(04:45 CDT 起算):ALFWorld 剩 3 格约 1.5h;HotpotQA seed0 约 2h,seed1/2 再约 3h(seed-zero 守卫要求串行)。
