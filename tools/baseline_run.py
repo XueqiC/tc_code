@@ -109,6 +109,7 @@ def prepare(args):
                         "source_scoring.py", "persistence.py")]]
     if args.benchmark == "hotpotqa":
         source_files.extend([ROOT/"src/bfas/adapters/hotpotqa.py", ROOT/"src/bfas/hotpotqa.py",
+            ROOT/"src/bfas/multihop.py", ROOT/"src/bfas/hotpotqa_audit.py",
             ROOT/"src/bfas/hotpotqa_budget.py", ROOT/"tools/hotpotqa_eval.py",
             ROOT/"prompts/hotpotqa_react_6shot.txt",
             *sorted((ROOT/"configs").glob("hotpotqa_*_split.json")),

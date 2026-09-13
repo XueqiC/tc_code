@@ -28,6 +28,7 @@ def evaluation_harness_identity(root, config):
     # load_questions verifies the full source ID order before selecting dev IDs.
     questions = hp.load_questions('dev', data_dir=root/config['hotpotqa_data_root'])
     names = ['src/bfas/adapters/hotpotqa.py', 'src/bfas/hotpotqa.py', 'tools/hotpotqa_eval.py',
+        'src/bfas/multihop.py', 'src/bfas/hotpotqa_audit.py',
         'src/bfas/run.py', 'src/bfas/rtd/benchmarks/adapter_evaluation.py',
         'src/bfas/rtd/benchmarks/hotpotqa_evaluation.py', 'src/bfas/rtd/benchmarks/hotpotqa_identity.py',
         'prompts/hotpotqa_react_6shot.txt', 'configs/hotpotqa_support_split.json', 'configs/hotpotqa_eval_split.json']

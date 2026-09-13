@@ -65,6 +65,33 @@ def test_stochastic_sampling_and_eos_scores_match_to_double_precision():
         b.sample_action('prompt', params, rng, temperature=.7)
 
 
+@pytest.mark.parametrize('changed', ['backend_id', 'policy_id'])
+def test_checked_score_reports_which_identity_differs_before_scoring(changed, monkeypatch):
+    b = backend()
+    params = lora_parameters(b.model)
+    action = b.sample_action('prompt', params, torch.Generator().manual_seed(2))
+    if changed == 'backend_id':
+        action = replace(action, backend_id='different-backend')
+        generated, current = action.backend_id, b.backend_id
+    else:
+        # Deliberately violate the invariant; this tests failure diagnostics,
+        # not a reproduction of the unexplained production parameter change.
+        with torch.no_grad():
+            params['lora_transition'][1, 0].add_(.25)
+        generated, current = action.policy_id, b.identity(params)
+        assert action.backend_id == b.backend_id and generated != current
+
+    def forbidden(*args, **kwargs):
+        pytest.fail('an identity mismatch must fail before token scoring')
+
+    monkeypatch.setattr(b, 'score_tokens', forbidden)
+    with pytest.raises(ValueError) as error:
+        b.checked_score_action(action, params)
+    assert str(error.value) == (
+        f'generation/scoring backend or policy mismatch: {changed} '
+        f'generated={generated} scoring={current}')
+
+
 def test_no_forced_eos_capped_outcomes_and_frozen_round_sources():
     b = backend(); params = lora_parameters(b.model)
     rng = torch.Generator().manual_seed(1)

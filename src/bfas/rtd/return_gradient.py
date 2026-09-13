@@ -165,8 +165,14 @@ class TorchPolicyBackend:
             truncated=truncated)
 
     def score_action(self, action, parameters, *, verify_policy=True, return_details=False):
-        if action.backend_id != self.backend_id or (verify_policy and action.policy_id != self.identity(parameters)):
-            raise ValueError("generation/scoring backend or policy mismatch")
+        if action.backend_id != self.backend_id:
+            raise ValueError('generation/scoring backend or policy mismatch: backend_id '
+                f'generated={action.backend_id} scoring={self.backend_id}')
+        if verify_policy:
+            policy_id = self.identity(parameters)
+            if action.policy_id != policy_id:
+                raise ValueError('generation/scoring backend or policy mismatch: policy_id '
+                    f'generated={action.policy_id} scoring={policy_id}')
         return self.score_tokens(action.prompt_ids, action.action_ids, parameters,
                                  eos_token_id=action.eos_token_id, return_details=return_details,
                                  truncated=action.truncated)

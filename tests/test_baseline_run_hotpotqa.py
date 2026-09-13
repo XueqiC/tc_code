@@ -159,7 +159,8 @@ def test_prepare_only_hotpotqa_synthetic_bank_preserves_prompts_and_charges_fail
     assert manifest["evaluation_protocol"]["tasks"] == 500
     for name in ("prompts/hotpotqa_react_6shot.txt", "configs/hotpotqa_support_split.json",
                  "configs/hotpotqa_eval_split.json", "src/bfas/rtd/benchmarks/hotpotqa_evaluation.py",
-                 "src/bfas/rtd/benchmarks/hotpotqa_identity.py", "tools/hotpotqa_eval.py", "src/bfas/hotpotqa.py"):
+                 "src/bfas/rtd/benchmarks/hotpotqa_identity.py", "tools/hotpotqa_eval.py", "src/bfas/hotpotqa.py",
+                 "src/bfas/multihop.py", "src/bfas/hotpotqa_audit.py"):
         assert manifest["source_hashes"][name] == file_hash(ROOT/name)
     assert manifest["hyperparameters"]["lora_rank"] == 16
     assert manifest["hyperparameters"]["kang"]["n"] is None

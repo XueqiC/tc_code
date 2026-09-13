@@ -27,6 +27,14 @@ MAX_STEPS = 7
 MAX_TOKENS = 100  # Original ReAct notebook's visible completion limit.
 PROMPT_VERSION = "react6-" + hashlib.sha256(PROMPT_FILE.read_bytes()).hexdigest()[:12]
 WIKI_VERSION = "react-html-v1"
+SCORER_VERSION = "hotpotqa-em-f1-alias-abstention-v1"
+# Whole-answer matches only, after the same normalization as factual answers.
+# This finite local policy does not infer refusal from a substring or a judge.
+ABSTENTION_ANSWERS = (
+    "noanswer", "unanswerable", "cannot be answered", "this question cannot be answered",
+    "i cannot answer this question", "i cannot determine the answer",
+    "insufficient information", "not enough information to answer",
+)
 
 
 def write_json(path, value):
@@ -88,6 +96,29 @@ def answer_metrics(prediction, gold):
     common = sum((Counter(p) & Counter(t)).values())
     f1 = 2 * common / (len(p) + len(t)) if common else 0.0
     return {"em": em, "f1": f1}
+
+
+def reference_answers(question):
+    """Scoring-only references; never pass these to build_messages or a tool."""
+    if question.get("answerable") is False:
+        return list(ABSTENTION_ANSWERS)
+    return list(dict.fromkeys([question["answer"], *question.get("answer_aliases", [])]))
+
+
+def score_answer(prediction, question):
+    """Local answer scorer seam, invoked after generation has finished.
+
+    A future versioned judge may consume the saved question, prediction, and
+    references here/offline and add a separate metric. Keep recorded EM/F1;
+    never let a judge alter prompts, retrieval, selection, or resumable identity.
+    No judge or external API is implemented.
+    """
+    references = reference_answers(question)
+    if question.get("answerable") is False:
+        matched = float(normalize_answer(prediction) in {normalize_answer(a) for a in references})
+        return {"em": matched, "f1": matched}
+    scores = [answer_metrics(prediction, answer) for answer in references]
+    return {key: max(score[key] for score in scores) for key in ("em", "f1")}
 
 
 def parse_action(text, step=None):
@@ -342,7 +373,7 @@ def episode_stream(question, wiki, *, temperature=0.0):
         transcript += (f"Thought {entry['step']}: {entry['thought']}\n"
                        f"Action {entry['step']}: {entry['action'] or ''}\n"
                        f"Observation {entry['step']}: {error}\n")
-    scores = answer_metrics(prediction, question["answer"]) if finished else {"em": 0.0, "f1": 0.0}
+    scores = score_answer(prediction, question) if finished else {"em": 0.0, "f1": 0.0}
     record = {"task_id": question["_id"], "question": question["question"], "gold": question["answer"],
             "category": question["type"], "prediction": prediction, **scores,
             "verified": scores["em"] == 1.0, "checker_verified": scores["em"] == 1.0,
@@ -351,6 +382,10 @@ def episode_stream(question, wiki, *, temperature=0.0):
             "termination_reason": ("offline_cache_miss" if offline_miss else "error" if error else
                                    "finish" if finished else "step_limit"),
             "wiki_queries": list(wiki.queries), "prompt_version": PROMPT_VERSION}
+    if "answer_aliases" in question or "answerable" in question:
+        record.update(answer_aliases=question.get("answer_aliases", []),
+                      answerable=question.get("answerable", True),
+                      reference_answers=reference_answers(question), scorer_version=SCORER_VERSION)
     if offline_miss is not None:
         offline_miss.record = record
         raise offline_miss

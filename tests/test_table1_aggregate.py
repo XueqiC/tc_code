@@ -16,10 +16,10 @@ from tools import table1_aggregate as table1
 def write_run(root, benchmark="alfworld", method="smartad", seed=0, **overrides):
     metrics = {
         "complete": True,
-        "overall_accuracy_percent": {"alfworld": 60, "hotpotqa": 40, "bfcl": 50}[benchmark] + 2 * seed,
+        "overall_accuracy_percent": {"alfworld": 60, "hotpotqa": 40, "bamboogle": 50, "musique": 30, "2wiki": 35}[benchmark] + 2 * seed,
         "teacher_tokens_charged": 28_000 + 500 * seed,
     }
-    if benchmark == "hotpotqa":
+    if benchmark in table1.QA_BENCHMARKS:
         metrics.update(em=metrics["overall_accuracy_percent"] / 100, f1=.5 + .1 * seed)
     if benchmark == "alfworld":
         metrics["per_category"] = {"pick_and_place": {"success_rate": .6}}
@@ -42,26 +42,29 @@ def full_campaign(tmp_path):
 
 def test_all_seeds_sample_std_primary_metrics_and_spend(full_campaign):
     before = {p: p.read_bytes() for p in full_campaign.rglob("*") if p.is_file()}
-    # Unrelated directories (including other seeds) must not affect the 27 cells.
+    # Unrelated directories (including other seeds) must not affect the 45 cells.
     write_run(full_campaign, seed=3, overall_accuracy_percent=100)
     summary = table1.aggregate(full_campaign)
-    assert summary["counts"] == dict(expected=27, complete=27, missing=0, incomplete=0, invalid=0)
+    assert summary["counts"] == dict(expected=45, complete=45, missing=0, incomplete=0, invalid=0)
     assert not summary["issues"]
-    for benchmark, mean in (("alfworld", 62), ("hotpotqa", 42), ("bfcl", 52)):
+    for benchmark, mean in (("alfworld", 62), ("hotpotqa", 42), ("bamboogle", 52), ("musique", 32), ("2wiki", 37)):
         for method in table1.METHODS:
             cell = summary["benchmarks"][benchmark][method]
             score = cell["overall_accuracy_percent"]
             assert score == dict(n=3, seeds=[0, 1, 2], per_seed={"0": mean - 2, "1": mean, "2": mean + 2},
                                  mean=mean, std=2.)
-            assert cell["improvement_pp"]["mean"] == pytest.approx(mean - table1.INITIAL[benchmark])
-            assert cell["improvement_pp"]["std"] == pytest.approx(2)
+            if table1.INITIAL[benchmark] is None:
+                assert cell["improvement_pp"]["mean"] is None
+            else:
+                assert cell["improvement_pp"]["mean"] == pytest.approx(mean - table1.INITIAL[benchmark])
+                assert cell["improvement_pp"]["std"] == pytest.approx(2)
             spend = cell["teacher_tokens_charged"]
             assert spend["per_seed"] == {"0": 28_000, "1": 28_500, "2": 29_000}
             assert spend["max"] == 29_000 and spend["n"] == 3
             assert spend["std"] == 500 and spend["seeds_over_cap"] == []
     assert summary["teacher_tokens_charged_max"] == 29_000
-    assert summary["teacher_spend_receipt_count"] == 27
-    assert summary["methods"]["smartad"]["average_improvement_pp"] == pytest.approx((5.6 + 3.8 + 6.4) / 3)
+    assert summary["teacher_spend_receipt_count"] == 45
+    assert summary["methods"]["smartad"]["average_improvement_pp"] is None
     assert summary["benchmarks"]["alfworld"]["sad"]["runs"][0]["per_category"] == {
         "pick_and_place": {"success_rate": .6}}
     assert all(p.read_bytes() == contents for p, contents in before.items())
@@ -91,8 +94,8 @@ def test_seed_zero_prefers_the_directory_with_metrics(full_campaign, metrics_in_
         expected["benchmarks"]["alfworld"]["smartad"]["runs"][0]["metrics_path"] = str(unsuffixed / "metrics.json")
     summary = table1.aggregate(full_campaign)
     assert summary == expected
-    assert summary["counts"]["complete"] == 27
-    assert summary["teacher_spend_receipt_count"] == 27
+    assert summary["counts"]["complete"] == 45
+    assert summary["teacher_spend_receipt_count"] == 45
 
 
 def test_unsuffixed_seed_zero_without_metrics_is_reported(tmp_path):
@@ -160,7 +163,7 @@ def test_hotpotqa_f1_is_secondary_json_only(full_campaign):
     assert cell["f1"]["unit"] == "fraction (0-1)"
     assert "f1" not in table1.human_table(summary).lower()
     assert "f1" not in table1.latex_body(summary).lower()
-    assert "f1" not in summary["benchmarks"]["bfcl"]["smartad"]
+    assert all("f1" in summary["benchmarks"][b]["smartad"] for b in table1.QA_BENCHMARKS)
 
 
 def test_missing_seed_is_reported_and_available_seeds_remain_visible(full_campaign):
@@ -173,8 +176,8 @@ def test_missing_seed_is_reported_and_available_seeds_remain_visible(full_campai
     assert score["n"] == 2 and score["seeds"] == [0, 2]
     assert score["per_seed"] == {"0": 60, "2": 64}
     assert score["mean"] == 62 and score["std"] == pytest.approx(8 ** .5)
-    assert summary["methods"]["smartad"]["seed_counts"] == dict(alfworld=2, hotpotqa=3, bfcl=3)
-    assert summary["methods"]["smartad"]["average_improvement_pp"] is not None
+    assert summary["methods"]["smartad"]["seed_counts"] == {b: 2 if b == "alfworld" else 3 for b in table1.BENCHMARKS}
+    assert summary["methods"]["smartad"]["average_improvement_pp"] is None
     human = table1.human_table(summary)
     assert "(2/3)" in human and "s0=60.0000,s2=64.0000" in human
     assert "table1_alfworld_smartad_s1: missing directory" in human
@@ -185,7 +188,7 @@ def test_incomplete_cell_is_excluded_but_spend_is_preserved(full_campaign):
               teacher_tokens_charged=30_001)
     summary = table1.aggregate(full_campaign)
     assert summary["incomplete_cells"] == ["table1_alfworld_smartad_s2"]
-    assert summary["counts"]["complete"] == 26
+    assert summary["counts"]["complete"] == 44
     cell = summary["benchmarks"]["alfworld"]["smartad"]
     assert cell["overall_accuracy_percent"]["mean"] == 61
     assert cell["overall_accuracy_percent"]["n"] == 2
@@ -200,7 +203,7 @@ def test_incomplete_cell_is_excluded_but_spend_is_preserved(full_campaign):
     assert "complete=false" in table1.human_table(summary)
 
 
-def test_one_seed_std_is_undefined_and_average_requires_three_benchmarks(tmp_path):
+def test_one_seed_std_is_undefined_and_average_requires_all_benchmarks_and_references(tmp_path):
     write_run(tmp_path, seed=0)
     write_run(tmp_path, "hotpotqa", seed=1)
     summary = table1.aggregate(tmp_path)
@@ -208,9 +211,10 @@ def test_one_seed_std_is_undefined_and_average_requires_three_benchmarks(tmp_pat
     assert score["std"] is None and score["n"] == 1 and score["mean"] == 60
     assert summary["methods"]["smartad"]["average_improvement_pp"] is None
     assert summary["methods"]["smartad"]["benchmark_count"] == 2
-    write_run(tmp_path, "bfcl", seed=2)
-    summary = table1.aggregate(tmp_path, dict(alfworld=55, hotpotqa=35, bfcl=45))
-    assert summary["methods"]["smartad"]["average_improvement_pp"] == 7  # (5 + 7 + 9) / 3
+    for b in table1.OOD_BENCHMARKS:
+        write_run(tmp_path, b, seed=2)
+    summary = table1.aggregate(tmp_path, dict(alfworld=55, hotpotqa=35, bamboogle=45, musique=25, **{"2wiki": 30}))
+    assert summary["methods"]["smartad"]["average_improvement_pp"] == 7.8  # (5 + 7 + 9 + 9 + 9) / 5
     assert summary["methods"]["sad"]["average_improvement_pp"] is None
 
 
@@ -218,10 +222,10 @@ def test_absent_root_is_an_empty_report(tmp_path):
     missing_root = tmp_path / "not_arrived"
     summary = table1.aggregate(missing_root)
     assert not missing_root.exists()
-    assert summary["counts"] == dict(expected=27, complete=0, missing=27, incomplete=0, invalid=0)
-    assert len(summary["missing_cells"]) == 27
+    assert summary["counts"] == dict(expected=45, complete=0, missing=45, incomplete=0, invalid=0)
+    assert len(summary["missing_cells"]) == 45
     assert summary["teacher_tokens_charged_max"] is None
-    score = summary["benchmarks"]["bfcl"]["kang"]["overall_accuracy_percent"]
+    score = summary["benchmarks"]["bamboogle"]["kang"]["overall_accuracy_percent"]
     assert score == dict(n=0, seeds=[], per_seed={}, mean=None, std=None)
     assert summary["methods"]["kang"]["average_improvement_pp"] is None
     json.dumps(summary, allow_nan=False)
@@ -265,13 +269,15 @@ def test_latex_matches_paper_rows_column_order_precision_and_counts(full_campaig
     labels = [line.split(" & ")[0] for line in rows]
     assert labels == [r"\rowcolor{rowhead}Initial student (Gemma-4-12B)", "SmartAD", "SAD",
                       "Agent Distillation", "GAD", r"\rowcolor{rowours}\textbf{RTD (ours)}"]
-    assert all(line.count(" & ") == 4 and r"\\" in line for line in rows)
-    assert rows[0].endswith(r"$56.4$ & $38.2$ & $45.6$ & --\\ % Single reference evaluation per benchmark (n=1).")
+    assert all(line.count(" & ") == 6 and r"\\" in line for line in rows)
+    assert rows[0].endswith(r"$56.4$ & $38.2$ & $\cdot$ & $\cdot$ & $\cdot$ & --\\ % Single reference evaluation where available; dots are pending.")
     assert rows[1] == (r"SmartAD & $62.0\pm 2.0$ {\scriptsize ($n=3$)} & "
                        r"$42.0\pm 2.0$ {\scriptsize ($n=3$)} & "
-                       r"$52.0\pm 2.0$ {\scriptsize ($n=3$)} & $+5.3$\\")
+                       r"$52.0\pm 2.0$ {\scriptsize ($n=3$)} & "
+                       r"$32.0\pm 2.0$ {\scriptsize ($n=3$)} & "
+                       r"$37.0\pm 2.0$ {\scriptsize ($n=3$)} & $\cdot$\\")
     assert r"\dagger" not in rows[1]
-    assert "29000 / 30000 tokens; 27/27 receipts" in body
+    assert "29000 / 30000 tokens; 45/45 receipts" in body
 
 
 def test_latex_partial_and_empty_cells_use_daggers_and_no_fabricated_std(tmp_path):
@@ -284,10 +290,11 @@ def test_latex_partial_and_empty_cells_use_daggers_and_no_fabricated_std(tmp_pat
     assert r"${42.0\pm 2.8}^{\dagger}$ {\scriptsize ($n=2$)}" in row
     assert r"${\cdot}^{\dagger}$ {\scriptsize ($n=0$)}" in row
     assert row.endswith(r" & $\cdot$\\")
-    write_run(tmp_path, "bfcl")
-    row = next(line for line in table1.latex_body(table1.aggregate(tmp_path)).splitlines()
+    for b in table1.OOD_BENCHMARKS:
+        write_run(tmp_path, b)
+    row = next(line for line in table1.latex_body(table1.aggregate(tmp_path, {b: 30 for b in table1.OOD_BENCHMARKS})).splitlines()
                if line.startswith("SmartAD &"))
-    assert row.endswith(r" & $+4.3^{\dagger}$\\")
+    assert row.endswith(r" & $+6.7^{\dagger}$\\")
 
 
 def test_zero_scores_and_identical_seeds_are_valid_percentages(tmp_path):
@@ -308,14 +315,14 @@ def test_cli_writes_both_outputs_and_accepts_all_initial_values(full_campaign, t
     proc = subprocess.run([
         sys.executable, str(ROOT / "tools/table1_aggregate.py"),
         "--results-root", str(full_campaign), "--json-out", str(json_path), "--latex-out", str(tex_path),
-        "--initial-alfworld", "50", "--initial-hotpotqa", "30", "--initial-bfcl", "40",
+        "--initial-alfworld", "50", "--initial-hotpotqa", "30", "--initial-bamboogle", "40", "--initial-musique", "20", "--initial-2wiki", "25",
     ], check=True, capture_output=True, text=True, cwd=tmp_path,
         env=dict(os.environ, CUDA_VISIBLE_DEVICES="", PYTHONDONTWRITEBYTECODE="1"))
     summary = json.loads(json_path.read_text())
-    assert summary["initial_student_percent"] == dict(alfworld=50, hotpotqa=30, bfcl=40)
+    assert summary["initial_student_percent"] == dict(alfworld=50, hotpotqa=30, bamboogle=40, musique=20, **{"2wiki": 25})
     assert all(row["average_improvement_pp"] == 12 for row in summary["methods"].values())
-    assert "$50.0$ & $30.0$ & $40.0$" in tex_path.read_text()
-    assert "complete=27, missing=0, incomplete=0, invalid=0" in proc.stdout
+    assert "$50.0$ & $30.0$ & $40.0$ & $20.0$ & $25.0$" in tex_path.read_text()
+    assert "complete=45, missing=0, incomplete=0, invalid=0" in proc.stdout
     assert "s0=60.0000,s1=62.0000,s2=64.0000" in proc.stdout
     assert "JSON:" in proc.stdout and "LaTeX:" in proc.stdout
 
@@ -343,3 +350,41 @@ def test_cli_reports_duplicate_conflict_without_writing_outputs(full_campaign, t
     assert "table1_alfworld_smartad/metrics.json" in error
     assert "table1_alfworld_smartad_s0/metrics.json" in error
     assert not json_path.exists() and not tex_path.exists()
+
+
+@pytest.mark.parametrize("benchmark", table1.OOD_BENCHMARKS)
+def test_standalone_ood_em_f1_enters_table_without_fabricating_training_spend(tmp_path, benchmark):
+    path = tmp_path / f"table1_{benchmark}_smartad" / "metrics.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(dict(complete=True, em=.4, f1=.6, n=125,
+                                   config=dict(dataset=benchmark))))
+    summary = table1.aggregate(tmp_path)
+    cell = summary["benchmarks"][benchmark]["smartad"]
+    assert cell["overall_accuracy_percent"]["mean"] == 40
+    assert cell["f1"]["mean"] == .6 and cell["primary_metric"] == "exact match"
+    assert cell["teacher_tokens_charged"]["n"] == 0
+    assert cell["runs"][0]["teacher_tokens_charged"] is None
+    assert cell["improvement_pp"]["mean"] is None
+    assert summary["methods"]["smartad"]["average_improvement_pp"] is None
+    assert "BFCL" not in table1.latex_body(summary)
+
+
+def test_bfcl_archives_do_not_enter_current_suite(tmp_path):
+    directory = tmp_path / "table1_bfcl_smartad"
+    directory.mkdir()
+    (directory / "metrics.json").write_text(json.dumps(dict(complete=True,
+        overall_accuracy_percent=100, teacher_tokens_charged=123)))
+    before = (directory / "metrics.json").read_bytes()
+    summary = table1.aggregate(tmp_path)
+    assert summary["benchmark_order"] == ["alfworld", "hotpotqa", "bamboogle", "musique", "2wiki"]
+    assert summary["counts"]["complete"] == 0 and summary["counts"]["expected"] == 45
+    assert (directory / "metrics.json").read_bytes() == before
+
+
+@pytest.mark.parametrize("config", [None, [], "bamboogle"])
+def test_malformed_ood_config_is_reported_without_crashing(tmp_path, config):
+    path = tmp_path / "table1_bamboogle_smartad" / "metrics.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(dict(complete=True, em=.4, f1=.6, config=config)))
+    summary = table1.aggregate(tmp_path)
+    assert summary["benchmarks"]["bamboogle"]["smartad"]["runs"][0]["status"] == "invalid"

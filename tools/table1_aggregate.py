@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Aggregate the 27 paper-baseline runs using only the Python standard library.
+"""Aggregate the paper-baseline suite using only the Python standard library.
 
 Example (output files default to the current directory, never the input root)::
 
     python3 tools/table1_aggregate.py --results-root results/paper_baselines \
         --json-out table1_summary.json --latex-out table1_body.tex \
-        --initial-alfworld 56.4 --initial-hotpotqa 38.2 --initial-bfcl 45.6
+        --initial-alfworld 56.4 --initial-hotpotqa 38.2
 
 The root directly contains table1_<benchmark>_<method>_s<seed>/metrics.json;
 seed zero also accepts table1_<benchmark>_<method>/metrics.json. The baseline
@@ -13,16 +13,17 @@ runner appends seed suffixes itself, so corrected seed-zero submissions can be
 unsuffixed while earlier ones use _s0. Prefer the spelling with metrics.json;
 if both have it, stop with a conflict. Doubled suffixes (e.g. _s1_s1) from
 already-suffixed submissions are listed as ignored and never enter the table.
-Only complete runs with valid primary scores and spend enter score statistics.
+Only complete runs with valid primary scores enter statistics. Training runs
+require spend receipts; standalone OOD evaluations may lack training receipts.
 Sample standard deviation uses ddof=1 and is null/-- for fewer than two seeds.
 Spend includes all valid receipts, even from incomplete runs; it is never capped.
-HotpotQA F1 is a JSON-only secondary metric in its native fraction (0--1) units.
-Average improvement equally weights the three benchmark means, when all exist;
+Multi-hop F1 is a JSON-only secondary metric in its native fraction (0--1) units.
+Average improvement equally weights all benchmark means, when all references exist;
 it does not require the same available seeds across benchmarks.
 
 The LaTeX body follows tab:main in tc-paper/paper/sections/exp_results.tex:
-one decimal, ALFWorld/HotpotQA/BFCL order, and the existing row labels. GAD and
-RTD are pending placeholders outside this 27-run campaign. It uses the paper's
+one decimal, ALFWorld/HotpotQA/Bamboogle/MuSiQue/2Wiki order, and the existing row labels. GAD and
+RTD are pending placeholders outside this campaign. It uses the paper's
 rowhead/rowours colors and midrule macro, and does not edit the paper itself.
 """
 
@@ -36,15 +37,17 @@ import re
 import statistics
 
 
-BENCHMARKS = ("alfworld", "hotpotqa", "bfcl")  # Paper column order.
+BENCHMARKS = ("alfworld", "hotpotqa", "bamboogle", "musique", "2wiki")
+OOD_BENCHMARKS = ("bamboogle", "musique", "2wiki")
+QA_BENCHMARKS = ("hotpotqa", *OOD_BENCHMARKS)
 METHODS = ("smartad", "sad", "kang")
 SEEDS = (0, 1, 2)
 LABELS = {"smartad": "SmartAD", "sad": "SAD", "kang": "Agent Distillation"}
-INITIAL = {"alfworld": 56.4, "hotpotqa": 38.2, "bfcl": 45.6}
+INITIAL = {"alfworld": 56.4, "hotpotqa": 38.2, "bamboogle": None, "musique": None, "2wiki": None}
 PRIMARY_METRICS = {
     "alfworld": "valid_seen success rate",
     "hotpotqa": "exact match",
-    "bfcl": "official overall accuracy",
+    **{b: "exact match" for b in OOD_BENCHMARKS},
 }
 TEACHER_CAP = 30_000
 
@@ -108,6 +111,15 @@ def _read_run(root, benchmark, method, seed):
     run["complete"] = complete if isinstance(complete, bool) else None
     run["overall_accuracy_percent"] = _number(metrics.get("overall_accuracy_percent"), maximum=100)
     run["teacher_tokens_charged"] = _number(metrics.get("teacher_tokens_charged"), integer=True)
+    # Standalone OOD evaluations reuse an already-trained model. They have no
+    # training spend receipt; absence is unknown, never an invented zero charge.
+    config = metrics.get("config")
+    evaluation_only = (benchmark in OOD_BENCHMARKS and isinstance(config, dict)
+                       and config.get("dataset") == benchmark)
+    if evaluation_only:
+        em = _number(metrics.get("em"), maximum=1)
+        run["overall_accuracy_percent"] = None if em is None else 100 * em
+        run["evaluation_only"] = True
     if complete is False:
         run.update(status="incomplete", issues=["complete=false; excluded from score statistics"])
     elif complete is not True:
@@ -115,11 +127,13 @@ def _read_run(root, benchmark, method, seed):
     else:
         run["status"] = "complete"
     for field in ("overall_accuracy_percent", "teacher_tokens_charged"):
+        if field == "teacher_tokens_charged" and evaluation_only and field not in metrics:
+            continue
         if run[field] is None:
             run["issues"].append(f"missing or invalid {field}")
             if run["status"] == "complete":
                 run["status"] = "invalid"
-    if benchmark == "hotpotqa":
+    if benchmark in QA_BENCHMARKS:
         run["em"] = _number(metrics.get("em"), maximum=1)
         run["f1"] = _number(metrics.get("f1"), maximum=1)
         if run["status"] == "complete" and run["f1"] is None:
@@ -134,16 +148,16 @@ def aggregate(results_root, initial=None):
     root = Path(results_root)
     initial = INITIAL | (initial or {})
     for benchmark in BENCHMARKS:
-        if _number(initial[benchmark], maximum=100) is None:
+        if initial[benchmark] is not None and _number(initial[benchmark], maximum=100) is None:
             raise ValueError(f"initial {benchmark} must be a finite percentage in [0, 100]")
     summary = {
         "results_root": str(root), "expected_seeds": list(SEEDS),
         "benchmark_order": list(BENCHMARKS), "method_order": list(METHODS),
         "initial_student_percent": initial, "teacher_token_cap": TEACHER_CAP,
         "std_convention": "sample (ddof=1); null when n < 2",
-        "score_policy": "complete runs with valid primary score and teacher spend only",
+        "score_policy": "complete runs with valid primary score and teacher spend; standalone OOD evaluation may lack a training receipt",
         "spend_policy": "all valid reported receipts, including incomplete/invalid runs",
-        "average_improvement_policy": "equal mean of three benchmark improvements; null if any is absent",
+        "average_improvement_policy": "equal mean of all benchmark improvements; null if any score or initial reference is absent",
         "missing_cells": [], "incomplete_cells": [], "invalid_cells": [],
         "ignored_directories": sorted(
             path.name for path in root.glob("table1_*")
@@ -171,11 +185,12 @@ def aggregate(results_root, initial=None):
             group = groups[method] = {
                 "primary_metric": PRIMARY_METRICS[benchmark],
                 "overall_accuracy_percent": _stats(scores),
-                "improvement_pp": _stats({s: v - initial[benchmark] for s, v in scores.items()}),
+                "improvement_pp": _stats({s: v - initial[benchmark] for s, v in scores.items()}
+                                         if initial[benchmark] is not None else {}),
                 "teacher_tokens_charged": spend,
                 "runs": runs,
             }
-            if benchmark == "hotpotqa":
+            if benchmark in QA_BENCHMARKS:
                 group["f1"] = dict(_stats({str(r["seed"]): r["f1"] for r in runs
                                            if r["status"] == "complete" and r["f1"] is not None}),
                                    unit="fraction (0-1)")
@@ -187,7 +202,7 @@ def aggregate(results_root, initial=None):
             "label": LABELS[method], "seed_counts": counts,
             "benchmark_count": sum(n > 0 for n in counts.values()),
             "average_improvement_pp": statistics.mean(g["improvement_pp"]["mean"] for g in groups.values())
-            if all(counts.values()) else None,
+            if all(g['improvement_pp']['mean'] is not None for g in groups.values()) else None,
         }
     summary["counts"] = {"expected": len(all_runs)} | {
         status: sum(r["status"] == status for r in all_runs)
@@ -217,16 +232,17 @@ def _latex_cell(stats):
 
 
 def latex_body(summary):
-    """Return the five-column Table 1 body, including pending GAD/RTD rows."""
+    """Return the current Table 1 body, including pending GAD/RTD rows."""
     lines = [
-        "% ALFWorld | HotpotQA | BFCL v4 | average improvement (pp).",
+        "% ALFWorld | HotpotQA | Bamboogle | MuSiQue | 2Wiki | average improvement (pp).",
         "% n counts completed training seeds; -- std is undefined for n < 2.",
-        "% Average improvement uses the seed counts printed in the three metric cells.",
+        "% Average improvement requires scores and initial references for every benchmark.",
         f"% Maximum reported teacher spend: {summary['teacher_tokens_charged_max']} / {TEACHER_CAP} tokens; "
-        f"{summary['teacher_spend_receipt_count']}/27 receipts, including incomplete runs.",
+        f"{summary['teacher_spend_receipt_count']}/{summary['counts']['expected']} receipts, including incomplete runs.",
         r"\rowcolor{rowhead}Initial student (Gemma-4-12B) & "
-        + " & ".join(f"${summary['initial_student_percent'][b]:.1f}$" for b in BENCHMARKS)
-        + r" & --\\ % Single reference evaluation per benchmark (n=1).",
+        + " & ".join(r"$\cdot$" if summary['initial_student_percent'][b] is None
+                     else f"${summary['initial_student_percent'][b]:.1f}$" for b in BENCHMARKS)
+        + r" & --\\ % Single reference evaluation where available; dots are pending.",
         r"\midrule",
     ]
     for method in METHODS:
@@ -238,7 +254,7 @@ def latex_body(summary):
         if delta is not None and any(n < len(SEEDS) for n in row["seed_counts"].values()):
             delta_text += r"^{\dagger}"
         lines.append(LABELS[method] + " & " + " & ".join(cells) + " & $" + delta_text + r"$\\")
-    pending = " & ".join([_latex_cell(_stats({}))] * 3 + [r"$\cdot$"])
+    pending = " & ".join([_latex_cell(_stats({}))] * len(BENCHMARKS) + [r"$\cdot$"])
     lines.extend([
         "% GAD and RTD are outside this campaign; pending placeholders only.",
         "GAD & " + pending + r"\\",
@@ -251,7 +267,8 @@ def latex_body(summary):
 def human_table(summary):
     lines = [
         "Table 1: primary scores in percent; sample std; complete seeds only.",
-        "Initial student: " + ", ".join(f"{b}={summary['initial_student_percent'][b]:.1f}" for b in BENCHMARKS),
+        "Initial student: " + ", ".join(f"{b}=" + ("pending" if summary['initial_student_percent'][b] is None
+                                                  else f"{summary['initial_student_percent'][b]:.1f}") for b in BENCHMARKS),
         "Benchmark Method              Mean +/- std (n/3)  Delta pp  Scores by seed; teacher tokens by seed (all receipts), max/cap",
     ]
     for benchmark in BENCHMARKS:
@@ -272,11 +289,11 @@ def human_table(summary):
         delta = row["average_improvement_pp"]
         value = "pending" if delta is None else f"{delta:+.1f}"
         counts = ", ".join(f"{b}:{n}" for b, n in row["seed_counts"].items())
-        lines.append(f"  {LABELS[method]}: {value}; benchmarks={row['benchmark_count']}/3; seeds=[{counts}]")
+        lines.append(f"  {LABELS[method]}: {value}; benchmarks={row['benchmark_count']}/{len(BENCHMARKS)}; seeds=[{counts}]")
     counts = summary["counts"]
     lines.append("Runs: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
     lines.append(f"Maximum reported teacher spend: {summary['teacher_tokens_charged_max']} / {TEACHER_CAP} tokens "
-                 f"({summary['teacher_spend_receipt_count']}/27 receipts, including incomplete runs).")
+                 f"({summary['teacher_spend_receipt_count']}/{summary['counts']['expected']} receipts, including incomplete runs).")
     for issue in summary["issues"]:
         lines.append(f"  {issue['cell']}: " + "; ".join(issue["messages"]))
     if summary["over_cap_cells"]:
