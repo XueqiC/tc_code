@@ -1982,3 +1982,6 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   这正是评审强调的"成绩差异是结果不是合格条件"。要把痛点变成可测训练信号,需要按配对失败原因改进取材(尤其避开
   candidate_contains_gold_answer 与 entity_already_visible_before_observation 这两类)。
 - 9/13 04:07Z hq@bddf6af 提交并同步:闭卷对照改为两次空检索后必须 finish[answer](分别报告凭记忆答对/答错/始终不答/控制错误),依赖资格过滤在配对比较前生效(关键实体不在题面与首个观测、出现在后续观测、起点不含 gold answer),主比较只用合格题但全量数字仍报告。v3 检查已提交(作业 1019530,40 题)。
+- 9/13 05:00Z 两处修正:
+  ① **HotpotQA 的 9 格 Table 1 评测在离线模式下必挂**(dev 集查询的页面不在 3,914 条缓存里),已去掉 BFAS_HOTPOTQA_OFFLINE 改为实时检索并重提 9 格;
+  ② v3 测床检查因 `--n 40` 超出工具允许范围(16–24)而失败,改回 24 重提。
