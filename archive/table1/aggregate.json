@@ -1,0 +1,296 @@
+{
+ "generated": "2026-09-13",
+ "protocol": {
+  "budget_tokens": 30000,
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "base": {
+   "alfworld": 56.4,
+   "hotpotqa": 38.2
+  },
+  "note": "Archive-once. Cells are never re-run. BFCL retained but not reported: 355 entries of its official aggregate cannot execute offline and score zero for every arm including base."
+ },
+ "cells": {
+  "table1_alfworld_kang": {
+   "benchmark": "alfworld",
+   "method": "kang",
+   "seed": 0,
+   "score": 57.85714285714286,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "f0f6be08d070f26f80b0a9a1c9dc57b75b4426e71d666269caa1455e15e81223",
+   "export_sha256": "a0efe3dc8d8249dfa008ddff742ba3c7e1d3e6deabef0ea6d0c650b7920158a3"
+  },
+  "table1_alfworld_kang_s1": {
+   "benchmark": "alfworld",
+   "method": "kang",
+   "seed": 1,
+   "score": 60.71428571428571,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "3da9345b2d885389baf2e1ea18f4c0f2a94415a6539b44623191040e95d96acf",
+   "export_sha256": "98f13a47ac983cdc7adc6703987a3b8c36ef2c579c24003a983243c3d91ae374"
+  },
+  "table1_alfworld_kang_s2": {
+   "benchmark": "alfworld",
+   "method": "kang",
+   "seed": 2,
+   "score": 57.85714285714286,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "68f7b36dce07c3c781023ec954cf2a6b2d2cd488fbebd9aa3e3ddcb2f8b66234",
+   "export_sha256": "9e02d2e9f1e6001c7b571b8a6c8d683562c6564057b763b04b2574608e12938e"
+  },
+  "table1_alfworld_sad": {
+   "benchmark": "alfworld",
+   "method": "sad",
+   "seed": 0,
+   "score": 60.0,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "d2c6cdc5bbd4a15fbd5d89ad23f005817dd269decb724502c9c15c50f51521f5",
+   "export_sha256": "08472dd4551bacadff837940a8de860be68eaaaebc226468b11e5e1b640c1519"
+  },
+  "table1_alfworld_sad_s1": {
+   "benchmark": "alfworld",
+   "method": "sad",
+   "seed": 1,
+   "score": 59.285714285714285,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "58e5beea962c5a530a15a4df5c583b5d4d044f0c066d9640174c1d4d9d36ade8",
+   "export_sha256": "658d982a836adc0a6d59c8adbeee0c915deeba9fae6a9ccae9cc3e402d233d3c"
+  },
+  "table1_alfworld_sad_s2": {
+   "benchmark": "alfworld",
+   "method": "sad",
+   "seed": 2,
+   "score": 57.14285714285714,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "609de954e48a3d64bad32aa3b43a0990b88a68138a25e4eb757813eba0fd6b4a",
+   "export_sha256": "221ad58b8ed010b45ab7236b34f98d336de9f90900963c025da25047e72b8802"
+  },
+  "table1_alfworld_smartad": {
+   "benchmark": "alfworld",
+   "method": "smartad",
+   "seed": 0,
+   "score": 58.57142857142858,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "f149d50476864145cb27ffe2be699663c11f99963bd12035eab69239aca85fee",
+   "export_sha256": "34707da2c43871b9b4d3df2b0b66f3dfe73cbd3166a8bb86c38a802fb6f4c36f"
+  },
+  "table1_alfworld_smartad_s1": {
+   "benchmark": "alfworld",
+   "method": "smartad",
+   "seed": 1,
+   "score": 60.0,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "82443299cb80bc7d2203fba30af5314df06a6e9cffc6ab0a7ca5364e70ca0540",
+   "export_sha256": "a8d6f75f5556d58316db1ef2bbceb7e85ca55954da7901fb13a4e648ad906d88"
+  },
+  "table1_alfworld_smartad_s2": {
+   "benchmark": "alfworld",
+   "method": "smartad",
+   "seed": 2,
+   "score": 55.714285714285715,
+   "B": 30000,
+   "teacher_tokens_charged": 29229,
+   "checkpoint_sha256": "e12652e6c81fc3d86409354d8773645c7da84aec8eb29ba730120e14e2470efb",
+   "export_sha256": "8b4581a00399fe3f5c022d46aa5e75634580cdf1d1d8a2af320e1ccd33cbb219"
+  },
+  "table1_bfcl_sad": {
+   "benchmark": "bfcl",
+   "method": "sad",
+   "seed": 0,
+   "score": 44.27,
+   "B": 30000,
+   "teacher_tokens_charged": 5289,
+   "checkpoint_sha256": "5bb3aaee0ec9f228b2218c905c008d9a1d0bd22b0f84b87d760a3bfb4c7d1d52",
+   "export_sha256": "f70a39c2890c939bf575b576b6bba2be078892663d96665c91b3f836dd5c7f40"
+  },
+  "table1_bfcl_smartad": {
+   "benchmark": "bfcl",
+   "method": "smartad",
+   "seed": 0,
+   "score": 43.98,
+   "B": 30000,
+   "teacher_tokens_charged": 5289,
+   "checkpoint_sha256": "d50feecf3f12aeec339222a54fa167e50cd62678659491e1d0e6c6cb07ade530",
+   "export_sha256": "591eecbb35982c1b64f99f899bfe910b670a8575289ebc00f1d4804a9e1585c2"
+  },
+  "table1_hotpotqa_kang": {
+   "benchmark": "hotpotqa",
+   "method": "kang",
+   "seed": 0,
+   "score": 38.0,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "fe6445ac7cc032c4e8eab5729f62a763f07c022354b3b69ef5f8741dc8a2dd48",
+   "export_sha256": "aa171c8233e0a5ee3b1d3b73dd433a039b432a6feb4bc453c5de551090762109"
+  },
+  "table1_hotpotqa_kang_s1": {
+   "benchmark": "hotpotqa",
+   "method": "kang",
+   "seed": 1,
+   "score": 37.8,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "26d53625c634d91cb2288e5a2b2b952e6dd6c9eb15b65d4e8e64c88904330fe2",
+   "export_sha256": "c911c657a193e0ed1a9d7208b9812e587aa606873eecd70911b4b131ceee571b"
+  },
+  "table1_hotpotqa_kang_s2": {
+   "benchmark": "hotpotqa",
+   "method": "kang",
+   "seed": 2,
+   "score": 35.8,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "c5b77017dabeda7eb2735a077009e145dd8f24345255c74815710cdc7c49ab1f",
+   "export_sha256": "7ffb4d10c2ccbbd62e2dd33f6c50d78f39904ed9c23b14ec9e3d8e3a3bd85a8e"
+  },
+  "table1_hotpotqa_sad": {
+   "benchmark": "hotpotqa",
+   "method": "sad",
+   "seed": 0,
+   "score": 37.4,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "c5080d88531606205c445b5f5e172811b1481681e8f1bd9495c8b5ad8a2fe236",
+   "export_sha256": "acad34e4b4dd68d3d46d4571ed2846944e6e649c985a117d75472da6fa4535b7"
+  },
+  "table1_hotpotqa_sad_s1": {
+   "benchmark": "hotpotqa",
+   "method": "sad",
+   "seed": 1,
+   "score": 37.8,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "a2d34f41488dee88868ac7bddf003b751276ada61f8886300bac3644af82c803",
+   "export_sha256": "5eb9cb40bb76c4d31cc9cddf5d0651e44fb7a583594b7afb404a6ba225297980"
+  },
+  "table1_hotpotqa_sad_s2": {
+   "benchmark": "hotpotqa",
+   "method": "sad",
+   "seed": 2,
+   "score": 37.0,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "b6a0d8dd3891c9dba2492dc1585f9ca551cb80f929ff6ddeff9acca91168b0f7",
+   "export_sha256": "46bf9ecbf34191919b507dd86e4c5e26cabd23dc81516bde583db29442a097fe"
+  },
+  "table1_hotpotqa_smartad": {
+   "benchmark": "hotpotqa",
+   "method": "smartad",
+   "seed": 0,
+   "score": 38.6,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "ea68919f74aa27e611ad3506c802a302ee1d3f6585829c478f9eed4809775e2b",
+   "export_sha256": "617dac222b5e7a3c93425f6a5ad534f0c4d44c1ba1e1c127c15bc3132bc54467"
+  },
+  "table1_hotpotqa_smartad_s1": {
+   "benchmark": "hotpotqa",
+   "method": "smartad",
+   "seed": 1,
+   "score": 37.6,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "36567972e44dabdcb9a57907e52e33bcfe5dc73306af5b8c105557504ed2fed2",
+   "export_sha256": "a326a4c3ec54fd0907d7d3f6b400ed9876079aa698017f8b40b0360aef7558f7"
+  },
+  "table1_hotpotqa_smartad_s2": {
+   "benchmark": "hotpotqa",
+   "method": "smartad",
+   "seed": 2,
+   "score": 37.2,
+   "B": 30000,
+   "teacher_tokens_charged": 29663,
+   "checkpoint_sha256": "fc3e80d573cea4c273496b5edb697a0c0868dcd616954ecc5d0f657f5c4a1f78",
+   "export_sha256": "9dc4303c60e0754f4dbd8bd83cbb20d592600aaa099667b33424b8ec933e2ce9"
+  }
+ },
+ "summary": {
+  "alfworld/kang": {
+   "seeds": {
+    "0": 57.85714285714286,
+    "1": 60.71428571428571,
+    "2": 57.85714285714286
+   },
+   "mean": 58.81,
+   "sd": 1.65,
+   "n": 3
+  },
+  "alfworld/sad": {
+   "seeds": {
+    "0": 60.0,
+    "1": 59.285714285714285,
+    "2": 57.14285714285714
+   },
+   "mean": 58.81,
+   "sd": 1.49,
+   "n": 3
+  },
+  "alfworld/smartad": {
+   "seeds": {
+    "0": 58.57142857142858,
+    "1": 60.0,
+    "2": 55.714285714285715
+   },
+   "mean": 58.1,
+   "sd": 2.18,
+   "n": 3
+  },
+  "bfcl/sad": {
+   "seeds": {
+    "0": 44.27
+   },
+   "mean": 44.27,
+   "sd": null,
+   "n": 1
+  },
+  "bfcl/smartad": {
+   "seeds": {
+    "0": 43.98
+   },
+   "mean": 43.98,
+   "sd": null,
+   "n": 1
+  },
+  "hotpotqa/kang": {
+   "seeds": {
+    "0": 38.0,
+    "1": 37.8,
+    "2": 35.8
+   },
+   "mean": 37.2,
+   "sd": 1.22,
+   "n": 3
+  },
+  "hotpotqa/sad": {
+   "seeds": {
+    "0": 37.4,
+    "1": 37.8,
+    "2": 37.0
+   },
+   "mean": 37.4,
+   "sd": 0.4,
+   "n": 3
+  },
+  "hotpotqa/smartad": {
+   "seeds": {
+    "0": 38.6,
+    "1": 37.6,
+    "2": 37.2
+   },
+   "mean": 37.8,
+   "sd": 0.72,
+   "n": 3
+  }
+ }
+}

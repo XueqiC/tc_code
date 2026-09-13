@@ -2260,3 +2260,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   Agent Distillation **37.20 ± 1.22(−1.00)**、SAD **37.40 ± 0.40(−0.80)**、SmartAD **37.80 ± 0.72(−0.40)**。
   三方法三种子均值**全部低于 base**;单个方法的下降均未超过自身种子标准差。
   该格 `evaluation_export` 记录 `gpu_held: false` 且 export 走 /tmp —— 节点本地盘修复在生产中生效。
+- **9/13 12:30 CDT Table 1 归档完成并封存(按"跑一次就归档、不再重跑"指令)**:
+  **20 个格子**全部在 `archive/table1/`,每格都含 metrics / manifest / purchased_rows /
+  exposure_schedule / 压缩训练日志 / 压缩评测日志,**无缺项**;权重与 rollout 留在 rai 与 LONI。
+  已生成 `archive/table1/aggregate.json`(含每格分数、B、实际计费教师 token、checkpoint 与 export 的 SHA-256)。
+  最终:ALFWorld kang 58.81±1.65 / sad 58.81±1.49 / smartad 58.10±2.18(base 56.4);
+  HotpotQA kang 37.20±1.22 / sad 37.40±0.40 / smartad 37.80±0.72(base 38.2);
+  BFCL sad 44.27 / smartad 43.98(n=1,留档不报)。
+  **LONI 队列已空,全部算力转给机制线。**
