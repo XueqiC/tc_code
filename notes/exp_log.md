@@ -914,3 +914,4 @@ t1_alfworld_sad_s1 | SAD ALFWorld B=30k seed 1 | LONI | SR 59.29 | results/paper
 t1_alfworld_smartad_s1 | SmartAD ALFWorld B=30k seed 1 | LONI | SR 60.0 | results/paper_baselines/table1_alfworld_smartad_s1
 t1_hotpotqa_kang_s0 | Agent Distillation HotpotQA B=30k seed 0 | LONI | EM 38.0 (500 tasks) | results/paper_baselines/table1_hotpotqa_kang
 t1_hotpotqa_smartad_s0 | SmartAD HotpotQA B=30k seed 0 | LONI | EM 38.6 (500 tasks) | results/paper_baselines/table1_hotpotqa_smartad
+ipl_chains_v1 | teacher teaching chains (gpt-5.6-luna) | rai | 24 chains / 24 parents, 145 requests, 14,058 output tokens, $0.084 | archive/ipl_round/

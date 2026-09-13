@@ -1,0 +1,77 @@
+{
+  "distinct_parent_tasks": 24,
+  "parent_task_ids": [
+    "5a74d1815542996c70cfae00",
+    "5a78c188554299029c4b5e7f",
+    "5a7a4d655542990198eaf117",
+    "5a7bdef4554299294a54ab39",
+    "5a7e6dd65542991319bc94ab",
+    "5a80d3a855429938b6142200",
+    "5a8ac63455429970aeb70310",
+    "5a8cbb3e554299653c1aa0fd",
+    "5a8cd90455429941ae14df10",
+    "5a8e6da75542990e94052b07",
+    "5a8f46b15542992414482a2b",
+    "5ab1ce395542997061209579",
+    "5ab45d2e5542990594ba9c06",
+    "5ab67b5755429954757d32ec",
+    "5ab708da5542991d32223764",
+    "5ab7c5c05542991d322237be",
+    "5ab8ee2e5542991b5579f04c",
+    "5abaf3555542992ccd8e7e71",
+    "5abb9935554299642a094aba",
+    "5abdd8c55542991f66106069",
+    "5ac38cf3554299657fa290ed",
+    "5ac3ea525542997ea680c998",
+    "5ac550ea5542993e66e82300",
+    "5ae5dcda5542993aec5ec1e8"
+  ],
+  "valid_chains": 24,
+  "desired_chain_range": [
+    12,
+    24
+  ],
+  "yield_goal_met": true,
+  "rejected_chains": 37,
+  "stop_reason": "target_chains_reached",
+  "budget": {
+    "output_tokens": 14058,
+    "reported_output_tokens": 14058,
+    "estimated_output_tokens": 0,
+    "reserved_output_tokens": 0,
+    "trial_output_tokens": 5000,
+    "usd": "0.08413230",
+    "requests": 145,
+    "pending": 0,
+    "exact_requests": 145,
+    "estimated_requests": 0,
+    "cost_confidence": "exact",
+    "accounting_violation": false,
+    "ceilings": {
+      "max_output_tokens": 30000,
+      "max_usd": "5",
+      "trial_output_tokens": 5000,
+      "pricing": {
+        "model": "gpt-5.6-luna",
+        "service_tier": "default",
+        "input_per_million": "0.20",
+        "cached_per_million": "0.02",
+        "output_per_million": "1.20",
+        "cache_write_multiplier": "1.25",
+        "long_context_threshold": 272000,
+        "context_window": 1050000,
+        "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        "verified_on": "2026-09-13"
+      }
+    }
+  },
+  "source_pools": {
+    "accessible_task_pool": 24
+  },
+  "shared_by": [
+    "I",
+    "P",
+    "L"
+  ],
+  "spending_scope": "one purchase for the whole round"
+}

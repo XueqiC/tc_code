@@ -1,0 +1,546 @@
+{
+  "material": "chains.jsonl",
+  "targets": [
+    {
+      "target_id": "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:2",
+      "parent_task_id": "5a8f46b15542992414482a2b",
+      "target": " \nAction 2: lookup[event]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:3",
+      "parent_task_id": "5a8f46b15542992414482a2b",
+      "target": " The passage identifies the Indianapolis 500 as an event associated with the Purdue All-American Marching Band. I should search the Indianapolis 500 to determine the holiday weekend when it takes place.\nAction 3: search[Indianapolis 500]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:4",
+      "parent_task_id": "5a8f46b15542992414482a2b",
+      "target": " The Indianapolis 500 is traditionally held over Memorial Day weekend, so the event occurs over Memorial Day weekend.\nAction 4: finish[Memorial Day weekend]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:2",
+      "parent_task_id": "5ab7c5c05542991d322237be",
+      "target": " \nAction 2: search[Encephalartos]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:3",
+      "parent_task_id": "5ab7c5c05542991d322237be",
+      "target": " \nAction 3: finish[Encephalartos]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:2",
+      "parent_task_id": "5ab708da5542991d32223764",
+      "target": " The person was William G. Dever. I need to search for him to find when he was born.\nAction 2: search[William G. Dever]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:3",
+      "parent_task_id": "5ab708da5542991d32223764",
+      "target": " \nAction 3: finish[November 27, 1933]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:2",
+      "parent_task_id": "5a80d3a855429938b6142200",
+      "target": " Paul Heyse was a writer. I need to search James Baldwin to determine whether he was also a writer.\nAction 2: search[James Baldwin]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:3",
+      "parent_task_id": "5a80d3a855429938b6142200",
+      "target": " \nAction 3: finish[yes]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:2",
+      "parent_task_id": "5a8cbb3e554299653c1aa0fd",
+      "target": " \nAction 2: search[Thus Spoke Zarathustra]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:3",
+      "parent_task_id": "5a8cbb3e554299653c1aa0fd",
+      "target": " \nAction 3: finish[Thus Spoke Zarathustra]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:2",
+      "parent_task_id": "5ab67b5755429954757d32ec",
+      "target": " The beta blocker described is likely carvedilol, which is used for mild to severe congestive heart failure and marketed as Coreg. I should search carvedilol to verify the brand name.\nAction 2: search[Carvedilol]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:3",
+      "parent_task_id": "5ab67b5755429954757d32ec",
+      "target": " \nAction 3: finish[Coreg]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:2",
+      "parent_task_id": "5abdd8c55542991f66106069",
+      "target": " The actress and singer is Raquel Welch, so I need to find her nationality.\nAction 2: search[Raquel Welch]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:3",
+      "parent_task_id": "5abdd8c55542991f66106069",
+      "target": " Raquel Welch was an American actress, so the answer is American.\nAction 3: finish[American]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:2",
+      "parent_task_id": "5ab45d2e5542990594ba9c06",
+      "target": " Trent Reznor is a composer, but I need to check The Prodigy to determine which one was a film score composer.\nAction 2: search[The Prodigy]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:3",
+      "parent_task_id": "5ab45d2e5542990594ba9c06",
+      "target": " Trent Reznor is a composer who has worked on film scores, while The Prodigy is an electronic music band. Therefore, the answer is Trent Reznor.\nAction 3: finish[Trent Reznor]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:2",
+      "parent_task_id": "5abaf3555542992ccd8e7e71",
+      "target": " Nate Hobgood-Chittick played for the St. Louis Rams, so I need to search that team to identify the Super Bowl they won and its date.\nAction 2: search[St. Louis Rams]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:3",
+      "parent_task_id": "5abaf3555542992ccd8e7e71",
+      "target": " \nAction 3: search[Super Bowl XXXIV]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:4",
+      "parent_task_id": "5abaf3555542992ccd8e7e71",
+      "target": " \nAction 4: finish[January 30, 2000]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:2",
+      "parent_task_id": "5a7bdef4554299294a54ab39",
+      "target": " The cantata was written by Georg Philipp Telemann, so I need to determine his nationality.\nAction 2: search[Georg Philipp Telemann]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:3",
+      "parent_task_id": "5a7bdef4554299294a54ab39",
+      "target": " Georg Philipp Telemann was a German composer, so the composer was German.\nAction 3: finish[German]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:2",
+      "parent_task_id": "5a7e6dd65542991319bc94ab",
+      "target": " The search result identifies the phrase as a Scottish folk song rather than the album, so I need to search for the album title with a likely music-related context to identify the singer who debuted it.\nAction 2: search[\"The Trees They Grow So High\" album]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:3",
+      "parent_task_id": "5a7e6dd65542991319bc94ab",
+      "target": " The search results include “The Trees They Grow So High (album),” so I should search that specific album to identify the singer.\nAction 3: search[The Trees They Grow So High (album)]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:4",
+      "parent_task_id": "5a7e6dd65542991319bc94ab",
+      "target": " The album was the debut album of Sarah Brightman, so I need to find her birth year.\nAction 4: search[Sarah Brightman]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:5",
+      "parent_task_id": "5a7e6dd65542991319bc94ab",
+      "target": " \nAction 5: finish[1960]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:2",
+      "parent_task_id": "5a74d1815542996c70cfae00",
+      "target": " The relevant result is likely Bolognese (dog breed), so I should search it to confirm the common animal.\nAction 2: search[Bolognese (dog breed)]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:3",
+      "parent_task_id": "5a74d1815542996c70cfae00",
+      "target": " The Bolognese is a type of dog. I should search Old German Shepherd Dog to confirm whether it is also a dog breed.\nAction 3: search[Old German Shepherd Dog]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:4",
+      "parent_task_id": "5a74d1815542996c70cfae00",
+      "target": " Both Bolognese and Old German Shepherd Dog are types of dogs.\nAction 4: finish[dog]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:2",
+      "parent_task_id": "5ac3ea525542997ea680c998",
+      "target": " I need to find the sentence mentioning the controversy about same-sex marriage in the current Chick-fil-A passage.\nAction 2: lookup[same-sex marriage]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:3",
+      "parent_task_id": "5ac3ea525542997ea680c998",
+      "target": " The passage identifies controversy over Chick-fil-A’s opposition to same-sex marriage but does not state the year it began. I need to search for the controversy specifically to determine the year.\nAction 3: search[Chick-fil-A same-sex marriage controversy]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:4",
+      "parent_task_id": "5ac3ea525542997ea680c998",
+      "target": " The controversy began in June 2012 after Dan T. Cathy made public comments opposing same-sex marriage, so the answer is 2012.\nAction 4: finish[2012]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:2",
+      "parent_task_id": "5ae5dcda5542993aec5ec1e8",
+      "target": " Me Naiset is published weekly. I need to search Marie Claire to compare its publication frequency.\nAction 2: search[Marie Claire]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:3",
+      "parent_task_id": "5ae5dcda5542993aec5ec1e8",
+      "target": " Me Naiset is published weekly, while Marie Claire is published monthly. Therefore, Me Naiset is published more frequently.\nAction 3: finish[Me Naiset]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:2",
+      "parent_task_id": "5a78c188554299029c4b5e7f",
+      "target": " The film described is likely *Seed of Chucky*, the 2004 supernatural comedy slasher film and fifth installment in the *Child’s Play* series. I should search it to verify Tony Gardner’s involvement.\nAction 2: search[Seed of Chucky]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:3",
+      "parent_task_id": "5a78c188554299029c4b5e7f",
+      "target": " \nAction 3: finish[Seed of Chucky]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:2",
+      "parent_task_id": "5a7a4d655542990198eaf117",
+      "target": " I need to search Dave Pirner to determine when his career started and compare it with Jimmie Ross’s career, which began before 1965 with Gary and the Jewel Tones.\nAction 2: search[Dave Pirner]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:3",
+      "parent_task_id": "5a7a4d655542990198eaf117",
+      "target": " \nAction 3: finish[Jimmie Ross]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:2",
+      "parent_task_id": "5a8cd90455429941ae14df10",
+      "target": " The politician is Lazare Carnot. I need to search him to find his known nickname.\nAction 2: search[Lazare Carnot]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:3",
+      "parent_task_id": "5a8cd90455429941ae14df10",
+      "target": " Lazare Carnot was known by the nickname “Organizer of Victory.”\nAction 3: finish[Organizer of Victory]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:2",
+      "parent_task_id": "5a8e6da75542990e94052b07",
+      "target": " The Bishop of Rome and sovereign of Vatican City is the pope. I need to search for the relevant pope and identify the encyclical’s English name.\nAction 2: search[Pope Francis]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:3",
+      "parent_task_id": "5a8e6da75542990e94052b07",
+      "target": " I need to find which encyclical by Pope Francis is being referenced and its English title.\nAction 3: lookup[encyclical]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:4",
+      "parent_task_id": "5a8e6da75542990e94052b07",
+      "target": " The relevant encyclical is likely *Laudato si'*, whose English translation is “Praise Be to You.” I should look up the English wording in the current passage.\nAction 4: lookup[English]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:5",
+      "parent_task_id": "5a8e6da75542990e94052b07",
+      "target": " The encyclical identified is *Laudato si'*, whose English name is “Praise Be to You.”\nAction 5: finish[Praise Be to You]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:2",
+      "parent_task_id": "5ac38cf3554299657fa290ed",
+      "target": " Kinnie was first introduced in 1952. I need to search Frijj to compare its launch date.\nAction 2: search[Frijj]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:3",
+      "parent_task_id": "5ac38cf3554299657fa290ed",
+      "target": " Kinnie was first introduced in 1952, while Frijj was first launched in 1993. Therefore, Kinnie was sold first.\nAction 3: finish[Kinnie]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:2",
+      "parent_task_id": "5ab8ee2e5542991b5579f04c",
+      "target": " Michale Graves was the lead vocalist of the Misfits, so I need to search for the Misfits and find the year they were founded in Lodi, New Jersey.\nAction 2: search[Misfits]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:3",
+      "parent_task_id": "5ab8ee2e5542991b5579f04c",
+      "target": " I should search for the specific band entry, Misfits (band), to find the year it was founded in Lodi, New Jersey.\nAction 3: search[Misfits (band)]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:4",
+      "parent_task_id": "5ab8ee2e5542991b5579f04c",
+      "target": " \nAction 4: finish[1977]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:2",
+      "parent_task_id": "5ab1ce395542997061209579",
+      "target": " The central character is Brer Rabbit. I need to search for Brer Rabbit to identify the 1946 Walt Disney film adaptation.\nAction 2: search[Brer Rabbit]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:3",
+      "parent_task_id": "5ab1ce395542997061209579",
+      "target": " \nAction 3: finish[Song of the South]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:2",
+      "parent_task_id": "5abb9935554299642a094aba",
+      "target": " The passage mentions the River Nene in relation to Terrington St Clement, so I should look up “river” for the relevant sentence.\nAction 2: lookup[river]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:3",
+      "parent_task_id": "5abb9935554299642a094aba",
+      "target": " The passage identifies the River Nene but does not explicitly connect it to the location 5 miles east. I should search Sutton Bridge to verify the river there.\nAction 3: search[Sutton Bridge]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:4",
+      "parent_task_id": "5abb9935554299642a094aba",
+      "target": " \nAction 4: finish[River Nene]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:2",
+      "parent_task_id": "5ac550ea5542993e66e82300",
+      "target": " \nAction 2: search[Daily Mail]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:3",
+      "parent_task_id": "5ac550ea5542993e66e82300",
+      "target": " \nAction 3: finish[newspaper]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:2",
+      "parent_task_id": "5a8ac63455429970aeb70310",
+      "target": " Maynard James Keenan is American. I need to search Jo Kwon to determine whether he is also from the United States.\nAction 2: search[Jo Kwon]<turn|>\n",
+      "exposure": 1
+    },
+    {
+      "target_id": "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:3",
+      "parent_task_id": "5a8ac63455429970aeb70310",
+      "target": " Maynard James Keenan is American, while Jo Kwon is South Korean, so they are not from the same country.\nAction 3: finish[No]<turn|>\n",
+      "exposure": 1
+    }
+  ],
+  "target_inventory_sha256": "15849ec63921208fc828522f522a4a2cafc317ebe63671865f26a4e0732cb17c",
+  "arms": {
+    "I": {
+      "target_ids": [
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:2",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:3",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:4",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:2",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:3",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:2",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:3",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:2",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:3",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:2",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:3",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:2",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:3",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:2",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:3",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:2",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:2",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:4",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:2",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:2",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:4",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:5",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:2",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:3",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:4",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:2",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:3",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:4",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:2",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:3",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:2",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:3",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:2",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:3",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:2",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:2",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:4",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:5",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:2",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:2",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:4",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:2",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:2",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:4",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:2",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:3",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:2",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:3"
+      ],
+      "exposure_per_target": 1
+    },
+    "P": {
+      "target_ids": [
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:2",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:3",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:4",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:2",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:3",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:2",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:3",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:2",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:3",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:2",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:3",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:2",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:3",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:2",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:3",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:2",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:2",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:4",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:2",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:2",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:4",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:5",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:2",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:3",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:4",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:2",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:3",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:4",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:2",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:3",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:2",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:3",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:2",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:3",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:2",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:2",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:4",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:5",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:2",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:2",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:4",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:2",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:2",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:4",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:2",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:3",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:2",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:3"
+      ],
+      "exposure_per_target": 1
+    },
+    "L": {
+      "target_ids": [
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:2",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:3",
+        "7a01fb51bd73deb362b1ccb40c00fbe4e72fa360e10787d9b9445f2c24f92ec2:4",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:2",
+        "b7e17e98f4ef2a2c2450c7b05000aa62d676dfb273c342e7a061f1ce810e97f1:3",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:2",
+        "a018377402b5f38efdd89a392ba57abbeaa7b92066209ec376033138f6c5d9f9:3",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:2",
+        "59c45dd578de8b67c57a81f79d75782d3af568913a3124af63d9e0c52e41deb8:3",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:2",
+        "96b88e40cb8b8d6322d4dc712c936f845c818cdda7fbf068b862eea1b2ae1b66:3",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:2",
+        "bd9dbdb723edc143eff27d197838c58fc6f94f41686133549a9158a46a84fb20:3",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:2",
+        "be0c13fee80339f4126aaab90b0d919f1d4c339da743037afa24d2c83ab33218:3",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:2",
+        "6edc523c8364e7dfe1165aa1963ba3e3010067302c64d0318e71678945a4b194:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:2",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:3",
+        "a0056b2b1ea58e80f685659732fb26bea103c373eb216a1f2fc83a02bbf16948:4",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:2",
+        "7541af64a5dde0b129c24e615be2ca5fca6e4b89c7fb38a9b8699211d543db3b:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:2",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:3",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:4",
+        "86fa3234a1badf39572b7d458fe10e45420526477783b3a62963fcd7bf8ccec4:5",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:2",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:3",
+        "dfcdd375d6ecb9756b1a1a07e839f5c91441aa65dddb778c80947ca5798cc14a:4",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:2",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:3",
+        "eb5546b56916354356ea718e47d579bb6f2de5ec555b8f1debc5835e1bc28d64:4",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:2",
+        "79ad48510c1761f27b6204f037fd069f31b87619229f8dd6bc810d106977ed00:3",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:2",
+        "b84b999cc47dde331784c4f1574ab46e55c2b29f7f87f6ea78c17e134ad1f61c:3",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:2",
+        "a3d8a0475204bd3a8a6fbe38d8641af3c286a7ea7cc570bc01bcd000c282d7d1:3",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:2",
+        "2ea36c02aef944a275aba9439ad3eedee1e2ee92d90c047ed584d411fcd5ecc1:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:2",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:3",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:4",
+        "fb4009aa04eb6f298dc9edd3296b0e6b2296bbb10b0c090240834e3cf6dc453b:5",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:2",
+        "865c4c53f5232f06a8ba50a196b9a5cab02a7a9c62da391528211acaa0d439eb:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:2",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:3",
+        "a3f9843e0818cb633aed8d30d3d28a4652b08431f20b464e883cfe6e05f4f219:4",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:2",
+        "fe73a18d2be0654dbb8fd1e21e794d4b47d1eb74a5a5e527233f0aa87b5afb9f:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:2",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:3",
+        "30e2e44dc73616df832e3edd19dfaaaf76cbd80cda599afe49f1c5854518a769:4",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:2",
+        "73a0a3441f0bb352775db1f88b35081372db26e5daa01e0f205b31ee5fdea171:3",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:2",
+        "1c7f14a2185e948caad8913925569cdc187f4c1cd196216dac37fbf498f6da65:3"
+      ],
+      "exposure_per_target": 1
+    }
+  },
+  "construction_note": "Arm context/sequence construction is downstream; all arms reuse this inventory and exposure."
+}

@@ -2200,3 +2200,10 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   → **多数案例仍近均匀,少数真正集中**;"预训练 embedding 不保证集中"。
   **结论**:保留绑定改变了选择但未改善证据质量;递归增益 0.4 个百分点却把失败位置覆盖打到 0。
   限制:失败位置仅 7 个可评分案例;多数案例 null 仍部分归因于仪器。
+- **9/13 06:35 CDT 教师教学链采集完成**:**24 条有效链 / 24 个不同父任务**(一父一链),
+  停止原因 **`target_chains_reached`(不是预算)**;145 次请求、**14,058 / 30,000** output token、
+  **$0.084 / $5**。37 条被拒。全部链的 stop_reason 均为 `correct_executed_continuation`,
+  即教师提出→工具真执行→取得有效后续。链长 2 步 16 条 / 3 步 6 条 / 4 步 2 条;
+  来源全部标记 `accessible_task_pool`(200 题池),与确认集隔离。
+  产物归档:`archive/ipl_round/`(chains.jsonl、summary.json、shared_targets.json、压缩账本)。
+  **同一份素材用于 I/P/L 三臂,不分三次购买。**
