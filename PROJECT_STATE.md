@@ -2086,3 +2086,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   (2) R−N = −0.286 且 R−O = 0 → **O−N = −0.286**,损失来自**加 support** 而非递归:
   加了 support 反而不再覆盖学生真实失败位置——**预登记里那条警告实际发生了**。
   下一步:扩材料(24 题太少)+ 让合法替代证据可得分,而不是改机制。代码 hq2@846b924(mech-reader)。
+- **9/13 03:15 CDT HotpotQA 修复落地 + 隔离树**:offline 改为显式选择、默认在线;
+  **训练/导出/起服之前**先跑 retrieval preflight(在线探活会绕过快照,避免热缓存掩盖断网);
+  未跑完的评测写 `status: failed` + 空分数,不再留下可被聚合器误读为结果的 metrics;
+  模块改名 `webshop_evaluation.py` → `adapter_evaluation.py`(历史审计凭证保留原路径)。
+  227 个 CPU 测试通过,本地复跑 HotpotQA 三个测试文件 166 通过。rai@2bab1b9。
+  **不往共享树 sync**(ALFWorld/BFCL 在跑,评测阶段是新进程会中途换代码)→
+  在 LONI 上另建 `/work/xueqic/hq/tc-hotpotqa`(排除 results/logs/.git,~17G),9 个 HotpotQA 格子从该树提交。
+  失败的 8 个 HotpotQA run 目录已移到 `results/_failed_offline_defect/`(315G,证据保留,未删);
+  另有 3 个旧的 `*_s0` 重名目录(doubled-suffix 时代,status=failed)移到 `results/_failed_seed0_naming/`,
+  避免归档时出现同一格两种拼写。**注意**:`baseline_run.py` 拒绝复用已存在的 run 目录
+  ("existing runs are never overwritten"),所以重提必须用全新目录,训练会从头跑。
