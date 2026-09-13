@@ -2282,3 +2282,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   已派 codex 定位真正的保留点(消费端持有梯度 / `create_graph` 多余保图 / 激活跨父任务保留 / 对角线累积完整张量),
   要求修法**数学等价**、**剂量绝不改动**(改 batch 或监督 token 会改变更新、破坏与 18 个已归档格子及三臂之间的可比性),
   并报告修前修后峰值显存、以及结果是逐位相同还是数值等价。若在冻结剂量下确实放不下,要求如实说明并量化所需资源。
+- 9/13 14:00 CDT **OOM 自查(用于审 codex 的修复)**:`rms_diagonal` **本身已经是流式**的——
+  它把每个父任务的梯度 `.detach().square()` 累加进 `second[n]`,**不保留任何逐父任务的梯度张量**。
+  所以**修复点不在累加器**;若 codex 提出改 `rms_diagonal` 的累加方式,应当质疑。
+  更可能的保留点在生成器 `source_gradients()`:每轮 `sample_action`(自回归生成,含 KV cache)
+  → `checked_score_action`(带 record 回调)→ `score_action`(建完整自回归图)→ `gradients`;
+  其中 `loss` 持图且跨 `yield` 存活,journal 的 diagnostic 回调也可能持有张量。
+  审查时重点看:采样/打分是否把张量留在 backend 或 journal 里、`create_graph` 是否多余、
+  以及每轮的图是否在下一轮开始前真正释放。
