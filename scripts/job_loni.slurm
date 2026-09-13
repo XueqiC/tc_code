@@ -1,9 +1,9 @@
 #!/bin/bash
-# LONI QB-D template. Partition/account/gres are placeholders until the cluster
-# survey lands in docs/loni_setup.md; do not submit before they are filled in.
+# LONI QB-D template (A100 80GB PCIe nodes; gpu2 has 2 GPUs per node, gpu4 has 4).
+# Allocation loni_depedlab03. See docs/loni_setup.md for the cluster survey.
 #SBATCH --job-name=tc-alignment
-#SBATCH --account=PLACEHOLDER_ALLOCATION
-#SBATCH --partition=PLACEHOLDER_GPU_PARTITION
+#SBATCH --account=loni_depedlab03
+#SBATCH --partition=gpu2
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import torch
+from safetensors import safe_open
 from safetensors.torch import load_file, save_file
 
 
@@ -49,7 +50,10 @@ def _parse_args() -> argparse.Namespace:
 
 def _snapshot_for_model(model: str) -> Path:
     local = Path(model)
-    if local.is_dir() and (local / "config.json").is_file() and (local / "model.safetensors.index.json").is_file():
+    if local.is_dir() and (local / "config.json").is_file() and (
+        (local / "model.safetensors.index.json").is_file()
+        or (local / "model.safetensors").is_file()
+    ):
         # a previously exported hub_merged directory (used to stack a round-N adapter on a round-(N-1) model)
         return local
     parts = model.strip().split("/")
@@ -90,10 +94,26 @@ def _snapshot_for_model(model: str) -> Path:
     return snapshot
 
 
-def _read_index(snapshot: Path) -> tuple[Path, dict[str, str], list[str]]:
+def _read_index(snapshot: Path) -> tuple[Path | None, dict[str, str], list[str]]:
+    """Read the shard map, or derive it from a single-file checkpoint header."""
+
     index_path = snapshot / "model.safetensors.index.json"
     if not index_path.is_file():
-        raise ExportError(f"snapshot is missing shard index: {index_path}")
+        checkpoint = snapshot / "model.safetensors"
+        if not checkpoint.is_file():
+            raise ExportError(
+                f"snapshot is missing checkpoint: expected {index_path} or {checkpoint}"
+            )
+        try:
+            # Inspect only the header; the shared shard loader below loads and
+            # validates the weights, including for large single-file snapshots.
+            with safe_open(str(checkpoint), framework="pt", device="cpu") as handle:
+                weight_map = {key: checkpoint.name for key in handle.keys()}
+        except Exception as exc:
+            raise ExportError(f"failed to read checkpoint header {checkpoint}: {exc}") from exc
+        if any(not key for key in weight_map):
+            raise ExportError(f"checkpoint contains an invalid tensor key: {checkpoint}")
+        return None, weight_map, [checkpoint.name]
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
