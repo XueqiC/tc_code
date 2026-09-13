@@ -2295,3 +2295,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   每 60s 对我们**所有在跑作业**采样显存,**只在越过阈值(默认 92%)或作业消失时**输出一行,
   适合挂 Monitor。OOM 那次是单进程占满 79.15/79.25 GiB,这个阈值会在死前几分钟就报。
   **执行纪律**:修好后**先单跑一格到出 metrics**,同时挂显存看门狗;确认能跑完再铺满六格。
+- **9/13 16:35 CDT 试跑格再次 OOM,但崩点不同,且看门狗提前报警**:
+  新崩点 `modeling_gemma4_unified.py:1337 logits = logits / final_logit_softcapping` ——
+  **整序列 vocab 尺寸 logits 张量 + softcapping 除法的额外副本**,这才是峰值;
+  上一轮修的梯度保留是真问题但只占 11%。
+  **监控生效**:89%(73,201/81,920 MiB)时报警,随后才崩;**损失限制在 1 格约 1 小时**
+  (对比上次 6 格 × 1h53m ≈ 11 GPU·h)。**"先单跑一格"这条纪律今天已经回本。**
+  已派修复:不要完整 logits——`score_action` 只需动作 token 的 log-prob 之和,
+  改为按序列位置**分块**做 LM head + log-softmax、每块 gather 后立即释放,
+  峰值从「序列长×词表」降到「块长×词表」。
+  硬约束:**`final_logit_softcapping` 必须逐位复刻**(位置、dtype 提升)——差一点就改变所有分数与梯度;
+  **剂量仍不许动**,若只有改剂量才装得下,必须停下来上报改什么、改多少。
