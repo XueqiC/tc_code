@@ -2015,3 +2015,8 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   也说明 I/P 这个自变量操纵错了位置。
 - 9/13 06:10Z **首批 Table 1 格子出分**(B=30k,ALFWorld valid_seen 140):SAD seed0 = **60.0**;SmartAD seed2 = **55.71**(base 56.4)。两格都 complete、计费 29,229。
 - 9/13 06:15Z Table 1 已出三格(ALFWorld,B=30k,base 56.4):SAD s0 60.0;SmartAD s0 58.57、s2 55.71。其余 24 格在跑。
+- 9/13 06:30Z **第五个陷阱:非零种子必须排在 seed 0 之后**。跑器对非零种子会拿 seed 0 的
+  `purchased_rows.json` / `training_rows.json` 做字节级校验(正是我要求加的购买冻结保证),
+  但我把 9 格 seed 1/2 与 seed 0 同时提交,参考还不存在 → `seed-zero guard: missing training_rows.json`,9 格全挂。
+  已按 (bench, method) 分别处理:seed 0 已完成的直接提交,仍在跑的用 `--dependency=afterok:<seed0 jobid>`。
+  现在 18 跑 / 6 排队。**规则:带种子参考校验的实验,seed 1/2 必须依赖 seed 0 完成。**
