@@ -2138,3 +2138,10 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   新 benchmark:**2WikiMultihopQA / MuSiQue / Bamboogle**(HF 上全部公开非 gated,已核)。
   复用现成的 ReAct + Wikipedia harness,只换题目文件。**口径差异必须写进论文**:我们用在线 Wikipedia 搜索,
   SmartAD/Kang 用 Wikipedia 2018 + e5 稠密检索,绝对分不可跨论文对齐,表内比较仍公平。
+- **9/13 04:45 CDT 关键协议澄清(照搬 SmartAD/Kang 的做法)**:那三个新 benchmark 在原论文里是
+  **域外泛化列,不是独立训练列**——SmartAD 用 1000 条 HotpotQA + 2000 条 MATH 训练一次,
+  然后把同一个学生在 HotpotQA(域内)与 Bamboogle/MuSiQue/2WikiQA(域外)上全部评一遍。
+  **对我们的含义:2Wiki / MuSiQue / Bamboogle 不需要任何新的训练格子,也不需要新的教师购买**——
+  直接拿正在跑的 9 个 HotpotQA checkpoint 去评测即可。
+  Table 1 因此变成:训练列 = ALFWorld(9 格,已跑完 6)+ HotpotQA(9 格,在跑);
+  泛化列 = 2Wiki / MuSiQue / Bamboogle(纯评测,无训练、无购买)。比原先 27 格的 BFCL 方案更省。
