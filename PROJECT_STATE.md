@@ -1960,3 +1960,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   **17 格 ALFWorld+HotpotQA 同时在跑**。BFCL 9 格仍等单文件 safetensors 导出修复。
   注意:成品目录名因此为 seed0 = `table1_b_m`、seed k = `table1_b_m_s<k>`,**Table 1 聚合脚本要按这个约定改**。
 - 9/13 02:50Z 单文件 safetensors 导出修复已提交(10d7466,26 测试)并同步到 LONI(md5 一致);BFCL 9 格已提交,现 19 跑 / 7 排队,27 格 Table 1 全部在队列里。
+- 9/13 02:55Z rai GPU4 已被 scaling-down-law 占用(91GB),修正版 HotpotQA 测床检查改在 LONI 上跑(hq2 树,作业 1019449,24 题:协议保持的闭卷对照、重放分歧归因、配对成品率原因)。hq@23bc7d3 已提交(56 测试)。
