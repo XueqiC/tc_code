@@ -2052,3 +2052,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   工具漏报待修:4 段 EM=0 却零事件,应显式记为"未观察到偏离"。
 - 9/13 02:08 CDT Table 1 第 4 格:ALFWorld Agent Distillation seed 0 = 57.86;
   四格小产物已入库 `archive/table1/`(results/ 被 gitignore),权重留 rai + LONI。
+- **9/13 02:20 CDT 路线 1 细分(用户要求)**:用 `answer_string_present` + `finished` + gold 连接,
+  58 段失败**零残留**划分:B2 答错/答案从未出现 17、A1 未结束/从未出现 17、B3 弃答 12(全闭卷)、
+  B1 答错/答案曾可见 6、A2 未结束/答案曾可见 4、B4 EM 假失败 2(`2240 feet` vs `2240`)。
+  去掉闭卷后 40 段:**证据到行动失败 10(25%)、检索侧失败 28(70%)**。
+  → 教学对象先落"查询构造与修复",不是证据整合。A2 的 4 段就是原工具报 0 的 S4。
+- **9/13 02:15 CDT GPU 利用率排查(用户提醒)**:近两天 LONI 上 CANCELLED 全部是 uid 16801 = 本人
+  (锁修复后的重提),**没有被管理员因低利用率杀过**。但风险属实:抽样 3 个在跑作业 ×6 次,
+  BFCL 训练稳定 100%;ALFWorld 评测 0–100% 波动;**HotpotQA 作业连续 6 次 0%、显存 ~4 MiB**,
+  当时处于 `evaluation_export`(把 ~24GB bf16 合并快照写 Lustre,~31 MB/s,13+ 分钟)。
+  计算节点本地盘 /tmp 有 813G 可用。已派 codex:导出/渲染改走节点本地盘 + 阶段日志标注是否持有 GPU。
+  **不得在 Table 1 跑完前 sync 到集群**(评测阶段是新进程,会中途换代码)。
