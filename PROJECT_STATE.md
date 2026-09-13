@@ -2116,3 +2116,9 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
 - 9/13 03:48 CDT 检查工具 n 上限 16–24 → 200(原为 smoke 守卫,无采样/成本/统计依据);
   选择规则不变且**大 n 是小 n 的严格前缀扩展**(已对 v4 前 24 个 id、内容哈希与规则文本校验)。
   n=200 作业脚本已生成但**是 hpg 模板**(fsu-compsci-dept / hpg-b200),需改成 LONI 再提。hq@fe8939d。
+- 9/13 04:00 CDT **n=200 检查已提交(job 1019754)**,跑在隔离树 `/work/xueqic/hq/tc-hotpotqa`。
+  hpg 模板改成 LONI 版(`scripts/hotpotqa_check_loni.slurm`:loni_depedlab03 / gpu2 / gpu:1 / 16 cpu /
+  按 job id 取端口 / vllm 用 `envs/vllm-serve/.venv/bin/vllm` / Gemma 4 需要 FLASH_ATTN)。
+  只 rsync 了三个 check 相关工具进该树,**没有**覆盖 `tools/baseline_run.py`(那里有刚修的 offline 修复,
+  且 9 个 HotpotQA 格子正用它在跑)。集群上实测:**n=200 的选择是 n=24 的严格前缀**(id 逐个相同),
+  所以已分析过的 98 段 episode 仍然有效可比。预计 1–2 小时(v4 实测 ~5 s/episode)。
