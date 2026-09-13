@@ -1886,3 +1886,19 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/12 23:25Z 用户指令:基线一直跑到完 = 3 benchmark × 3 种子 × 3 个 agent distillation baseline(B=30k,Table 1 口径),跑完把 performance 与 std 更新进 Table 1,然后再跑 GAD。已在 LONI 提交全部 27 格(1019300-1019326,scripts/table1_cell.slurm);HotpotQA 环境(986MB,含 Wikipedia cache)已同步。当前 LONI 29 个作业在跑、15 个排队。
 - 9/12 23:35Z 用户把 GPU3/GPU4 收回给 scaling-down-law:停掉 rai 基线链(Kang 曲线)与 gpu_hold 守护,两张卡已完全空出(4 MiB / 3 MiB),相关监视器已停。预算曲线改到 LONI 上按 3 种子重跑(单种子曲线今天已证明不可读)。rai 上本项目目前无任何进程。
 - 9/12 23:55Z mech2@97f198d 提交并同步到 LONI:exposure-audit(内容 token vs 三种边界 token 分开计数)、roundtrip-check(适配器→官方执行器→续下一回合)、新报告协议(先按 parent 对种子取平均再算区间、单列每种子 D−C、三组结果分家、截断运行报覆盖率而非子集准确率);在旧的 R2 运行目录上验证向后兼容,报告正常渲染。Table 1 聚合工具(均值±标准差、每种子值、实际花费、LaTeX 片段)已派给 Codex。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-13 00:05Z — everything now runs on LONI)
+- **rai**: 本项目**无任何进程**;GPU3/GPU4 已交给 scaling-down-law,不要再占。
+- **LONI**(`ssh loni`,免密;account `loni_depedlab03`,约 47k SU):
+  - 代码 `/work/xueqic/hq/tc-alignment`(= tc_code main),机制树 `/work/xueqic/hq/mech2`;
+    HF 缓存 `/work/xueqic/hf-cache`;vllm venv `/work/xueqic/hq/envs/vllm-serve`(已软链进两棵树的 envs/)。
+  - 机制验证(修复终止监督后):`runs/mech_bfcl_r2_fixed`,作业 1019287-99(base + C/D × seed 0-3),
+    脚本 `mech_cell.slurm` / `mech_base.slurm`(env ARM/TSEED)。完成后依次跑
+    `exposure-audit`、`roundtrip-check`、`report --run-dir runs/mech_bfcl_r2_fixed`。
+  - Table 1:作业 1019300-1019326(3 benchmark × 3 方法 × 3 种子,B=30k),
+    脚本 `scripts/table1_cell.slurm`(env METHOD/BENCH/SEED),结果 `results/paper_baselines/table1_*`。
+    跑完用 `tools/table1_aggregate.py` 出均值±标准差与 LaTeX 片段,更新论文 tab:main,**然后**才跑 GAD。
+  - 对齐作业 1019263(SmartAD ALFWorld B=7.5k,对照 rai 53.57)。
+- **判读协议(事先固定)**:只看多种子 pooled parent 配对;单列每种子 D−C;塌缩/截断运行照常报告
+  (状态、截断比例、完成覆盖率),不报子集准确率;不得挑 checkpoint。
+- **两个仓库**:代码 tc_code、论文 tc-alignment(只含 paper/,本地 clone `~/hq/projects/tc-paper`),各只有 main。
