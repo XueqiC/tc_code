@@ -237,7 +237,7 @@ live episode can also produce a legitimate singleton physical call.
 | Round-end parse battery (`metrics_v11.parse_battery`) | Already prefetches four draws per fixed state across requests | No change |
 | Round-end variance and offline source-estimator diagnostics (`controls_v11.sampler`, `metrics_v11.estimator_batches`) | D12 prefetch across each resample, eight draws per exposure; ordered consumption | Yes, with generation batching |
 | Legacy baseline source collection (`baselines/runner.py`) | Two separate `sample_action` calls per state | Remains serial |
-| Round-end official ALFWorld v1.1/unified evaluation (`registry.alfworld_evaluate` → `webshop_evaluation.evaluate_adapter`) | Separate adapter campaign, concurrent episode threads making individual requests to the vLLM serving lane; outside in-process HF generation | No change |
+| Round-end official ALFWorld v1.1/unified evaluation (`registry.alfworld_evaluate` → `adapter_evaluation.evaluate_adapter`) | Separate adapter campaign, concurrent episode threads making individual requests to the vLLM serving lane; outside in-process HF generation | No change |
 | Legacy ALFWorld official evaluation (`alfworld_evaluation.official_episode` / `HFBackend.generate`) | Separate campaign with singleton local HF generation | Remains serial |
 | BFCL greedy diagnostic provider (`BFCLSupport.diagnostic_batch`) | Lockstep queries through the original `return_gradient.bfcl_task_rollout`, bounded K and token-budget sub-batches | Yes |
 | BFCL stochastic feedback provider | Version-2 per-task/rollout streams for starts and continuations, bounded lockstep cohorts | Yes; serial fallback uses the same versioned streams |
