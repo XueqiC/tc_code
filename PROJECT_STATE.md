@@ -1923,3 +1923,10 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/13 01:30Z **LONI↔rai 对齐确认**:机制管线的 base 评测在 LONI 上得到 **layer3 160/246、layer1 18/33、layer2 5/9、确认集 10/16**,与 rai 上的 160/246、18/33、5/9、10/16 **逐项完全一致**。两台机器的结果可比,不需要单独的基线对齐作业。D 四臂训练完成进入评测,C 四臂仍在训练。
 - 9/13 01:33Z 操作纠正:我在第一个 Codex 探针任务还没结束时,就往**同一个 worktree** 派了修正任务,两个 codex exec 会互相覆盖文件。
   已停掉后派的修正任务(pid 639136),等第一个写完再重派。规则:**同一 worktree 同时只能有一个 Codex 任务**。
+- 9/13 01:35Z **主测床改为 HotpotQA(工具检索/ReAct 版)**,ALFWorld 作真实状态交互迁移验证,BFCL 保留工具调用泛化证据(都不删)。
+  已核实事实:我们的 HotpotQA 管线**本来就是 ReAct 工具检索**——模型自写 Thought/Action(search/lookup/finish),环境返回 Observation,
+  最多 MAX_STEPS;检索工具是 ReAct 原版 Wikipedia HTTPS 包装器(不可变磁盘快照缓存,现 3,914 条),base EM 38.2 / F1 47.8、平均 4.75 步。
+  题目选材来自 distractor 划分,但交互协议是自主检索;supporting-facts 只用于评估与审计,不进学生上下文,也不把合法替代路径判错。
+  纠正两点:①"BFCL 上正确/错配 support 无差别"只是预测,已撤回,不作为换测床理由;② 读取对照必须加**无 support** 条件,
+  判读按四档表(正确>无 support 才算增量;正确≈无>错配 只说明错配干扰;正确≈同分布另一组 说明抽样稳定;四条相同说明选择问题或读取器无效)。
+  执行:BFCL 收齐已启动的修复实验(六个 I/P/L adapter **暂缓**,起点检查与审计保留)→ HotpotQA 纯推理测床检查(16–24 案例)→ 合格后跑 I/P/L。
