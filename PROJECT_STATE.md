@@ -2097,3 +2097,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   另有 3 个旧的 `*_s0` 重名目录(doubled-suffix 时代,status=failed)移到 `results/_failed_seed0_naming/`,
   避免归档时出现同一格两种拼写。**注意**:`baseline_run.py` 拒绝复用已存在的 run 目录
   ("existing runs are never overwritten"),所以重提必须用全新目录,训练会从头跑。
+- **9/13 03:45 CDT 9 个 HotpotQA 格子已从隔离树重提**:`/work/xueqic/hq/tc-hotpotqa`
+  (代码/envs 拷贝 + rai 修复源 rsync,`scripts/table1_cell_hq.slurm` 只改了两处路径)。
+  登录节点实测 `retrieval_offline(None) = False`、`preflight OK(在线可达)`。
+  seed0 三格 RUNNING(1019745 smartad / 1019746 sad / 1019747 kang),
+  seed1/2 六格 `--dependency=afterok` 挂在各自 seed0 上(1019748–1019753)。
+  **坑**:本集群 `sbatch --parsable` 仍会打印 SU 横幅,`$(sbatch --parsable ...)` 会连横幅一起吃进去
+  → 依赖串错("Unable to open file 40590.05")。取 id 必须 `grep -oE '^[0-9]+$' | tail -1`。
+  至此 Table 1 剩余 21 格全部在飞(ALFWorld 3 + BFCL 9 + HotpotQA 9),与机制线并行。
