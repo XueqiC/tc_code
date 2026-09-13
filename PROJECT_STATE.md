@@ -2131,3 +2131,10 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   所有臂(含 base)同样受影响,**表内比较仍然公平**,但 44.27 这个绝对值不能直接与文献数字并列。
   **决定:协议冻结不动**——9 个 BFCL 格子用同一类别集合跑完(现在去补 MiniLM 会让已完成的两格与后续不可比),
   论文里改为注明这两类不可运行、对所有臂(含 base)恒为 0,或只报可运行子集上的 Overall。
+- **9/13 04:36 CDT 用户决定:BFCL 出局,对齐 baseline 自己的 benchmark**。
+  依据:SmartAD(ACL Findings 2026)域内 HotpotQA + Math500,域外 Bamboogle/MuSiQue/2WikiQA + 四个数学集;
+  Kang(NeurIPS 2025)几乎同一套;SAD 用 ALFWorld/WebShop/HotpotQA-ReAct。**三个 baseline 没有一个用 BFCL,
+  而三个全都用 HotpotQA**。已 cancel 队列里 7 个 t1-bfcl-*(已完成的 SAD 44.27 / SmartAD 43.98 留档备用)。
+  新 benchmark:**2WikiMultihopQA / MuSiQue / Bamboogle**(HF 上全部公开非 gated,已核)。
+  复用现成的 ReAct + Wikipedia harness,只换题目文件。**口径差异必须写进论文**:我们用在线 Wikipedia 搜索,
+  SmartAD/Kang 用 Wikipedia 2018 + e5 稠密检索,绝对分不可跨论文对齐,表内比较仍公平。
