@@ -1965,3 +1965,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   seed 0 的 ALFWorld/HotpotQA 格子(修命名之前提交的)在 `table1_<bench>_<method>_s0`;
   修命名之后提交的 seed 0(BFCL 三格)在 `table1_<bench>_<method>`(无后缀);seed 1/2 一律 `..._s<k>`。
   ALFWorld 三格 seed 0 正常训练中(step 19–21/24),HotpotQA 三格已跑 44 分钟。tools/table1_aggregate.py 需按此放宽匹配。
+- 9/13 03:35Z 第三个环境缺口:ALFWorld 评测需要 envs/alfworld/.venv(RPC 服务端),LONI 上只同步了数据没建 venv,9 格 ALFWorld 训练完在评测阶段全挂(ALFWorldRPCError: No such file .venv)。已提交构建作业 1019515(alfworld 0.4.2 + textworld 1.7.0),建好后重提这 9 格。教训重复:**跨机迁移要把每个 benchmark 的专用 venv 一并建好**(bfcl、vllm-serve、alfworld 三个都踩过)。
