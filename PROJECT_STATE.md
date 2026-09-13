@@ -2207,3 +2207,12 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   来源全部标记 `accessible_task_pool`(200 题池),与确认集隔离。
   产物归档:`archive/ipl_round/`(chains.jsonl、summary.json、shared_targets.json、压缩账本)。
   **同一份素材用于 I/P/L 三臂,不分三次购买。**
+- **9/13 07:05 CDT 教学包构造被拒,0/24 链可转成目标(编排错误 + 防挑拣规则)**:
+  原因 (a) 21 条链的起点**不是分类器标出的候选纠正状态**——我给采集器的取材条件("已有工具观测且未完成")
+  比构造器要求的宽,两边"该教哪个状态"的定义没绑在一起;(b) 9 条**教师目标含 gold**被拒;
+  (c) 7 条执行路径未到达候选状态。构造器另有硬规则 `240 missing, 0 extra; no candidate cherry-picking`,
+  要求该报告 55 个父任务的**全部 240 个候选状态**都有目标,**不允许只给买到的配目标**(防选择偏倚,规则正确)。
+  **预算口径失衡**:每链约 586 token / $0.0035;覆盖 240 状态约 14 万 token 但**仅 $0.84**;
+  现剩 15,942 token / $4.92 → **钱用了 1.7%,token 用了 47%**,卡的是 token 不是钱。
+  已请用户定:(a) 提 token 上限至约 16 万,或 (b) 维持 30k 但事先声明约 6 个父任务的小范围全覆盖。
+  另请示:"目标含 gold"是否应收窄为"仅禁起点含 gold"——**放松检查不自行决定**。
