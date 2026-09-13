@@ -203,7 +203,7 @@ def test_hotpotqa_registry_config_and_training_cap(tmp_path):
 
 
 @pytest.mark.parametrize("failure", [None, "renderer", "episode", "gold", "f1", "inventory"])
-def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, failure):
+def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, capsys, failure):
     from bfas import run
     from bfas.adapters import hotpotqa
     from bfas.rtd.benchmarks import hotpotqa_identity
@@ -269,6 +269,8 @@ def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, fail
         assert result["overall_metric"] == "em" and result["f1"] == pytest.approx(2/3)
         assert result["expected"] == expected and result["harness_identity"] == harness
     assert events[-1] == "release"
+    stages = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert all(e["gpu_held"] is (e["stage"] == "evaluation") for e in stages)
     assert os.environ["BFAS_HOTPOTQA_TEACHER_POOL"] == "/must/not/import"
     if failure != "renderer":
         assert events == ["renderer", "serve", "evaluate", "close", "release"]
@@ -278,6 +280,9 @@ def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, fail
 @pytest.mark.parametrize("method", ["smartad", "kang"])
 def test_hotpotqa_evaluate_dispatch_keeps_checkpoint_receipts_and_never_mislabels_sag(tmp_path, monkeypatch, method):
     from bfas.rtd import evaluation, hardware
+    scratch = tmp_path/"scratch"
+    scratch.mkdir()
+    monkeypatch.setenv("SLURM_TMPDIR", str(scratch))
     model, checkpoint = tmp_path/"base", tmp_path/"checkpoint"
     model.mkdir()
     checkpoint.mkdir()
@@ -288,19 +293,23 @@ def test_hotpotqa_evaluate_dispatch_keeps_checkpoint_receipts_and_never_mislabel
         model_path=str(model), hardware={"hard": "cpu-stub"}, teacher_tokens_charged=33, B=40, port=8930)
     monkeypatch.setattr(hardware, "hardware_identity", lambda: manifest["hardware"])
     monkeypatch.setattr(evaluation, "_flatten_adapter", lambda *a: None)
+    exports = []
     def export(command, **kwargs):
         assert command[command.index("--model")+1] == "google/gemma-4-12B-it"
-        assert command[command.index("--adapter")+1] == str(tmp_path/"export/adapter")
-        assert Path(command[command.index("--adapter")+1]).is_absolute()
+        flat = Path(command[command.index("--adapter")+1])
+        assert flat.name == "adapter" and flat.parent.parent == scratch and flat.is_absolute()
         assert kwargs["env"]["HF_HUB_OFFLINE"] == kwargs["env"]["TRANSFORMERS_OFFLINE"] == "1"
         assert kwargs["env"]["CUDA_VISIBLE_DEVICES"] == ""
-        merged = tmp_path/"export/hub_merged"
+        merged = Path(command[command.index("--out")+1])
+        assert merged == flat.parent/"hub_merged"
         merged.mkdir(parents=True)
         (merged/"config.json").write_text("{}")
+        exports.append((merged, tree_hash(merged)))
     monkeypatch.setattr(paper_evaluation.subprocess, "run", export)
     calls = []
     def campaign(root, merged, out, **kwargs):
         calls.append(kwargs)
+        assert merged == exports[0][0] and merged.is_dir()
         assert out.name == "official" and kwargs["kang"] is False and kwargs["config"] == manifest["config"]
         return dict(tasks=500, em=0., f1=.5, overall_accuracy_percent=0., overall_metric="em")
     monkeypatch.setattr(paper_evaluation, "run_hotpotqa", campaign)
@@ -308,7 +317,8 @@ def test_hotpotqa_evaluate_dispatch_keeps_checkpoint_receipts_and_never_mislabel
     assert len(calls) == 1
     assert result["teacher_tokens_charged"] == 33 and result["B"] == 40
     assert result["checkpoint_sha256"] == manifest["checkpoint_sha256"]
-    assert result["export_sha256"] == tree_hash(tmp_path/"export/hub_merged")
+    assert result["export_sha256"] == exports[0][1]
+    assert list(scratch.iterdir()) == [] and not (tmp_path/"export").exists()
     assert result["evaluation_mode"] == "official_single_sample"
     assert not (tmp_path/"kang_metrics.json").exists()
     if method == "kang":

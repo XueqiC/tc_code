@@ -161,7 +161,7 @@ def train_worker(directory, manifest):
     verify_seed_zero(directory, manifest)
     manifest["status"] = "training"
     atomic_json(directory/"manifest.json", manifest)
-    with stage("model_identity"):
+    with stage("model_identity", gpu_held=False):
         model = _snapshot_for_model(manifest["student"])
         manifest.update(model_path=str(model), base_checkpoint_hash=tree_hash(model),
             tokenizer_hash=digest([(p.name, file_hash(p)) for p in sorted(model.glob("*"))

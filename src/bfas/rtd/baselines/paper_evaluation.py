@@ -1,4 +1,5 @@
 """Official full evaluations, with separate Kang SAG receipts and GPU timing."""
+from contextlib import contextmanager
 import csv
 import json
 import math
@@ -11,6 +12,7 @@ import time
 from ..persistence import atomic_json, digest, tree_hash
 from .paper_data import STUDENT
 from .paper_progress import progress, stage
+from .paper_scratch import export_directory
 
 
 def protocol(benchmark, *, smoke=False):
@@ -110,9 +112,9 @@ def run_bfcl(root, merged, out, *, kang, port, smoke=False):
                 "--gpu-memory-utilization", "0.85", "--trust-remote-code"])
         start = time.monotonic()
         try:
-            with stage("evaluation_server", benchmark="bfcl"):
+            with stage("evaluation_server", gpu_held=True, benchmark="bfcl"):
                 server.start()
-            with stage("evaluation_generation", benchmark="bfcl", tasks=3 if smoke else 5217), (out/"generate.log").open("w") as log:
+            with stage("evaluation_generation", gpu_held=True, benchmark="bfcl", tasks=3 if smoke else 5217), (out/"generate.log").open("w") as log:
                 subprocess.run(generate, cwd=root, env=env, check=True, stdout=log, stderr=subprocess.STDOUT)
         finally:
             try:
@@ -120,7 +122,7 @@ def run_bfcl(root, merged, out, *, kang, port, smoke=False):
             finally:
                 atomic_json(out/"gpu_usage.json", dict(gpu_seconds=time.monotonic()-start,
                     basis="one GPU reserved during generation including server startup and shutdown"))
-    with stage("evaluation_scoring", benchmark="bfcl"), (out/"evaluate.log").open("w") as log:
+    with stage("evaluation_scoring", gpu_held=False, benchmark="bfcl"), (out/"evaluate.log").open("w") as log:
         subprocess.run(evaluate, cwd=root, env=dict(env, CUDA_VISIBLE_DEVICES=""),
                        check=True, stdout=log, stderr=subprocess.STDOUT)
     # official_expectations imports the harness in this process as well.
@@ -150,14 +152,14 @@ def run_alfworld(root, lora, out, *, kang, port, smoke=False):
         with frozen_environment("alfworld"):
             if smoke:
                 os.environ["BFAS_ALFWORLD_EVAL_GAMES"] = "3"
-            with stage("evaluation_rendering", benchmark="alfworld"):
+            with stage("evaluation_rendering", gpu_held=False, benchmark="alfworld"):
                 adapter.prepare_renderer(STUDENT)
             start = time.monotonic()
             try:
-                with stage("evaluation", benchmark="alfworld", tasks=len(expected["task_ids"])), serving_lane(
+                with stage("evaluation", gpu_held=True, benchmark="alfworld", tasks=len(expected["task_ids"])), serving_lane(
                         adapter, STUDENT, os.environ["CUDA_VISIBLE_DEVICES"], port, out/"vllm.log",
                         served_model_name=STUDENT, server_args=server_args):
-                    progress("evaluation", "server_ready", benchmark="alfworld")
+                    progress("evaluation", "server_ready", gpu_held=True, benchmark="alfworld")
                     metrics = adapter.evaluate(STUDENT, out)
             finally:
                 atomic_json(out/"gpu_usage.json", dict(gpu_seconds=time.monotonic()-start,
@@ -186,13 +188,13 @@ def run_hotpotqa(root, merged, out, *, kang, port, smoke=False, config):
     adapter = HotpotQAAdapter(seed=0, port=port, offline=True)
     try:
         with frozen_environment("hotpotqa"):
-            with stage("evaluation_rendering", benchmark="hotpotqa"):
+            with stage("evaluation_rendering", gpu_held=False, benchmark="hotpotqa"):
                 adapter.prepare_renderer(str(merged))
             start = time.monotonic()
             try:
-                with stage("evaluation", benchmark="hotpotqa", tasks=500), serving_lane(
+                with stage("evaluation", gpu_held=True, benchmark="hotpotqa", tasks=500), serving_lane(
                         adapter, str(merged), os.environ["CUDA_VISIBLE_DEVICES"], port, out/"vllm.log"):
-                    progress("evaluation", "server_ready", benchmark="hotpotqa")
+                    progress("evaluation", "server_ready", gpu_held=True, benchmark="hotpotqa")
                     metrics = adapter.evaluate(str(merged), out)
             finally:
                 atomic_json(out/"gpu_usage.json", dict(gpu_seconds=time.monotonic()-start,
@@ -206,8 +208,30 @@ def run_hotpotqa(root, merged, out, *, kang, port, smoke=False, config):
         harness_identity=harness)
 
 
-def evaluate_run(root, directory, manifest):
+@contextmanager
+def evaluation_policy(root, directory, manifest):
     from ..evaluation import _flatten_adapter
+    if manifest["benchmark"] == "alfworld":
+        # vLLM loads the frozen Hub base offline and applies the saved PEFT
+        # checkpoint. The client selects the LoRA by its bfas-policy name.
+        policy = directory/"checkpoint/lora"
+        if not (policy/"adapter_config.json").is_file():
+            raise ValueError(f"missing trained LoRA adapter: {policy}")
+        yield policy
+    else:
+        with export_directory(directory) as export:
+            flat, policy = export/"adapter", export/"hub_merged"
+            with stage("evaluation_export", gpu_held=False, export_directory=str(export)):
+                _flatten_adapter(manifest, directory/"checkpoint", flat)
+                subprocess.run([sys.executable, str(root/"tools/bfcl_hub_merge_export.py"),
+                    "--adapter", str(flat), "--out", str(policy), "--model", STUDENT, "--verify"],
+                    cwd=root, env=dict(os.environ, CUDA_VISIBLE_DEVICES="", HF_HUB_OFFLINE="1",
+                                       TRANSFORMERS_OFFLINE="1"), check=True)
+            # Keep both campaigns inside the lifetime of the local snapshot.
+            yield policy
+
+
+def evaluate_run(root, directory, manifest):
     from ..hardware import hardware_identity
     from .paper_seeds import verify_seed_zero
     root, directory = Path(root).resolve(), Path(directory).resolve()
@@ -225,20 +249,6 @@ def evaluate_run(root, directory, manifest):
     if hardware["hard"] != manifest["hardware"]["hard"]:
         raise ValueError("evaluation hardware class differs from training")
     benchmark = manifest["benchmark"]
-    if benchmark == "alfworld":
-        # vLLM loads the frozen Hub base offline and applies the saved PEFT
-        # checkpoint. The client selects the LoRA by its bfas-policy name.
-        policy = directory/"checkpoint/lora"
-        if not (policy/"adapter_config.json").is_file():
-            raise ValueError(f"missing trained LoRA adapter: {policy}")
-    else:
-        flat, policy = directory/"export/adapter", directory/"export/hub_merged"
-        with stage("evaluation_export"):
-            _flatten_adapter(manifest, directory/"checkpoint", flat)
-            subprocess.run([sys.executable, str(root/"tools/bfcl_hub_merge_export.py"),
-                "--adapter", str(flat), "--out", str(policy), "--model", STUDENT, "--verify"],
-                cwd=root, env=dict(os.environ, CUDA_VISIBLE_DEVICES="", HF_HUB_OFFLINE="1",
-                                   TRANSFORMERS_OFFLINE="1"), check=True)
     if benchmark == "hotpotqa":
         callback, options = run_hotpotqa, dict(config=manifest["config"])
     elif benchmark == "alfworld":
@@ -247,24 +257,26 @@ def evaluate_run(root, directory, manifest):
         callback, options = run_bfcl, {}
     else:
         raise ValueError("unknown paper baseline benchmark: " + benchmark)
-    receipt = dict(protocol=protocol(manifest["benchmark"], smoke=smoke), method=manifest["method"],
-        seed=manifest.get("seed", 0),
-        teacher_tokens_charged=manifest["teacher_tokens_charged"], B=manifest["B"],
-        checkpoint_sha256=manifest["checkpoint_sha256"], export_sha256=tree_hash(policy))
-    receipt["hardware"] = hardware
-    result = callback(root, policy, directory/("smoke" if smoke else "official"),
-                      kang=False, port=manifest["port"], smoke=smoke, **options)
-    result.update(receipt, evaluation_mode="smoke_single_sample" if smoke else "official_single_sample")
-    atomic_json(directory/("smoke_metrics.json" if smoke else "official_metrics.json"), result)
-    if manifest["method"] == "kang" and benchmark == "hotpotqa":
-        result["kang_self_consistency"] = dict(status="unsupported",
-            reason="HotpotQA SAG requires votes over normalized final answers from complete sampled ReAct episodes")
-    elif manifest["method"] == "kang":
-        sag = callback(root, policy, directory/"kang_sag", kang=True, port=manifest["port"], smoke=smoke)
-        sag.update(receipt, evaluation_mode="smoke_kang_sag" if smoke else "kang_sag", n=3, sampling_temperature=.7,
-                   official_single_sample=dict(result))
-        # The method-specific score is separate and never labeled greedy.
-        atomic_json(directory/"kang_metrics.json", sag)
-        result["kang_self_consistency"] = sag
-    atomic_json(directory/"metrics.json", result)
-    return result
+    with evaluation_policy(root, directory, manifest) as policy:
+        with stage("evaluation_digest", gpu_held=False):
+            receipt = dict(protocol=protocol(manifest["benchmark"], smoke=smoke), method=manifest["method"],
+                seed=manifest.get("seed", 0),
+                teacher_tokens_charged=manifest["teacher_tokens_charged"], B=manifest["B"],
+                checkpoint_sha256=manifest["checkpoint_sha256"], export_sha256=tree_hash(policy))
+        receipt["hardware"] = hardware
+        result = callback(root, policy, directory/("smoke" if smoke else "official"),
+                          kang=False, port=manifest["port"], smoke=smoke, **options)
+        result.update(receipt, evaluation_mode="smoke_single_sample" if smoke else "official_single_sample")
+        atomic_json(directory/("smoke_metrics.json" if smoke else "official_metrics.json"), result)
+        if manifest["method"] == "kang" and benchmark == "hotpotqa":
+            result["kang_self_consistency"] = dict(status="unsupported",
+                reason="HotpotQA SAG requires votes over normalized final answers from complete sampled ReAct episodes")
+        elif manifest["method"] == "kang":
+            sag = callback(root, policy, directory/"kang_sag", kang=True, port=manifest["port"], smoke=smoke)
+            sag.update(receipt, evaluation_mode="smoke_kang_sag" if smoke else "kang_sag", n=3, sampling_temperature=.7,
+                       official_single_sample=dict(result))
+            # The method-specific score is separate and never labeled greedy.
+            atomic_json(directory/"kang_metrics.json", sag)
+            result["kang_self_consistency"] = sag
+        atomic_json(directory/"metrics.json", result)
+        return result

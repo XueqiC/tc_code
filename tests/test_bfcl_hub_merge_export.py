@@ -10,7 +10,7 @@ import torch
 from safetensors.torch import load_file, save_file
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path[:0] = [str(ROOT/"src"), str(ROOT)]
 
 from tools import bfcl_hub_merge_export as exporter
 
@@ -119,6 +119,31 @@ def assert_same_tensors(actual, expected):
         assert left.shape == right.shape
         # Compare bytes to cover untouched NaNs, signed zero, and mixed dtypes.
         assert torch.equal(left.contiguous().view(torch.uint8), right.contiguous().view(torch.uint8)), key
+
+
+@pytest.mark.parametrize("layout", ["single", "sharded"])
+def test_local_scratch_export_preserves_all_bytes_and_tree_digest(tmp_path, monkeypatch, layout):
+    import shutil
+    from bfas.rtd.baselines.paper_scratch import export_directory
+    from bfas.rtd.persistence import tree_hash
+    model, _, _ = make_snapshot(tmp_path, layout)
+    adapter, _ = make_adapter(tmp_path)
+    shared = tmp_path/"run/export/hub_merged"
+    run_export(monkeypatch, model, adapter, shared)
+    original = {p.relative_to(shared): p.read_bytes() for p in shared.rglob("*") if p.is_file()}
+    scratch = tmp_path/"scratch"
+    scratch.mkdir()
+    monkeypatch.setenv("SLURM_TMPDIR", str(scratch))
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    with export_directory(tmp_path/"other_run") as work:
+        assert work.parent == scratch
+        local_adapter = work/"adapter"
+        shutil.copytree(adapter, local_adapter)
+        local_merged = work/"hub_merged"
+        run_export(monkeypatch, model, local_adapter, local_merged)
+        assert {p.relative_to(local_merged): p.read_bytes() for p in local_merged.rglob("*") if p.is_file()} == original
+        assert tree_hash(local_merged) == tree_hash(shared)
+    assert not work.exists() and shared.is_dir()
 
 
 @pytest.mark.parametrize("source", ["cache", "local"])

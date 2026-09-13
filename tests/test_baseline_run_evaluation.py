@@ -242,7 +242,7 @@ def test_kang_bfcl_hook_samples_three_and_returns_voted_raw_response(tmp_path, m
     assert audit["selected"] == 1 and audit["keys"][1].startswith("decoded_ast:")
 
 
-def test_official_alfworld_metrics_and_dispatch_use_existing_adapter(tmp_path, monkeypatch):
+def test_official_alfworld_metrics_and_dispatch_use_existing_adapter(tmp_path, monkeypatch, capsys):
     from contextlib import nullcontext
     from bfas.rtd.baselines import paper_evaluation
     from bfas.rtd.benchmarks import alfworld_identity
@@ -271,6 +271,8 @@ def test_official_alfworld_metrics_and_dispatch_use_existing_adapter(tmp_path, m
     assert result["complete"] and result["overall_accuracy_percent"] == 100
     assert result["per_category"]["fake"]["accuracy_percent"] == 100
     assert calls == ["renderer", "release"]
+    stages = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert all(e["gpu_held"] is (e["stage"] == "evaluation") for e in stages)
 
 
 def test_smoke_alfworld_runs_exactly_three_and_restores_environment(tmp_path, monkeypatch):
@@ -413,7 +415,7 @@ def test_runner_interrupt_gives_worker_time_to_close_server(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize("fail_generation", [False, True])
-def test_bfcl_runner_owns_server_and_always_closes(tmp_path, monkeypatch, fail_generation):
+def test_bfcl_runner_owns_server_and_always_closes(tmp_path, monkeypatch, capsys, fail_generation):
     from contextlib import contextmanager
     from bfas import run
     from bfas.rtd import evaluation, evaluation_lock
@@ -460,3 +462,5 @@ def test_bfcl_runner_owns_server_and_always_closes(tmp_path, monkeypatch, fail_g
         assert result == dict(tasks=3, smoke=True)
         assert events == ["start", "generate", "close", "score"]
     assert (tmp_path/"eval/gpu_usage.json").exists()
+    stages = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert all(e["gpu_held"] is (e["stage"] != "evaluation_scoring") for e in stages)

@@ -6,6 +6,8 @@ import sys
 import threading
 import time
 
+HEARTBEAT_SECONDS = 30
+
 
 def progress(stage, event, **fields):
     print(json.dumps(dict(timestamp=datetime.now(timezone.utc).isoformat(),
@@ -13,13 +15,16 @@ def progress(stage, event, **fields):
 
 
 @contextmanager
-def stage(name, **fields):
+def stage(name, *, gpu_held=True, **fields):
+    # Logical model/server ownership, including startup; not kernel utilisation
+    # or the enclosing scheduler allocation. Training keeps its model resident.
+    fields = dict(gpu_held=gpu_held, **fields)
     start = time.monotonic()
     stop = threading.Event()
     progress(name, "begin", **fields)
 
     def heartbeat():
-        while not stop.wait(30):
+        while not stop.wait(HEARTBEAT_SECONDS):
             progress(name, "running", elapsed_seconds=round(time.monotonic()-start, 3), **fields)
 
     thread = threading.Thread(target=heartbeat, daemon=True)

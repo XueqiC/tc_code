@@ -84,9 +84,25 @@ HotpotQA retains the full frozen 500-question dev split and rejects `--smoke`.
 Workers flush timestamped JSON progress to `train.log` and `evaluate.log`,
 including rendering, selection, preconditioner rollouts, training loss and
 generated tokens/s, export, and evaluation. Long stages emit a heartbeat every
-30 seconds. Training throughput excludes preconditioner refresh time and counts
+30 seconds. Stage events include `gpu_held`: false for evaluation export,
+renderer preparation, digesting and scoring; true while the training model or
+evaluation server holds the device (including startup). This describes phase
+ownership, not measured utilisation or the enclosing Slurm allocation.
+Training throughput excludes preconditioner refresh time and counts
 supervised/generated tokens, not prompt tokens. Manifest status changes to
 `training` and `evaluating` while the workers run.
+
+Full intermediate evaluation weights (`adapter` and `hub_merged`) use the first
+existing, writable scratch directory in `SLURM_TMPDIR`, `TMPDIR`, `/tmp` order.
+Each export gets a private `baseline-export-<job-id>-<unique-suffix>` directory
+(PID when outside Slurm), kept until both official and Kang evaluation finish.
+The server and renderer read the merged snapshot there. Scratch is removed on
+success, exceptions and handled worker termination; SIGKILL/node loss still
+requires node/scheduler cleanup. If no candidate is usable, exports retain the
+existing `run/export` path and retention behavior. Metrics, official evaluator
+output, manifest, purchase rows, exposure schedule and logs remain under the
+shared run directory. Checkpoint and export digests still hash the same file
+bytes and relative names, before scratch cleanup.
 
 The B7500 run's existing `compute.jsonl` shows completed selection, a
 52-response preconditioner refresh, and eight student commits by the end of
