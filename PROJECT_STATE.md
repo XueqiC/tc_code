@@ -1952,3 +1952,10 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   **判读:修复后两臂都比 base 略好(+1.2 / +2.6 pp),但都不显著;C→D 仍跨 0,靶向相对通用练习没有稳定优势。**
   与修复前相比最大的变化是**稳定性**:D 的跨种子极差从 8 题(169/161,且有一次塌缩)降到 6 题且无塌缩。
   注:packaged report 要求 R2 目录同时有中点评测,这次只评了终点,故用协议同款统计脚本(pooled_stats.py)直接计算。
+- 9/13 02:30Z **BFCL 的 9 格 Table 1 被一个真实缺陷挡住**:tools/bfcl_hub_merge_export.py 要求分片 index,而我们的 gemma-4-12B 快照是**单文件 23.9GB model.safetensors**(两台机器都是),训练正常但评测阶段一律失败;ALFWorld/HotpotQA 不受影响。已派 Codex 支持单文件快照。同时重提 14 格 ALFWorld+HotpotQA(修复了旧目录残留导致的 FileExistsError)。
+- 9/13 02:45Z **Table 1 seed 1/2 一直秒失败的真因**:`paper_seeds.seeded_directory` 对非零种子会**自己再加一次 `_s<seed>`**,
+  而我的 SLURM 脚本已经把种子写进目录名,于是实际目录变成 `table1_<bench>_<method>_s1_s1`;我 rm 的是没后缀的那个,
+  真目录留着 → `FileExistsError: choose a fresh --run-dir`。种子 0 不受影响(seeded_directory 对 0 原样返回),所以只有 seed 1/2 全挂。
+  已修:脚本改为传不带后缀的 `table1_<bench>_<method>`,由跑器自己加后缀;清掉 18 个双后缀空目录;11 格 seed 1/2 重提,现在
+  **17 格 ALFWorld+HotpotQA 同时在跑**。BFCL 9 格仍等单文件 safetensors 导出修复。
+  注意:成品目录名因此为 seed0 = `table1_b_m`、seed k = `table1_b_m_s<k>`,**Table 1 聚合脚本要按这个约定改**。
