@@ -916,3 +916,8 @@ t1_hotpotqa_kang_s0 | Agent Distillation HotpotQA B=30k seed 0 | LONI | EM 38.0 
 t1_hotpotqa_smartad_s0 | SmartAD HotpotQA B=30k seed 0 | LONI | EM 38.6 (500 tasks) | results/paper_baselines/table1_hotpotqa_smartad
 ipl_chains_v1 | teacher teaching chains (gpt-5.6-luna) | rai | 24 chains / 24 parents, 145 requests, 14,058 output tokens, $0.084 | archive/ipl_round/
 t1_hotpotqa_sad_s0 | SAD HotpotQA B=30k seed 0 | LONI | EM 37.4 (500 tasks) | results/paper_baselines/table1_hotpotqa_sad
+t1_hotpotqa_kang_s1 | Agent Distillation HotpotQA B=30k seed 1 | LONI | EM 37.8 | results/paper_baselines/table1_hotpotqa_kang_s1
+t1_hotpotqa_kang_s2 | Agent Distillation HotpotQA B=30k seed 2 | LONI | EM 35.8 | results/paper_baselines/table1_hotpotqa_kang_s2
+t1_hotpotqa_sad_s1 | SAD HotpotQA B=30k seed 1 | LONI | EM 37.8 | results/paper_baselines/table1_hotpotqa_sad_s1
+t1_hotpotqa_smartad_s1 | SmartAD HotpotQA B=30k seed 1 | LONI | EM 37.6 | results/paper_baselines/table1_hotpotqa_smartad_s1
+t1_hotpotqa_smartad_s2 | SmartAD HotpotQA B=30k seed 2 | LONI | EM 37.2 | results/paper_baselines/table1_hotpotqa_smartad_s2

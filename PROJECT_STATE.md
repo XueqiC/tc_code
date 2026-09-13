@@ -2246,3 +2246,12 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   所以"三方法收敛到几乎相同行为"不是 HotpotQA 独有——**真正的区别是这套共同行为在 ALFWorld 上比 base 高约 2 点,
   在 HotpotQA 上完全不动 base**。不要把收敛本身说成 HotpotQA 的特殊现象。
 - 9/13 13:11Z Azure 仍 403(azure-p1 / azure-p2 均 forbidden / budget exhausted);ollama 两把 key 200 可用。未做任何教师调用。
+- **9/13 08:40 CDT HotpotQA 8/9 完成(sad s2 因确定性缺陷仍失败)**,base 38.2:
+  | 方法 | s0 | s1 | s2 | mean ± sd | vs base |
+  |---|---|---|---|---|---|
+  | Agent Distillation | 38.0 | 37.8 | 35.8 | **37.20 ± 1.22** | **−1.00** |
+  | SAD | 37.4 | 37.8 | 失败 | 37.60 ± 0.28 (n=2) | −0.60 |
+  | SmartAD | 38.6 | 37.6 | 37.2 | **37.80 ± 0.72** | **−0.40** |
+  **三个方法的三种子均值全部低于 base。** 与 ALFWorld(三方法均高于 base 1.7–2.4)形成明确对照。
+  结论表述须谨慎:kang 的 −1.00 与其 sd 1.22 同量级,单看不显著;但**三个方法方向一致为负**,
+  且逐题比对显示三者行为几乎相同(475/500),合起来支持"这类方法在 HotpotQA 上不带来增益"。
