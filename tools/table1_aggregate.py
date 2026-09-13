@@ -7,7 +7,12 @@ Example (output files default to the current directory, never the input root)::
         --json-out table1_summary.json --latex-out table1_body.tex \
         --initial-alfworld 56.4 --initial-hotpotqa 38.2 --initial-bfcl 45.6
 
-The root directly contains table1_<benchmark>_<method>_s<seed>/metrics.json.
+The root directly contains table1_<benchmark>_<method>_s<seed>/metrics.json;
+seed zero also accepts table1_<benchmark>_<method>/metrics.json. The baseline
+runner appends seed suffixes itself, so corrected seed-zero submissions can be
+unsuffixed while earlier ones use _s0. Prefer the spelling with metrics.json;
+if both have it, stop with a conflict. Doubled suffixes (e.g. _s1_s1) from
+already-suffixed submissions are listed as ignored and never enter the table.
 Only complete runs with valid primary scores and spend enter score statistics.
 Sample standard deviation uses ddof=1 and is null/-- for fewer than two seeds.
 Spend includes all valid receipts, even from incomplete runs; it is never capped.
@@ -27,6 +32,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import re
 import statistics
 
 
@@ -68,8 +74,18 @@ def _stats(per_seed):
 
 
 def _read_run(root, benchmark, method, seed):
-    name = f"table1_{benchmark}_{method}_s{seed}"
+    base = f"table1_{benchmark}_{method}"
+    name = f"{base}_s{seed}"
     path = root / name / "metrics.json"
+    if seed == 0:
+        alternate = root / base / "metrics.json"
+        if path.is_file() and alternate.is_file():
+            raise ValueError(
+                f"conflicting directories for {name} (seed 0): "
+                f"both {path} and {alternate} exist"
+            )
+        if alternate.is_file() or (not path.parent.is_dir() and alternate.parent.is_dir()):
+            path = alternate
     run = {
         "cell": name, "seed": seed, "metrics_path": str(path),
         "status": "missing", "complete": None,
@@ -129,6 +145,10 @@ def aggregate(results_root, initial=None):
         "spend_policy": "all valid reported receipts, including incomplete/invalid runs",
         "average_improvement_policy": "equal mean of three benchmark improvements; null if any is absent",
         "missing_cells": [], "incomplete_cells": [], "invalid_cells": [],
+        "ignored_directories": sorted(
+            path.name for path in root.glob("table1_*")
+            if path.is_dir() and re.search(r"_s[0-9]+(?:_s[0-9]+)+$", path.name)
+        ),
         "issues": [], "benchmarks": {}, "methods": {},
     }
     all_runs = []
@@ -261,6 +281,8 @@ def human_table(summary):
         lines.append(f"  {issue['cell']}: " + "; ".join(issue["messages"]))
     if summary["over_cap_cells"]:
         lines.append("Over teacher cap: " + ", ".join(summary["over_cap_cells"]))
+    if summary["ignored_directories"]:
+        lines.append("Ignored directories (doubled seed suffix): " + ", ".join(summary["ignored_directories"]))
     return "\n".join(lines)
 
 
@@ -288,7 +310,10 @@ def main(argv=None):
     if any(path.is_relative_to(args.results_root.resolve()) for path in outputs):
         parser.error("output files must be outside the results root")
     initial = {b: getattr(args, f"initial_{b}") for b in BENCHMARKS}
-    summary = aggregate(args.results_root, initial)
+    try:
+        summary = aggregate(args.results_root, initial)
+    except ValueError as exc:
+        parser.error(str(exc))
     json_text = json.dumps(summary, indent=2, allow_nan=False) + "\n"
     latex_text = latex_body(summary)
     for path, contents in ((args.json_out, json_text), (args.latex_out, latex_text)):

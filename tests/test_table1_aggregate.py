@@ -67,6 +67,86 @@ def test_all_seeds_sample_std_primary_metrics_and_spend(full_campaign):
     assert all(p.read_bytes() == contents for p, contents in before.items())
 
 
+@pytest.mark.parametrize("benchmark", table1.BENCHMARKS)
+def test_unsuffixed_seed_zero_is_the_same_logical_cell(full_campaign, benchmark):
+    expected = table1.aggregate(full_campaign)
+    path = full_campaign / f"table1_{benchmark}_smartad_s0"
+    unsuffixed = path.with_name(path.name.removesuffix("_s0"))
+    path.rename(unsuffixed)
+    summary = table1.aggregate(full_campaign)
+    # Only the source path changes; counts, per-seed metrics, spend and LaTeX stay identical.
+    expected["benchmarks"][benchmark]["smartad"]["runs"][0]["metrics_path"] = str(unsuffixed / "metrics.json")
+    assert summary == expected
+    assert table1.latex_body(summary) == table1.latex_body(expected)
+
+
+@pytest.mark.parametrize("metrics_in_unsuffixed", [False, True])
+def test_seed_zero_prefers_the_directory_with_metrics(full_campaign, metrics_in_unsuffixed):
+    expected = table1.aggregate(full_campaign)
+    suffixed = full_campaign / "table1_alfworld_smartad_s0"
+    unsuffixed = full_campaign / "table1_alfworld_smartad"
+    unsuffixed.mkdir()
+    if metrics_in_unsuffixed:
+        (suffixed / "metrics.json").rename(unsuffixed / "metrics.json")
+        expected["benchmarks"]["alfworld"]["smartad"]["runs"][0]["metrics_path"] = str(unsuffixed / "metrics.json")
+    summary = table1.aggregate(full_campaign)
+    assert summary == expected
+    assert summary["counts"]["complete"] == 27
+    assert summary["teacher_spend_receipt_count"] == 27
+
+
+def test_unsuffixed_seed_zero_without_metrics_is_reported(tmp_path):
+    directory = tmp_path / "table1_alfworld_smartad"
+    directory.mkdir()
+    summary = table1.aggregate(tmp_path)
+    run = summary["benchmarks"]["alfworld"]["smartad"]["runs"][0]
+    assert run["cell"] == "table1_alfworld_smartad_s0"
+    assert run["metrics_path"] == str(directory / "metrics.json")
+    assert run["status"] == "missing"
+    assert run["issues"] == ["missing metrics.json"]
+
+
+@pytest.mark.parametrize("duplicate_contents", ["identical", "different", "malformed"])
+def test_duplicate_seed_zero_metrics_report_a_conflict(tmp_path, duplicate_contents):
+    suffixed = write_run(tmp_path)
+    unsuffixed = tmp_path / "table1_alfworld_smartad" / "metrics.json"
+    unsuffixed.parent.mkdir()
+    contents = suffixed.read_text()
+    if duplicate_contents == "different":
+        metrics = json.loads(contents)
+        metrics["overall_accuracy_percent"] = 99
+        contents = json.dumps(metrics)
+    elif duplicate_contents == "malformed":
+        contents = '{"complete":'
+    unsuffixed.write_text(contents)
+    with pytest.raises(ValueError, match="conflicting directories.*seed 0") as exc:
+        table1.aggregate(tmp_path)
+    assert str(suffixed) in str(exc.value)
+    assert str(unsuffixed) in str(exc.value)
+
+
+@pytest.mark.parametrize("valid_seed_exists", [False, True])
+def test_doubled_suffix_directories_are_listed_and_never_counted(full_campaign, valid_seed_exists):
+    if not valid_seed_exists:
+        path = full_campaign / "table1_alfworld_smartad_s1" / "metrics.json"
+        path.unlink()
+        path.parent.rmdir()
+    expected = table1.aggregate(full_campaign)
+    ignored = []
+    for suffix in ("_s0_s0", "_s1_s1", "_s2_s2", "_s1_s2", "_s12_s12", "_s1_s1_s1"):
+        path = write_run(full_campaign, seed=9, overall_accuracy_percent=99,
+                         teacher_tokens_charged=999_999)
+        name = f"table1_alfworld_smartad{suffix}"
+        path.parent.rename(full_campaign / name)
+        ignored.append(name)
+    summary = table1.aggregate(full_campaign)
+    expected["ignored_directories"] = sorted(ignored)
+    assert summary == expected
+    assert table1.latex_body(summary) == table1.latex_body(expected)
+    human = table1.human_table(summary)
+    assert "Ignored directories (doubled seed suffix): " + ", ".join(sorted(ignored)) in human
+
+
 def test_hotpotqa_f1_is_secondary_json_only(full_campaign):
     # A deliberately different em field proves the primary comes from overall_accuracy_percent.
     write_run(full_campaign, "hotpotqa", seed=0, em=.99)
@@ -247,3 +327,19 @@ def test_cli_rejects_output_inside_input_root(full_campaign, tmp_path, capsys):
     assert exc.value.code == 2
     assert "outside the results root" in capsys.readouterr().err
     assert not (full_campaign / "summary.json").exists()
+
+
+def test_cli_reports_duplicate_conflict_without_writing_outputs(full_campaign, tmp_path, capsys):
+    path = full_campaign / "table1_alfworld_smartad" / "metrics.json"
+    path.parent.mkdir()
+    path.write_bytes((full_campaign / "table1_alfworld_smartad_s0" / "metrics.json").read_bytes())
+    json_path, tex_path = tmp_path / "summary.json", tmp_path / "body.tex"
+    with pytest.raises(SystemExit) as exc:
+        table1.main(["--results-root", str(full_campaign), "--json-out", str(json_path),
+                     "--latex-out", str(tex_path)])
+    assert exc.value.code == 2
+    error = capsys.readouterr().err
+    assert "conflicting directories" in error and "seed 0" in error
+    assert "table1_alfworld_smartad/metrics.json" in error
+    assert "table1_alfworld_smartad_s0/metrics.json" in error
+    assert not json_path.exists() and not tex_path.exists()
