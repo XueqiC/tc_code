@@ -1,0 +1,32 @@
+[
+  {
+    "benchmark": "bfcl",
+    "final_step": true,
+    "index": 0,
+    "package_id": "f39b24e8aa658ccc2f96646ba2fee950cd1f2a27ab74a35d0dabaf598a7a7ad8",
+    "parent_hash": "cef6d45857c7a119737bfcfd29237fbaf611eba5a77189df69461ae8c908cd00",
+    "prompt": "<bos><|turn>system\n<|tool>declaration:change_food{description:<|\"|>Modifies the food item based on the customer's request, such as changing ingredients or preparation methods.<|\"|>,parameters:{properties:{food_item:{description:<|\"|>The name of the food item to be modified.<|\"|>,type:<|\"|>STRING<|\"|>},modification_request:{description:<|\"|>Specific request detailing the changes to be made to the food item, such as 'no peanuts' or 'extra spicy'. If there are multiple requests, separate using comma with no space between comma<|\"|>,type:<|\"|>STRING<|\"|>}},required:[<|\"|>food_item<|\"|>,<|\"|>modification_request<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n<|turn>user\nI would like to order a burger with the following modification verbatim: no onions, extra cheese<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+    "target": "<|tool_call>call:change_food{food_item:<|\"|>burger<|\"|>,modification_request:<|\"|>no onions,extra cheese<|\"|>}<tool_call|><|tool_response>",
+    "task_id": "live_simple_20-4-0"
+  },
+  {
+    "benchmark": "bfcl",
+    "final_step": true,
+    "index": 0,
+    "package_id": "8ce0c793cfd8599f0442533aa313c308ec0d4aab682afcd926dfe2695a2e6686",
+    "parent_hash": "476b24923ac4902aa4f11106735eb776eff9b0dca20db7d9d58d7a204f909b13",
+    "prompt": "<bos><|turn>system\n<|tool>declaration:math.gcd{description:<|\"|>Calculate the greatest common divisor of two integers.<|\"|>,parameters:{properties:{num1:{description:<|\"|>First number.<|\"|>,type:<|\"|>INTEGER<|\"|>},num2:{description:<|\"|>Second number.<|\"|>,type:<|\"|>INTEGER<|\"|>}},required:[<|\"|>num1<|\"|>,<|\"|>num2<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n<|turn>user\n\"John and Mary are playing a game where they each choose two numbers and then calculate the greatest common divisor (GCD) of their chosen numbers. John chose the numbers 36 and 48, while Mary chose the numbers 60 and 96. Can you help them find the GCD of their chosen numbers?\"<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+    "target": "<|tool_call>call:math.gcd{num1:36,num2:48}<tool_call|><|tool_call>call:math.gcd{num1:60,num2:96}<tool_call|><|tool_response>",
+    "task_id": "parallel_80"
+  },
+  {
+    "benchmark": "bfcl",
+    "final_step": true,
+    "index": 0,
+    "package_id": "5307c29d75c294986a6de37da5e0c1f5c27e5301813cbcca33e9668f905249ec",
+    "parent_hash": "b67f184cd7f9cfaeb1e8f7b5e558ed7088b75543a6bb7a8bb23fa6d4f7ef4cd3",
+    "prompt": "<bos><|turn>system\n<|tool>declaration:get_current_weather{description:<|\"|>Retrieves the current temperature and humidity for a specific location.<|\"|>,parameters:{properties:{include_humidity:{description:<|\"|>Whether to include the humidity in the result. Default is true.<|\"|>,type:<|\"|>BOOLEAN<|\"|>},include_temperature:{description:<|\"|>Whether to include the temperature in the result. Default is true.<|\"|>,type:<|\"|>BOOLEAN<|\"|>},location:{description:<|\"|>The location to get the weather for.<|\"|>,type:<|\"|>STRING<|\"|>}},required:[<|\"|>location<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n<|turn>user\nWhat is the current temperature and humidity in New York, Los Angeles, London and Tokyo, if I want to include both temperature and humidity in the results?<turn|>\n<|turn>model\n<|channel>thought\n<channel|>",
+    "target": "<|tool_call>call:get_current_weather{include_humidity:true,include_temperature:true,location:<|\"|>New York<|\"|>}<tool_call|><|tool_call>call:get_current_weather{include_humidity:true,include_temperature:true,location:<|\"|>Los Angeles<|\"|>}<tool_call|><|tool_call>call:get_current_weather{include_humidity:true,include_temperature:true,location:<|\"|>London<|\"|>}<tool_call|><|tool_call>call:get_current_weather{include_humidity:true,include_temperature:true,location:<|\"|>Tokyo<|\"|>}<tool_call|><|tool_response>",
+    "task_id": "parallel_199"
+  }
+]

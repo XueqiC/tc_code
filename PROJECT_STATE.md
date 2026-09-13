@@ -2122,3 +2122,12 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   只 rsync 了三个 check 相关工具进该树,**没有**覆盖 `tools/baseline_run.py`(那里有刚修的 offline 修复,
   且 9 个 HotpotQA 格子正用它在跑)。集群上实测:**n=200 的选择是 n=24 的严格前缀**(id 逐个相同),
   所以已分析过的 98 段 episode 仍然有效可比。预计 1–2 小时(v4 实测 ~5 s/episode)。
+- 9/13 04:06 CDT Table 1 第 7、8 格(BFCL seed 0):**SAD Overall 44.27**、**SmartAD Overall 43.98**。
+  轴分解 SAD NL 85.3 / Live 80.4 / MT 53.1 / Memory 22.8 / Irrel 73.6;SmartAD 85.4 / 80.3 / 52.8 / 21.9 / 73.6。
+- **⚠️ BFCL Overall 的口径问题(需要决策,但不阻塞)**:官方 Overall 的类别集合里,
+  `web_search_base` + `web_search_no_snippet`(200 题)与 `memory_vector`(155 题)在我们的离线环境中
+  **结构性拿 0**——前者需要 SerpAPI,后者需要把 `all-MiniLM-L6-v2` 预置进离线 HF 缓存。
+  `docs/bfcl-notes.md` 早就写明"strict-offline 跑不出官方完整 v4 Overall Acc"。
+  所有臂(含 base)同样受影响,**表内比较仍然公平**,但 44.27 这个绝对值不能直接与文献数字并列。
+  **决定:协议冻结不动**——9 个 BFCL 格子用同一类别集合跑完(现在去补 MiniLM 会让已完成的两格与后续不可比),
+  论文里改为注明这两类不可运行、对所有臂(含 base)恒为 0,或只报可运行子集上的 Overall。
