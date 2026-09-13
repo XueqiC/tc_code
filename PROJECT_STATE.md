@@ -1985,3 +1985,7 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
 - 9/13 05:00Z 两处修正:
   ① **HotpotQA 的 9 格 Table 1 评测在离线模式下必挂**(dev 集查询的页面不在 3,914 条缓存里),已去掉 BFAS_HOTPOTQA_OFFLINE 改为实时检索并重提 9 格;
   ② v3 测床检查因 `--n 40` 超出工具允许范围(16–24)而失败,改回 24 重提。
+- 9/13 05:12Z **第四个并行陷阱:评测端口锁跨节点串行**。所有格子都用 `--port` 默认值 8930,而端口锁文件在**共享文件系统**上
+  (`results/rtd_v1/eval-port-<port>/.lock`),于是**不同节点上的格子也会互相等锁**(BFCL 三格日志:"waiting for evaluation lock held by …")。
+  端口是节点本地的,锁却是全局的。已给每个作业分配独立端口(`20000 + SLURM_JOB_ID % 30000`),9 格 BFCL 重提。
+  这是今晚第二次遇到"共享锁吃掉并行度"(前一次是机制验证共用 run 目录的 pipeline.lock)。
