@@ -2186,3 +2186,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **新失败模式**:`action_format_failure` 合计 207 段(约 1/4),n=24 时 invalid_action 仅 1——
   学生产出无法解析的动作,**必须先分清是策略问题还是提示/解析问题**再决定是否当教学对象。
   **用途声明**:200 题用于找状态/诊断/生成练习 → 实验是"24 条冻结 support + 可访问任务池",**基线须同等访问**,与确认集隔离。
+- 9/13 05:40 CDT **`action_format_failure` 查清并收窄**:autonomous/replay/closed_book 共 144 段带标记,
+  但其历史里规范动作 **662** 次、带尾随内容 38 次、**真正无法解析仅 8 次**;`format_failures` 97/144 恰为 1 次。
+  可恢复性:8 次里只有 1 次响应中存在我们没取到的合法 Action 行。
+  → **不是 harness 解析缺陷,也不是"四分之一 episode 失败"**,而是规范轨迹中的单步打滑且随后恢复;
+  集中在闭卷(65/144)。**不作为教学对象,不计入"学生不会"**。我上一条对用户的表述已更正。
