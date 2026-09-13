@@ -904,3 +904,4 @@ t1_alfworld_sad_s0 | SAD ALFWorld B=30k seed 0 | LONI | SR 60.0 | results/paper_
 t1_alfworld_smartad_s2 | SmartAD ALFWorld B=30k seed 2 | LONI | SR 55.71 | results/paper_baselines/table1_alfworld_smartad_s2
 S1 0 / S2 9 / S3 2 / S4 0 / S5 66 (98 eps) | route1 taxonomy v4 | hq@c8386fe | results/failure_taxonomy_v4.json | 结论:日志不足以归因,adapter 暂停
 t1_alfworld_kang_s0 | Agent Distillation ALFWorld B=30k seed 0 | LONI | SR 57.86 | results/paper_baselines/table1_alfworld_kang
+t1_alfworld_kang_s1 | Agent Distillation ALFWorld B=30k seed 1 | LONI | SR 60.71 | results/paper_baselines/table1_alfworld_kang_s1
