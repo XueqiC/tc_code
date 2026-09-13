@@ -2014,3 +2014,4 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   瓶颈在拿到实体之后的后续检索、证据整合与作答(8/13)。** 这解释了为什么"交出实体"对成功率毫无影响,
   也说明 I/P 这个自变量操纵错了位置。
 - 9/13 06:10Z **首批 Table 1 格子出分**(B=30k,ALFWorld valid_seen 140):SAD seed0 = **60.0**;SmartAD seed2 = **55.71**(base 56.4)。两格都 complete、计费 29,229。
+- 9/13 06:15Z Table 1 已出三格(ALFWorld,B=30k,base 56.4):SAD s0 60.0;SmartAD s0 58.57、s2 55.71。其余 24 格在跑。
