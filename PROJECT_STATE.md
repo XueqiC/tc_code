@@ -2268,3 +2268,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   HotpotQA kang 37.20±1.22 / sad 37.40±0.40 / smartad 37.80±0.72(base 38.2);
   BFCL sad 44.27 / smartad 43.98(n=1,留档不报)。
   **LONI 队列已空,全部算力转给机制线。**
+- **9/13 12:45 CDT 6 个 I/P/L adapter 已提交并全部在跑**(LONI 数组作业 **1020009_0..5**,六个节点并行)。
+  素材 = `results/hotpotqa_chain_recovery_20260913/packs.json`(24 条恢复链 / 24 个独立父任务,
+  三臂共享 98 个监督操作、监督 token 均为 6,023、曝光匹配 3.19% 以内、I 与 P 渲染 token 级不同)。
+  设置:I/P/L × 2 **配对种子**,剂量冻结(同已完成 baseline),监督前缀 = 推理前缀(含思考通道),
+  评测顺序 **自主局部交互 → 条件变化 → 完整任务**,覆盖全部 200 个父任务(不因未购买示范而删任务),
+  **先按父任务聚合再池化**,并给出每种子值。
+  **注**:作业脚本原为 `--array=0-5%1`(单并发,六格串行最长 48h)。每个 array task 的端口取自各自 job id、
+  run 目录与节点本地 scratch 均独立,该节流没有必要,已改为 `%6`;集群当时全空。
