@@ -900,3 +900,5 @@ mech_bfcl_r2_C_s1 | arm C R2 63 ex, train seed 1, end ckpt | rai GPU3 | L3 164/2
 bl_alfworld_sad_B30000 | SAD, ALFWorld, B=30k, 5 usable demos (same set as 15k) | rai GPU4 | SR 54.3 (15k run 60.7, base 56.4) | tc-alignment-base/results/paper_baselines/alfworld_sad_curve_B30000
 bl_alfworld_sad_B60000 | SAD, ALFWorld, B=60k, 9 usable demos | rai GPU4 | SR 55.7 (base 56.4) | tc-alignment-base/results/paper_baselines/alfworld_sad_curve_B60000
 mech_loni_base | mech pipeline base eval on LONI A100 | LONI 1019339 | L3 160/246, L1 18/33, L2 5/9, confirm 10/16 (identical to rai) | mech2/runs/fixed_base
+t1_alfworld_sad_s0 | SAD ALFWorld B=30k seed 0 | LONI | SR 60.0 | results/paper_baselines/table1_alfworld_sad
+t1_alfworld_smartad_s2 | SmartAD ALFWorld B=30k seed 2 | LONI | SR 55.71 | results/paper_baselines/table1_alfworld_smartad_s2
