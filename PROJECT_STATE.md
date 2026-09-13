@@ -2063,3 +2063,5 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   当时处于 `evaluation_export`(把 ~24GB bf16 合并快照写 Lustre,~31 MB/s,13+ 分钟)。
   计算节点本地盘 /tmp 有 813G 可用。已派 codex:导出/渲染改走节点本地盘 + 阶段日志标注是否持有 GPU。
   **不得在 Table 1 跑完前 sync 到集群**(评测阶段是新进程,会中途换代码)。
+- 9/13 02:35 CDT Table 1 第 6 格,**首个三种子齐全的格子**:ALFWorld × Agent Distillation
+  = 57.86 / 60.71 / 57.86 → **58.81 ± 1.65**(base 56.4)。小产物已入 archive/table1/。
