@@ -2232,3 +2232,10 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   覆盖率按声明范围报告,并在花钱前打印估算(586 token / $0.0035 每链)。144 个 CPU 测试通过。chains@93d0597。
   **注意**:候选清单跨全部上下文,若只喂 autonomous episodes 会报
   "declared candidate state lacks a matching executable saved episode" —— 这正是上面第 (2) 项要定的范围问题。
+- **9/13 08:30 CDT HotpotQA 三方法逐题比对(500 题,仅用已归档产物,无新算力)**:
+  **三个方法在 475/500(95%)题上结果完全相同**——178 题全对、297 题全错;
+  两两一致率 96.0–97.4%,只有 25 题有差异且无系统性赢家。
+  → **不只是分数接近,而是"解同一批题"**:三种训练过程在该 benchmark 上收敛到近乎相同的行为。
+  **297 题全错中:176 题 gold 从未进过 observation(检索侧)、121 题 gold 曾可见;
+  152 题给出了答案、145 题根本没结束。**
+  这与路线 1 的诊断吻合(瓶颈在检索侧查询构造),也解释了为何模仿教师轨迹的三种方法都无增益。
