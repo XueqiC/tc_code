@@ -1970,3 +1970,14 @@ API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message�
   其解释器软链指向 rai 的 /usr/local/anaconda3,在 LONI 上不存在,所以 venv 重建作业 1 秒即失败。
   删掉残留后重建成功(alfworld 0.4.2 + textworld 1.7.0,import ok)。
   **跨机迁移规则**:同步 envs 时必须排除 .venv,到对端重建;已踩三次(vllm-serve 路径、bfcl venv、alfworld venv)。
+- 9/13 03:58Z **修正版 HotpotQA 测床检查(24 题,真实检索,LONI)**:
+  自主 EM **12/24**;答案首次出现在检索结果 11/23;答案字面在题面 4/24。
+  **闭卷对照仍不可用**:0/24,但全部结局是 action_format_failure 10 / step_limit 14 —— 观测恒为空时学生一直检索到步数上限,
+  不会转去凭记忆作答,所以测的仍不是参数化记忆(需要:空观测下允许/引导 finish,或限定检索次数后必须作答)。
+  重放:一致 16/24、完全可复现 12/24;分歧归因 **student_sampling 11、recording_inconsistency 1**(主要是学生采样,不是缓存)。
+  配对:24 题中 **12 题可恢复**;**独立练习提前交出关键实体 12/12(再次 100%)**;
+  但**给定实体版 5/12 vs 必须自检索版 5/12 —— 本样本上没有难度差**。
+  配对失败原因已分类:no_later_search、later_search_entity_absent_from_observation、candidate_contains_gold_answer、entity_already_visible_before_observation。
+  **判读**:结构上"独立练习交出关键决策"稳定成立(两次检查 6/6、9/9、12/12);但**行为上它并没有让任务变容易**,
+  这正是评审强调的"成绩差异是结果不是合格条件"。要把痛点变成可测训练信号,需要按配对失败原因改进取材(尤其避开
+  candidate_contains_gold_answer 与 entity_already_visible_before_observation 这两类)。
