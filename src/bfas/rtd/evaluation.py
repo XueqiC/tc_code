@@ -338,7 +338,7 @@ def report(directories, output):
                 if manifest['config'].get('benchmark', 'bfcl') == 'bfcl':
                     validate_evaluation(result['expected'], out / 'resultdir', out / 'scoredir')
                 else:
-                    from .benchmarks.webshop_evaluation import validate_records
+                    from .benchmarks.adapter_evaluation import validate_records
                     validate_records(manifest['config']['benchmark'], out, result['metrics'], result['expected'])
             ids = set(checkpoint['owned'])
             charges = [e for e in ledger.events if e['kind'] == 'reveal' and e['query_id'] in ids]

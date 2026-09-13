@@ -17,7 +17,7 @@ def evaluation_harness_identity(root, config):
         if config.get(k) != v:
             raise ValueError('frozen evaluation protocol differs: ' + k)
     names = [f'src/bfas/adapters/{benchmark}.py', 'src/bfas/run.py',
-             'src/bfas/rtd/benchmarks/webshop_evaluation.py',
+             'src/bfas/rtd/benchmarks/adapter_evaluation.py',
              'src/bfas/rtd/benchmarks/webshop_identity.py']
     names += ['tools/webshop_eval.py'] if benchmark == 'webshop' else ['src/alfworld_eval.py']
     if benchmark == 'alfworld':

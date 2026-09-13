@@ -29,7 +29,7 @@ class HotpotQAAdapter(BenchmarkAdapter):
 
     def __init__(self, seed=0, port=8900, *, offline=None):
         self.seed, self.port = seed, port
-        self.offline = os.environ.get("BFAS_HOTPOTQA_OFFLINE") == "1" if offline is None else offline
+        self.offline = protocol.retrieval_offline(offline)
         self._tokenizer, self._loaded_policy = None, None
         self._suffix = "<|assistant|>\n"
         self._questions = {}
@@ -142,6 +142,7 @@ class HotpotQAAdapter(BenchmarkAdapter):
         return dict(acquire_demos(self.name, self, task_ids, min(attempts, TEACHER_ATTEMPTS)))
 
     def evaluate(self, policy_ref, out_dir):
+        self.preflight_evaluation()
         self.prepare_renderer(policy_ref)
         # Standalone evaluator and adapter evaluation share decoding and records.
         if str(protocol.ROOT) not in sys.path:
@@ -149,6 +150,9 @@ class HotpotQAAdapter(BenchmarkAdapter):
         from tools.hotpotqa_eval import evaluate
         return evaluate(base_url=f"http://127.0.0.1:{self.port}/v1", model=self.served_model_name,
                         start=0, n=500, out=out_dir, offline=self.offline)
+
+    def preflight_evaluation(self):
+        protocol.preflight_retrieval(offline=self.offline)
 
     def serving_probe(self):
         with self._client() as client:

@@ -291,7 +291,7 @@ def alfworld_evaluate(root, directory, round_number, *, port=None, base_evaluati
     root, directory = Path(root), Path(directory)
     saved = json.loads((directory / 'manifest.json').read_text())
     if saved['config'].get('protocol_version') == '1.1.0' or saved['config'].get('method') == 'rtd_unified':
-        from .webshop_evaluation import evaluate_adapter
+        from .adapter_evaluation import evaluate_adapter
         return evaluate_adapter(root, directory, round_number, port=port, base_evaluation=base_evaluation,
             lock_timeout=lock_timeout, lock_log_interval=lock_log_interval)
     config = validate_config(saved['config'])
@@ -333,7 +333,7 @@ REGISTRY = MappingProxyType({
         support_protocol=('bfas.rtd.benchmarks.hotpotqa_support', 'HotpotQASupport'),
         action_limit=('bfas.rtd.benchmarks.hotpotqa_caps', 'action_limit'),
         feedback_rollout=('bfas.rtd.benchmarks.hotpotqa_rollout', 'hotpotqa_task_rollout'),
-        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate_adapter'),
+        official_evaluation=('bfas.rtd.benchmarks.adapter_evaluation', 'evaluate_adapter'),
         harness_identity=('bfas.rtd.benchmarks.hotpotqa_identity', 'evaluation_harness_identity'),
         cap_policy=('bfas.rtd.benchmarks.hotpotqa_caps', 'public_cap'),
         affordability=('bfas.rtd.benchmarks.hotpotqa_caps', 'affordability'),
@@ -344,7 +344,7 @@ REGISTRY = MappingProxyType({
         support_protocol=('bfas.rtd.benchmarks.webshop_support', 'WebShopSupport'),
         action_limit=('bfas.rtd.benchmarks.webshop_caps', 'action_limit'),
         feedback_rollout=('bfas.rtd.benchmarks.webshop_rollout', 'webshop_task_rollout'),
-        official_evaluation=('bfas.rtd.benchmarks.webshop_evaluation', 'evaluate'),
+        official_evaluation=('bfas.rtd.benchmarks.adapter_evaluation', 'evaluate'),
         harness_identity=('bfas.rtd.benchmarks.webshop_identity', 'evaluation_harness_identity'),
         cap_policy=('bfas.rtd.benchmarks.webshop_caps', 'public_cap'),
         affordability=('bfas.rtd.benchmarks.webshop_caps', 'affordability'),

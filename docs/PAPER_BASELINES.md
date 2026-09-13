@@ -307,17 +307,21 @@ harness files remain unchanged. BFCL's official Overall CSV is the headline;
 do not substitute an average of category accuracies. Existing RTD completeness
 validators reject missing/duplicate tasks, missing score categories or errors.
 
-HotpotQA uses `HotpotQAAdapter(seed=0, offline=True)` through the same serving
+HotpotQA uses `HotpotQAAdapter(seed=0)` with live retrieval through the same serving
 lane on the merged student export. It evaluates the frozen first **500 dev
 questions**, temperature **0**, seven steps, at most 14 model calls, and
 **100 generated tokens per call**, with the byte-identical six-shot ReAct
 prompt. Answer **EM** is the headline (`overall_accuracy_percent = 100 * em`);
 answer F1 is separate. The ported validator checks ordered IDs, frozen question
 and gold hashes, horizons, decoding settings and recomputed EM/F1. Receipts
-include prompt/evaluator/split source hashes, dataset and cached Wikipedia
-identities, checkpoint/export hashes and reserved GPU time. Cache misses fail
-incomplete evaluation. The policy is released even when rendering or the
-campaign fails.
+include prompt/evaluator/split source hashes, dataset and retrieval mode,
+checkpoint/export hashes and reserved GPU time. `BFAS_HOTPOTQA_OFFLINE=1`
+explicitly selects replay and binds cached Wikipedia snapshots. The shared
+campaign lives in `bfas.rtd.benchmarks.adapter_evaluation`. A cheap retrieval
+preflight runs before training workers and before evaluation export/serving.
+Partial or errored evaluation artifacts have `status="failed"`, `complete=false`,
+null result scores, and an error reason. The policy is released even when
+rendering or the campaign fails.
 
 The local `envs/hotpotqa/data` is already populated and `envs/hotpotqa/cache`
 links to `/home/xueqi/hq/projects/tc-alignment-ws/envs/hotpotqa/cache`. On a tree

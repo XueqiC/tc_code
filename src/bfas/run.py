@@ -1022,6 +1022,8 @@ def run_seed(args: argparse.Namespace, seed: int) -> None:
         gpu_offset = 0
     port = port_base + gpu_offset
     adapter = make_adapter(args.benchmark, seed, port)
+    if args.benchmark == "hotpotqa" and not args.dry_run:
+        adapter.preflight_evaluation()
     policy = os.environ.get(
         f"BFAS_{args.benchmark.upper()}_MODEL",
         DEFAULT_MODELS.get(args.benchmark, ""),

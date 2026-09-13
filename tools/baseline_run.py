@@ -114,7 +114,7 @@ def prepare(args):
             *sorted((ROOT/"configs").glob("hotpotqa_*_split.json")),
             *sorted((ROOT/"src/bfas/rtd/benchmarks").glob("hotpotqa_*.py")),
             *[ROOT/"src/bfas/rtd/benchmarks"/name for name in
-              ("config.py", "registry.py", "webshop_evaluation.py")],
+              ("config.py", "registry.py", "adapter_evaluation.py")],
             ROOT/"src/bfas/rtd/caps.py", ROOT/"src/bfas/rtd/feedback_rng.py"])
     manifest = dict(version="budgeted-paper-baselines-v1", method=args.method, benchmark=args.benchmark,
         seed=args.seed, student=STUDENT, teacher="gpt-5.6-luna", **purchase, config=config,
@@ -207,6 +207,9 @@ def run_budget(args):
     if args.smoke:
         worker.append("--smoke")
     try:
+        if args.benchmark == "hotpotqa":
+            from bfas.hotpotqa import preflight_retrieval
+            preflight_retrieval()
         for phase in ("train", "evaluate"):
             with (args.run_dir/f"{phase}.log").open("w") as log:
                 run_worker([*worker, "--_phase", phase], log)
@@ -261,6 +264,9 @@ def main(argv=None):
             if file_hash(ROOT/name) != sha:
                 raise ValueError("baseline code changed after preparation")
         if args._phase == "train":
+            if args.benchmark == "hotpotqa":
+                from bfas.hotpotqa import preflight_retrieval
+                preflight_retrieval()
             train_worker(args.run_dir, manifest)
         else:
             from bfas.rtd.baselines.paper_evaluation import evaluate_run

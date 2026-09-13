@@ -149,17 +149,30 @@ PYTHONPATH=src .venv/bin/python -m bfas.run \
 The adapter is server-backed like WebShop. BFAS owns the student server;
 standalone evaluation addresses an existing OpenAI-compatible endpoint.
 The BFAS default student is `Qwen/Qwen3.5-4B`, overridable with
-`BFAS_HOTPOTQA_MODEL`. `BFAS_HOTPOTQA_OFFLINE=1` enables offline Wikipedia in BFAS.
+`BFAS_HOTPOTQA_MODEL`. Evaluation uses live Wikipedia retrieval by default,
+including RTD and paper-baseline campaigns. `BFAS_HOTPOTQA_OFFLINE=1` or the
+standalone `--offline` flag explicitly selects cache replay; `offline=False`
+overrides the environment for Python callers. No evaluation module forces
+offline mode. The shared campaign module is `bfas.rtd.benchmarks.adapter_evaluation`.
 Student authentication can be supplied with `BFAS_STUDENT_API_KEY`.
+
+Before training workers, model export, or serving, a retrieval preflight checks
+the configured mode. Live mode makes one uncached request (through the same
+fetch/parser) and checks cache writability. Offline mode requires a nonempty,
+readable cache and validates snapshot identities/checksums. This cannot prove
+coverage of future student queries: explicitly offline evaluations still fail
+on any later cache miss. Preflight does not call a model or buy teacher tokens.
 
 Each output directory has `identity.json`, `records.jsonl`, and `metrics.json`.
 Records include ID, source index, question, prediction, gold, EM/F1, steps,
 model call count, responses, actions, observations, query hashes and errors.
 Metrics include EM, F1, mean steps, per-category EM, requested/completed counts,
-ordered IDs and decoding settings. Infrastructure errors count as failed
-episodes. Offline cache misses instead stop the run with `complete=false`.
+ordered IDs and decoding settings. Incomplete evaluations, infrastructure
+errors, and interruptions stop the run and write `status="failed"`,
+`complete=false`, and an error reason. EM/F1, headline, mean score, and category
+scores are null; diagnostic partial scores live under `partial_metrics`.
 Completed records resume without model calls. Changing the model, endpoint,
-range or protocol identity requires a new output directory. Use a new directory
+retrieval mode, range or protocol identity requires a new output directory. Use a new directory
 if the weights behind an unchanged served model alias change.
 
 Student turn prompts come from the policy tokenizer's chat template. Guidance

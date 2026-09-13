@@ -15,16 +15,22 @@ from bfas import hotpotqa as hp
 from bfas.ledger import append_record
 
 
-def evaluate(*, base_url, model, start=0, n=500, out, offline=False):
+class EvaluationFailed(RuntimeError):
+    """An incomplete/errored campaign is not a benchmark result."""
+
+
+def evaluate(*, base_url, model, start=0, n=500, out, offline=None):
     if start < 0 or n < 0 or start + n > 500:
         raise ValueError("--start/--n must select a range within the first 500 dev questions")
+    offline = hp.retrieval_offline(offline)
     questions = hp.load_questions("dev")[start:start + n]
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     config = {"base_url": base_url, "model": model, "start": start, "n": n,
               "split": "dev_distractor_first500", "max_steps": hp.MAX_STEPS,
               "max_tokens": hp.MAX_TOKENS, "temperature": 0.0, "prompt_version": hp.PROMPT_VERSION,
-              "wiki_version": hp.WIKI_VERSION, "task_ids": [q["_id"] for q in questions]}
+              "wiki_version": hp.WIKI_VERSION, "offline": offline,
+              "task_ids": [q["_id"] for q in questions]}
     if model.startswith("gpt-5.6-luna"):
         config.update(temperature=None, service_tier=os.environ.get("BFAS_OPENAI_SERVICE_TIER", "").strip() or None)
     with hp.file_lock(out / "evaluation.lock"):
@@ -45,23 +51,42 @@ def evaluate(*, base_url, model, start=0, n=500, out, offline=False):
                     raise ValueError("duplicate or outside evaluation record")
                 records[row["task_id"]] = row
         pending = [q for q in questions if q["_id"] not in records]
+        failure = None
         try:
+            if len(questions) != n:
+                raise EvaluationFailed(f"HotpotQA requested {n} questions but loaded {len(questions)}")
+            if any(r.get("error") for r in records.values()):
+                raise EvaluationFailed("HotpotQA saved records contain episode errors; use a new --out")
             if pending:
+                wiki = hp.Wikipedia(offline=offline)
+                wiki.preflight()
                 with hp.make_client(base_url) as client:
                     generate = hp.student_generator(client, model)
-                    wiki = hp.Wikipedia(offline=offline)
                     for question in pending:
                         try:
                             record = hp.run_episode(question, wiki, generate)
                         except hp.OfflineCacheMiss as exc:
-                            # Leave this question pending for an online/cache-warmed resume.
+                            # Leave this question pending for a cache-warmed resume.
                             raise hp.OfflineCacheMiss(str(exc)) from exc
                         record["index"] = start + config["task_ids"].index(question["_id"])
                         append_record(records_path, record)
                         records[question["_id"]] = record
+                        if record.get("error"):
+                            raise EvaluationFailed(f"HotpotQA episode {question['_id']} failed: {record['error']}")
+        except BaseException as exc:
+            failure = f"{type(exc).__name__}: {exc}"
+            raise
         finally:
             metrics = hp.compute_metrics([records[q["_id"]] for q in questions if q["_id"] in records], config)
-            metrics.update(requested_n=n, complete=len(records) == n, offline=offline)
+            complete = failure is None and len(records) == n and not metrics["errored_episodes"]
+            metrics.update(requested_n=n, complete=complete, offline=offline,
+                           status="complete" if complete else "failed")
+            if not complete:
+                metrics["error"] = failure or f"HotpotQA evaluated {len(records)} of {n} requested questions"
+                # Retain diagnostic partial scores without exposing aggregateable results.
+                scores = ("em", "f1", "headline", "mean_score", "per_category")
+                metrics["partial_metrics"] = {k: metrics[k] for k in scores}
+                metrics.update({k: None for k in scores})
             hp.write_json(out / "metrics.json", metrics)
     return metrics
 
@@ -73,11 +98,11 @@ def main(argv=None):
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--n", type=int, default=500)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--offline", action="store_true")
+    parser.add_argument("--offline", action="store_true", default=None)
     args = parser.parse_args(argv)
     try:
         metrics = evaluate(**vars(args))
-    except (ValueError, FileNotFoundError, hp.OfflineCacheMiss) as exc:
+    except (ValueError, FileNotFoundError, hp.OfflineCacheMiss, hp.WikiError, EvaluationFailed) as exc:
         parser.exit(2, str(exc) + "\n")
     print(json.dumps({k: metrics[k] for k in ("n", "em", "f1", "mean_steps", "complete")}, indent=2))
 

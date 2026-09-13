@@ -26,7 +26,7 @@ from tools import baseline_run
 
 
 @pytest.fixture(autouse=True)
-def cpu_only(monkeypatch):
+def cpu_only(monkeypatch, tmp_path):
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "")
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
     monkeypatch.setenv("TRANSFORMERS_OFFLINE", "1")
@@ -36,6 +36,10 @@ def cpu_only(monkeypatch):
     monkeypatch.setattr(torch.cuda, "_lazy_init", forbidden)
     from bfas.rtd import runtime
     monkeypatch.setattr(runtime, "load_backend", forbidden)
+    monkeypatch.delenv("BFAS_HOTPOTQA_OFFLINE", raising=False)
+    original = hp.Wikipedia
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(tmp_path / "cache",
+        fetch=lambda *a: "<p>This is a synthetic Wikipedia article.</p>", **kw))
 
 
 def native_prompt(prefill):
@@ -202,14 +206,14 @@ def test_hotpotqa_registry_config_and_training_cap(tmp_path):
     assert hotpotqa_prefill_kind(native_prompt("Thought 3:")) == "reason"
 
 
-@pytest.mark.parametrize("failure", [None, "renderer", "episode", "gold", "f1", "inventory"])
+@pytest.mark.parametrize("failure", [None, "preflight", "renderer", "episode", "gold", "f1", "inventory"])
 def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, capsys, failure):
     from bfas import run
     from bfas.adapters import hotpotqa
     from bfas.rtd.benchmarks import hotpotqa_identity
     questions = [dict(_id=f"dev-{i}", question=f"Synthetic {i}?", answer="alpha beta", type="bridge") for i in range(500)]
     expected = dict(task_ids=[q["_id"] for q in questions], questions_hash=digest(questions))
-    harness = dict(expected=expected, environment=dict(offline=True, snapshots={"cache.json": "hash"}))
+    harness = dict(expected=expected, environment=dict(offline=False, snapshots={}))
     events = []
     config = {"benchmark": "hotpotqa"}
     def identity(root, given):
@@ -218,8 +222,12 @@ def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, caps
     monkeypatch.setattr(hotpotqa_identity, "evaluation_harness_identity", identity)
     monkeypatch.setenv("BFAS_HOTPOTQA_TEACHER_POOL", "/must/not/import")
     class Adapter:
-        def __init__(self, seed, port, offline):
-            assert (seed, port, offline) == (0, 8930, True)
+        def __init__(self, seed, port, offline=None):
+            assert (seed, port, offline) == (0, 8930, None)
+        def preflight_evaluation(self):
+            events.append("preflight")
+            if failure == "preflight":
+                raise hp.WikiError("retrieval preflight failed")
         def prepare_renderer(self, model):
             assert model == str(tmp_path/"merged")
             assert os.environ["BFAS_HOTPOTQA_TEACHER_POOL"] == ""
@@ -235,7 +243,7 @@ def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, caps
                 prompt_version=hp.PROMPT_VERSION, error=None) for q in questions]
             cfg = dict(temperature=0., max_steps=7, max_tokens=100, task_ids=expected["task_ids"],
                        prompt_version=hp.PROMPT_VERSION, wiki_version=hp.WIKI_VERSION)
-            metrics = hp.compute_metrics(rows, cfg) | dict(complete=True, requested_n=500, offline=True)
+            metrics = hp.compute_metrics(rows, cfg) | dict(complete=True, requested_n=500, offline=False)
             if failure == "gold":
                 rows[0]["gold"] = "changed"
             elif failure == "f1":
@@ -272,8 +280,11 @@ def test_hotpotqa_adapter_campaign_em_f1_and_cleanup(tmp_path, monkeypatch, caps
     stages = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
     assert all(e["gpu_held"] is (e["stage"] == "evaluation") for e in stages)
     assert os.environ["BFAS_HOTPOTQA_TEACHER_POOL"] == "/must/not/import"
-    if failure != "renderer":
-        assert events == ["renderer", "serve", "evaluate", "close", "release"]
+    if failure == "preflight":
+        assert events == ["preflight", "release"]
+        assert not (tmp_path/"eval/gpu_usage.json").exists()
+    elif failure != "renderer":
+        assert events == ["preflight", "renderer", "serve", "evaluate", "close", "release"]
         assert json.loads((tmp_path/"eval/gpu_usage.json").read_text())["gpu_seconds"] >= 0
 
 
@@ -330,3 +341,48 @@ def test_hotpotqa_rejects_partial_smoke_and_sag(tmp_path):
         paper_evaluation.protocol("hotpotqa", smoke=True)
     with pytest.raises(NotImplementedError, match="complete sampled ReAct episodes"):
         paper_evaluation.run_hotpotqa(ROOT, tmp_path/"merged", tmp_path/"out", kang=True, port=8930, config={})
+
+
+@pytest.mark.parametrize("worker", [False, True])
+def test_retrieval_preflight_fails_before_training_worker(tmp_path, monkeypatch, worker):
+    bank = synthetic_bank(tmp_path)
+    out = tmp_path / "run"
+    args = ["--method", "smartad", "--benchmark", "hotpotqa", "--bank", str(bank),
+            "--budget-tokens", "33", "--run-dir", str(out)]
+    if worker:
+        assert baseline_run.main([*args, "--prepare-only"]) == 0
+    def forbidden(*args, **kwargs):
+        pytest.fail("retrieval must work before starting training or serving")
+    monkeypatch.setattr(baseline_run, "run_worker", forbidden)
+    monkeypatch.setattr(baseline_run, "train_worker", forbidden)
+    wiki = hp.Wikipedia()
+    def fetch(*args):
+        raise TimeoutError("synthetic outbound failure")
+    wiki.fetch = fetch
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: wiki)
+    with pytest.raises(hp.WikiError, match="preflight.*outbound failure"):
+        baseline_run.main([*args, "--_phase", "train"] if worker else args)
+    if not worker:
+        manifest = json.loads((out / "manifest.json").read_text())
+        assert manifest["status"] == "failed" and manifest["gpu_hours"] == 0
+    assert not (out / "checkpoint").exists()
+
+
+def test_retrieval_preflight_fails_before_paper_export(tmp_path, monkeypatch):
+    from bfas.rtd import hardware
+    model, checkpoint = tmp_path / "model", tmp_path / "checkpoint"
+    model.mkdir()
+    checkpoint.mkdir()
+    (model / "config.json").write_text("{}")
+    (checkpoint / "adapter_config.json").write_text("{}")
+    manifest = dict(config={}, benchmark="hotpotqa", method="smartad", hardware={"hard": "cpu"},
+        checkpoint_sha256=tree_hash(checkpoint), base_checkpoint_hash=tree_hash(model), model_path=str(model))
+    monkeypatch.setattr(hardware, "hardware_identity", lambda: manifest["hardware"])
+    def forbidden(*args, **kwargs):
+        pytest.fail("export must follow retrieval preflight")
+    monkeypatch.setattr(paper_evaluation, "evaluation_policy", forbidden)
+    wiki = hp.Wikipedia()
+    wiki.fetch = lambda *a: "<html>blocked</html>"
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: wiki)
+    with pytest.raises(hp.WikiError, match="preflight"):
+        paper_evaluation.evaluate_run(ROOT, tmp_path, manifest)

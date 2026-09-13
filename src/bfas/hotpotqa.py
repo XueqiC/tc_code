@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import string
+import tempfile
 import time
 from urllib.parse import urlencode, urlsplit
 
@@ -128,6 +129,22 @@ class WikiError(RuntimeError):
     pass
 
 
+def retrieval_offline(offline=None):
+    """Live unless the caller explicitly requests offline replay."""
+    if offline is not None:
+        if type(offline) is not bool:
+            raise ValueError("HotpotQA offline must be a boolean")
+        return offline
+    value = os.environ.get("BFAS_HOTPOTQA_OFFLINE", "0")
+    if value not in ("0", "1"):
+        raise ValueError("BFAS_HOTPOTQA_OFFLINE must be 0 (live) or 1 (offline replay)")
+    return value == "1"
+
+
+def preflight_retrieval(*, offline=None):
+    Wikipedia(offline=retrieval_offline(offline)).preflight()
+
+
 class Wikipedia:
     """ReAct's HTTPS search wrapper with immutable per-query disk snapshots.
 
@@ -142,6 +159,38 @@ class Wikipedia:
             raise ValueError("Wikipedia timeout must be positive and retries nonnegative")
         self.fetch = fetch or self._fetch
         self.reset()
+
+    def preflight(self):
+        """Check retrieval without a model call or changing the cache format.
+
+        Offline validation cannot predict the student's future queries. A later
+        cache miss must still fail the evaluation, never become a scored result.
+        Live probes bypass snapshots so a warm cache cannot hide a broken network.
+        """
+        mode = "offline replay" if self.offline else "live retrieval"
+        try:
+            if self.offline:
+                paths = sorted(self.cache_dir.glob("*.json"))
+                if not paths:
+                    raise OfflineCacheMiss(
+                        f"HotpotQA retrieval preflight: no cached Wikipedia queries at {self.cache_dir} (--offline)")
+                for path in paths:
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                    if path.stem != hashlib.sha256(record["query"].encode("utf-8")).hexdigest():
+                        raise WikiError(f"Wikipedia cache filename mismatch: {path}")
+                    self._snapshot(record["query"])
+            else:
+                self.cache_dir.mkdir(parents=True, exist_ok=True)
+                with tempfile.TemporaryFile(dir=self.cache_dir) as stream:
+                    stream.write(b"HotpotQA retrieval preflight")
+                    stream.flush()
+                self._parse(self.fetch("Albert Einstein", min(self.timeout, 5)))
+        except OfflineCacheMiss:
+            raise
+        except Exception as exc:
+            raise WikiError(f"HotpotQA retrieval preflight failed ({mode}): {exc}") from exc
+        finally:
+            self.reset()
 
     def reset(self):
         self.page = None

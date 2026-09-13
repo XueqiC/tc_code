@@ -11,7 +11,7 @@ from bfas.adapters.webshop import WebShopAdapter
 from bfas.rtd.benchmarks.webshop_support import freeze_support, reset_state, WebShopSupport
 from bfas.rtd.benchmarks.webshop_rollout import WebShopFeedbackContext, webshop_task_rollout
 from bfas.rtd.benchmarks.webshop_bank import build_webshop_bank
-from bfas.rtd.benchmarks.webshop_evaluation import validate_records
+from bfas.rtd.benchmarks.adapter_evaluation import validate_records
 from bfas.rtd.bank_build import validate_state_certificate
 from bfas.rtd.return_gradient import ActionTrace
 
@@ -181,7 +181,7 @@ def test_official_adapter_evaluation_is_500_greedy_sessions(tmp_path, monkeypatc
 
 def test_evaluation_result_binds_checkpoint_and_spend(tmp_path, monkeypatch):
     from contextlib import contextmanager
-    from bfas.rtd.benchmarks import webshop_evaluation as campaign
+    from bfas.rtd.benchmarks import adapter_evaluation as campaign
     from bfas.rtd import cli, identity, hardware, evaluation
     from bfas import run
     from bfas.rtd.persistence import digest, tree_hash

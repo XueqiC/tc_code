@@ -515,6 +515,9 @@ def run_campaign(args, config):
     metrics never feed a training configuration, schedule or selector.
     """
     from .evaluation import evaluate, report
+    if config['benchmark'] == 'hotpotqa':
+        from ..hotpotqa import preflight_retrieval
+        preflight_retrieval()
     # Snapshot the complete launch environment once. In particular, never
     # reinterpret the visible physical ordinal/UUID as a local cuda index.
     worker_env = os.environ.copy()

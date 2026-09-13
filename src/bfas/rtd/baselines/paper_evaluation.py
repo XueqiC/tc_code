@@ -17,12 +17,13 @@ from .paper_scratch import export_directory
 
 def protocol(benchmark, *, smoke=False):
     if benchmark == "hotpotqa":
+        from ...hotpotqa import retrieval_offline
         if smoke:
             raise ValueError("HotpotQA evaluation requires the frozen 500-question dev split")
         return dict(benchmark=benchmark, split="dev_distractor_first500", tasks=500, temperature=0.,
                     max_steps=7, max_model_calls=14, max_action_tokens=100, backend="vllm",
                     evaluator="HotpotQAAdapter.evaluate", overall_metric="em", secondary_metric="f1",
-                    prompt="prompts/hotpotqa_react_6shot.txt", offline=True,
+                    prompt="prompts/hotpotqa_react_6shot.txt", offline=retrieval_offline(),
                     cache="envs/hotpotqa/cache")
     if smoke:
         return dict(protocol(benchmark), tasks=3, smoke=True, official_full=False,
@@ -134,7 +135,7 @@ def run_alfworld(root, lora, out, *, kang, port, smoke=False):
     from ...adapters.alfworld import ALFWorldAdapter, DATA, SERVER_MODEL_NAME
     from ...run import serving_lane
     from ..benchmarks.alfworld_identity import official_expectations
-    from ..benchmarks.webshop_evaluation import frozen_environment, validate_records
+    from ..benchmarks.adapter_evaluation import frozen_environment, validate_records
     out.mkdir(parents=True, exist_ok=False)
     expected = official_expectations(DATA)
     if len(expected["task_ids"]) != 140:
@@ -178,16 +179,17 @@ def run_hotpotqa(root, merged, out, *, kang, port, smoke=False, config):
     from ...run import serving_lane
     from ..benchmarks.hotpotqa_identity import evaluation_harness_identity
     from ..benchmarks.hotpotqa_evaluation import validate_records
-    from ..benchmarks.webshop_evaluation import frozen_environment
+    from ..benchmarks.adapter_evaluation import frozen_environment
     protocol("hotpotqa", smoke=smoke)
     if kang:
         raise NotImplementedError("HotpotQA Kang SAG requires votes over complete sampled ReAct episodes")
     out.mkdir(parents=True, exist_ok=False)
     harness = evaluation_harness_identity(root, config)
     expected = harness["expected"]
-    adapter = HotpotQAAdapter(seed=0, port=port, offline=True)
+    adapter = HotpotQAAdapter(seed=0, port=port)
     try:
         with frozen_environment("hotpotqa"):
+            adapter.preflight_evaluation()
             with stage("evaluation_rendering", gpu_held=False, benchmark="hotpotqa"):
                 adapter.prepare_renderer(str(merged))
             start = time.monotonic()
@@ -250,6 +252,8 @@ def evaluate_run(root, directory, manifest):
         raise ValueError("evaluation hardware class differs from training")
     benchmark = manifest["benchmark"]
     if benchmark == "hotpotqa":
+        from ...hotpotqa import preflight_retrieval
+        preflight_retrieval()
         callback, options = run_hotpotqa, dict(config=manifest["config"])
     elif benchmark == "alfworld":
         callback, options = run_alfworld, {}

@@ -16,7 +16,7 @@ def frozen_environment(benchmark):
         settings.update(BFAS_ALFWORLD_EVAL_SPLIT='valid_seen', BFAS_ALFWORLD_EVAL_GAMES='140',
                         BFAS_ALFWORLD_MAX_STEPS='40', BFAS_ALFWORLD_STUDENT_REACT='1')
     if benchmark == 'hotpotqa':
-        settings.update(BFAS_HOTPOTQA_OFFLINE='1', BFAS_HOTPOTQA_TEACHER_POOL='')
+        settings.update(BFAS_HOTPOTQA_TEACHER_POOL='')
     old = {k: os.environ.get(k) for k in settings}
     os.environ.update(settings)
     try:
@@ -60,6 +60,9 @@ def evaluate_adapter(root, directory, round_number, *, port=None, base_evaluatio
     root, directory = Path(root), Path(directory)
     manifest = json.loads((directory/'manifest.json').read_text())
     config = manifest['config']; benchmark = config['benchmark']
+    if benchmark == 'hotpotqa':
+        from ... import hotpotqa as hp
+        hp.preflight_retrieval()
     meta = verified_checkpoint(directory, manifest, round_number)
     if tree_hash(manifest['model_path']) != manifest['base_checkpoint_hash']:
         raise ValueError('evaluation base checkpoint changed')
@@ -104,7 +107,7 @@ def evaluate_adapter(root, directory, round_number, *, port=None, base_evaluatio
             adapter = WebShopAdapter(port=port or 8900)
         elif benchmark == 'hotpotqa':
             from ...adapters.hotpotqa import HotpotQAAdapter
-            adapter = HotpotQAAdapter(port=port or 8900, offline=True)
+            adapter = HotpotQAAdapter(port=port or 8900)
         else:
             from ...adapters.alfworld import ALFWorldAdapter
             adapter = ALFWorldAdapter(port=port or 8900)

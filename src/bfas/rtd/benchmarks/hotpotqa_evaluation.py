@@ -24,7 +24,7 @@ def validate_records(out, metrics, expected):
         scores = hp.answer_metrics(row['prediction'], row['gold']) if row['finished'] else {'em': 0., 'f1': 0.}
         if any(not math.isclose(row[k], scores[k], abs_tol=1e-12) for k in scores):
             raise ValueError('HotpotQA answer metrics disagree with records')
-    if (metrics.get('complete') is not True or metrics['n'] != len(rows)
+    if (metrics.get('status', 'complete') != 'complete' or metrics.get('complete') is not True or metrics['n'] != len(rows)
             or metrics['requested_n'] != len(rows)
             or any(not math.isclose(metrics[k], sum(r[k] for r in rows)/len(rows), abs_tol=1e-12) for k in ('em', 'f1'))
             or metrics['headline'] != metrics['em']):
@@ -32,7 +32,7 @@ def validate_records(out, metrics, expected):
     cfg = metrics['config']
     if (cfg['temperature'] != 0. or cfg['max_steps'] != 7 or cfg['max_tokens'] != 100
             or cfg['task_ids'] != ids or cfg['prompt_version'] != hp.PROMPT_VERSION
-            or cfg['wiki_version'] != hp.WIKI_VERSION or not metrics.get('offline')):
+            or cfg['wiki_version'] != hp.WIKI_VERSION or type(metrics.get('offline')) is not bool):
         raise ValueError('HotpotQA official decoding/cache protocol differs')
     return dict(complete=True, verdicts={r['task_id']: r['em'] == 1. for r in rows},
                 n=len(rows), em=metrics['em'], f1=metrics['f1'])

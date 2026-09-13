@@ -32,6 +32,9 @@ from bfas.rtd.return_gradient import ActionTrace
 class Wiki:
     closed = 0
 
+    def preflight(self):
+        pass
+
     def reset(self):
         self.queries, self.cursor = [], 0
 
@@ -389,12 +392,13 @@ def test_hotpotqa_registry_and_frozen_p1_configs():
         assert config['max_action_tokens_by_benchmark'] == {'hotpotqa': {'agent_action': 100}}
 
 
-def test_hotpotqa_official_em_f1_validation(tmp_path):
+@pytest.mark.parametrize('offline', [False, True])
+def test_hotpotqa_official_em_f1_validation(tmp_path, offline):
     question = dict(_id='dev', question='Synthetic?', answer='alpha beta', type='bridge')
     record = hp.run_episode(question, Wiki(), lambda *a: 'finish[alpha]')
     cfg = dict(temperature=0., max_steps=7, max_tokens=100, task_ids=['dev'],
                prompt_version=hp.PROMPT_VERSION, wiki_version=hp.WIKI_VERSION)
-    metrics = hp.compute_metrics([record], cfg) | dict(complete=True, requested_n=1, offline=True)
+    metrics = hp.compute_metrics([record], cfg) | dict(complete=True, requested_n=1, offline=offline)
     (tmp_path/'records.jsonl').write_text(json.dumps(record)+'\n')
     result = validate_records(tmp_path, metrics, {'task_ids': ['dev']})
     assert result['em'] == 0 and result['f1'] == pytest.approx(2/3)
@@ -404,7 +408,7 @@ def test_hotpotqa_official_em_f1_validation(tmp_path):
 
 def test_hotpotqa_round_end_adapter_campaign_binds_em_f1_and_spend(tmp_path, monkeypatch):
     from contextlib import contextmanager
-    from bfas.rtd.benchmarks import webshop_evaluation as campaign
+    from bfas.rtd.benchmarks import adapter_evaluation as campaign
     from bfas.rtd import identity, hardware, evaluation
     from bfas.rtd.persistence import tree_hash
     from bfas import run
@@ -429,9 +433,14 @@ def test_hotpotqa_round_end_adapter_campaign_binds_em_f1_and_spend(tmp_path, mon
     def export(manifest, checkpoint, out):
         out.mkdir(); (out/'model.safetensors').write_text('stub export')
     monkeypatch.setattr(evaluation, '_flatten_adapter', export)
-    adapter = HotpotQAAdapter(offline=True)
+    monkeypatch.delenv('BFAS_HOTPOTQA_OFFLINE', raising=False)
+    adapter = HotpotQAAdapter()
     monkeypatch.setattr(adapter, 'prepare_renderer', lambda _: None)
-    monkeypatch.setattr(adapter_module, 'HotpotQAAdapter', lambda **kw: adapter)
+    def make_adapter(**kw):
+        assert 'offline' not in kw
+        assert not adapter.offline
+        return adapter
+    monkeypatch.setattr(adapter_module, 'HotpotQAAdapter', make_adapter)
     @contextmanager
     def serve(*args):
         assert args[0] is adapter
@@ -449,6 +458,60 @@ def test_hotpotqa_round_end_adapter_campaign_binds_em_f1_and_spend(tmp_path, mon
     assert result['checkpoint_spend'] == 34 and result['authorized_budget'] == 100
     assert result['validation']['n'] == 500 and result['identity']['checkpoint'] == meta
     assert campaign.evaluate_adapter(root, directory, 1) == result
+
+
+@pytest.mark.parametrize('entrypoint', ['rtd_training', 'rtd_export', 'bfas_training'])
+def test_hotpotqa_preflight_precedes_training_and_export(tmp_path, monkeypatch, entrypoint):
+    from bfas import run
+    from bfas.rtd import evaluation, identity
+    from bfas.rtd.benchmarks import adapter_evaluation
+    monkeypatch.delenv('BFAS_HOTPOTQA_OFFLINE', raising=False)
+    original = hp.Wikipedia
+    calls = []
+    def fetch(*args):
+        calls.append('retrieval')
+        raise TimeoutError('synthetic outbound failure')
+    monkeypatch.setattr(hp, 'Wikipedia', lambda **kw: original(tmp_path/'cache', fetch=fetch, **kw))
+    def forbidden(*args, **kwargs):
+        pytest.fail('retrieval preflight must precede training/export/serving')
+    monkeypatch.setattr(evaluation, '_flatten_adapter', forbidden)
+    monkeypatch.setattr(identity, 'verified_checkpoint', forbidden)
+    monkeypatch.setattr(run, 'serving_lane', forbidden)
+    monkeypatch.setattr(run, '_shared_teacher_demos', forbidden)
+    monkeypatch.setattr(cli, 'hardware_identity', forbidden)
+    if entrypoint == 'rtd_training':
+        call = lambda: cli.run_campaign(SimpleNamespace(), {'benchmark': 'hotpotqa'})
+    elif entrypoint == 'rtd_export':
+        (tmp_path/'manifest.json').write_text(json.dumps({'config': {'benchmark': 'hotpotqa'}}))
+        call = lambda: adapter_evaluation.evaluate_adapter(tmp_path, tmp_path, 1)
+    else:
+        monkeypatch.setattr(run, 'RESULTS_ROOT', tmp_path/'results')
+        call = lambda: run.run_seed(SimpleNamespace(benchmark='hotpotqa', arm='base', gpu='0', dry_run=False), 0)
+    with pytest.raises(hp.WikiError, match='preflight.*outbound failure'):
+        call()
+    assert calls == ['retrieval']
+
+
+def test_hotpotqa_live_identity_allows_cache_growth_and_offline_is_explicit(tmp_path, monkeypatch):
+    from bfas.rtd.benchmarks import hotpotqa_identity
+    from bfas.rtd.benchmarks.config import benchmark_protocol
+    monkeypatch.delenv('BFAS_HOTPOTQA_OFFLINE', raising=False)
+    ids = [f'dev-{i}' for i in range(500)]
+    monkeypatch.setattr(hp, 'load_manifest', lambda split: {'ids': ids})
+    monkeypatch.setattr(hp, 'load_questions', lambda *a, **kw: [{'_id': tid} for tid in ids])
+    monkeypatch.setattr(hotpotqa_identity, 'file_hash', lambda path: 'stub')
+    monkeypatch.setattr(hotpotqa_identity, 'tree_hash', lambda path: 'data')
+    config = benchmark_protocol('hotpotqa') | dict(student='stub', max_context_tokens=32768)
+    before = hotpotqa_identity.evaluation_harness_identity(tmp_path, config)
+    assert before['environment']['offline'] is False
+    cache = tmp_path / config['hotpotqa_cache_root']
+    cache.mkdir(parents=True)
+    (cache/'snapshot.json').write_text('{}')
+    assert hotpotqa_identity.evaluation_harness_identity(tmp_path, config) == before
+    monkeypatch.setenv('BFAS_HOTPOTQA_OFFLINE', '1')
+    replay = hotpotqa_identity.evaluation_harness_identity(tmp_path, config)
+    assert replay['environment']['offline'] is True
+    assert replay['environment']['snapshots'] == {'snapshot.json': 'stub'}
 
 
 def test_hotpotqa_blank_replies_keep_identical_supervision_and_paper_compatible_targets(synthetic):

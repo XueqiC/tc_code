@@ -34,7 +34,11 @@ preserved. The paper baseline bank reader needs no schema conversion.
   questions**, temperature 0. **Answer EM** is the headline; answer F1 is
   reported separately. F1 does not verify teacher demos. Campaign receipts
   bind the checkpoint, spend, hardware, data, tokenizer, prompt, evaluator and
-  cached Wikipedia snapshots. The record validator recomputes EM/F1 and checks
+  retrieval mode (plus Wikipedia snapshots for explicitly offline replay).
+  Evaluation defaults to live retrieval; set `BFAS_HOTPOTQA_OFFLINE=1` to
+  request replay. The `hotpotqa_offline` training configuration continues to
+  freeze bank/feedback replay and does not select evaluation retrieval.
+  The record validator recomputes EM/F1 and checks
   the complete ordered inventory and frozen gold/question identity.
 
 The prompt is byte-identical to the sibling worktree's
@@ -288,7 +292,7 @@ The entrypoint and execution hooks in that worktree still need these edits:
    Wikipedia text masked and classify terminal `finish` as the final decision.
 3. Add an explicit HotpotQA branch in `paper_evaluation.protocol` and
    `evaluate_run`; its current fallback routes all non-ALFWorld benchmarks to
-   BFCL. Use `HotpotQAAdapter(seed=0, port=port, offline=True)` through
+   BFCL. Use `HotpotQAAdapter(seed=0, port=port)` through
    `bfas.run.serving_lane` on the merged student export, then
    `adapter.evaluate(str(merged), out)`. Release the policy in `finally` and
    preserve the baseline's GPU-time and checkpoint receipts.
@@ -299,7 +303,7 @@ The entrypoint and execution hooks in that worktree still need these edits:
    Return `overall_accuracy_percent=100*metrics['em']`, `overall_metric='em'`,
    and `em`, `f1`, `validation`, `expected`, and `tasks=500`. Evaluation must
    use temperature 0, seven steps, a 100-token cap, the frozen six-shot prompt
-   and the same offline cache.
+   and live retrieval by default, with cache replay only when explicitly requested.
 5. Kang's extra SAG branch requires a separate HotpotQA implementation if
    desired: vote over normalized final answers from complete sampled ReAct
    episodes. The ported official evaluator is greedy. Do not label a greedy

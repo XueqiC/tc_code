@@ -29,6 +29,9 @@ Q = {"_id": "train-a", "question": "Where is the fictional clock?", "answer": "P
 
 
 class WikiStub:
+    def preflight(self):
+        pass
+
     def reset(self):
         self.queries = []
 
@@ -370,10 +373,143 @@ def test_eval_offline_fails_clearly_and_keeps_question_pending(monkeypatch, tmp_
     monkeypatch.setattr(hp, "load_questions", lambda split: [Q])
     original = hp.Wikipedia
     monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(tmp_path / "cache", **kw))
-    monkeypatch.setattr(hp, "make_client", lambda _: ClientStub(["search[missing]"]))
-    with pytest.raises(hp.OfflineCacheMiss, match="not cached"):
+    monkeypatch.setattr(hp, "make_client", lambda _: pytest.fail("preflight must precede the model client"))
+    with pytest.raises(hp.OfflineCacheMiss, match="preflight.*no cached"):
         hotpotqa_eval.evaluate(base_url="stub", model="stub", out=tmp_path, n=1, offline=True)
-    assert not json.loads((tmp_path / "metrics.json").read_text())["complete"]
+    metrics = json.loads((tmp_path / "metrics.json").read_text())
+    assert metrics["status"] == "failed" and not metrics["complete"]
+    assert metrics["n"] == 0 and metrics["em"] is None
+
+
+@pytest.mark.parametrize("offline", [None, False, True])
+def test_eval_live_default_and_explicit_offline_replay(monkeypatch, tmp_path, offline):
+    original = hp.Wikipedia
+    cache = tmp_path / "cache"
+    html = "<p>The fictional clock is in Paris.</p>"
+    if offline:
+        original(cache, fetch=lambda *a: html).search("clock")
+    calls = []
+    def fetch(query, timeout):
+        assert not offline, "offline replay must not fetch"
+        calls.append(query)
+        return html
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(cache, fetch=fetch, **kw))
+    monkeypatch.setattr(hp, "load_questions", lambda split: [Q])
+    client = ClientStub(["search[clock]", "finish[Paris]"])
+    monkeypatch.setattr(hp, "make_client", lambda _: client)
+    kwargs = {} if offline is None else {"offline": offline}
+    metrics = hotpotqa_eval.evaluate(base_url="stub", model="stub", n=1, out=tmp_path / "eval", **kwargs)
+    assert metrics["status"] == "complete" and metrics["em"] == 1
+    assert metrics["offline"] is bool(offline)
+    assert calls == ([] if offline else ["Albert Einstein", "clock"])
+    # A completed resume does not require connectivity or inference.
+    assert hotpotqa_eval.evaluate(base_url="stub", model="stub", n=1, out=tmp_path / "eval", **kwargs) == metrics
+    assert len(client.calls) == 2
+
+
+@pytest.mark.parametrize("env", [None, "0", "1"])
+def test_import_paths_preserve_caller_retrieval_mode(monkeypatch, env):
+    import importlib
+    if env is not None:
+        monkeypatch.setenv("BFAS_HOTPOTQA_OFFLINE", env)
+    modules = ["bfas.rtd.benchmarks.adapter_evaluation", "bfas.rtd.benchmarks.hotpotqa_evaluation",
+               "bfas.rtd.benchmarks.registry", "bfas.rtd.baselines.paper_evaluation",
+               "bfas.rtd.evaluation", "tools.hotpotqa_eval", "bfas.adapters.hotpotqa"]
+    for name in modules:
+        importlib.import_module(name)
+        assert HotpotQAAdapter().offline is (env == "1")
+    from bfas.rtd.benchmarks.adapter_evaluation import frozen_environment
+    from bfas.rtd.baselines.paper_evaluation import protocol
+    from bfas.rtd.benchmarks.registry import get_benchmark
+    assert get_benchmark({"benchmark": "hotpotqa"}).official_evaluation.__module__ == "bfas.rtd.benchmarks.adapter_evaluation"
+    with frozen_environment("hotpotqa"), frozen_environment("hotpotqa"):
+        assert HotpotQAAdapter().offline is (env == "1")
+        assert HotpotQAAdapter(offline=False).offline is False
+        assert protocol("hotpotqa")["offline"] is (env == "1")
+    import os
+    assert os.environ.get("BFAS_HOTPOTQA_OFFLINE") == env
+
+
+@pytest.mark.parametrize("failure", ["network", "html", "cache_write"])
+def test_live_preflight_bypasses_warm_cache_before_client(monkeypatch, tmp_path, failure):
+    original = hp.Wikipedia
+    cache = tmp_path / "cache"
+    original(cache, fetch=lambda *a: "<p>This is a cached article.</p>").search("Albert Einstein")
+    def fetch(*args):
+        if failure == "network":
+            raise TimeoutError("no outbound connection")
+        return "<html>blocked</html>"
+    if failure == "cache_write":
+        def unwritable(*args, **kwargs):
+            raise PermissionError("cache is read-only")
+        monkeypatch.setattr(hp.tempfile, "TemporaryFile", unwritable)
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(cache, fetch=fetch, **kw))
+    monkeypatch.setattr(hp, "load_questions", lambda split: [Q])
+    monkeypatch.setattr(hp, "make_client", lambda _: pytest.fail("model client opened before preflight"))
+    with pytest.raises(hp.WikiError, match="preflight failed.*live retrieval"):
+        hotpotqa_eval.evaluate(base_url="stub", model="stub", n=1, out=tmp_path / "eval")
+    metrics = json.loads((tmp_path / "eval/metrics.json").read_text())
+    assert metrics["status"] == "failed" and metrics["n"] == 0
+    assert not metrics["complete"] and metrics["headline"] is None
+
+
+def test_offline_preflight_validates_snapshots_without_writing(monkeypatch, tmp_path):
+    wiki = hp.Wikipedia(tmp_path, fetch=lambda *a: "<p>This is an article.</p>")
+    wiki.search("clock")
+    wiki.offline = True
+    def forbidden(*args, **kwargs):
+        pytest.fail("offline preflight must not write or fetch")
+    monkeypatch.setattr(wiki, "fetch", forbidden)
+    monkeypatch.setattr(hp, "file_lock", forbidden)
+    wiki.preflight()
+    assert wiki.queries == []
+    path = next(tmp_path.glob("*.json"))
+    record = json.loads(path.read_text())
+    record["sha256"] = "corrupt"
+    path.write_text(json.dumps(record))
+    with pytest.raises(hp.WikiError, match="preflight.*checksum"):
+        wiki.preflight()
+
+
+@pytest.mark.parametrize("failure", ["offline_miss", "episode_error", "interrupt", "short_inventory"])
+def test_incomplete_eval_has_failure_artifact_and_no_result_scores(monkeypatch, tmp_path, failure):
+    questions = [dict(Q, _id=f"dev-{i}") for i in range(500)]
+    monkeypatch.setattr(hp, "load_questions", lambda split: questions[:1] if failure == "short_inventory" else questions)
+    original = hp.Wikipedia
+    cache = tmp_path / "cache"
+    original(cache, fetch=lambda *a: "<p>This cached article exists.</p>").search("known")
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(cache, **kw))
+    reply = {"offline_miss": "search[uncached student query]", "episode_error": RuntimeError("backend failed"),
+             "interrupt": KeyboardInterrupt(), "short_inventory": "finish[Paris]"}[failure]
+    client = ClientStub(["finish[Paris]", reply])
+    if failure == "interrupt":
+        original_create = client.create
+        def create(**kwargs):
+            if client.calls:
+                raise KeyboardInterrupt()
+            return original_create(**kwargs)
+        monkeypatch.setattr(client, "create", create)
+    monkeypatch.setattr(hp, "make_client", lambda _: client)
+    error = {"offline_miss": hp.OfflineCacheMiss, "episode_error": hotpotqa_eval.EvaluationFailed,
+             "interrupt": KeyboardInterrupt, "short_inventory": hotpotqa_eval.EvaluationFailed}[failure]
+    with pytest.raises(error):
+        hotpotqa_eval.evaluate(base_url="stub", model="stub", n=500, out=tmp_path / "eval", offline=True)
+    metrics = json.loads((tmp_path / "eval/metrics.json").read_text())
+    assert metrics["requested_n"] == 500 and metrics["status"] == "failed" and not metrics["complete"]
+    assert metrics["n"] == (0 if failure == "short_inventory" else 2 if failure == "episode_error" else 1)
+    assert metrics["error"]
+    assert all(metrics[k] is None for k in ("em", "f1", "headline", "mean_score", "per_category"))
+    if failure in ("offline_miss", "interrupt"):
+        assert metrics["partial_metrics"]["em"] == 1
+
+
+def test_adapter_preflight_precedes_renderer(monkeypatch, tmp_path):
+    adapter = HotpotQAAdapter(offline=True)
+    original = hp.Wikipedia
+    monkeypatch.setattr(hp, "Wikipedia", lambda **kw: original(tmp_path / "missing", **kw))
+    monkeypatch.setattr(adapter, "prepare_renderer", lambda *a: pytest.fail("renderer cost paid"))
+    with pytest.raises(hp.OfflineCacheMiss, match="preflight"):
+        adapter.evaluate("policy", tmp_path / "eval")
 
 
 def test_eval_openai_luna_uses_exported_key(monkeypatch, tmp_path):
