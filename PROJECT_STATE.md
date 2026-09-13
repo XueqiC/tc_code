@@ -2312,3 +2312,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   素材与代码保持现状不动:`results/hotpotqa_chain_recovery_20260913/packs.json`(三臂包)、
   `archive/ipl_round/`(24 条链)、分块打分修复(hq@9cd7b34)均已提交,随时可恢复。
   未解决的技术问题:**分块后 CUDA 实际峰值仍未测出**(理论上词表工作区 614–659 MiB → 80/112 MiB)。
+- **9/13 19:40 CDT 交互蒸馏"关系可测性"检查完成(job 1020206,约 15 分钟,零教师花费)**:
+  24/24 合法对可构造、选 12 个不同父任务;**verified_exclusive = 0**,全部 24 对 `cross_validity_unknown`。
+  **B 在数值上完全可测**:full-turn 与 action-only 的"与 0 不可区分"比例均为 **0/12 = 0.0%**。
+  **但正确绑定并不占优**:matched beats swapped 仅 **4/12(full)/ 3/12(action)**,
+  且报告明确写明 `verified correct-binding denominators n=0` —— **这些比例不能称作绑定准确率**。
+  **关键结构问题**:能构造出来的只有 **progress 对**(第 k 步 `search[X]` vs 第 k+1 步 `finish[答案]`,
+  同一任务连续两步),**不是设计文档 §6 那种目标对调的对称关系**;因此交叉项天然"可能仍然正确"
+  (检索前 finish 可能本就会答、检索后 search 只是冗余),这正是 exclusive 核验不出来的原因。
+  **另一条硬证据**:full-turn 与 action-only 的 B **在 12 对中有 5 对符号相反**
+  (最极端 −55.18 vs +12.24)→ 全 turn 交互被 Thought 文字匹配污染,§7.2 预警的捷径**实测存在**。
+  **顺带解掉悬案**:本次实测 **峰值显存 25.59 GiB(reserved 25.95)/ 79.25 GiB**,分块打分路径内存充裕。
