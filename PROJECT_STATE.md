@@ -2221,3 +2221,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   同方法的 sad s1 与其余 4 格同代码正常训练中 → 疑为竞态/环境,非确定性缺陷。
   失败目录移到 `results/_failed_cells/table1_hotpotqa_sad_s2_1019751`(未删),已重提 **1019797**。
   **若同点再次失败即为确定性问题,须修而非重试。**
+- **9/13 08:15 CDT 预算估算更正(我上一版算大了)**:之前的"240 候选状态 / 55 父任务 ≈ 14 万 token"
+  **把五种上下文全算进去了**。replay 是 autonomous 的重放副本,supplied-entity / must-retrieve 是局部练习变体,
+  closed-book 关掉了检索 → **教学素材应只取 autonomous**。按此重算:
+  **autonomous 候选状态 51 个,分布在 49 个父任务上(约每父 1 个)**;
+  6 父≈3,660 token/$0.02;12 父≈7,319/$0.04;20 父≈12,198/$0.07;**全部 49 父≈29,886 token/$0.18**。
+  剩余 15,942 token 可覆盖约 **26 个父任务**。已建议用户把上限提到约 45,000 覆盖全部 49 父(总计约 $0.18)。
+  待用户确认三项:(1) token 上限;(2) 教学素材限定 autonomous;(3) gold 规则收窄。
+- 9/13 08:10 CDT 采集器已改为**从构造器的候选清单取材 + `--scope`/`--scope-parents` 事先冻结父任务顺序**,
+  覆盖率按声明范围报告,并在花钱前打印估算(586 token / $0.0035 每链)。144 个 CPU 测试通过。chains@93d0597。
+  **注意**:候选清单跨全部上下文,若只喂 autonomous episodes 会报
+  "declared candidate state lacks a matching executable saved episode" —— 这正是上面第 (2) 项要定的范围问题。
