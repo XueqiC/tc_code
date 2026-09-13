@@ -2306,3 +2306,9 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   峰值从「序列长×词表」降到「块长×词表」。
   硬约束:**`final_logit_softcapping` 必须逐位复刻**(位置、dtype 提升)——差一点就改变所有分数与梯度;
   **剂量仍不许动**,若只有改剂量才装得下,必须停下来上报改什么、改多少。
+- **9/13 17:25 CDT 用户指示"先把 6 个 adapter 停下来" → 已全部停止。**
+  实际当时在跑的只有**第三次单格试跑** `1020184_0`(六格数组 `1020028` 早已自行 OOM 死亡),已 scancel,
+  显存看门狗监视器同时停掉。**LONI 上本项目无作业。**
+  素材与代码保持现状不动:`results/hotpotqa_chain_recovery_20260913/packs.json`(三臂包)、
+  `archive/ipl_round/`(24 条链)、分块打分修复(hq@9cd7b34)均已提交,随时可恢复。
+  未解决的技术问题:**分块后 CUDA 实际峰值仍未测出**(理论上词表工作区 614–659 MiB → 80/112 MiB)。
