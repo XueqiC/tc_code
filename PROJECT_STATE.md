@@ -2170,3 +2170,11 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **供应商**:Azure p1/p2 仍 **403 budget exhausted**;ollama 可用但**不提供 gpt-5.6-luna**(只有 minimax-m2.7 / gemma4:31b 等),
   用它等于换教师,违反冻结配对 → **走 OpenAI API 的 gpt-5.6-luna**。
   注意:api_status 的"7 天 545,281 tokens"是工作区账本总量、**不区分哪把 key 付费**,不能用来推断 Azure 余额。
+- **9/13 05:05 CDT ALFWorld 9/9 全部完成并归档**(base 56.4):
+  | 方法 | s0 | s1 | s2 | mean ± sd |
+  |---|---|---|---|---|
+  | Agent Distillation (kang) | 57.86 | 60.71 | 57.86 | **58.81 ± 1.65** |
+  | SAD | 60.00 | 59.29 | 57.14 | **58.81 ± 1.49** |
+  | SmartAD | 58.57 | 60.00 | 55.71 | **58.10 ± 2.18** |
+  三个方法**互相之间没有分开**(58.10–58.81,种子标准差 1.5–2.2),都比 base 56.4 高约 1.7–2.4。
+  小产物全部入 archive/table1/(9 个目录),权重留 rai + LONI。**按归档指令:不再重跑。**

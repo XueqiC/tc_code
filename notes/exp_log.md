@@ -910,3 +910,5 @@ t1_hotpotqa_* | 9 cells | LONI | FAILED/cancelled | 根因 webshop_evaluation.py
 t1_bfcl_sad_s0 | SAD BFCL B=30k seed 0 | LONI | Overall 44.27 (NL 85.3/Live 80.4/MT 53.1/Mem 22.8/Irrel 73.6) | results/paper_baselines/table1_bfcl_sad
 t1_bfcl_smartad_s0 | SmartAD BFCL B=30k seed 0 | LONI | Overall 43.98 (NL 85.4/Live 80.3/MT 52.8/Mem 21.9/Irrel 73.6) | results/paper_baselines/table1_bfcl_smartad
 t1_alfworld_sad_s2 | SAD ALFWorld B=30k seed 2 | LONI | SR 57.14 | results/paper_baselines/table1_alfworld_sad_s2
+t1_alfworld_sad_s1 | SAD ALFWorld B=30k seed 1 | LONI | SR 59.29 | results/paper_baselines/table1_alfworld_sad_s1
+t1_alfworld_smartad_s1 | SmartAD ALFWorld B=30k seed 1 | LONI | SR 60.0 | results/paper_baselines/table1_alfworld_smartad_s1
