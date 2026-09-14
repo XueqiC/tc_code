@@ -2453,3 +2453,13 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   只能标注为 text-only adaptation。
 - **门槛口径(用户 2026-09-14 定死)**:目标是胜过 **baseline**,不是胜过 base。
   HotpotQA > **37.8**(SmartAD),ALFWorld > **58.8**(SAD/Kang)。base 38.2 / 56.4 仅作参考行。
+
+### 2026-09-14 ~11:05 CDT — 更正:Azure 上有 gpt-5.6-luna
+探测两把 key 均 200,返回 `model=gpt-5.6-luna-2026-07-09`。此前"Azure 只有 gpt-5.4-mini"的判断
+来自 `ops/api_status.py` 写死的 `AZURE_DEPLOYMENT`,那只是探测脚本调用的部署,不是可用清单;已更正。
+可用(api-version 2024-10-21):`gpt-5.6-luna`、`gpt-5.4`、`gpt-5.4-mini`、`gpt-4o`、`gpt-4.1`;
+403:`gpt-5.6-sol`、`gpt-5.6-nova`、`gpt-6-astra`、`o3`、裸 `gpt-5.6`。APIM 不路由 /models 与 /deployments。
+**影响**:教师采购改走 Azure 项目额度(5M tokens/week、50k tokens/min),不再动个人 OpenAI 卡;
+provider 顺序 Azure P1 → P2 → P3 → OpenAI。**不影响 B=30,000**——那是每格的协议约束(教师输出 token),
+Kang 忠实版的 CoT 前缀必须从同一个 30,000 里扣,SmartAD K=2 同理覆盖更少任务。
+**口径**:旧银行账本只记别名 `openai/gpt-5.6-luna`,未记 snapshot;新采购必须落盘 snapshot。
