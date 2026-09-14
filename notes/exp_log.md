@@ -928,3 +928,4 @@ ipl_P_s0 | P arm seed 0 | LONI 1022669 | EM local .4800 / changed .4600 / full .
 ipl_P_s1 | P arm seed 1 | LONI 1022669 | EM local .4900 / changed .4550 / full .4850 | archive/ipl_adapters/P_s1
 ipl_L_s0 | L arm seed 0 | LONI 1022669 | EM local .5000 / changed .4800 / full .5050 | archive/ipl_adapters/L_s0
 ipl_L_s1 | L arm seed 1 | LONI 1022669 | EM local .4950 / changed .4600 / full .5100 | archive/ipl_adapters/L_s1
+baseline-mechanism-audit | 离线分析,无 GPU | archive/table1 + results/paper_baselines | SmartAD 选择率 100%(每题候选=1);SAD 两组同时非空 0/49、4/22;Kang 前缀 5/49、4/22,SAG 58.8→57.6 | docs/2026-09-14-baseline-limitations-detailed-zh.md
