@@ -2383,3 +2383,14 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **只加载一份模型,且用的是普通监督 CE、根本没有 reference KL**(BFCL 那条 KL 路径本就已关闭 adapter)。
   该假设不适用。**但这个问题已被 KV 滞留修复超越**:实测基线 60.03 → **23.19–23.32 GiB**,
   说明那 60 GiB 里约 37 GiB 本就是 step 0 扫描的未释放残留,而非第二份模型。
+- **9/14 08:00 CDT KV 滞留修复通过显存验收,幅度是决定性的:**
+  ```
+  修复前  基线 60.03 GiB · step 13 刷新 77.79 GiB(98% 卡容量,OOM)
+  修复后  基线 23.13–23.39 GiB(step 1→7 无爬升) · step 13 刷新 23.13 GiB
+  ```
+  **刷新尖峰完全消失**(77.79 → 23.13):原先那 +17.8 GiB 的"刷新代价"**本身也是扫描内的 KV 滞留**,
+  修掉之后刷新与普通步一样便宜。余量从 1.5 GiB 变为约 56 GiB。
+  根因确认为:`checked_score_action`(纯校验、结果丢弃)建了用不到的图,其 checkpoint 重放
+  留住 Gemma `shared_kv_states`;改为 `torch.no_grad()` 后,对角线/动作/诊断/RNG 状态**逐位相同**。
+  **已据此提交其余五格**(`1022669_1..5`),与验证格 `1022612_0` 并行;六格齐跑。
+  **仍未达成的第二条验收**:该格尚未写出 metrics(需跑完 24 步 + 评测)。**未解决**:policy 身份不匹配。
