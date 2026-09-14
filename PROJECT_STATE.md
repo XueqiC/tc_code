@@ -2436,3 +2436,20 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   n=3 自洽投票 58.8% → 57.6%(−1.2 点,无增益)。
 论点:三者都是轨迹语料上的**二阶算子**,B=30,000 的语料没有方差可操作 → 同时坍缩到同一个一阶 CE。
 撤回 09-13 的"教师素材覆盖带来增益"归因(难度混杂:未见 look_at_obj 69% > 见过 pick_clean 55%)。
+
+### 2026-09-14 ~11:10 CDT — 基线保真度:官方 repo 核对(用户指令:论文分析必须以官方 repo 为准)
+- **只有 Kang 有官方代码**:`https://github.com/Nardien/agent-distillation`,已克隆到
+  `envs/baseline_repos/agent-distillation`(沙箱)。SmartAD(Tang & Zhao, ACL Findings 2026)全文
+  无任何代码可用性声明;SAD(2505.13820)写的是 "We will release code upon acceptance",至今没有。
+- **Kang FTP 的官方机制**(`exps_research/build_prefix_memory.py` + `processors/reasoning.py`):
+  先让教师跑一遍**普通 CoT**,取回复的**第一个段落**加 `"Thought: "` 存成 `prefix_memory`,
+  再在**生成教师 agent 轨迹时**把它作为 prefix 传入(`model(messages, prefix=prefix)`)。
+  → FTP 是**采购期**机制,改变教师产出,并**额外消耗一遍 CoT 的教师 token**。
+  我们的"事后拼接已执行动作成 40 词摘要"是另一回事,**Kang 那一列必须重做**。
+- **SmartAD 归一化偏差**:论文是 `L = Σ w_i ℓ_i / Σ w_i`(除权重和),我们除的是监督 token 数。
+  按原文,单段行的权重**完全抵消**,退化成干净平均 NLL;我们的写法留下 1.5/2.0 常数。
+  论文自身的 K 消融:K=1 → 30.92,K=10 → 32.68。
+- **SAD 原理上不可行**:核心是对**教师分布**求 KL(需 teacher logits),黑盒教师下拿不到,
+  只能标注为 text-only adaptation。
+- **门槛口径(用户 2026-09-14 定死)**:目标是胜过 **baseline**,不是胜过 base。
+  HotpotQA > **37.8**(SmartAD),ALFWorld > **58.8**(SAD/Kang)。base 38.2 / 56.4 仅作参考行。
