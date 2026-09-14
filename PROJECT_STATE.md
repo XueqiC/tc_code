@@ -2560,3 +2560,18 @@ Kang 37.2)的比较存在约 **−1.2 点对我们不利的环境漂移**,两个
 **报告工具**:`tools/cr_stage1_report.py`(提交 `78420e5`,572 测试,已部署 LONI,协议哈希 intact)。
 它用 `verify_code=False` 读协议,能在缺格时照常出报告并列出缺格原因;`analyze` 无法使用,因为它要求
 每个申报单元与每个 τ 都有 evaluation.json,而 τ=1 单元不可能存在。
+
+### 2026-09-14 17:00 CDT — D1 seed 0 放弃(两次数值失败),五格评测中
+- **1023419_1(D1_s0)第一次失败**:`NumericalFailure: Nonfinite cell 22 at sequence length 1992`,
+  位置在**关系四格打分** `score_cells`。目录已移入 `_trash/D1_s0_tau20_failed_nonfinite_1023419`。
+- **1023666_1(重试)第二次失败**(1h29m):`generation/teacher-forced likelihood differs:
+  mean |delta|=0.117, max |delta|=8.965 nats/token`(硬上限 8.0),位置在 **doseB 预条件器的
+  source-gradient 路径** `checked_score_action`。
+- **两个不同代码路径、同一类故障**;预检里另有两条同类告警(5.22 / 2.54 nats/token,未越硬线)。
+  判断:**打分栈存在间歇性数值不稳定**,是告警还是致命取决于当次漂移幅度。
+- **按事前承诺不再重试**(重试到"碰巧通过"= 挑选结果)。
+- **最终单元集**:D0 seed{0,1} ✅,**D1 仅 seed 1** ✅,D2 seed{0,1} ✅,base ✅。
+  主比较 D2−D1 因此**单/双种子不对称**,报告工具会显式标注,不得直接平均掩盖。
+- 诊断缺陷(已记录,今日不改):致命的 score_consistency 记录在抛异常前未落盘
+  (D1_s0 的 compute.jsonl 有 161 条记录,无一超过软容差 2.0)。应改为先落盘再抛。
+  今天不动 CLI,因为改动会破坏五个在跑格子的协议哈希。
