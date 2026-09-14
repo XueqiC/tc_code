@@ -2505,3 +2505,31 @@ Kang 忠实版的 CoT 前缀必须从同一个 30,000 里扣,SmartAD K=2 同理�
 - **1023151 运行中**:{填充,不填充} × {no_grad, enable_grad} 的 2×2 交叉,钉死变量。
 - 另:停掉了一个上个会话遗留的监视器(扫 `/work/xueqic/hq/mech2/` 与 paper_baselines 目录),
   它报的 "mech evaluated 10/9 / table1 done 11" 是历史计数,不是新结果。
+
+### 2026-09-14 14:30 CDT — 条件响应蒸馏第一阶段:七格阵列已起跑(LONI 1023419)
+**RUNNING JOB**:LONI job **1023419**(7 格阵列,`gpu2`,账号 `loni_depedlab03`),
+提交目录 `/work/xueqic/hq/tc-hotpotqa`,脚本 `scripts/cr_arms.slurm`。
+单元:`D0/D1/D2 × seed{0,1} @ τ=20` + 同协议 `base`(索引 6)。每格 train → export → vLLM → 三层评测。
+预计每格 ~5.4 小时,**预计完成 ~20:00 CDT 2026-09-14**。
+监视任务 `bq1uthl3q`(重启后会丢,需重挂)。
+
+**协议**:`runs/conditional_response/stage1/frozen_protocol.json`(worktree `tc-alignment-hq`,提交 `146642a`)。
+- 46 个**同父任务**配对(跨证据阶段),0 退化,不按分数筛选;
+- τ=20,λ=**0.2194**(G0 5.537 / GE 2.524 / G_noise 0 / G_floor 1e-12,status calibrated);
+- 剂量 doseB(19,838 / 19,591 监督 token,与 Table 1 基线对齐);
+- 评测三层:`table1_dev_500`(与基线同协议)、`stage1_confirmation_32`、`support_200`。
+
+**τ=1 无法运行**:校准在非有限关系梯度上失败(前向有限、NaN 在反向、首个非有限项 `q_proj.lora_A`);
+这是饱和的症状,也是 τ=1 这一维度的结论。单元表因此由 13 格收缩为 7 格。
+
+**判读规则(已登记,勿改)**:主比较 D2−D1,父任务配对 bootstrap(seed 271828,10,000 次);
+每个臂**实际收到非平凡关系梯度的关系数**必须与成绩并列;若 D2 的有效关系数远低于 D1,
+**不得**把"D2 没赢"解释成联合目标无价值。门槛:HotpotQA > **37.8**(SmartAD),base 38.2 仅参考。
+
+**今日两次自己造成的损失(记录以免重犯)**:
+1. 未等预检回执就起阵列(1023315),七格被硬闸拦下,已 scancel;
+2. 提议砍评测层省 21 分钟,但 CLI 文件被协议哈希钉住,启用需重冻结→重跑 75 分钟预检,净亏一小时,已撤回并回退 CLI。
+`--layers` 的实现保存在 scratchpad,下个协议版本可用。
+
+**预检遗留告警**:score-consistency 离群 2 次(100 token 中 1 个,最大差 5.22 / 2.54 nats/token),
+非失败,最终报告须列出。
