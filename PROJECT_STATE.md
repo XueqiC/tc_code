@@ -2379,3 +2379,7 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **全部希望落在基线构成核算**(任务进行中):若参考 KL 持有第二份 12B 副本(约 24 GiB),
   **LoRA 下可用"临时关闭 adapter、同一份基座前向"取得同一参考分布**,基线可降至约 36 GiB,
   余量从 1.5 GiB 变为约 25 GiB。**若核算显示无冗余,则须如实上报"单卡装不下"并量化缺口,不得私自改剂量。**
+- 9/14 07:10 CDT **我提的"参考 KL 持有第二份 12B 副本"假设被证伪**:核查显示六格 runner
+  **只加载一份模型,且用的是普通监督 CE、根本没有 reference KL**(BFCL 那条 KL 路径本就已关闭 adapter)。
+  该假设不适用。**但这个问题已被 KV 滞留修复超越**:实测基线 60.03 → **23.19–23.32 GiB**,
+  说明那 60 GiB 里约 37 GiB 本就是 step 0 扫描的未释放残留,而非第二份模型。
