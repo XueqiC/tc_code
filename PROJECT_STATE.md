@@ -2419,3 +2419,8 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   但同样在噪声之下,**只能说没有证据支持 P 更好,不能说 L 更好**。
   **这是本条机制线第一次拿到真正的学习结果。** 素材、监督目标、曝光三者匹配的前提下,
   **教学组织方式未产生可分辨的学习差异**。
+- **9/14 13:11Z ★ Azure 两把 key 均已恢复(azure-p1 / azure-p2 code 200 usable)**,自 9/13 起持续 403 的状态结束。
+  共享部署窗口读数 1,506,993/1,507,000 tokens/60s;项目预算(公布值)5,000,000 tokens/week、50,000 tokens/min。
+  **口径提醒**:`x-ratelimit-*` 描述的是**共享部署窗口**,不是本项目的周预算;
+  账本也不记录"哪把 key 付费",所以 7 天 545,281 tokens 是工作区总量,不能按 key 拆分。
+  **本次探测未做任何教师调用。** 教师预算仍为剩余 15,942 output token / $4.92(OpenAI luna)。
