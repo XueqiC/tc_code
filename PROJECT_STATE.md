@@ -2323,3 +2323,16 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   **另一条硬证据**:full-turn 与 action-only 的 B **在 12 对中有 5 对符号相反**
   (最极端 −55.18 vs +12.24)→ 全 turn 交互被 Thought 文字匹配污染,§7.2 预警的捷径**实测存在**。
   **顺带解掉悬案**:本次实测 **峰值显存 25.59 GiB(reserved 25.95)/ 79.25 GiB**,分块打分路径内存充裕。
+- **9/14 00:55 CDT I/P/L 预检(单格 1021697):显存问题确认解决,被 policy 身份不匹配挡住。**
+  **峰值仅 34%(约 27/79 GiB),且走的是完整训练路径**(优化器状态、参考 KL、梯度累积、最长输入)
+  → 分块打分修复在完整训练下同样够用;25.59 GiB(仅打分)确实不能替代此预检,评审这点是对的。
+  失败点:`preconditioner_source_gradients → checked_score_action → score_action`
+  `ValueError: generation/scoring backend or policy mismatch` —— **与今天杀掉 Table 1 sad s2 的是同一故障**。
+  **证据升级为:间歇性、跨程序**(sad s2 同点连挂两次、第三次原样跑通;现在 adapter runner 也中招)。
+  **我的疏漏**:之前加的身份诊断加在 tc-alignment 主树,**adapter 用的是 hq 树**,所以这次仍只报裸字符串,
+  身份差异再次没抓到。已要求先把诊断移植过来,再定位(禁止放松检查 / `verify_policy=False` / 捕获继续),
+  并明确回答"守卫是间歇而非缺失时,已跑完的格子是否可能受影响"。
+- 9/14 00:50 CDT 交互蒸馏报告已按评审**逐条降级**(五处),其中"4/12 低于随机 6/12"是**我的错误**:
+  无有效标签即**无 50% 随机基准**。排他性拆为三类(已核验两者有效 / 已核验有偏好 / 未核验),
+  我们几乎全在第三类,**不得写成"证明这些关系无监督价值"**;**不得按训练前 B 的正负筛样本**。
+  素材两种用途分开:无可靠交叉偏好的链 → 正例学习与 I/P/L;有可靠条件偏好的对 → 额外交互监督。
