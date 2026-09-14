@@ -2343,3 +2343,12 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
   本次 OOM 特征:失败时申请量极小(12 MiB / 20 MiB),已占 79.2/79.25 GiB,发生在 LoRA forward/backward,
   **像是随步数缓慢累积**,分块 logits 只解决了峰值的一部分。
   **下一步不再盲修**:先做逐步显存剖面(每步记录 max_memory_allocated 与分配器统计),定位增长项。
+- **9/14 02:35 CDT 关键定位线索:两个故障都发生在同一个边界——第 12 步的预条件器刷新。**
+  三个 OOM 格子(I_s1 / P_s0 / L_s0)**全部停在 step 12 的 `student_commit`**,不是随机位置、也不是接近结束。
+  配置:`preconditioner_refresh_steps = 12`、`student_steps = 24`、`preconditioner_source_samples = 2`
+  → 预条件器在 **step 0 与 step 12** 各刷新一次,刷新时要对 **24 个父任务 × 2 个样本**做
+  "生成动作 → 打分 → 求梯度"的整轮扫描,这是全流程显存最密集的一段。
+  **step 0 的刷新成功(显存干净),step 12 的刷新失败(已累积)** → 与"随步数缓慢累积"的特征一致。
+  **并且今天的身份不匹配也正好在这个边界**:早先诊断记录为
+  "commit step 12 → step 13 第一个 preconditioner 动作"。
+  **统一假设:两个故障都由第 12 步预条件器刷新这一段触发。** 剖面任务需优先验证这一段。
