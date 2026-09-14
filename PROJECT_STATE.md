@@ -2463,3 +2463,18 @@ result_to_retrieval_adjustment 9、multiple_evidence_to_answer 2、invalid_actio
 provider 顺序 Azure P1 → P2 → P3 → OpenAI。**不影响 B=30,000**——那是每格的协议约束(教师输出 token),
 Kang 忠实版的 CoT 前缀必须从同一个 30,000 里扣,SmartAD K=2 同理覆盖更少任务。
 **口径**:旧银行账本只记别名 `openai/gpt-5.6-luna`,未记 snapshot;新采购必须落盘 snapshot。
+
+### 2026-09-14 ~12:35 CDT — 条件响应蒸馏第一阶段:代码交付,GPU 探测在跑
+- 提交 `9b34a26`(worktree `tc-alignment-hq`):`src/bfas/conditional_response/` 七模块 +
+  `tools/conditional_response_distill.py` + 38 个新 CPU 测试(另 142 个回归测试通过)。
+  实测银行:58 个购买回合 / 1,883 监督 token / 24 父任务 / 276 个跨父任务关系(0 退化)。
+  冻结协议 `20aafd1e…`,模型身份 `207872d8…`。零教师调用。
+- **两个剂量已登记**(`docs/2026-09-14-stage1-dose-registration.md`):doseA = §9.1 fallback
+  (实测每种子仅 **11 步 / 5,649 监督 token 曝光**),doseB = Table 1 基线实际用的冻结剂量
+  (24 步 / ~19,700)。只有 doseB 可用于与 37.8 的正面比较。
+- **发现并发回修复的缺陷**:交付的 `evaluate` 写死 `RecordingWikipedia(offline=True)`,
+  而 Table 1 协议是 `offline: false`;这类缺陷静默(cache miss → 检索失败),曾报废 7 个格子。
+  同时它沿用的是 I/P/L 三层评测计划,需换成 Table 1 的 500 题协议 + 32 确认 + 200 开发。
+- LONI job **1023134 失败**(4 秒):`archive/ipl_round/chains.jsonl` 未同步。
+  已改为**从冻结协议自身的哈希表推导同步集**(33 个源文件),推送后在 LONI 侧逐个校验哈希
+  → ALL MATCH,重提为 job **1023139**(λ 校准 + 训练预检的可行性探测)。
