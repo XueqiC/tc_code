@@ -43,7 +43,10 @@ def nonnegative_seed(value):
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--method", required=True, choices=("smartad", "sad", "kang", "gad"))
+    parser.add_argument("--method", required=True, choices=("smartad", "sad", "kang", "gad",
+        "kang_first_thought_prefix", "kang_action_list_summary"))
+    parser.add_argument("--kang-mode", choices=("kang_first_thought_prefix", "kang_action_list_summary"),
+                        help="kang defaults to acquisition-time FTP; summary is NOT the published mechanism")
     parser.add_argument("--benchmark", required=True, choices=("alfworld", "bfcl", "hotpotqa"))
     parser.add_argument("--bank", required=True, type=Path)
     budget = parser.add_mutually_exclusive_group(required=True)
@@ -59,12 +62,18 @@ def arguments(argv=None):
                         help="2 student steps (2 rows each), at most 2 preconditioner prompts, 3 evaluation tasks")
     parser.add_argument("--_phase", choices=("train", "evaluate"), help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    from bfas.rtd.baselines.paper_fidelity import method_name
+    if args.kang_mode and args.method != "kang":
+        parser.error("--kang-mode requires --method kang")
+    args.method = method_name(args.method, {"kang_mode": args.kang_mode} if args.kang_mode else {})
     if args._phase and args.budget_tokens is not None and len(args.budget_tokens) != 1:
         parser.error("an internal worker phase requires a single budget level")
     return args
 
 
 def validate_run_args(args):
+    from bfas.rtd.baselines.paper_fidelity import require_unsealed_output
+    require_unsealed_output(args.run_dir)
     if type(args.seed) is not int or args.seed < 0:
         raise ValueError("seed must be a non-negative integer")
     if args.benchmark == "hotpotqa" and args.smoke:
@@ -86,6 +95,7 @@ def prepare(args):
     from bfas.rtd.baselines.paper_train import hyperparameters
     from bfas.rtd.baselines.paper_seeds import verify_seed_zero
     from bfas.rtd.persistence import atomic_json, file_hash, digest
+    from bfas.rtd.baselines.paper_fidelity import KANG_PREFIX, fidelity_metadata
     validate_run_args(args)
     cfg_path = ROOT/"configs/rtd"/f"v1_1_{args.benchmark}_luna.yaml"
     config = yaml.safe_load(cfg_path.read_text())
@@ -94,6 +104,7 @@ def prepare(args):
     for key in ("lora_rank", "lora_alpha", "lora_target_modules"):
         config[key] = shared[key]
     config.update(student=STUDENT, training_seed=args.seed, replay_bank_path=str(args.bank),
+        method=args.method, kang_mode=args.method if args.method.startswith("kang_") else KANG_PREFIX,
         model_local_files_only=True, new_teacher_calls=False, new_teacher_tokens=0,
         initial_eta=1e-5, optimizer="fixed_preconditioned_single_step", smoke=args.smoke,
         training_device="cuda:0", cpu_threads=4, score_position_chunk_size=32)
@@ -101,12 +112,14 @@ def prepare(args):
         config["student_call_format"] = "gemma4"
     purchase, rows = load_purchased(args.bank, args.benchmark, args.budget_fraction,
                                    budget_tokens=args.budget_tokens)
+    if args.method == KANG_PREFIX and (not rows or any(r.acquisition_method != KANG_PREFIX for r in rows)):
+        raise ValueError("kang_first_thought_prefix requires a newly acquired prefixed bank; archived unprefixed data only supports kang_action_list_summary")
     source_files = [Path(__file__), *sorted((ROOT/"src/bfas/rtd/baselines").glob("paper_*.py")),
                     ROOT/"tools/baseline_bfcl.py", ROOT/"src/bfas/adapters/alfworld.py",
                     ROOT/"src/bfas/run.py", ROOT/"src/bfas/processes.py",
                     *[ROOT/"src/bfas/rtd"/name for name in ("runtime.py", "functional_step.py",
                         "return_gradient.py", "student.py", "transport.py", "evaluation.py",
-                        "source_scoring.py", "persistence.py")]]
+                        "source_scoring.py", "persistence.py", "ledger.py")]]
     if args.benchmark == "hotpotqa":
         source_files.extend([ROOT/"src/bfas/adapters/hotpotqa.py", ROOT/"src/bfas/hotpotqa.py",
             ROOT/"src/bfas/multihop.py", ROOT/"src/bfas/hotpotqa_audit.py",
@@ -117,14 +130,15 @@ def prepare(args):
             *[ROOT/"src/bfas/rtd/benchmarks"/name for name in
               ("config.py", "registry.py", "adapter_evaluation.py")],
             ROOT/"src/bfas/rtd/caps.py", ROOT/"src/bfas/rtd/feedback_rng.py"])
-    manifest = dict(version="budgeted-paper-baselines-v1", method=args.method, benchmark=args.benchmark,
+    manifest = dict(version="budgeted-paper-baselines-v2-fidelity", method=args.method, benchmark=args.benchmark,
+        fidelity=fidelity_metadata(args.method),
         seed=args.seed, student=STUDENT, teacher="gpt-5.6-luna", **purchase, config=config,
         config_sources={str(p.relative_to(ROOT)): file_hash(p) for p in (cfg_path, shared_path)},
         hyperparameters=hyperparameters(config, args.method), evaluation_protocol=protocol(args.benchmark, smoke=args.smoke),
         smoke=args.smoke,
         source_hashes={str(p.relative_to(ROOT)): file_hash(p) for p in source_files},
         port=args.port, status="prepared", gpu_hours=0., gpu_accounting="single GPU reserved wall time; export/scoring CPU excluded",
-        deviations_document="docs/PAPER_BASELINES.md", rows_hash=digest([asdict(r) for r in rows]))
+        deviations_document="docs/baseline_fidelity_ledger.md", rows_hash=digest([asdict(r) for r in rows]))
     args.run_dir.mkdir(parents=True, exist_ok=False)
     atomic_json(args.run_dir/"purchased_rows.json", [asdict(r) for r in rows])
     atomic_json(args.run_dir/"manifest.json", manifest)
@@ -140,6 +154,9 @@ def prepare(args):
 
 
 def train_worker(directory, manifest):
+    from bfas.rtd.baselines.paper_fidelity import require_unsealed_output, record_method
+    require_unsealed_output(directory)
+    record_method(manifest)
     import torch
     from bfas.rtd.baselines.paper_progress import progress, stage
     threads = max(1, min(4, int(manifest["config"].get("cpu_threads", 4))))
@@ -196,6 +213,7 @@ def run_budget(args):
     manifest = prepare(args)
     if args.prepare_only:
         print(json.dumps(dict(status="prepared", run_dir=str(args.run_dir), B=manifest["B"],
+            method=manifest["method"], fidelity=manifest["fidelity"],
             seed=manifest["seed"],
             teacher_tokens_charged=manifest["teacher_tokens_charged"],
             usable_packages=manifest["purchased_usable_packages"], new_teacher_calls=0, gpu_hours=0.)))
@@ -257,6 +275,8 @@ def main(argv=None):
                       PYTHONUNBUFFERED="1", OMP_NUM_THREADS="4", MKL_NUM_THREADS="4",
                       RAYON_NUM_THREADS="4", TOKENIZERS_PARALLELISM="false")
     if args._phase:
+        from bfas.rtd.baselines.paper_fidelity import require_unsealed_output
+        require_unsealed_output(args.run_dir)
         from bfas.rtd.persistence import file_hash
         manifest = json.loads((args.run_dir/"manifest.json").read_text())
         if args.seed != manifest["seed"] or args.seed != manifest["config"]["training_seed"]:

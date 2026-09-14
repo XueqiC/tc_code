@@ -92,7 +92,7 @@ def test_cli_rejects_invalid_seed(seed):
     assert error.value.code == 2
 
 
-@pytest.mark.parametrize("method", ["sad", "smartad", "kang", "gad"])
+@pytest.mark.parametrize("method", ["sad", "smartad", "kang_action_list_summary", "gad"])
 def test_purchases_are_byte_identical_and_reference_is_untouched(tmp_path, method):
     bank, prefix = make_bank(tmp_path), tmp_path/"curve"
     zero, baseline = prepared(bank, prefix, method=method)
@@ -177,7 +177,7 @@ def tiny_train(directory, manifest):
     return trainer
 
 
-@pytest.mark.parametrize("method", ["sad", "smartad", "kang", "gad"])
+@pytest.mark.parametrize("method", ["sad", "smartad", "kang_action_list_summary", "gad"])
 def test_selection_artifacts_match_across_seeds_with_real_cpu_trainer(tmp_path, method):
     bank, prefix = make_bank(tmp_path), tmp_path/"curve"
     zero, baseline = prepared(bank, prefix, method=method)
@@ -286,7 +286,7 @@ def test_train_worker_seeds_initialization_dropout_and_scoring_on_cpu(tmp_path, 
     assert json.loads((directory/"manifest.json").read_text())["status"] == "trained"
 
 
-@pytest.mark.parametrize("method", ["sad", "smartad", "kang", "gad"])
+@pytest.mark.parametrize("method", ["sad", "smartad", "kang_action_list_summary", "gad"])
 def test_training_schedule_and_sampling_repeat_and_vary_by_seed(tmp_path, method):
     samples, schedules, discriminators = [], [], []
     class SamplingBackend(Backend):
@@ -318,7 +318,7 @@ def test_training_schedule_and_sampling_repeat_and_vary_by_seed(tmp_path, method
 
 
 @pytest.mark.parametrize("seed", [0, 7])
-@pytest.mark.parametrize("method", ["sad", "kang"])
+@pytest.mark.parametrize("method", ["sad", "kang_action_list_summary"])
 def test_metrics_record_seed_without_changing_evaluation(tmp_path, monkeypatch, seed, method):
     from bfas.rtd import hardware
     # Exercise actual receipt/metrics writing, with only the external campaign stubbed.
@@ -339,9 +339,9 @@ def test_metrics_record_seed_without_changing_evaluation(tmp_path, monkeypatch, 
     monkeypatch.setattr(paper_evaluation, "run_alfworld", campaign)
     result = paper_evaluation.evaluate_run(ROOT, directory, manifest)
     assert calls == [dict(kang=False, port=8930, smoke=False)] + (
-        [dict(kang=True, port=8930, smoke=False)] if method == "kang" else [])
+        [dict(kang=True, port=8930, smoke=False)] if method == "kang_action_list_summary" else [])
     assert result["seed"] == seed and result["protocol"] == paper_evaluation.protocol("alfworld")
     for name in ("metrics.json", "official_metrics.json", "manifest.json"):
         assert json.loads((directory/name).read_text())["seed"] == seed
-    if method == "kang":
+    if method == "kang_action_list_summary":
         assert json.loads((directory/"kang_metrics.json").read_text())["seed"] == seed

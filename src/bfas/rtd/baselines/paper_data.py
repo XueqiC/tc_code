@@ -75,6 +75,7 @@ class TeacherRow:
     target: str
     benchmark: str
     final_step: bool = False
+    acquisition_method: str | None = None
 
 
 def deployed_row(row):
@@ -152,7 +153,8 @@ def load_purchased(bank, benchmark, fraction=None, *, budget_tokens=None):
                 raise ValueError("empty teacher target")
             rows.append(deployed_row(TeacherRow(qid, provenance["task_id"],
                 state["parent_hash"], index, prompt, target, benchmark,
-                final_step=index == len(behaviors)-1)))
+                final_step=index == len(behaviors)-1,
+                acquisition_method=provenance.get("acquisition_method"))))
     purchase.update(bank=str(bank.resolve()), certificate_sha256=file_hash(bank/"public/cap_certificate.json"),
         certificate_core=cert["core"], positive_rows=len(rows),
         purchased_usable_packages=sum(c["usable"] for c in purchase["charges"]),
@@ -163,8 +165,8 @@ def load_purchased(bank, benchmark, fraction=None, *, budget_tokens=None):
 def select_smartad(rows, nll, *, on_progress=None):
     """One purchased verified trajectory per exact task, scored at base student.
 
-    nll(row) returns (total NLL, generated token count). Pool all generated
-    tokens so differing trajectory lengths do not bias the selection.
+    nll(row) returns (total NLL, generated token count). Eq. 3 macro-averages
+    assistant-turn mean NLLs, so long turns do not dominate the selection.
     """
     packages = {}
     for row in rows:
@@ -178,7 +180,7 @@ def select_smartad(rows, nll, *, on_progress=None):
             completed += 1
             if on_progress:
                 on_progress(completed=completed, total=len(rows), package_id=qid, index=row.index)
-        score = sum(v[0] for v in values) / sum(v[1] for v in values)
+        score = sum(total/count for total, count in values) / len(values)
         if not math.isfinite(score):
             raise ValueError("nonfinite base-student NLL")
         scores[qid] = score
@@ -186,12 +188,13 @@ def select_smartad(rows, nll, *, on_progress=None):
             selected[task] = (score, qid)
     ids = {v[1] for v in selected.values()}
     return [row for row in rows if row.package_id in ids], dict(
+        candidates_per_task={task: sum(t == task for t, _ in packages) for task in selected},
         base_student_mean_nll=scores, selected_package_ids=sorted(ids),
-        selection="minimum base-student generated-token mean NLL per task; package ID tie break")
+        selection="minimum base-student macro-average of assistant-turn mean NLL per task; package ID tie break")
 
 
-def first_thought(rows):
-    """Deterministic retrospective FTP, only on the first turn of each episode."""
+def kang_action_list_summary(rows):
+    """NOT Kang's published mechanism: retrospective first-target rewrite."""
     trajectories = {}
     for row in rows:
         trajectories.setdefault(row.package_id, []).append(row)

@@ -1,5 +1,9 @@
 # Budgeted paper baseline runner
 
+For current source fidelity, method names and fixed-budget acquisition estimates, see
+[the baseline fidelity ledger](baseline_fidelity_ledger.md). Archived results
+remain sealed and retain their historical implementations and metadata.
+
 The current table suite is ALFWorld, HotpotQA, Bamboogle, MuSiQue, and
 2WikiMultiHopQA. BFCL material below describes historical runs and existing
 runner support; BFCL is excluded from the current table aggregator. The three
@@ -14,7 +18,7 @@ validated only: no model-weight loading, GPU experiment, teacher call, or
 benchmark performance result was produced.
 
 ```bash
-# Run later on one explicitly selected GPU. Repeat --method for sad/kang/gad.
+# Run later on one explicitly selected GPU. Use a fresh fidelity_v2 run name.
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python tools/baseline_run.py \
   --method smartad --benchmark alfworld \
   --bank /home/xueqi/hq/projects/tc-alignment-uni/data/rtd/v1_1_alfworld_luna \
@@ -225,22 +229,21 @@ No calibration or evaluation score selects hyperparameters/checkpoints.
 
 **SmartAD.** For each task, score all its purchased verified trajectories with
 the initial base-equivalent student (fresh LoRA has zero initial delta). Select
-the lowest generated-token mean NLL; break ties by package ID. Score before any
+the lowest macro-average of assistant-turn mean NLLs (Eq. 3); break ties by package ID. Score before any
 update and retain complete selected trajectories. The loss is weighted token
-CE divided by generated token count: reason 1, action 1.5, final decision 2.
+CE divided by the sum of weights (Eq. 5): reason 1, action 1.5, final decision 2.
 Plain ALFWorld commands are actions and the last verified episode command is
 the terminal decision. BFCL tool calls are actions; non-tool final prose is the
 final decision. Selection scores/IDs are saved. This follows the selection and
 segment weighting of [SmartAD](https://aclanthology.org/2026.findings-acl.1349/),
 with the requested fixed weights and benchmark-specific terminal-action label.
 
-**SAD.** Compute separate mean CE on REASON and ACT spans, then average the
+**SAD (`sad`).** Compute separate mean CE on REASON and ACT spans, then average the
 present span groups; final decisions join ACT. Recognize `[REASON]`/`[ACT]`,
 THOUGHT/ACTION, and native Gemma/tool delimiters without inserting pseudo-tags
-into deployment text. Observation spans always have weight zero. This is a
-text-only adaptation of [SAD](https://arxiv.org/abs/2505.13820): teacher
-distribution/logit alignment is replaced with hard labels; there is no
-teacher-logit KL or feature-alignment term. ALFWorld's converted bank contains
+into deployment text. Observation spans always have weight zero. The
+[fidelity ledger](baseline_fidelity_ledger.md) records the paper objective and
+shared experimental setting. ALFWorld's converted bank contains
 commands rather than the collector's private reasoning. Missing reasoning is
 not fabricated; action-only rows reduce to action CE. The empty template
 prefill is prompt context, not a fake reasoning example.
@@ -253,13 +256,17 @@ that produces plain text. Wikipedia observations are masked. Only `finish`
 gets the final-decision weight; earlier reasoning in the terminal row stays
 reasoning. SAD groups both tool actions and terminal answers under ACT.
 
-**Kang / Agent Distillation.** Derive a deterministic, at-most-40-word
-retrospective summary from each purchased trajectory's text and prepend it as
-THOUGHT to its first supervised response. Later prompts/targets stay unchanged.
-This replaces the original teacher-generated CoT first-thought procedure with
-offline extraction, as required by the no-new-teacher-call constraint. At
-inference, the student produces the thought itself; no teacher-derived prefix
-is supplied for evaluation tasks. [Original paper](https://arxiv.org/abs/2505.17612).
+**Kang first-thought acquisition (`kang_first_thought_prefix`).** Build a
+question-keyed memory from separate teacher CoT completions, then continue the
+stored first paragraph as the first assistant prefix during fresh teacher-agent
+acquisition. Every output is charged through the ledger. Training preserves
+these produced targets. The old at-most-40-word retrospective target rewrite
+remains only under `kang_action_list_summary`, labelled NOT the published
+mechanism. `--method kang` now requires a newly acquired prefixed bank; cached
+unprefixed banks require the explicit summary method. See the
+[fidelity ledger](baseline_fidelity_ledger.md) for the injected provider contract
+and the read-only budget dry run. Neither training nor evaluation generates a
+teacher prefix for held-out tasks.
 
 On ALFWorld and BFCL, Kang has an additional full evaluation with **n=3, temperature=.7** and stable
 per-task/per-step seeds. Vote by execution result, tie-breaking by first sample.

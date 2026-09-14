@@ -39,9 +39,19 @@ def test_alfworld_terminal_decision_weight(text):
 def test_segment_weighted_ce_and_masked_gradient():
     logp = torch.tensor([-1., -2., -3., -100.], requires_grad=True)
     loss = span_ce(logp, ["reason", "action", "final", "observation"], "smartad")
-    assert float(loss.detach()) == pytest.approx((1+3+6)/3)
+    assert float(loss.detach()) == pytest.approx((1+3+6)/4.5)
+    assert loss > span_ce(logp, ["reason", "action", "final", "observation"], "sft")
     loss.backward()
-    assert torch.allclose(logp.grad, torch.tensor([-1/3, -.5, -2/3, 0.]))
+    assert torch.allclose(logp.grad, torch.tensor([-1/4.5, -1.5/4.5, -2/4.5, 0.]))
+
+
+@pytest.mark.parametrize("kind", ["reason", "action", "final"])
+def test_smartad_single_kind_cancels_weight_exactly(kind):
+    logp = torch.tensor([-1., -2., -3., float("-inf")], requires_grad=True)
+    loss = span_ce(logp, [kind]*3 + ["observation"], "smartad")
+    assert loss == -logp[:3].mean()
+    loss.backward()
+    assert logp.grad[-1] == 0
 
 
 def test_sad_balances_spans_instead_of_tokens_and_omits_missing_group():

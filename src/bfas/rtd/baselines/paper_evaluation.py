@@ -234,9 +234,12 @@ def evaluation_policy(root, directory, manifest):
 
 
 def evaluate_run(root, directory, manifest):
+    from .paper_fidelity import KANG_METHODS, record_method, require_unsealed_output
     from ..hardware import hardware_identity
     from .paper_seeds import verify_seed_zero
     root, directory = Path(root).resolve(), Path(directory).resolve()
+    require_unsealed_output(directory)
+    record_method(manifest)
     verify_seed_zero(directory, manifest, selection=True)
     import torch
     torch.set_num_threads(max(1, min(4, int(manifest["config"].get("cpu_threads", 4)))))
@@ -272,10 +275,10 @@ def evaluate_run(root, directory, manifest):
                           kang=False, port=manifest["port"], smoke=smoke, **options)
         result.update(receipt, evaluation_mode="smoke_single_sample" if smoke else "official_single_sample")
         atomic_json(directory/("smoke_metrics.json" if smoke else "official_metrics.json"), result)
-        if manifest["method"] == "kang" and benchmark == "hotpotqa":
+        if manifest["method"] in KANG_METHODS and benchmark == "hotpotqa":
             result["kang_self_consistency"] = dict(status="unsupported",
                 reason="HotpotQA SAG requires votes over normalized final answers from complete sampled ReAct episodes")
-        elif manifest["method"] == "kang":
+        elif manifest["method"] in KANG_METHODS:
             sag = callback(root, policy, directory/"kang_sag", kang=True, port=manifest["port"], smoke=smoke)
             sag.update(receipt, evaluation_mode="smoke_kang_sag" if smoke else "kang_sag", n=3, sampling_temperature=.7,
                        official_single_sample=dict(result))

@@ -70,10 +70,10 @@ def test_react_spans_and_losses_mask_wikipedia_and_weight_finish():
     smartad = span_ce(values, kinds, "smartad")
     smartad.backward()
     counts = {kind: kinds.count(kind) for kind in set(kinds)}
-    generated = len(kinds)-counts["observation"]
-    assert smartad.item() == pytest.approx(2*(counts["reason"]+1.5*counts["action"]+2*counts["final"])/generated)
+    weight_sum = counts["reason"] + 1.5*counts["action"] + 2*counts["final"]
+    assert smartad.item() == pytest.approx(2.)
     assert values.grad[kinds.index("observation")].item() == 0
-    assert values.grad[kinds.index("final")].item() == pytest.approx(-2/generated)
+    assert values.grad[kinds.index("final")].item() == pytest.approx(-2/weight_sum)
     scores = torch.tensor([-2. if k == "reason" else -6. if k != "observation" else -999. for k in kinds])
     assert span_ce(scores, kinds, "sad").item() == pytest.approx(4.)
 

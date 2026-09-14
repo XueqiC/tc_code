@@ -10,7 +10,9 @@ import torch
 from ..functional_step import FrozenStep, gradients, lora_parameters, rms_diagonal
 from ..persistence import atomic_json
 from ..student import termination_ids
-from .paper_data import first_thought, select_smartad
+from .paper_data import kang_action_list_summary, select_smartad
+from .paper_fidelity import (KANG_PREFIX, KANG_SUMMARY, method_name,
+                             fidelity_metadata, require_unsealed_output)
 from .paper_losses import (SmallDiscriminator, discriminator_loss, group_advantages,
                            grpo_loss, span_ce, token_kinds)
 from .paper_progress import progress, stage
@@ -19,6 +21,7 @@ from ..source_scoring import require_device
 
 
 def hyperparameters(config, method):
+    method = method_name(method, config)
     seed = training_seed(config)
     settings = dict(student=config["student"], seed=seed, lora_rank=config["lora_rank"],
         lora_alpha=config["lora_alpha"], lora_target_modules=config["lora_target_modules"],
@@ -29,10 +32,10 @@ def hyperparameters(config, method):
         slots_per_step=2 if config.get("smoke") else 40,
         smoke=bool(config.get("smoke")), smoke_preconditioner_prompts=2 if config.get("smoke") else None,
         loss_normalization="per_sequence_mean", observations_masked=True,
-        smartad=dict(weights=dict(reason=1., action=1.5, final=2.), selection="base_student_nll"),
-        sad=dict(reason_coefficient=.5, act_coefficient=.5, absent_span="renormalize present groups",
-                 adaptation="text-only CE; no teacher logits, feature/logit alignment, or KL term"),
-        kang=dict(prefix="offline extractive retrospective, first turn only, 40 words",
+        smartad=dict(weights=dict(reason=1., action=1.5, final=2.), selection="base_student_macro_mean_turn_nll",
+                     normalization="sum_of_weights"),
+        sad=dict(reason_coefficient=.5, act_coefficient=.5, absent_span="renormalize present groups"),
+        kang=dict(prefix=(KANG_SUMMARY if method == KANG_SUMMARY else KANG_PREFIX),
                   n=3, sampling_temperature=.7, official_single_sample_also_reported=True,
                   tie_break="first valid sample; first raw sample when all invalid"),
         gad=dict(discriminator="separate byte GRU", embedding_width=32, hidden_width=64,
@@ -43,7 +46,7 @@ def hyperparameters(config, method):
                  kl_coefficient=0., reward="raw discriminator score",
                  prompts="purchased prompt strings only; fresh current-student responses",
                  missing_teacher="skip exact prompt without purchased teacher response"),
-        method=method)
+        method=method, fidelity=fidelity_metadata(method))
     if config.get("benchmark") == "hotpotqa":
         settings["kang"].update(n=None, sampling_temperature=None, tie_break=None,
             sag_status="unsupported; requires voting over complete sampled ReAct episodes")
@@ -52,7 +55,11 @@ def hyperparameters(config, method):
 
 class PaperTrainer:
     def __init__(self, backend, rows, config, method, directory, journal, *, manifest=None):
+        require_unsealed_output(directory)
+        method = method_name(method, config)
         self.backend, self.rows, self.config = backend, list(rows), config
+        if method == KANG_PREFIX and any(r.acquisition_method != KANG_PREFIX for r in self.rows):
+            raise ValueError("kang_first_thought_prefix requires newly acquired prefixed trajectories; use kang_action_list_summary for legacy data")
         self.method, self.directory, self.journal = method, Path(directory), journal
         self.seed, self.manifest = training_seed(config), manifest
         self.parameters = lora_parameters(backend.model)
@@ -205,9 +212,9 @@ class PaperTrainer:
                 self.rows, selection = select_smartad(self.rows, self.base_nll,
                     on_progress=lambda **fields: progress("selection", "row", **fields))
             atomic_json(self.directory/"smartad_selection.json", selection)
-        elif self.method == "kang":
+        elif self.method == KANG_SUMMARY:
             with stage("rendering_kang", rows=len(self.rows)):
-                self.rows = first_thought(self.rows)
+                self.rows = kang_action_list_summary(self.rows)
                 for row in self.rows:
                     self.encode(row)
         atomic_json(self.directory/"training_rows.json", [asdict(row) for row in self.rows])
@@ -266,5 +273,6 @@ class PaperTrainer:
         self.backend.tokenizer.save_pretrained(self.directory/"checkpoint/lora")
         if self.discriminator is not None:
             torch.save(self.discriminator.state_dict(), self.directory/"checkpoint/discriminator.pt")
-        return dict(student_commits=len(schedule), losses=losses, trained_rows=len(self.rows),
+        return dict(method=self.method,
+                    student_commits=len(schedule), losses=losses, trained_rows=len(self.rows),
                     discriminator_prompt_updates=sum(map(len, schedule)) if self.method == "gad" else 0)

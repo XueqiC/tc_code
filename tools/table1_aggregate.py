@@ -40,9 +40,12 @@ import statistics
 BENCHMARKS = ("alfworld", "hotpotqa", "bamboogle", "musique", "2wiki")
 OOD_BENCHMARKS = ("bamboogle", "musique", "2wiki")
 QA_BENCHMARKS = ("hotpotqa", *OOD_BENCHMARKS)
-METHODS = ("smartad", "sad", "kang")
+METHODS = ("smartad", "sad", "kang_action_list_summary")
+LEGACY_NAMES = {"kang_action_list_summary": "kang"}
 SEEDS = (0, 1, 2)
-LABELS = {"smartad": "SmartAD", "sad": "SAD", "kang": "Agent Distillation"}
+LABELS = {"smartad": "SmartAD",
+          "sad": "SAD",
+          "kang_action_list_summary": "Kang action-list summary (deviating)"}
 INITIAL = {"alfworld": 56.4, "hotpotqa": 38.2, "bamboogle": None, "musique": None, "2wiki": None}
 PRIMARY_METRICS = {
     "alfworld": "valid_seen success rate",
@@ -79,7 +82,16 @@ def _stats(per_seed):
 def _read_run(root, benchmark, method, seed):
     base = f"table1_{benchmark}_{method}"
     name = f"{base}_s{seed}"
-    path = root / name / "metrics.json"
+    if method in LEGACY_NAMES:
+        legacy = f"table1_{benchmark}_{LEGACY_NAMES[method]}"
+        suffixes = [f"_s{seed}"] + ([""] if seed == 0 else [])
+        current_paths = [root/(base+s)/"metrics.json" for s in suffixes]
+        legacy_paths = [root/(legacy+s)/"metrics.json" for s in suffixes]
+        if any(p.is_file() for p in current_paths) and any(p.is_file() for p in legacy_paths):
+            raise ValueError(f"conflicting canonical and legacy directories for {name}")
+        if any(p.parent.is_dir() for p in legacy_paths) and not any(p.parent.is_dir() for p in current_paths):
+            base = legacy
+    path = root / f"{base}_s{seed}" / "metrics.json"
     if seed == 0:
         alternate = root / base / "metrics.json"
         if path.is_file() and alternate.is_file():
@@ -90,6 +102,7 @@ def _read_run(root, benchmark, method, seed):
         if alternate.is_file() or (not path.parent.is_dir() and alternate.parent.is_dir()):
             path = alternate
     run = {
+        "method": method,
         "cell": name, "seed": seed, "metrics_path": str(path),
         "status": "missing", "complete": None,
         "overall_accuracy_percent": None, "teacher_tokens_charged": None,
@@ -105,6 +118,10 @@ def _read_run(root, benchmark, method, seed):
         return run
     if not isinstance(metrics, dict):
         run.update(status="invalid", issues=["metrics.json must contain an object"])
+        return run
+    recorded_method = metrics.get("method")
+    if recorded_method is not None and recorded_method not in {method, LEGACY_NAMES.get(method)}:
+        run.update(status="invalid", issues=["metric method differs from table arm"])
         return run
 
     complete = metrics.get("complete")
@@ -326,6 +343,8 @@ def main(argv=None):
         parser.error("JSON and LaTeX outputs must have different paths")
     if any(path.is_relative_to(args.results_root.resolve()) for path in outputs):
         parser.error("output files must be outside the results root")
+    if any("archive" in path.parts for path in outputs):
+        parser.error("archive is sealed; choose output files outside archive")
     initial = {b: getattr(args, f"initial_{b}") for b in BENCHMARKS}
     try:
         summary = aggregate(args.results_root, initial)

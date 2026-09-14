@@ -67,7 +67,7 @@ def trainer(tmp_path, method):
     return PaperTrainer(Backend(), rows, config, method, tmp_path, ComputeJournal(tmp_path/"compute.jsonl", cuda=False))
 
 
-@pytest.mark.parametrize("method", ["sad", "smartad", "kang"])
+@pytest.mark.parametrize("method", ["sad", "smartad", "kang_action_list_summary"])
 def test_full_24_commit_training_matches_step_rule_and_saves(tmp_path, method):
     t = trainer(tmp_path, method)
     before = t.backend.model.lora_logits.detach().clone()

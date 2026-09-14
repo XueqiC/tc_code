@@ -225,9 +225,9 @@ def test_absent_root_is_an_empty_report(tmp_path):
     assert summary["counts"] == dict(expected=45, complete=0, missing=45, incomplete=0, invalid=0)
     assert len(summary["missing_cells"]) == 45
     assert summary["teacher_tokens_charged_max"] is None
-    score = summary["benchmarks"]["bamboogle"]["kang"]["overall_accuracy_percent"]
+    score = summary["benchmarks"]["bamboogle"]["kang_action_list_summary"]["overall_accuracy_percent"]
     assert score == dict(n=0, seeds=[], per_seed={}, mean=None, std=None)
-    assert summary["methods"]["kang"]["average_improvement_pp"] is None
+    assert summary["methods"]["kang_action_list_summary"]["average_improvement_pp"] is None
     json.dumps(summary, allow_nan=False)
 
 
@@ -267,11 +267,12 @@ def test_latex_matches_paper_rows_column_order_precision_and_counts(full_campaig
     body = table1.latex_body(table1.aggregate(full_campaign))
     rows = [line for line in body.splitlines() if " & " in line]
     labels = [line.split(" & ")[0] for line in rows]
-    assert labels == [r"\rowcolor{rowhead}Initial student (Gemma-4-12B)", "SmartAD", "SAD",
-                      "Agent Distillation", "GAD", r"\rowcolor{rowours}\textbf{RTD (ours)}"]
+    assert labels == [r"\rowcolor{rowhead}Initial student (Gemma-4-12B)",
+                      *[table1.LABELS[m] for m in table1.METHODS],
+                      "GAD", r"\rowcolor{rowours}\textbf{RTD (ours)}"]
     assert all(line.count(" & ") == 6 and r"\\" in line for line in rows)
     assert rows[0].endswith(r"$56.4$ & $38.2$ & $\cdot$ & $\cdot$ & $\cdot$ & --\\ % Single reference evaluation where available; dots are pending.")
-    assert rows[1] == (r"SmartAD & $62.0\pm 2.0$ {\scriptsize ($n=3$)} & "
+    assert rows[1] == (table1.LABELS["smartad"] + r" & $62.0\pm 2.0$ {\scriptsize ($n=3$)} & "
                        r"$42.0\pm 2.0$ {\scriptsize ($n=3$)} & "
                        r"$52.0\pm 2.0$ {\scriptsize ($n=3$)} & "
                        r"$32.0\pm 2.0$ {\scriptsize ($n=3$)} & "
@@ -285,7 +286,7 @@ def test_latex_partial_and_empty_cells_use_daggers_and_no_fabricated_std(tmp_pat
     write_run(tmp_path, "hotpotqa", seed=0)
     write_run(tmp_path, "hotpotqa", seed=2)
     body = table1.latex_body(table1.aggregate(tmp_path))
-    row = next(line for line in body.splitlines() if line.startswith("SmartAD &"))
+    row = next(line for line in body.splitlines() if line.startswith(table1.LABELS["smartad"] + " &"))
     assert r"${61.2\pm \text{--}}^{\dagger}$ {\scriptsize ($n=1$)}" in row
     assert r"${42.0\pm 2.8}^{\dagger}$ {\scriptsize ($n=2$)}" in row
     assert r"${\cdot}^{\dagger}$ {\scriptsize ($n=0$)}" in row
@@ -293,7 +294,7 @@ def test_latex_partial_and_empty_cells_use_daggers_and_no_fabricated_std(tmp_pat
     for b in table1.OOD_BENCHMARKS:
         write_run(tmp_path, b)
     row = next(line for line in table1.latex_body(table1.aggregate(tmp_path, {b: 30 for b in table1.OOD_BENCHMARKS})).splitlines()
-               if line.startswith("SmartAD &"))
+               if line.startswith(table1.LABELS["smartad"] + " &"))
     assert row.endswith(r" & $+6.7^{\dagger}$\\")
 
 

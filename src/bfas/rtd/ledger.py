@@ -132,7 +132,7 @@ class Ledger:
                                         sort_keys=True, allow_nan=False).encode()).hexdigest()
 
     @classmethod
-    def resume(cls, budget, path):
+    def resume(cls, budget, path, *, read_only=False):
         """Validate the entire durable journal before admitting owned evidence.
 
         A torn final write is preserved separately, then removed. No complete
@@ -142,6 +142,8 @@ class Ledger:
         ledger = cls(budget)
         raw = path.read_bytes() if path.exists() else b''
         if raw and not raw.endswith(b'\n'):
+            if read_only:
+                raise LedgerError("torn ledger; read-only audit refuses repair")
             cut = raw.rfind(b'\n') + 1
             with path.with_suffix('.torn').open('ab') as stream:
                 stream.write(raw[cut:] + b'\n')
@@ -182,7 +184,7 @@ class Ledger:
             if len(ledger.events) != e['sequence'] + 1:
                 raise LedgerError('duplicate/non-transition event')
             ledger.events[-1] = e
-        ledger.path = path
+        ledger.path = None if read_only else path
         return ledger
 
     def authorize(self, budget):

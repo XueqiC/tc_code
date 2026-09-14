@@ -6,6 +6,7 @@ import re
 import torch
 from torch import nn
 from torch.nn import functional as F
+from .paper_fidelity import SAD
 
 SMARTAD_WEIGHTS = {"reason": 1., "action": 1.5, "final": 2., "observation": 0.}
 MARKERS = re.compile(
@@ -114,9 +115,9 @@ def span_ce(token_logprobs, kinds, method):
     mask = values.new_tensor([k != "observation" for k in kinds], dtype=torch.bool)
     if not mask.any():
         raise ValueError("row has no generated supervision")
-    if method == "sad":
+    if method == SAD:
         # [REASON] and [ACT] are span labels, not added deployment pseudo-tags.
-        # Final decisions belong to ACT in this two-head text-only adaptation.
+        # Final decisions belong to ACT.
         groups = []
         for group in ({"reason"}, {"action", "final"}):
             selected = values.new_tensor([k in group for k in kinds], dtype=torch.bool)
@@ -125,8 +126,9 @@ def span_ce(token_logprobs, kinds, method):
         return torch.stack(groups).mean()
     weights = values.new_tensor([SMARTAD_WEIGHTS[k] if method == "smartad"
                                 else float(k != "observation") for k in kinds])
-    # Divide by generated length, preserving the declared absolute segment weights.
-    return -(values * weights).sum() / mask.sum()
+    # SmartAD Eq. 5: normalize by the sum of segment weights. Index before
+    # multiplying so even nonfinite observation log-probabilities stay excluded.
+    return -(values[mask] * weights[mask]).sum() / weights[mask].sum()
 
 
 class SmallDiscriminator(nn.Module):

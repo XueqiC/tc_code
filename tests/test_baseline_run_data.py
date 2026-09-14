@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/"src"), str(ROOT)]
 
 from bfas.rtd.baselines.paper_data import (EMPTY_THOUGHT, STUDENT, TeacherRow, deployed_row,
-    first_thought, frozen_purchase, load_purchased, select_smartad)
+    kang_action_list_summary, frozen_purchase, load_purchased, select_smartad)
 from bfas.rtd.bank_build import seal_v11, state_record
 from bfas.rtd.persistence import digest
 from bfas.rtd.transport import FullState
@@ -204,10 +204,19 @@ def test_smartad_groups_trajectory_by_task_and_normalizes_length():
 
 def test_kang_prefix_only_first_turn_and_only_owned_content():
     rows = [deployed_row(row(index=i, target=f"take apple {i}")) for i in range(2)]
-    prefixed = first_thought(rows)
+    prefixed = kang_action_list_summary(rows)
     assert "THOUGHT:" in prefixed[0].target and "take apple 1" in prefixed[0].target
     assert prefixed[1] == rows[1]
     assert all(a.prompt == b.prompt for a, b in zip(rows, prefixed))
+
+
+def test_smartad_eq3_equal_turn_weight_instead_of_pooled_tokens():
+    rows = [row("a", index=0), row("a", index=1), row("b")]
+    values = {("a", 0): (9., 1), ("a", 1): (10., 10), ("b", 0): (4., 1)}
+    selected, audit = select_smartad(rows, lambda r: values[r.package_id, r.index])
+    # a has pooled NLL 19/11 < 4, but the paper's macro mean is (9+1)/2=5.
+    assert [r.package_id for r in selected] == ["b"]
+    assert audit["base_student_mean_nll"] == {"a": 5., "b": 4.}
 
 
 def test_cli_prepare_manifest_has_no_worker_or_model_call(tmp_path, monkeypatch):
