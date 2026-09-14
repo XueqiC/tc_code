@@ -2490,3 +2490,18 @@ Kang 忠实版的 CoT 前缀必须从同一个 30,000 里扣,SmartAD K=2 同理�
   CoT 长度未实测,代理值 1,745 / 2,249 token,预留上限 4,096;
   59,326 / 58,458 那组数字保留但标为"维持现有轨迹数的无预算反事实"。
 - 90 个相关测试自测通过(Codex 报 291);归档未改动;零教师调用。
+
+### 2026-09-14 ~11:45 CDT — 关系打分 NaN:定位进展与一次被推翻的假设
+- **1023143(完成)**:anchor 完全健康——17 个样本 CE 39.7–100.6、熵 1.4–22.2、梯度 L2 **13.13**、
+  **0/656 参数非有限**;`kl=0.000000` 与 LoRA 初始化 B=0 一致。NaN **只在四格关系打分**:
+  `cells=[[-24.31,-64.94],[nan,nan]]`,即前缀 h2 的两格整行 NaN,两个关系对表现一致。
+- **假设一(padding)已被推翻**:1023149 在 `no_grad` 下对照"逐条不填充"与"当前填充 batch",
+  填充 49 / 55 个 token 的两行 **hidden 整行有限**。此前"NaN 落在填充最多的两行"只是相关
+  (填充量与序列长度同向),不是因果。**该结论已撤回。**
+- **真正的变量指向梯度模式**:出 NaN 的 `backward_relations` 开着梯度且模型带 48 层
+  gradient checkpointing(`non_reentrant_eval_functional_lora`);而 anchor 同样开梯度、同样
+  checkpointing 却正常,区别是 **anchor 的 batch 恒为 1**,关系打分是 **batch=4**。
+  怀疑 `_hidden_at_head` 用**抛异常**截断前向,在非重入 checkpoint + batch>1 下上下文非正常退出。
+- **1023151 运行中**:{填充,不填充} × {no_grad, enable_grad} 的 2×2 交叉,钉死变量。
+- 另:停掉了一个上个会话遗留的监视器(扫 `/work/xueqic/hq/mech2/` 与 paper_baselines 目录),
+  它报的 "mech evaluated 10/9 / table1 done 11" 是历史计数,不是新结果。
