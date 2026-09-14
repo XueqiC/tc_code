@@ -922,3 +922,9 @@ t1_hotpotqa_sad_s1 | SAD HotpotQA B=30k seed 1 | LONI | EM 37.8 | results/paper_
 t1_hotpotqa_smartad_s1 | SmartAD HotpotQA B=30k seed 1 | LONI | EM 37.6 | results/paper_baselines/table1_hotpotqa_smartad_s1
 t1_hotpotqa_smartad_s2 | SmartAD HotpotQA B=30k seed 2 | LONI | EM 37.2 | results/paper_baselines/table1_hotpotqa_smartad_s2
 t1_hotpotqa_sad_s2 | SAD HotpotQA B=30k seed 2 | LONI | EM 37.0 | results/paper_baselines/table1_hotpotqa_sad_s2
+ipl_I_s0 | I arm seed 0 | LONI 1022612 | EM local .4850 / changed .4550 / full .4950 | archive/ipl_adapters/I_s0
+ipl_I_s1 | I arm seed 1 | LONI 1022669 | EM local .4800 / changed .4650 / full .4900 | archive/ipl_adapters/I_s1
+ipl_P_s0 | P arm seed 0 | LONI 1022669 | EM local .4800 / changed .4600 / full .5200 | archive/ipl_adapters/P_s0
+ipl_P_s1 | P arm seed 1 | LONI 1022669 | EM local .4900 / changed .4550 / full .4850 | archive/ipl_adapters/P_s1
+ipl_L_s0 | L arm seed 0 | LONI 1022669 | EM local .5000 / changed .4800 / full .5050 | archive/ipl_adapters/L_s0
+ipl_L_s1 | L arm seed 1 | LONI 1022669 | EM local .4950 / changed .4600 / full .5100 | archive/ipl_adapters/L_s1

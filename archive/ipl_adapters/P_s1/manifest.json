@@ -1,0 +1,130 @@
+{
+  "run": {
+    "index": 4,
+    "arm": "P",
+    "seed": 1,
+    "name": "P_s1"
+  },
+  "dose": {
+    "version": 1,
+    "student": "google/gemma-4-12B-it",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.0,
+    "lora_target_modules": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj",
+      "down_proj"
+    ],
+    "optimizer": "fixed_preconditioned_single_step",
+    "preconditioner": "train_only_rms_diagonal",
+    "preconditioner_refresh_steps": 12,
+    "preconditioner_source_samples": 2,
+    "preconditioner_damping_relative": 0.01,
+    "learning_rate": 1e-05,
+    "student_steps": 24,
+    "supervised_tokens_per_step": {
+      "0": [
+        922,
+        724,
+        784,
+        799,
+        915,
+        815,
+        722,
+        941,
+        800,
+        901,
+        892,
+        988,
+        788,
+        891,
+        966,
+        769,
+        743,
+        799,
+        549,
+        656,
+        989,
+        711,
+        1122,
+        652
+      ],
+      "1": [
+        1171,
+        733,
+        938,
+        697,
+        961,
+        670,
+        933,
+        739,
+        843,
+        777,
+        605,
+        758,
+        806,
+        772,
+        817,
+        758,
+        768,
+        805,
+        806,
+        695,
+        700,
+        1010,
+        1006,
+        823
+      ]
+    },
+    "receipts": [
+      {
+        "cell": "table1_hotpotqa_sad",
+        "manifest_sha256": "33d1f821d6c342afc881e2c7b2daa618813e491cb3f300d0334068cafc0ba3d4",
+        "train_log_sha256": "15851ee8d538159b74946043eebf0cc32612d4410dd3840bc736e07d8ba214af",
+        "training_hours": 1.9748073749446,
+        "evaluation_500_hours": 0.8837883602517347
+      },
+      {
+        "cell": "table1_hotpotqa_sad_s1",
+        "manifest_sha256": "69a05cbda589e022b2784d2ca1565dc721c83aff4952c4711fcc5bcda09a1373",
+        "train_log_sha256": "a3f90f3ba70ed0397567238552d2d92f08fe10a9c95c01ca14e8433f55019c97",
+        "training_hours": 1.9679171334853809,
+        "evaluation_500_hours": 0.8850533519405872
+      }
+    ],
+    "budget_rule": "Match measured SAD/SMARTAD supervision per update and seed; purchase B=30000 is not the supervised budget.",
+    "loss": "ordinary supervised cross entropy",
+    "checkpoint": "final_only",
+    "max_context_tokens": 32768,
+    "loss_normalization": "per_sequence_mean"
+  },
+  "material_sha256": "09566a2ab465acd6c46f03bcaea796e511cac0864824e1cbb5189fe7f560c0ad",
+  "report_sha256": "52cd1ad4e228ac13e521ec0223377784449fbb0cc4b23d947b663d1932cb5e49",
+  "model_path": "/ddnB/work/xueqic/hf-cache/hub/models--google--gemma-4-12B-it/snapshots/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+  "model_sha256": "9192317d2a0e71fc729c7f4246dc6d798cd1fd350201a003bc7ca30ab6a7b87b",
+  "tokenizer_sha256": "84709a805bc9a216eb26de2ef0091614992508ee776915df5dcd9aec5ca5446c",
+  "code_sha256": "575dea58d859a5085dc6c72a8394977543ee874a8a46c553348e13b3eeb58b7b",
+  "evaluation_plan_sha256": "46074ae0929f07a732f0f38abd1a76ce0fb42905154656049688f5c49e410a5c",
+  "schedule_sha256": "c68e14f030e8bdfa31f17d6ee19a67b9bd09ec8a5c351039adcc376c000200c6",
+  "memory_profile": {
+    "path": "memory_profile.jsonl",
+    "storage_accounting": true,
+    "tensor_census": false
+  },
+  "new_teacher_calls": 0,
+  "checkpoint_selection": "final_only",
+  "status": "trained",
+  "initial_adapter_sha256": "3d6e1d4305380fcad34a473f9de25cd4957ce2232ca055c9af422d1de0c270c2",
+  "training": {
+    "optimizer_steps": 24,
+    "supervised_tokens": 19591,
+    "wall_seconds": 7509.744981750846,
+    "checkpoint": "final_only"
+  },
+  "adapter_sha256": "a00bdcdd3212b57d926e3ef278b845c1b4e45a88e65d887dfc5a2c45f628ca9b"
+}
