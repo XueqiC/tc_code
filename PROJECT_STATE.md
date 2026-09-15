@@ -2969,3 +2969,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   1e-5×10 遍下 EM 随预算上升。候选正式设置:react7 银行全量 + 10 遍 1e-5。
 - 01:33 CDT s400 校验修复后仍失败:池中有少量 **Azure 真实成功调用**(status reported,model gpt-5.6-luna)。按用户既定政策
   (Azure luna = 同一教师)放宽为"注册的 luna 部署 + model 串 gpt-5.6-luna",记录各 provider 计数。Codex s400fix2(hqfix)。
+- 01:40 CDT 机制复测工具交付并提交(hq 7e4b03d):`cr_segment_bank.py build --cell`、`cr_mechanism_cell.py freeze/train/export/
+  evaluate/analyze --cell`、`cr_segment_rescore.py`(从已存 rollout 重打分)、`cr_cell_baselines.py`;78 聚焦测试通过;
+  全套 4,511 通过/18 无关失败。hqfix e3e20f1 已 cherry-pick 进 hq;fix2 交付后再 cherry-pick,然后整体部署 scan3。
