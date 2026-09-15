@@ -3031,3 +3031,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (后台脚本 scan3_baseline_eval_after_mech.sh)。
 - 06:20 CDT **节点 6 已报**:r7_s200_ball__x10(375 步)37.2 +0.2±1.1 → 28 格设置扫描完成,结论不变。META 38.2 +2.4±1.1(20/8,
   conf32 43.8)vs 同批 base 35.8;低于 SFT/FIXSEG 的 +3.6(噪声内)。MECH/PERM 训练 ~70/113;基线评测排在其后(scan3 修订)。
+- 07:38 CDT **节点 7 已报**:MECH 38.4 +2.6±0.9(17/4,conf32 40.6);PERM 37.6 +1.8±0.8(13/4,conf32 34.4)vs 同批 base 35.8。
+  五臂:SFT 39.4 = FIXSEG 39.4 > MECH 38.4 > META 38.2 > PERM 37.6;无加权方案超过 SFT。1025363_4/5 COMPLETED(1:56)。
