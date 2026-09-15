@@ -2885,3 +2885,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   d26ff71;.venv 与 envs/hotpotqa/{data,cache} 软链)。Codex 准备清单+档位:pid 3856098,monitor(buy400)。交付后
   在 rai 上 nohup 开买:`tools/hotpotqa_teacher_pool.py --manifest configs/hotpotqa_scan_pool_400.json --tier s400_new200
   --max-tokens 535000 --workers 8`。并行:sealed 切档 Codex(pid 3832872)→ 网格扩展(codex_grid.txt)→ LONI 6 格;先导继续。
+- 22:18 CDT **S=400 采购已启动(rai)**:pid 3887124,worktree `tc-alignment-buy`(commit 1370680),
+  log `tc-alignment-buy/logs/buy_s400_20260914_231820.log`,存储 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/s400_new200/`
+  (attempts/usage/teacher_ledger jsonl + identity/inheritance;完成后出 summary.json)。清单 200 题 = 2,000 池顺序前 200,
+  与 support-200/dev-500/confirmation 互斥(工具校验)。硬上限 535,000 output token;续跑 = 原命令重跑。monitor 已挂。
