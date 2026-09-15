@@ -2837,3 +2837,10 @@ adapter,37.8/37.4/37.2 vs 38.2 的差异是解码噪声。**已发表方法的�
 每格 manifest 带 init-vs-trained CE 证书;归档目录只读;Kang 保留其归档 batch 组成;seed 2 曝光表由归档日志恢复。
 CPU 套件 4,310 通过 / 35 失败(均为与本次无关的既有失败:AppWorld fixtures 等,文档已列)。
 stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
+
+### 2026-09-15 03:40 CDT — 用户批准预算扫描;基线 AdamW 阵列两次早失败后第三次提交
+- **用户批准**:HotpotQA 预算扫描,总上限 **1.4M output token**(100k/300k/1M 三档嵌套)+ **2,000 道 train-split 访问池**
+  (与 support-200、dev-500、留出 32 互斥),Azure luna 优先(P1→P2→P3→OpenAI),**优先级最高**。
+  Codex(hq)正在构建:`--manifest/--tier` 采购工具、访问清单、每档 AdamW SFT 训练根、`tools/cr_scan.py`。
+- 基线 AdamW 阵列:1024662 全格 10 秒失败(`bfas.processes` 不在 hq 分支,已从 main 复制并提交);
+  1024673 全格失败(`--run-dir` 必须为新目录,而 1024662 已创建空目录);已把残留目录移入 `_trash/` 后第三次提交。
