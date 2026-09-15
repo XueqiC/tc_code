@@ -2896,3 +2896,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 22:46 CDT sealed 切档 Codex 交付并提交(c2b20e9;五档 30k/60k/120k/240k/all 已冻结在 runs/conditional_response/scan_sealed*;
   21 扫描测试通过;全套 4,348 通过/35 失败——Codex 称 17 个为锁文件、18 个为旧 fixture,未复核)。网格扩展 Codex
   已派出(pid 3993105,codex_grid.txt)。
+- 22:52 CDT LONI 树 `tc-hotpotqa-scan` 已部署 c2b20e9(git archive;rai 冻结的 runs/ 移入 _trash);LONI 上 freeze 冒烟通过
+  (sealed30k,44 s,与九个归档 manifest 核对)。模型路径:YAML 用 sed 换成 /work/xueqic/hf-cache(configs/loni/)。
+  网格交付后:`bash scratchpad/loni_grid_deploy.sh <commit>`(同步 diff 文件 → 冻结 6 格 → sbatch scan_tiers.slurm)。
