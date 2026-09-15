@@ -3015,3 +3015,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   交付后同步 scan3,只跑 export+evaluate(不重训)。
 - 05:25 CDT 基线自银行证书(r7_s200_ball,461 行/20,017 tok):SmartAD init CE 1.5035 → trained 0.3899(Δ −1.114,KL 0.830);
   SAD 1.5035 → 0.3912(Δ −1.112,KL 0.850)——**这次基线真的被训练了**(对比归档 Table 1 的 |Δ|<0.01)。
+- 05:33 CDT 基线 export/evaluate 交付并提交(hq a4ba2ba;146 测试),同步 scan3;**基线评测阵列 1025358**(SmartAD、SAD,
+  只导出+评测,不重训;scripts/mech_beval.slurm)。
