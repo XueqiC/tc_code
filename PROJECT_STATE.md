@@ -2880,3 +2880,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   stop-before-overflow):S=200 @100k=63 次/58 题/17 验证;@300k=212/141/53;@500k=389/195/107。绑定子集:S=50 吸收
   ~100k(105/50/26,买完);S=128 吸收 ~300k(268/128/71,买完)。零采购网格 6 格:(50,100k)(128,100k)(200,100k)
   (128,300k)(200,300k)(200,500k)。(400,500k) 需新买 200 题 ≈535k token,已请示。机制复测延后到设置确定。
+- 22:09 CDT **用户批准 S=400 采购("可以")+ "全部现在开始,并行测试"**:200 道新题(2,000 池固定顺序前 200),硬上限
+  535,000 output token,luna 默认温度,Azure P1→P2→P3→OpenAI。独立 worktree `tc-alignment-buy`(branch buy-s400 @
+  d26ff71;.venv 与 envs/hotpotqa/{data,cache} 软链)。Codex 准备清单+档位:pid 3856098,monitor(buy400)。交付后
+  在 rai 上 nohup 开买:`tools/hotpotqa_teacher_pool.py --manifest configs/hotpotqa_scan_pool_400.json --tier s400_new200
+  --max-tokens 535000 --workers 8`。并行:sealed 切档 Codex(pid 3832872)→ 网格扩展(codex_grid.txt)→ LONI 6 格;先导继续。
