@@ -2960,3 +2960,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:17 CDT S=400 冻结在 LONI scan3 失败:"SUPPORT-400 requires OpenAI"(support400.py 校验拒绝账本里零计费的 Azure 拒绝行与
   新状态名)。修复 Codex 在独立 worktree `tc-alignment-hqfix`(branch s400-validator @ab988f9;pid 144109),用真实池根验证。
   修好后:cherry-pick 到 hq、diff 同步 scan3、重冻 s400 两格 + react7 三格。s400 池已 rsync 到 LONI。
+- 01:22 CDT **先导 1024586 TIMEOUT**(5 h 上限;梯度阶段 B 14/16,打分未做)。已保存:rollouts/ 64 条、segment_gradients.npy、
+  paired_parent_gradients.npy(B 15–16 缺)、coordinate_layout/storage_plan。工具无 --resume。补救:机制 Codex 交付的
+  `rescore --rollouts-from`(从已存 rollout 重算 ĥ 并打分)先对 v1 片段银行跑一次(GPU,~90 min)→ 先导结论 ~03:30。
