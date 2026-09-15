@@ -2853,3 +2853,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 21:52 CDT 1024694(索引 8 重提)1 秒内失败:我裸提 `sbatch --array=8`,漏了原提交的
   `--export=ALL,CR_MODEL_PATH=<gemma-4-12B snapshot>`(脚本第 29 行 `${CR_MODEL_PATH:?}`)。带 export 重提 = **1024695**。
   规则:重提任何阵列格前先 `sacct -o SubmitLine` 复制原提交命令。
+- 21:48 CDT 用户再次确认:"可以的我批准"(预算扫描 1.4M output token + 2,000 题池;luna 默认温度偏差已声明)。已 👀 + 一行回复。
