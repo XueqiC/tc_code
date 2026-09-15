@@ -3224,3 +3224,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 17:57 CDT **8 状态干跑通过**(repair_dry8,1 分钟):8/8 ok,gpt-5.6-luna,计费 output 677(其中推理 243),prompt 11,465,$0.0016;可解析 8/8、可执行 8/8、
   对任务有用 4/8;Repair=NONE 5/8,教师动作与学生相同 5/8;3 条修正内容合理(Terminal Tower ×2、Mark Lawrence 政治家)。
   **全量采购已起**(states 9–64 共 56 状态,repair_v1,cap 30,000,4 并发;日志 logs/repair_full_purchase.log)。LONI 上对干跑包做三臂 render 检查中。
+- 18:05 CDT **全量采购完成(repair_v1,17:58→18:00)**:56 状态中 54 ok、2 个 OpenAI 429(provider_rejected,零计费,按 http_rejections_zero_v2 视为确定性
+  拒绝,resume 不重试);计费 output 4,530(推理 1,844),prompt 61,353,$0.009。合并干跑:**62 包 / 62 ok**,计费 output 合计 5,207(上限 30,000,远未用满);
+  可解析 62/62、可执行 62/62、对任务有用 37/62;Repair=NONE 51/62;教师动作 = 学生拟议动作 53/62。信息量很薄(随机状态里学生多半走对),
+  照实记录不筛。文件 results/repair_states/packages_all.jsonl(= buy 树 teacher_pool_scan/{repair_dry8,repair_v1}/packages.jsonl)。
+  留出集(local-check):seed 20260916 二次选择减去已采购父任务 → 56 状态 / 28 父任务,无重叠(LONI results/repair_heldout/heldout_states.jsonl)。
+  三臂 render 检查通过(A:plan+action 目标;B/C:学生 Thought 零权重 masked_input,Action + <turn|> 目标;NONE 时 C≡B)。
+- 18:06 CDT **三臂管线已提交**(scan 树 tc-hotpotqa-repair;submit 阶段修了 sbatch --parsable 被 lua 警告污染的 job id:hq 892b6030;首次提交 1027810 取消):
+  freeze **1027814**(CPU)→ train 阵列 **1027815[0-5]**(A/B/C × seeds 0/1,113 步,从 U0_s0 LoRA 起)→ 评测+局部检查阵列 **1027816[0-6]**(6=control,
+  dev-500 + conf-32 + 留出 56 状态)→ analyze **1027817**。根 runs/conditional_response/repair_r7_s200_u0。监视器已挂。
+  未买到的 2 个状态(5a7475ae…:s3、5abf0ba6…:s3)不补(冻结已起;62 在预注册 48–64 内),报告里注明。前置检查(1027773)仍在打分。
