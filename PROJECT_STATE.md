@@ -3190,3 +3190,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   provenance 4c78bfd)。**两作业并行已提交**:1027602 states_collect(export → serve → collect 200 题 greedy → select 32×2,出 results/repair_states/
   {collect.jsonl,states.jsonl,selection_summary.json}),1027603 states_precheck(export → serve → 128 回合生成 r^S → 停服务 → HF 打分三条件,
   出 results/repair_states_precheck/thought_condition_precheck/)。均 PD(Priority)。监视器已挂。T2/T3 Codex 仍在跑。
+- 16:35 CDT T2 交付并提交(repair worktree e055fdf1;66 新测试 + 398 既有测试通过):`tools/hotpotqa_repair_pool.py` + `prompts/hotpotqa_repair_v1.txt`
+  + `docs/hotpotqa_repair_pool.md`。要点:复用 OutputBudget(请求前按 2,048 上限预留,含推理 token;确定性 4xx 记 0);教师固定 openai/gpt-5.6-luna、
+  无 temperature、max_completion_tokens、flex tier;三行格式 Plan N / Repair(NONE 允许)/ Action N,格式失败重试一次(计费);核验:重放历史后执行
+  a^T 与学生动作各一次(parseable / executable / useful / same_as_student),不筛。repair worktree 的 envs 软链到 hq 的 envs(数据 + Wikipedia 缓存);
+  采购输出放 buy 树 `envs/hotpotqa/teacher_pool_scan/{repair_dry8,repair_v1}`。脚本:scratchpad repair_dry8.sh(8 状态,cap 4,000)/ repair_full.sh(cap 30,000)。
+  等 LONI 1027602 出 states.jsonl(预计 17:15 起跑)。
