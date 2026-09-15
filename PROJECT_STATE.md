@@ -3092,3 +3092,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   报完成率/成功率/有对比父任务数,同父任务比 greedy;正式反馈在 θ0 上采。保留 HotpotQA+react7;暂停 Jacobian;不接入每 5 步搜索。
 - 13:25 CDT 探针工具改造提示已写(codex_probe2.txt:三分支 5 步、θ0 上共享反馈 Û_j=ĥᵀδ_j、96 条直接检验 + greedy 参照、
   四行预注册判读;去掉 α 网格/斜率/α*),等当前 probe Codex 结束后派。ctrlpilot.slurm(在 base 上采正式反馈)作废。
+- 13:35 CDT 探针基础设施交付并提交(hq 345ea72;251 测试:k 步探针、采样反馈评测 `tools/hotpotqa_feedback_eval.py`);已派
+  reshaping Codex(codex_probe2.txt,pid 见 codex_probe2.pid)→ 三分支机制检验工具。
