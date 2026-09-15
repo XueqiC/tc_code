@@ -3004,3 +3004,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   同 SFT 配置 scan 37.6 vs 机制 39.4(run-to-run 1.8)。
 - 04:24 CDT 后台循环(rai task bw0a672s3)等 scan3 `results/cr_diagnostics/segment_pilot_r7_s200_ball/segment_pilot.json` 出现后
   自动 `sbatch --array=4-5 scripts/mech_arms.slurm`(MECH/PERM)。机制臂/协议/指标已取回 results/cr_stage2_r7_s200_ball/。
+- 04:58 CDT Kang 基线在 r7_s200_ball 上按设计**被 FTP 门拦下**(1025222_2 FAILED 11 s):"Kang FTP requires purchased CoT-prefixed
+  trajectories; 461 frozen turns lack acquisition_method=kang_first_thought_prefix" —— 忠实 Kang 需要专门的 FTP 采购路径,
+  本轮报"gated";SmartAD 导出中、SAD 训练完成。
