@@ -3083,3 +3083,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 13:10 CDT 应用户要求写并发送详细进度报告 docs/2026-09-15-afternoon-progress-report.md(§7 两个待定问题)。
 - 13:15 CDT 预备脚本(scratchpad):ctrlpilot.slurm(正式先导:FB_T、FB_BUDGET=64、FB_SAMPLER;scan5)、ctrl_arms.slurm
   (控制器根臂:base/SFT/TR/TRPERM × seeds 0/1;CTRL_PROTO/CTRL_PILOT 环境变量;臂名待与 freeze --weight-controller 核对)。
+- 13:20 CDT eval-only 阵列 1026685 因 `aftercorr` 要求训练任务成功退出(它们在 serve 阶段 exit 1)而 DependencyNeverSatisfied;
+  取消并无依赖重提(训练已全部完成)。教训:对"预期失败"的前置任务用 afterany/aftercorr 不可靠,直接等其结束再提。
