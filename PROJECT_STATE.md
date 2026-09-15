@@ -2926,3 +2926,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 00:05 CDT 剂量变体 Codex 交付并提交(2c54304);**第二棵 LONI 树 `tc-hotpotqa-scan2`**(避免在运行中的 scan 树上同步代码):
   复制六格冻结根,冻结变体 x10(10 遍,1e-5)与 x10lr3(10 遍,3e-5);脚本 scripts/scan_var.slurm(`SCAN_VARIANT=x10 sbatch …`)。
   S=400 格 Codex 已派(pid 10652,codex_s400.txt)。
+- 00:08 CDT **剂量变体已提交(scan2)**:x10 = 1024756,x10lr3 = 1024757(各 6 格;10 遍 → 10/18/26/43/60/86 步)。LONI 共 19 作业。
