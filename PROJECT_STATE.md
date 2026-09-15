@@ -3196,3 +3196,11 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   a^T 与学生动作各一次(parseable / executable / useful / same_as_student),不筛。repair worktree 的 envs 软链到 hq 的 envs(数据 + Wikipedia 缓存);
   采购输出放 buy 树 `envs/hotpotqa/teacher_pool_scan/{repair_dry8,repair_v1}`。脚本:scratchpad repair_dry8.sh(8 状态,cap 4,000)/ repair_full.sh(cap 30,000)。
   等 LONI 1027602 出 states.jsonl(预计 17:15 起跑)。
+- 16:55 CDT T3 交付并提交(repairtrain worktree 104846dc):`tools/cr_repair_cell.py`(freeze/render/train/export/evaluate/local-check/analyze)
+  + cr_repair_{data,analysis,local}.py + `scripts/loni/repair_cell.slurm`(submit 阶段自动串起 freeze → 训练阵列 0–5 → 评测+局部检查阵列 0–6(6=control)
+  → analyze)+ `docs/hotpotqa_repair_cell.md`。要点:三臂渲染与掩码(B/C 的学生 Thought 只作输入、零权重且不进分母;C 在 repair NONE 时与 B 逐 token 相同);
+  λ=0 纯 CE、从 U0_s0 LoRA 起、AdamW 新状态、113 步、seeds 0/1 只控制批次顺序;**A 作批次参照**(同一包序列,B/C 目标 token 数不同,分项账本明示 C 多出的
+  修正监督);control = U0_s0 原样合并后同批评测;local-check 在留出状态上生成一回合并核验。已合并进 hq(7615e9b2 = 63af061 + T1 + T3),
+  部署 LONI tc-hotpotqa-repair(provenance 15f2ec6)。测试:在 rai 上要 `CUDA_VISIBLE_DEVICES=''` 才能过(新 torch 的 AdamW.step 查询加速器设备,
+  触发 CPU 测试的"禁 GPU"守卫;隐藏 GPU 后 25 + 90 全过;Codex 沙箱无 GPU 故通过)。脚本:scratchpad heldout_states.sh(留出状态 = seed 20260916 二次
+  选择减去已采购父任务)、repair_submit.sh(REPAIR_PACKAGES/REPAIR_STATES → submit)。等 LONI 1027602 出 states。
