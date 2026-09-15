@@ -3056,3 +3056,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 11:35 CDT 线性化检查工具交付(worktree lin e9efa47;20 测试);同步 scan3(新文件,不触冻结哈希);**lincheck 作业已提交**
   (scan3 scripts/lincheck.slurm:默认 / --steps 3 / --rho 0.01 / --objective stage2-anchor;输出 results/cr_diagnostics/update_linearity_r7_s200_ball/)。
   e9efa47 待 v6 Codex 结束后 cherry-pick 进 hq。
+- 11:55 CDT 控制器交付(worktree ctrl b9a1c5e;177 测试;新工具 cr_segment_controller.py / cr_segment_feedback.py,`controller` 子命令,
+  TR/TRPERM 臂;改了 stage2.py/stage2_weights.py/target_scoring.py)。scan5 部署 ctrl HEAD。零反馈复用 v1 证据:ρ=0.05 有效片段 782,
+  α* A→B 0 / B→A 0.003 / pooled 0 → 默认蒸馏(results/cr_diagnostics/controller_reuse_r7_s200_ball/)。diagnose-feedback 输出
+  results/cr_diagnostics/feedback_diagnostics_v1。**温度筛查 1026518**(scan5,T=0.3/0.5/0.7,budget 32)。已报节点。
+  待 v6 Codex 后:cherry-pick lin e9efa47 + ctrl b9a1c5e 进 hq。
