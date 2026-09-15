@@ -3050,3 +3050,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 11:05 CDT **反馈诊断**(64 条 rollout):62/64 step_limit(7 步未 Finish,预测为空,F1=EM=0),2/64 Finish 且全对;
   有回报差异父任务 2/16。失败模式 = T=1 下不收敛(greedy 完成率 67%)。下一步:控制器工具交付后在 16 父任务上
   T∈{0.3,0.5,0.7}×4 采样筛查(零教师),选定固定 T。已告知用户。
+- 11:08 CDT 用户:"尽量 LONI 并行"。已提交(排队):**1026457** scan3 react7 两格 seed 1(索引 0,2;SCAN_SEED=1);**1026458** scan2
+  react6 (200,300k)x10 seed 1(离群复核)。基线 seed 1 被拒("Baseline cell/seed differs")。待 Codex 交付后追加 v6 九格、线性化、温度筛查。
+  scan5 骨架已建(含 scan_r7_s200_ball 冻结根复制、stage1 软链)。v6 slurm 草稿 scratchpad/v6_arms.slurm。
