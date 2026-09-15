@@ -3068,3 +3068,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 12:35 CDT 控制器合并进 hq(**5bad4eb** = v6 2×2 + 线性化 + 控制器;Codex 解冲突,全部测试通过,v5 输出逐一比对不变)。
   LONI 在跑:v6 九格(scan6,1026548/1026543)、温度筛查 3 卡(scan5,1026518)、线性化(scan3,1026485)、seed-1 复核(1026549/1026550)。
   下一步依赖:筛查 → 定 T → 64 条正式先导(scan5);2×2 → 定 λ → 控制器根(TR/TRPERM/默认/置换,两种子)。
+- 12:05 CDT v6 base 1026548 在 vLLM 启动时失败:Codex 的脚本加了 `--attention-backend FLASH_ATTN`(Gemma-4 多模态前缀不支持;
+  我们一直只用环境变量 + `--mm-encoder-attn-backend TORCH_SDPA`)。已删该参数并重提 base;臂阵列 1026543 的 8 格训练中(旧脚本会在
+  serve 阶段失败)→ 提交 eval-only 阵列(cr_objective_eval.slurm,`--dependency=aftercorr:1026543`),训练不重跑。
