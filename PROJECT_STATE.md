@@ -3131,3 +3131,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 15:45 CDT λ=0 片段权重根构建交付并提交(hq 8ddf699;146 测试;`freeze --objective-lambda 0 --root-suffix lam0`,探针按协议 λ 训练)。
   合并 ctrl 采集器修复冲突(hotpotqa_feedback_eval.py)→ Codex merge2。计划:2×2 定 λ 后在 **scan8** 建 lam0 根并跑 λ=0 版探针。
 - 16:05 CDT hq HEAD **63af061**(采集器修复合并;228 测试)。scan8 部署;lam0 根冻结;λ=0 版探针检验提交(并行于 scan7 的锚版)。
+- 16:25 CDT **2×2 最终**(results/cr_stage2v6_r7_s200_ball/report.md):seed-avg U0 40.5、U1 37.9、F0 40.3、F1 38.3(base 37.0);
+  λ 效应 −2.3±1.0 [−4.3,−0.4](s0 −2.1、s1 −2.5);分配 +0.1±0.5;交互 +0.6±1.0;conf-32 λ −3.1±5.0。**共同目标 = λ=0,默认 token 比例;
+  去锚 SFT +3.5±1.1**。F0≡SmartAD 损失与 U0 打平 → 昨夜基线优势来自锚。已报节点。
