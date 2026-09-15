@@ -2927,3 +2927,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   复制六格冻结根,冻结变体 x10(10 遍,1e-5)与 x10lr3(10 遍,3e-5);脚本 scripts/scan_var.slurm(`SCAN_VARIANT=x10 sbatch …`)。
   S=400 格 Codex 已派(pid 10652,codex_s400.txt)。
 - 00:08 CDT **剂量变体已提交(scan2)**:x10 = 1024756,x10lr3 = 1024757(各 6 格;10 遍 → 10/18/26/43/60/86 步)。LONI 共 19 作业。
+- 00:11 CDT 格式探针工具交付(buy 2a339db):证据分析——原池 full-format 合规 23.6%(解析器接受 40.4%),失败集中在
+  **Finish 步:luna 直接输出裸答案**(220 条裸文本中 149 条 = gold 答案),Search 步 96% 合规。react7 提示 + 可选
+  `--format-retry`。探针已启动(rai,OpenAI,20 校准题,react6 pid 43077 / react7 pid 43078,各上限 60k);
+  早期:react7 前 5 题主回复 100% 合规,react6 首题 0%。~00:30 出结果。若 react7 ≥90% → 请示用 react7 重购 support-200
+  (≈6M in / 0.5M out,OpenAI,~2 h)。
