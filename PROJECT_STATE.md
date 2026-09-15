@@ -2978,3 +2978,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:50 CDT v1 重打分 1025046 FAILED(load_segments KeyError 'source':新加载器不认 v1 片段 manifest)。已把 v1 先导产物
   (64 rollout、frozen_manifest 等)复制到 rai hq worktree results/cr_diagnostics/segment_pilot_v1/,Codex rescorefix(pid 234564)
   用真实文件修 + check-only。
+- 01:58 CDT **节点 3 已报**。剂量变体(10 遍 1e-5):(200,300k) +3.6±1.3(完成);(200,500k) +3.7±1.6(n=295);(128,300k) +1.5±1.4;
+  100k 档 ≤ +0.6;3e-5 无一致增益。**初步配方:AdamW 1e-5,10 遍。** react7 重购完成:343 次/136 验证(68%)/149k out/1.5M in。
+  校验器 fix3(hqfix,pid 239469):model 串前缀、未结算保留、react7 身份按不变量比较;交付后 cherry-pick→scan3→冻结 5 格(3 遍 + x10)→提交。
