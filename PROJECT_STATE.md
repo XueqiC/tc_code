@@ -3218,3 +3218,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   修法(仅包装层):改回单作业串行(collect → select → precheck,Codex 原设计);SS_WORKERS=4;wiki_cache 软链到共享缓存 envs/hotpotqa/cache
   (17,206 条);collect 阶段加 `--resume` 重试循环(最多 4 次,间隔 90 s;hq 5a967a83 + 后续提交)。**重提 1027772 → 取消后再提(加了重试循环)**,
   id 记在 LONI results/states_jobs.txt;监视器读该文件。失败产物在 _trash/repair_states_1027745、_trash/repair_states_precheck_1027746。
+- 17:56 CDT **states_all(1027773)采集 + 选择完成**(17:52→17:56;4 并发 + 共享缓存,无 429):U0 greedy 在 support-200:完成率 80%、EM 56%、平均 4.14 步;
+  选出 64 状态 / 32 父任务(步分布 1:16 2:18 3:11 4:8 5:6 6:4 7:1;学生动作 Search 44 / Lookup 3 / Finish 17;前 8 为干跑集)。前置检查 generate 阶段进行中。
+  已取回 results/repair_states/{collect.jsonl,states.jsonl,*_summary.json}。
+- 17:57 CDT **8 状态干跑通过**(repair_dry8,1 分钟):8/8 ok,gpt-5.6-luna,计费 output 677(其中推理 243),prompt 11,465,$0.0016;可解析 8/8、可执行 8/8、
+  对任务有用 4/8;Repair=NONE 5/8,教师动作与学生相同 5/8;3 条修正内容合理(Terminal Tower ×2、Mark Lawrence 政治家)。
+  **全量采购已起**(states 9–64 共 56 状态,repair_v1,cap 30,000,4 并发;日志 logs/repair_full_purchase.log)。LONI 上对干跑包做三臂 render 检查中。
