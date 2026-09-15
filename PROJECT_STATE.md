@@ -3071,3 +3071,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 12:05 CDT v6 base 1026548 在 vLLM 启动时失败:Codex 的脚本加了 `--attention-backend FLASH_ATTN`(Gemma-4 多模态前缀不支持;
   我们一直只用环境变量 + `--mm-encoder-attn-backend TORCH_SDPA`)。已删该参数并重提 base;臂阵列 1026543 的 8 格训练中(旧脚本会在
   serve 阶段失败)→ 提交 eval-only 阵列(cr_objective_eval.slurm,`--dependency=aftercorr:1026543`),训练不重跑。
+- 12:12 CDT v6:base 重提 **1026672**(脚本已去掉 --attention-backend);臂训练 1026543(8 格,旧脚本在 serve 阶段会失败);
+  eval-only 阵列 **1026685**(aftercorr:1026543,跳过 train,只导出+评测)。首个 eval-only 脚本版本未真正跳过 train,已取消(1026673)重提。
