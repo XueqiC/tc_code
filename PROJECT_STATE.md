@@ -3080,3 +3080,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 12:58 CDT 派 Codex 构建探针步收益估计 `tools/cr_probe_gain.py`(hq;plan/train/export/evaluate/analyze;α∈{0,0.1,0.3},k=5 步,
   独立半反馈父任务在温度 T 下批量采样 N 次;PERM 方向作 null;喂给 α* 控制器)。只准备,等用户批准再跑。
 - 13:00 CDT 应用户要求发了进度汇总;向用户提出两个待定:(a) 是否用探针步实测 ĝ;(b) 筛查后是否由我按"完成率 ≥50% 且每题回报方差最大"选 T。
+- 13:10 CDT 应用户要求写并发送详细进度报告 docs/2026-09-15-afternoon-progress-report.md(§7 两个待定问题)。
