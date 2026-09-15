@@ -3036,3 +3036,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 07:45 CDT scan3 注册修订首次失败(树无 git HEAD → `git rev-parse` 报错);补空提交后重试并提交基线评测(见下一行)。
 - 07:47 CDT scan3 修订 baseline_export_v1 已注册(configs/conditional_response/amendments/);**基线评测阵列 1025408**(SmartAD、SAD,
   export+evaluate,`--amendment`)已提交;scan3 有 git HEAD e6b218b(空提交,仅作 provenance)。
+- 07:52 CDT 每日 Azure 探测:P1/P2 探测 200(与昨日 22:08 相同,非"恢复");注:昨夜 luna 部署在真实负载下 P1/P2 429、P3 401,
+  采购全部走 OpenAI。未做教师调用。
