@@ -48,7 +48,8 @@
 | (200,500k) | 389 / 195 / 107 | 154 / 4,575 / 26 | 37.8 | +0.8 ± 1.1 | 16/12 | 40.6 |
 
 读法:无一格超过 2 SE;每格仅 7–28/500 题改变。曲线平的原因是**剂量(3–26 步)与材料(≤154 回合)都太小**,
-不是预算无用。文件:`results/cr_scan/grid/grid.{md,json,png}`,LONI `tc-hotpotqa-scan` 作业 1024738。
+不是预算无用。文件:`results/cr_scan/grid/grid.{md,json,png}`(图:`grid.png`,S×B 网格 + 两条边际曲线),LONI `tc-hotpotqa-scan` 作业 1024738。
+剂量变体叠加图:`results/cr_scan/grid_dose/grid.png`(3 遍实线,10 遍 1e-5 / 3e-5 虚线)。
 
 ### 2.1 剂量变体(10 遍;lr 1e-5 与 3e-5)
 
