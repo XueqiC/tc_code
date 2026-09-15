@@ -2809,3 +2809,13 @@ adapter,37.8/37.4/37.2 vs 38.2 的差异是解码噪声。**已发表方法的�
   `--bank-from` 读归档购买行(校验 SHA,零教师调用)、同 24 步曝光、**保留归档 SmartAD 分母**(只隔离优化器)、
   输出 `results/table1_adamw/`,代码禁止写归档目录;manifest 记 step1/24 CE 与自银行 init-vs-trained CE。
   交付后提交 9 格阵列(~2 h)。三条 Codex 线(hq: 基线 AdamW;s2: stage 2 v4;—)在独立 worktree。
+
+### 2026-09-15 03:00 CDT — stage 2(协议 v4,AdamW)七格起跑:LONI **1024600**(阵列 0–6)
+- 部署树 **`/work/xueqic/hq/tc-hotpotqa-s2`**(独立于 stage 1 的 `tc-hotpotqa`,因为运行中的先导正在导入 stage-1 模块;
+  `.venv`/`envs` 为符号链接;`results/paper_baselines` 链接;53 个协议源文件哈希 ALL MATCH)。
+- 提交 `4891628`(worktree `tc-alignment-s2`):v4 冻结,461 CPU 测试,stage-1 42 文件逐字节不变。
+- 单元:SFT_s0/s1、FIXSEG_s0/s1、META_s0/s1、base;MECH/PERM(索引 7–10)门控在
+  `results/cr_diagnostics/segment_pilot_v1/segment_pilot.json`(`--pilot-artifact`),先导落地后提交。
+- 评测两层(500 + 32),vLLM 沿用归档 `VLLM_ATTENTION_BACKEND=FLASH_ATTN` 环境变量(仅 env,不加 CLI 标志)。
+- **SFTx3** 剂量变体(72 步 = 24 步配额循环 3 次,仅 SFT 臂,新根 `stage2b_x3`)Codex 构建中(worktree s2)。
+- **RESTART**:重挂监视 1024586(先导)、1024600(stage 2)、Codex pid 3641970(基线 AdamW)、3656220(SFTx3)。
