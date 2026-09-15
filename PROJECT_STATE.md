@@ -2914,3 +2914,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   验证成功尝试的**合法主回复**回合;fallback 步(luna 主回复只给裸字符串、由 harness 兜底解析)不进监督)。
   六格在 LONI 重新冻结(configs/loni/*.yaml,模型路径 /work/xueqic/hf-cache)。脚本 scripts/scan_tiers.slurm(每格
   preflight→train→export→vLLM→evaluate dev-500+32)。monitor 每 7 分钟。
+- 23:45 CDT 六格监督量(验证成功+合法主回复):(50,100k) 44 回合/1,318 tok/8 步;(128,100k) 32/941/6;(200,100k) 19/501/3;
+  (128,300k) 106/3,156/18;(200,300k) 73/2,262/13;(200,500k) 154/4,575/26。**luna 主回复格式合规仅 ~40%**(403 步中 237 步
+  为裸字符串兜底)。剂量变体 Codex 已派(pid 4169391,codex_dose.txt:`--variant --passes --learning-rate`)。已告知用户。
