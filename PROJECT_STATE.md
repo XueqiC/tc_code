@@ -2957,3 +2957,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:12 CDT **S=400 采购完成**(summary.json 由 179f54d 代码在 worktree `tc-alignment-buyfin` 用 `--out` 补写:进程结束时
   因代码已更新报 `hp.PROMPT_FILES` AttributeError,数据完整):200 题 / 390 次尝试 / **131 验证(65.5%)**,
   prompt 5.02M,completion 401,775(charged;reported 383,343),81 次 provider 拒绝记 0,9 次不确定;真实成本按占位价 $0.71。
+- 01:17 CDT S=400 冻结在 LONI scan3 失败:"SUPPORT-400 requires OpenAI"(support400.py 校验拒绝账本里零计费的 Azure 拒绝行与
+  新状态名)。修复 Codex 在独立 worktree `tc-alignment-hqfix`(branch s400-validator @ab988f9;pid 144109),用真实池根验证。
+  修好后:cherry-pick 到 hq、diff 同步 scan3、重冻 s400 两格 + react7 三格。s400 池已 rsync 到 LONI。
