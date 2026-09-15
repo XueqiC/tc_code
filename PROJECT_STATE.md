@@ -3204,3 +3204,11 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   部署 LONI tc-hotpotqa-repair(provenance 15f2ec6)。测试:在 rai 上要 `CUDA_VISIBLE_DEVICES=''` 才能过(新 torch 的 AdamW.step 查询加速器设备,
   触发 CPU 测试的"禁 GPU"守卫;隐藏 GPU 后 25 + 90 全过;Codex 沙箱无 GPU 故通过)。脚本:scratchpad heldout_states.sh(留出状态 = seed 20260916 二次
   选择减去已采购父任务)、repair_submit.sh(REPAIR_PACKAGES/REPAIR_STATES → submit)。等 LONI 1027602 出 states。
+- 17:20 CDT **两作业首次失败(1027602/1027603,17:05)→ 已修复重提**。原因:repair 树的代码来自 git HEAD(7615e9b2),而 v6 冻结根按哈希绑定
+  scan6 部署时(6940039)的 75 个实现文件与 4 个源文件——10 个模块在此后被改动(控制器合并、采集器修复:losses/stage2/stage2_weights/hotpotqa/
+  target_scoring/conditional_response_distill/hotpotqa_eval/cr_segment_math/cr_segment_pilot/cr_mechanism_cell),3 个源文件是 git 未跟踪的生成物
+  (configs/conditional_response/segment_r7_s200_ball_v1.json、scan_r7_s200_ball 根的 frozen_protocol.json / positive_manifest.jsonl)。
+  修法:把这 13 个文件从 scan6 原样复制进 repair 树(pin_check 75/75、4/4、artifacts 6/6 通过;HEAD 版本备份在 _trash/pre_pin/),新工具改用冻结模块
+  已有的 API(hq b1d6a6fe:本地 is_objective_protocol;positive_terms 不传 reference;分析的评测 binding 只比较冻结评测器写出的键;测试适配冻结签名、
+  λ=0 时冻结模块仍记录 reference_kl 但不进损失——已在 journal 上核实 anchor_loss == teacher_ce)。LONI 上两套新工具测试全过(45 + 25)。
+  中途误提的 1027709/1027710 已取消。**重提:1027745 states_collect、1027746 states_precheck,17:12–17:16 起跑(qbd503 / qbd540)**;监视 buwofn4ux。
