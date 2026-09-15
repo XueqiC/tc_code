@@ -2859,3 +2859,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   30k→60k→120k→240k(嵌套前缀;240k≈190 链≈买完 200 题,是 support-200 下预算仍起作用的上限),每档 AdamW SFT,
   EM-vs-链数找拐点;support 只在 200 题买完仍上升时才扩。新购 ≈210k output token。**等用户批准,批准前零采购。**
   Codex 采购/训练工具照常完成(档位是参数)。30k 点 = 今晚 stage 2 SFT / SFT×3 / AdamW 基线。
+- 21:51 CDT **用户批准 210k 阶梯**("可以" + "可以买"):新序列从头买(support-200 固定随机顺序,luna 默认温度),
+  档位 = 新序列前缀 30k/60k/120k/210k,每档单种子 AdamW SFT,dev-500(+32) EM vs 链数。新购上限 **210k output token**。
+  等 Codex 工具交付后改档位/池子、dry-run、开买;30k 档先开训。
