@@ -2946,3 +2946,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 00:40 CDT react7 池格 Codex 交付并提交(hq ab988f9)。机制复测 Codex 已派(pid 91145,codex_mech.txt:`--cell` 参数化,
   默认 r7_s200_ball;片段银行、stage-2 v5 根、先导重打分、基线 @cell、报告)。**第三棵 LONI 树 `tc-hotpotqa-scan3`**
   @ab988f9(react7/S=400 格与机制臂用;scan/scan2 有运行中阵列不同步)。
+- 00:44 CDT scan3 脚本就绪(scratchpad):`scan3_tiers.slurm`(r7_s200_b100k/b300k/ball + s400_b500k/ball)与
+  `loni_scan3_deploy.sh`(两采购 complete 后:rsync 池根到 tc-hotpotqa/envs/hotpotqa/teacher_pool_scan/ → 冻结 5 格 → sbatch)。
