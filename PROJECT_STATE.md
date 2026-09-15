@@ -2899,3 +2899,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 22:52 CDT LONI 树 `tc-hotpotqa-scan` 已部署 c2b20e9(git archive;rai 冻结的 runs/ 移入 _trash);LONI 上 freeze 冒烟通过
   (sealed30k,44 s,与九个归档 manifest 核对)。模型路径:YAML 用 sed 换成 /work/xueqic/hf-cache(configs/loni/)。
   网格交付后:`bash scratchpad/loni_grid_deploy.sh <commit>`(同步 diff 文件 → 冻结 6 格 → sbatch scan_tiers.slurm)。
+- 23:00 CDT **sealed 切档 bug**:LONI 冻结 sealed30k 只得 2 回合/92 token(13/17 次"无轨迹")。真相:原始池根
+  `envs/hotpotqa/teacher_pool_v2/attempts.jsonl`(LONI tc-hotpotqa;已复制到 rai hq worktree)419 次尝试**全部**有完整
+  history/transcript(steps 1–7);scan_bank 的 receipts 配对规则(每次调用一条记录)不适用于 sealed(每次尝试一条),
+  多回合尝试全被丢弃。修复提示 codex_sealedfix.txt(池根取监督;默认只用验证成功的尝试;记录策略与数量),等网格 Codex 交付后派。
