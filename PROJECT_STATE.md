@@ -2940,3 +2940,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 00:22 CDT **格式探针定论**(20 校准题):react6 主回复合规 5.5%、兜底 79.1%、verified 55%、4.55 步/1,020 tok;
   **react7 合规 100%、兜底 0%、verified 55%、3.25 步/283 tok**;失败模式(react6):裸答案 73%、编造 Observation 12%。
   已向用户报告节点 1;决定用 react7 重购 support-200(上限 535k,预计 ~115k out / 1.4M in)。
+- 00:30 CDT **react7 重购 support-200 已启动(rai)**:pid 76329,log `tc-alignment-buy/logs/buy_r7_s200_20260915_013020.log`,
+  存储 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/r7_s200/`,commit 8a3071d(manifest = support-200,顺序 = 原池
+  task_order,tier r7_s200 cap 535k,`--prompt-version react7`,OpenAI 12 并发)。与 S=400(react6)采购并行。
