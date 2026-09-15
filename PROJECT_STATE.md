@@ -3019,3 +3019,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   只导出+评测,不重训;scripts/mech_beval.slurm)。
 - 05:40 CDT cell rescore(r7_s200_ball,922 段)完成:两半各仍只有 1 个有对比的父任务(同一批 64 rollout),w_max 1.0、有效片段 1.0,
   中心化收益相关 −0.43,G_A→B −429 / G_B→A +47,bootstrap 区间含 0 → 反馈饿死确认;MECH/PERM 仅作对照。
+- 05:45 CDT **我的失误**:把 a4ba2ba(基线 export/evaluate)同步进 scan3 后,冻结根的 code_hashes 拒绝一切后续 export/evaluate
+  ("Frozen v5 implementation changed"):MECH/PERM 1025361 与基线评测 1025358 各 5–60 s 失败。已把 tools/cr_mechanism_cell.py、
+  tools/cr_cell_baselines.py 还原为 a1fbb39 版本(冻结时的),重提 MECH/PERM;Codex amend(hq)做"注册修订"机制
+  (只允许 CLI 包装/分析文件变更,训练模块不可变,收据记录修订 id),之后再评测基线。META 进程早于同步启动,未受影响。
