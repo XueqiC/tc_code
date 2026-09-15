@@ -3007,3 +3007,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 04:58 CDT Kang 基线在 r7_s200_ball 上按设计**被 FTP 门拦下**(1025222_2 FAILED 11 s):"Kang FTP requires purchased CoT-prefixed
   trajectories; 461 frozen turns lack acquisition_method=kang_first_thought_prefix" —— 忠实 Kang 需要专门的 FTP 采购路径,
   本轮报"gated";SmartAD 导出中、SAD 训练完成。
+- 05:12 CDT x10 格:r7_s200_b100k__x10(267 步)37.4 +0.4±1.1;s400_ball__x10(214 步)37.6 +0.6±1.3;s400_b500k__x10(104 步)
+  37.4 +0.4±1.3;r7_s200_ball__x10(375 步)训练 354/375。→ 重剂量在 react7 100k 与 S=400 上也无增益;唯一 >2 SE 的仍是 react6
+  (200,300k)x10 +3.6(单种子,疑似离群)。机制链:META/SmartAD/SAD 导出中;cell rescore 打分中;Kang gated。
