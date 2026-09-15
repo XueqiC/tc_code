@@ -2763,3 +2763,11 @@ LONI 1024577(25 分 55 秒),8 回合固定银行,同一初始化,D0 目标,20 �
 **RUNNING JOB**:LONI **cr_pilot**(split-half 先导,AdamW 1e-5 更新映射;16 父任务 × 4 次 T=1 rollout,
 116 片段;β=0.01;输出 `results/cr_diagnostics/segment_pilot_v1/`),约 1.5–2 小时。
 产物:`results/cr_diagnostics/optimizer_check.json`(已取回本地)。
+
+### 2026-09-15 02:25 CDT — 三线并行中(⟳ 重启后按此重挂监视)
+- **LONI 1024586 `cr_pilot`**(split-half 先导,AdamW 1e-5 映射;~22:30 CDT)→ `results/cr_diagnostics/segment_pilot_v1/`
+- **LONI 1024587 `cr_replay`**(步骤 B:两个数值失败分别重放,重算 τ=1 校准检验 λ 除法假设)→ `results/cr_diagnostics/failure_replay_v1/`
+- **Codex(worktree hq)**:`tools/cr_baseline_bank_check.py` —— 九个归档 HotpotQA 基线格在**各自 22 行银行**上
+  adapter 关/开的 CE 与 KL(归档只读),回答"基线是否被训练";交付后需 GPU 作业(短)。
+- 先导工具/片段银行/C 结果均已提交至 hq worktree(`a41cc79`),C 报告已取回 `results/cr_diagnostics/optimizer_check.json`。
+- **教师调用累计仍为 0 新增。采购未启动。**
