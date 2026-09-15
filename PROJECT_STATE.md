@@ -2889,3 +2889,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   log `tc-alignment-buy/logs/buy_s400_20260914_231820.log`,存储 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/s400_new200/`
   (attempts/usage/teacher_ledger jsonl + identity/inheritance;完成后出 summary.json)。清单 200 题 = 2,000 池顺序前 200,
   与 support-200/dev-500/confirmation 互斥(工具校验)。硬上限 535,000 output token;续跑 = 原命令重跑。monitor 已挂。
+- 22:22 CDT **采购中止**:44/44 次尝试在发请求前报 `TypeError: generate_reply() got an unexpected keyword argument 'stop'`
+  (usage 全为 reserved→charged_bound,model 全 None,无任何 HTTP 响应);工具按未知用量每次记 2,048 → 账面 90,112、真实花费 0。
+  已 kill 3887124,账本移至 `tc-alignment-buy/_trash/s400_new200_typeerror_*`。Codex 修复(codex_buyfix.txt):真实接口
+  + 只 stub HTTP 的测试;未发出错误不计费不耗尝试、连续 3 次中止;每次尝试打印进度。修好后重启采购。
