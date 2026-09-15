@@ -929,3 +929,4 @@ ipl_P_s1 | P arm seed 1 | LONI 1022669 | EM local .4900 / changed .4550 / full .
 ipl_L_s0 | L arm seed 0 | LONI 1022669 | EM local .5000 / changed .4800 / full .5050 | archive/ipl_adapters/L_s0
 ipl_L_s1 | L arm seed 1 | LONI 1022669 | EM local .4950 / changed .4600 / full .5100 | archive/ipl_adapters/L_s1
 baseline-mechanism-audit | 离线分析,无 GPU | archive/table1 + results/paper_baselines | SmartAD 选择率 100%(每题候选=1);SAD 两组同时非空 0/49、4/22;Kang 前缀 5/49、4/22,SAG 58.8→57.6 | docs/2026-09-14-baseline-limitations-detailed-zh.md
+scan_grid_v1 | S×B grid (s50_b100k s128_b100k s200_b100k s128_b300k s200_b300k s200_b500k), sealed luna bank prefixes, verified-only legal primary turns, AdamW 1e-5 3 passes, seed 0 | LONI tc-hotpotqa-scan job 1024738 @6b57141 | pending | runs/conditional_response/scan_<cell>/SFT_s0/evaluation.json; results/cr_scan/grid/

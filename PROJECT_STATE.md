@@ -2910,3 +2910,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (真实 30,621 + 9 笔中断保留 2,048)。23:05–23:15 吞吐 3 次/分钟(35 次/18 题/7 验证)。
 - 23:24 CDT 网格扩展 Codex 交付并提交(5a7c711→ **5a7c511**;六格 YAML + rai 冻结根;38 扫描测试;全套 4,366 通过/35 失败与之前相同)。
   sealed 监督修复 Codex 已派(pid 4131811,codex_sealedfix.txt);交付后:提交 → `loni_grid_deploy.sh <commit>`(LONI 重新冻结六格 → sbatch)。
+- 23:41 CDT **网格已提交 LONI:1024738(0–5)**,树 `tc-hotpotqa-scan` @ hq **6b57141**(sealed 监督修复:池根取轨迹、默认只用
+  验证成功尝试的**合法主回复**回合;fallback 步(luna 主回复只给裸字符串、由 harness 兜底解析)不进监督)。
+  六格在 LONI 重新冻结(configs/loni/*.yaml,模型路径 /work/xueqic/hf-cache)。脚本 scripts/scan_tiers.slurm(每格
+  preflight→train→export→vLLM→evaluate dev-500+32)。monitor 每 7 分钟。
