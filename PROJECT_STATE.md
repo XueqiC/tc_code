@@ -2984,3 +2984,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 02:08 CDT rescore 兼容修复交付并提交(hq a1fbb39;147 测试;真实 v1 check-only 通过);同步 scan3;**v1 重打分重提 1025189**。
 - 02:12 CDT v1 重打分第二次(1025189)因 scan3 缺 results/hotpotqa_chain_recovery_20260913/packs.json 失败;已软链
   tc-hotpotqa 的该目录到 scan3/results,**第三次提交 1025190**(monitor bjpmhbcxo)。
+- 02:25 CDT **scan3 上线**(hq 563bc21 = 机制工具 + 三轮校验修复):冻结 r7_s200_b100k(94 验证/326 回合/14.2k tok/80 步)、
+  r7_s200_ball(136/461/20.0k/113;b300k 与 ball 相同故跳过)、s400_b500k(132/171/5.5k/32)、s400_ball(244/347/11.3k/64)
+  + x10 变体(267/375/104/214 步)。阵列 **1025212(3 遍)与 1025213(x10)**,索引 0,2,3,4。
+  **机制链(CELL=r7_s200_ball,3 遍 113 步)**:片段银行 922 段(461 thought/325 action/136 final;20,017 tok);
+  stage2_r7_s200_ball 冻结(SFT/FIXSEG/META/MECH/PERM);提交 **rescore 1025220、arms 0-3 1025221、baselines 1025222**;
+  MECH/PERM(索引 4-5)等 1025220 出 segment_pilot.json 后提交。剂量变体 12 格全部完成。
