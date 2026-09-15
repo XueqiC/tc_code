@@ -2844,3 +2844,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   Codex(hq)正在构建:`--manifest/--tier` 采购工具、访问清单、每档 AdamW SFT 训练根、`tools/cr_scan.py`。
 - 基线 AdamW 阵列:1024662 全格 10 秒失败(`bfas.processes` 不在 hq 分支,已从 main 复制并提交);
   1024673 全格失败(`--run-dir` 必须为新目录,而 1024662 已创建空目录);已把残留目录移入 `_trash/` 后第三次提交。
+- 03:45 CDT 采购预检(rai,hq worktree):HotpotQA train/dev 数据与 cache 在 `envs/hotpotqa/`;实时 Wikipedia 检索通;
+  Azure P1 luna 从 rai 直连 200。**扫描采购将在 rai 上跑(API 绑定,不占 GPU)**,训练/评测在 LONI。
