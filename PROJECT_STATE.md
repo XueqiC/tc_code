@@ -3094,3 +3094,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   四行预注册判读;去掉 α 网格/斜率/α*),等当前 probe Codex 结束后派。ctrlpilot.slurm(在 base 上采正式反馈)作废。
 - 13:35 CDT 探针基础设施交付并提交(hq 345ea72;251 测试:k 步探针、采样反馈评测 `tools/hotpotqa_feedback_eval.py`);已派
   reshaping Codex(codex_probe2.txt,pid 见 codex_probe2.pid)→ 三分支机制检验工具。
+- 13:50 CDT 慢筛查(1026518)每条 rollout ≈13 分钟(含梯度),中期 9–10/32:T=0.3 完成 1/9、0.5 0/9、0.7 0/10 —— 即便低温也几乎不
+  Finish,需同父任务 greedy 参照。派 Codex(worktree screen @345ea72)建独立批量筛查 CLI `tools/hotpotqa_feedback_screen.py`
+  (T∈{0,0.3,0.5,0.7,1.0},16 父任务×4,完成率/成功率/对比父任务数/greedy 参照;冻结规则仅作工程规则)。慢筛查暂留。
