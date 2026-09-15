@@ -472,12 +472,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   在跑:bfclb14(curr+clw 组合)、λ=1.00、λ=0.25(重试)。
   下一步:全家桶臂(v9 + curriculum + cluster + λ最佳档)冲 base。
 
-## ⟳ RESTART CHECKLIST (2026-09-14 22:27 CDT)
-1. LONI: `ssh loni squeue -u xueqic` — only the split-half pilot 1024586 (tree tc-hotpotqa) should be alive; all 30k arrays were cancelled by the user (1024600/1024636/1024682/1024695). Re-arm a monitor on `logs/cr_pilot_1024586.out` (Collected training feedback N/64 → Paired feedback gradients → segment_pilot.json).
-2. rai Codex runs: sealed-bank scan redirect in `tc-alignment-hq` (pid 3832872, log scratchpad codex_scan_sealed.log) and the purchase-path fix in `tc-alignment-buy` (pid 3894019, codex_buyfix.log). If finished: review diff, commit, then (a) dispatch codex_grid.txt in tc-alignment-hq; (b) dry-launch the purchase (`--max-tokens 3000 --workers 1`), check the first settled usage row (model non-null), then the full command with cap 535000; monitor `envs/hotpotqa/teacher_pool_scan/s400_new200/`.
-3. Purchase process (when running): check `pgrep -f hotpotqa_teacher_pool` cmdline first; never kill others' processes.
-4. LONI tree `tc-hotpotqa-scan` exists (skeleton with symlinks); deploy the grid commit there (derive file list from `git diff --name-only`), freeze 6 cells on CPU, `sbatch scripts/scan_tiers.slurm` (draft in scratchpad scan_tiers.slurm).
-5. Report times in America/Chicago; hourly :23 report; footer with status_line.sh.
+## ⟳ RESTART CHECKLIST (2026-09-15 04:05 CDT)
+1. LONI (`ssh loni squeue -u xueqic`): scan3 x10 array 1025213 (4 cells, tree tc-hotpotqa-scan3), mechanism chain on r7_s200_ball: rescore 1025220, arms 1025221 (0-3), baselines 1025222, v1 rescore 1025190. Re-arm monitors on scan3 logs (`logs/scanvar_1025213_*`, `logs/mech_*`, `logs/rescore_*`).
+2. When `results/cr_diagnostics/segment_pilot_r7_s200_ball/segment_pilot.json` exists on scan3: `sbatch --export=ALL,CELL=r7_s200_ball --array=4-5 scripts/mech_arms.slurm` (MECH, PERM).
+3. Analysis: `tools/cr_mechanism_cell.py analyze --cell r7_s200_ball` (scan3); grid readers in scratchpad (grid_em.py); paired reader inline in PROJECT_STATE history.
+4. Report: docs/2026-09-15-setting-and-mechanism-report.md — fill §5.1 (x10 variants), §6 (pilot split-half), §7 (mechanism arms + baselines), §0 conclusion; then send to the user with the PNGs (results/cr_scan/grid*/grid.png).
+5. No purchases pending. rai: no processes of ours. Report times in America/Chicago; checkpoint-only reporting.
 
 ## ⟳ 重启后恢复 (2026-09-01 ~20:05 EDT)
 - HPG 项目路径实为 `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment`(不是 yd24f 那条)。
