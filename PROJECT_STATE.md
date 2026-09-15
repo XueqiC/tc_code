@@ -3239,3 +3239,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   git archive 里、新树没有。已把 scan6 的 results/paper_baselines 与 results/hotpotqa_chain_recovery_20260913(均为指向 tc-hotpotqa 的软链)复制过来。
   **重提(不重跑 freeze)**:train **1027823[0-5]**(0–2 已在跑,3–5 等资源)→ evaluate+local **1027827[0-6]** → analyze **1027828**;
   id 在 LONI results/repair_jobs.txt;监视 brfkv2ezv。前置检查 1027773 仍在打分(23 分钟)。
+- 18:30 CDT **前置检查完成(1027773;results/cr_diagnostics/thought_condition_precheck/,已取回)**:128 条 react7 验证回合,U0 学生;教师动作行的
+  teacher-forced NLL(nats,回合和 / 每 token):条件 T(教师 Thought)0.58 / 0.042;S(学生自生成 Thought)3.03 / 0.238;N(无 Thought)22.9 / 1.80。
+  配对差 S−T +2.45 ± 0.50(题级 bootstrap [1.53, 3.40]),N−T +22.3 ± 0.29。学生自己的动作与教师动作不同 32.8%(Search 36.9%、Finish 22.5%;
+  同工具类型 86.7%);随步数增大(step 6–7:S−T 7–17 nats,动作不同 80%)。读法:训练条件确有差距——给定教师 Thought 时动作监督几乎"免费"
+  (0.58 nats),学生自己的 Thought 下同一动作难 5 倍,且三分之一状态学生会做别的动作;Thought 携带动作的几乎全部信息(无 Thought 22.9 nats)。
+  按用户口径:这只说明训练条件不同,不代表自主能力。
