@@ -2854,3 +2854,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `--export=ALL,CR_MODEL_PATH=<gemma-4-12B snapshot>`(脚本第 29 行 `${CR_MODEL_PATH:?}`)。带 export 重提 = **1024695**。
   规则:重提任何阵列格前先 `sacct -o SubmitLine` 复制原提交命令。
 - 21:48 CDT 用户再次确认:"可以的我批准"(预算扫描 1.4M output token + 2,000 题池;luna 默认温度偏差已声明)。已 👀 + 一行回复。
+- 21:50 CDT **用户撤回 1.4M/2,000 扫描**:"我们要做的应该是探索在我们的问题下,什么才是合理的 support set size 和 budget
+  setting,你去训练 1.4M output token + 2,000 没有意义"。**不买。** 我提出替代:固定 support-200,预算阶梯
+  30k→60k→120k→240k(嵌套前缀;240k≈190 链≈买完 200 题,是 support-200 下预算仍起作用的上限),每档 AdamW SFT,
+  EM-vs-链数找拐点;support 只在 200 题买完仍上升时才扩。新购 ≈210k output token。**等用户批准,批准前零采购。**
+  Codex 采购/训练工具照常完成(档位是参数)。30k 点 = 今晚 stage 2 SFT / SFT×3 / AdamW 基线。
