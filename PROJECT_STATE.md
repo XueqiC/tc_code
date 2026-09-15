@@ -3143,3 +3143,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   hq 63af061 14:02;λ=0 探针 1026875 起跑 14:03;2×2 报告取回 14:17("16:25"条目)。此后条目用 `date` 校准。
 - 15:05 CDT 全天报告草稿已写:docs/2026-09-15-final-report.md(§8.3 留 λ=0 探针待填)。λ=0 探针 1026875 在 direct 阶段(scan7 同阶段用时
   约 25 分钟)→ 预计 ~15:15 出 readout;后台等待任务 b0vmr94w6 + 监视 btkd12ftg。出数后:填 §8.3、取回产物、发节点消息 + 报告附件。
+- 15:11 CDT **λ=0 版探针检验(scan8,1026875,14:03→15:09)出数**:判读 **第 4 行(严格):all within resolution → undecidable; do not add samples**。
+  直接检验(16 父任务×2,T=0.5):cand−default -0.031±0.031、perm−default -0.031±0.055、cand−perm +0.000±0.079;
+  投影 Û:cand +0.097 [0, +0.29]、perm +0.017 [0, +0.05](单父任务数);有对比父任务 1/16;‖δ‖² 0.012/0.016;
+  greedy 参照 cand−default +0.0000±0.0000。已取回 results/cr_diagnostics/probe_check_r7_s200_ball_lam0/。两版(锚 / λ=0)都是第 4 行。
+  全天报告 docs/2026-09-15-final-report.md 已补全(§8.3、§0)并发给用户;下一步等用户在 §9 的 A/B/C/D 中定(推荐 A+B,λ=0 根)。LONI 队列空;rai 无我们的进程。
