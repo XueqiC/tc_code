@@ -2997,3 +2997,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   结论收敛:普通 SFT 上限约 +1~+3,剂量是唯一明显旋钮。机制链:base DONE,SFT/FIXSEG 评测中,META/SmartAD 训练中,
   cell rescore A 15/16;v1 rescore B 11/16。x10 变体 ~05:30–06:20。
 - 04:00 CDT r7_s200_ball(3 遍)最终:37.6,+0.6±1.1(17/14),conf32 46.9。3 遍四格全部完成(1025212)。
+- 04:20 CDT **节点 5 已报**。先导重打分(1025190 COMPLETED,results/cr_diagnostics/segment_pilot_v1_rescore/):两半各仅 1/16
+  父任务有对比(其余两次都失败),split-half 相关 0.15(1157/2000 无定义),权重塌缩单片段,G_A→B 182 / G_B→A 95 但
+  bootstrap 下界 0 → 反馈饿死;候选 RMS 映射权重与长度相关 1.00。机制臂(stage2_r7_s200_ball,同批 base 35.8):
+  SFT 39.4 +3.6±1.3(30/12);FIXSEG 39.4 +3.6±1.2(26/8);META/MECH/PERM 待。评测漂移:同 base 37.0→35.8;
+  同 SFT 配置 scan 37.6 vs 机制 39.4(run-to-run 1.8)。
