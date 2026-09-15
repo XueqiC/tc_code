@@ -3112,3 +3112,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 14:50 CDT hq HEAD **e872012**(三分支探针检验 + 独立筛查 CLI 合并;vLLM 运行时路径改短)。**scan7** 部署(v5 根 stage2_r7_s200_ball
   复制含 base 评测、react7 格、candidate 产物 controller_reuse、片段配置)。探针检验只接受片段权重(v5)协议 → 目标 = 0.5CE+0.5KL
   (λ=1 等价);若 2×2 判 λ=0 更优,λ=0 版探针需另建。脚本 scan7/scripts/probecheck.slurm(单作业全流程),等 T。
+- 14:58 CDT scan7 探针 plan 干跑通过(schema 2、三分支、3×5 步、64+96+48 条 rollout、candidate 来自 controller_reuse);已移入 _trash,等 T 后正式起跑。
