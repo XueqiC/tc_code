@@ -2975,3 +2975,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:47 CDT scan3 部署 hq HEAD 13536f1(机制工具 + 校验修复 #1);**v1 先导重打分作业 1025046**(scan3,从已存 64 条 rollout
   重算 ĥ 并对 segment_pilot_v1 银行打分,输出 results/cr_diagnostics/segment_pilot_v1_rescore/)。机制脚本已放 scan3/scripts:
   mech_arms.slurm(0 base 1 SFT 2 FIXSEG 3 META 4 MECH 5 PERM;CELL 环境变量)、mech_rescore.slurm、mech_base.slurm(smartad/sad/kang)。
+- 01:50 CDT v1 重打分 1025046 FAILED(load_segments KeyError 'source':新加载器不认 v1 片段 manifest)。已把 v1 先导产物
+  (64 rollout、frozen_manifest 等)复制到 rai hq worktree results/cr_diagnostics/segment_pilot_v1/,Codex rescorefix(pid 234564)
+  用真实文件修 + check-only。
