@@ -3130,3 +3130,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   analyze 已跑一次(部分),完成后重跑。探针检验:三分支训练完成,导出中。
 - 15:45 CDT λ=0 片段权重根构建交付并提交(hq 8ddf699;146 测试;`freeze --objective-lambda 0 --root-suffix lam0`,探针按协议 λ 训练)。
   合并 ctrl 采集器修复冲突(hotpotqa_feedback_eval.py)→ Codex merge2。计划:2×2 定 λ 后在 **scan8** 建 lam0 根并跑 λ=0 版探针。
+- 16:05 CDT hq HEAD **63af061**(采集器修复合并;228 测试)。scan8 部署;lam0 根冻结;λ=0 版探针检验提交(并行于 scan7 的锚版)。
