@@ -3023,3 +3023,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   ("Frozen v5 implementation changed"):MECH/PERM 1025361 与基线评测 1025358 各 5–60 s 失败。已把 tools/cr_mechanism_cell.py、
   tools/cr_cell_baselines.py 还原为 a1fbb39 版本(冻结时的),重提 MECH/PERM;Codex amend(hq)做"注册修订"机制
   (只允许 CLI 包装/分析文件变更,训练模块不可变,收据记录修订 id),之后再评测基线。META 进程早于同步启动,未受影响。
+- 05:58 CDT 修订机制交付并提交(hq b3c6d18;107 测试)。**第四棵树 `tc-hotpotqa-scan4`**(hq HEAD 代码,runs/conditional_response
+  软链到 scan3),注册修订 baseline_export_v1(允许 cr_mechanism_cell/cr_cell_baselines/cr_segment_bank/cr_segment_rescore),
+  基线评测阵列用 `--amendment` 提交(scripts/mech_beval_amend.slurm)。scan3 的工具保持冻结版本直到 MECH/PERM 结束。
