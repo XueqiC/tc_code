@@ -2948,3 +2948,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   @ab988f9(react7/S=400 格与机制臂用;scan/scan2 有运行中阵列不同步)。
 - 00:44 CDT scan3 脚本就绪(scratchpad):`scan3_tiers.slurm`(r7_s200_b100k/b300k/ball + s400_b500k/ball)与
   `loni_scan3_deploy.sh`(两采购 complete 后:rsync 池根到 tc-hotpotqa/envs/hotpotqa/teacher_pool_scan/ → 冻结 5 格 → sbatch)。
+- 00:47 CDT 网格首格:(200,100k) dev-500 EM 0.38 vs base 0.37(stage-1 base,今日),3 步优化 → 噪声内(预期)。
+  其余格 346–485/500,全部 ~01:05 出齐。读数脚本 scratchpad/grid_em.py(ssh loni python3 -)。
