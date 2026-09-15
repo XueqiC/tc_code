@@ -3175,3 +3175,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   不按救活与否筛包、不用测试结果挑状态,达预算即停并报可用率。创新边界:Scheduled Sampling / SCoRe 已有;我们的贡献 = 用有限教师文本构造学生前缀下
   可学习的修正并证明优于标准示范与直接纠正。dev-500 继续作开发评测,最终确认需新冻结父任务。
   我的执行假设(已告知):状态取自 U0 seed-0 学生 greedy 执行;三臂从 U0 checkpoint 继续训练,修正包为该阶段全部材料,对照 = U0 同批评测。
+- 16:00 CDT 三个 Codex 任务并行起跑(gpt-6-astra xhigh;提示在 scratchpad codex_{states,repair,repairtrain}.txt,共享记录 schema schema_repair.txt):
+  T1 worktree `tc-alignment-states`(branch repair-states @63af061)→ `tools/hotpotqa_student_states.py`:export-policy(U0_s0 LoRA 合并)/ collect
+  (U0 学生 greedy 跑 support-200,记每步 thought/action/observation)/ select(预注册规则:seed 20260915 打乱 support ids 取前 32 父任务,每父任务
+  均匀抽 2 步,前 8 为干跑集,不看结果)/ precheck(128 条 react7 银行回合:教师动作 NLL 在 r^T / r^S / 无 Thought 三条件下 + 学生动作是否改变)+ SLURM。
+  T2 worktree `tc-alignment-repair`(branch repair-pool @buy-s400 8a3071d)→ `tools/hotpotqa_repair_pool.py` + `prompts/hotpotqa_repair_v1.txt`:
+  每状态给教师 s、r^S、拟议动作(未执行),要 Plan / Repair(可 NONE)/ Action 三行;执行核验 parseable / executable / useful 分记不筛;
+  新增 output 上限 30k(含推理 token 与失败尝试);--limit 8 干跑;--providers openai。
+  T3 worktree `tc-alignment-repairtrain`(branch repair-train @63af061)→ `tools/cr_repair_cell.py`:freeze/train/export/evaluate/analyze/local-check;
+  三臂 A(s→r^T,a^T)/ B(s,r^S→a^T,r^S 只作输入)/ C(s,r^S→c^T,a^T);从 U0_s0 LoRA 继续训练,λ=0,113 步,seeds 0/1;同批 U0 control;曝光分项账本;预注册四行判读。
+  唤醒:三个后台等待任务(pid 文件在 scratchpad)。LONI 新树 `tc-hotpotqa-repair` 待建(U0_s0 根硬链自 scan6)。
