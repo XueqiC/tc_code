@@ -3234,3 +3234,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   freeze **1027814**(CPU)→ train 阵列 **1027815[0-5]**(A/B/C × seeds 0/1,113 步,从 U0_s0 LoRA 起)→ 评测+局部检查阵列 **1027816[0-6]**(6=control,
   dev-500 + conf-32 + 留出 56 状态)→ analyze **1027817**。根 runs/conditional_response/repair_r7_s200_u0。监视器已挂。
   未买到的 2 个状态(5a7475ae…:s3、5abf0ba6…:s3)不补(冻结已起;62 在预注册 48–64 内),报告里注明。前置检查(1027773)仍在打分。
+- 18:08 CDT freeze 1027814 完成(62 包全部纳入;根 runs/conditional_response/repair_r7_s200_u0);**训练阵列 1027815 六个任务立即失败**:训练前的
+  评测协议校验读取 results/paper_baselines/table1_hotpotqa_smartad/metrics.json(ARCHIVE_METRICS,归档 Table 1 评测的协议参照),而 results/ 不在
+  git archive 里、新树没有。已把 scan6 的 results/paper_baselines 与 results/hotpotqa_chain_recovery_20260913(均为指向 tc-hotpotqa 的软链)复制过来。
+  **重提(不重跑 freeze)**:train **1027823[0-5]**(0–2 已在跑,3–5 等资源)→ evaluate+local **1027827[0-6]** → analyze **1027828**;
+  id 在 LONI results/repair_jobs.txt;监视 brfkv2ezv。前置检查 1027773 仍在打分(23 分钟)。
