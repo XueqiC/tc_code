@@ -161,4 +161,21 @@ G_{A→B} = Σ_i (w_i^A − p_i) u_i^B;bootstrap 按父任务(2000 次)。原作
 - 节点 3 报过 (200,500k)×10 的部分值 +3.7,完整值 +1.4,已更正。
 
 
-## 9. 复现与文件索引(待补)
+## 9. 复现与文件索引
+
+| 内容 | 位置 |
+|---|---|
+| 代码(所有工具、协议、测试) | 代码仓 `tc_code` 分支 `mech-hotpotqa`(hq worktree),提交 c2b20e9 → 6b57141(sealed 修复)→ 5a7c511(网格)→ 2c54304(剂量变体)→ 69b2fa5(S=400)→ ab988f9(react7 格)→ 7e4b03d(机制)→ 13536f1/563bc21(校验修复)→ a1fbb39(重打分兼容) |
+| 采购工具与账本 | worktree `tc-alignment-buy`(branch buy-s400):`tools/hotpotqa_teacher_pool.py`、`prompts/hotpotqa_react7.txt`、`tools/hotpotqa_format_probe.py`;账本 `envs/hotpotqa/teacher_pool_scan/{s400_new200,r7_s200}/`、探针 `envs/hotpotqa/format_probe/{react6,react7}/` |
+| 原始 luna 池(react6,support-200) | LONI `tc-hotpotqa/envs/hotpotqa/teacher_pool_v2/`;sealed 银行 `data/rtd/v1_1_hotpotqa_luna/` |
+| 网格(react6,3 遍) | LONI `tc-hotpotqa-scan/runs/conditional_response/scan_<cell>/`;分析 `results/cr_scan/grid/grid.{md,json,png}`(已取回) |
+| 剂量变体 | LONI `tc-hotpotqa-scan2/runs/conditional_response/scan_<cell>__{x10,x10lr3}/`;分析 `results/cr_scan/grid_dose/`(已取回) |
+| react7 / S=400 格(3 遍、x10) | LONI `tc-hotpotqa-scan3/runs/conditional_response/scan_{r7_s200_b100k,r7_s200_ball,s400_b500k,s400_ball}[__x10]/`;metrics 已取回 `results/cr_scan/scan3_raw/` |
+| 先导重打分 | LONI `tc-hotpotqa-scan3/results/cr_diagnostics/segment_pilot_v1_rescore/segment_pilot.json`(已取回 `results/cr_diagnostics/segment_pilot_v1_rescore/`) |
+| 机制五臂 + 基线 | LONI `tc-hotpotqa-scan3/runs/conditional_response/stage2_r7_s200_ball/`、`baselines_r7_s200_ball/`;`results/cr_stage2_r7_s200_ball/`(取回) |
+| 基线与格式审计文档 | `docs/2026-09-15-sealed-pool-audit.md`、`docs/2026-09-15-support400-accounting-audit.md`、`docs/hotpotqa_format_probe.md`、`docs/hotpotqa_budget_scan.md`、`docs/hotpotqa_mechanism_on_cell.md` |
+| 每格读数脚本 | scratchpad `grid_em.py`;逐题配对差的内联脚本记录在 PROJECT_STATE.md |
+
+评测口径:dev-500(table1_dev_500)+ 32(stage1_confirmation_32),贪心、7 步、实时 Wikipedia;失败/截断计 0;
+base 参照 = 同日 stage-1 base(dev-500 37.0 / +32 43.75)或同批 base(机制根内)。
+
