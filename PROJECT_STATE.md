@@ -2846,3 +2846,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   1024673 全格失败(`--run-dir` 必须为新目录,而 1024662 已创建空目录);已把残留目录移入 `_trash/` 后第三次提交。
 - 03:45 CDT 采购预检(rai,hq worktree):HotpotQA train/dev 数据与 cache 在 `envs/hotpotqa/`;实时 Wikipedia 检索通;
   Azure P1 luna 从 rai 直连 200。**扫描采购将在 rai 上跑(API 绑定,不占 GPU)**,训练/评测在 LONI。
+- 21:47 CDT 基线 AdamW 重跑 1024682:索引 8(kang s2)在 21:36 撞上 fresh-run-dir 守卫——原因是第二次提交的
+  1024673_8 是排队格,21:34:57 才启动,此时守卫已放行(旧目录已移走),它写下银行/manifest 后在 21:35:09 被我
+  当作"死阵列残余"取消,留下半个目录。已移入 `_trash/table1_hotpotqa_kang_s2_straggler_*`,**索引 8 单独重提 = 1024694**。
+  其余 8 格(1024682_0-7)正常训练中。教训:取消残余作业后要检查它是否已创建 run-dir。
