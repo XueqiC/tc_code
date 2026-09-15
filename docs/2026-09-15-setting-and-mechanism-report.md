@@ -170,7 +170,7 @@ G_{A→B} = Σ_i (w_i^A − p_i) u_i^B;bootstrap 按父任务(2000 次)。原作
 - 完整分析(配对 bootstrap、95% CI、证书、修订 id)见 `results/cr_stage2_r7_s200_ball/analysis/report.{md,json}`。
 
 
-## 8. 分析与讨论(初稿,机制部分待补)
+## 8. 分析与讨论
 
 ### 8.1 "合理的 support size 与 budget"——答案不是一个数,而是三个事实
 
@@ -191,7 +191,16 @@ G_{A→B} = Σ_i (w_i^A − p_i) u_i^B;bootstrap 按父任务(2000 次)。原作
 - 普通 SFT 在这个学生 + 任务上的 headroom 约 +1 ~ +3 pp(dev-500 ±1.1–1.3 SE)。若机制的增益要可见,需要两个种子以上,
   或换到 headroom 更大的基准(ALFWorld 已知 SFT 有效)。
 
-### 8.3 本轮的偏差与教训(如实)
+### 8.3 机制:本轮能说与不能说的
+
+- 能说:在同一银行、同一剂量、同批评测下,SFT / FIXSEG / META / MECH / PERM 五臂差异 ≤ 1.8 pp,均在单种子噪声内;
+  固定比例加权(FIXSEG)与验证损失元加权(META)都没有超过按 token 的默认分配。
+- 不能说:"任务反馈加权无效"。MECH 的权重来自饿死的反馈估计(§6),不是机制的合格检验;先导的预注册退出条件正好命中
+  ("尚未识别出可靠的再分配收益;null ≠ impossible")。
+- 更根本的:HotpotQA + gemma-4-12B 上普通 SFT 的 headroom 只有 +1~+2 pp,而评测噪声/漂移也是 1–2 pp;这个基准
+  几乎没有让任何机制显出差别的空间。机制的主战场应换到 SFT 增益明确的基准(ALFWorld),HotpotQA 作低 headroom 对照。
+
+### 8.4 本轮的偏差与教训(如实)
 
 - Codex 的合成测试两次放过了真实接口:`stop` 参数(44 次尝试在发请求前失败,账面 90k、真实 0)与 provider 失败计费(24× 账面)。
   规则:采购工具先用 1 并发探测、看第一条真实结算行,再放量。
