@@ -2921,3 +2921,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (1) 格式合规探针(Codex,buy worktree:react7 严格格式提示 + 可选 format-retry;40 校准题取 20,react6 vs react7,
   OpenAI,上限 60k output)→ 若合规 ≥90% 则考虑用 react7 重购;(2) 网格 + S=400 出数后选格;(3) 在选定格上重跑
   机制五臂 + 三基线(codex_mech535.txt 改为选定格)+ 先导重打分。
+- 23:54 CDT **用户:不用每小时汇报,按关键节点汇报;最后给详细文档报告。** 节点 ETA:00:45 先导+格式探针;01:00 网格;
+  00:50 采购完成→02:30 S=400 格;02:45 定设置→05:00 机制五臂+基线;随后写 docs/2026-09-15-setting-and-mechanism-report.md。
