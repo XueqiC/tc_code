@@ -3109,3 +3109,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   "0.7 1.0" → _highT;16 父任务×4,greedy 参照)。
 - 14:35 CDT 快速筛查两作业(1026817/18)在工具自启 vLLM 时失败:ZMQ IPC 路径 >107 字符(工具把 TMPDIR 放在输出目录下)。改为脚本外部
   起 vLLM + `--base-url`,重提(lowT/highT)。
+- 14:50 CDT hq HEAD **e872012**(三分支探针检验 + 独立筛查 CLI 合并;vLLM 运行时路径改短)。**scan7** 部署(v5 根 stage2_r7_s200_ball
+  复制含 base 评测、react7 格、candidate 产物 controller_reuse、片段配置)。探针检验只接受片段权重(v5)协议 → 目标 = 0.5CE+0.5KL
+  (λ=1 等价);若 2×2 判 λ=0 更优,λ=0 版探针需另建。脚本 scan7/scripts/probecheck.slurm(单作业全流程),等 T。
