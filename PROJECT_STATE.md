@@ -472,12 +472,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   在跑:bfclb14(curr+clw 组合)、λ=1.00、λ=0.25(重试)。
   下一步:全家桶臂(v9 + curriculum + cluster + λ最佳档)冲 base。
 
-## ⟳ RESTART CHECKLIST (2026-09-15 04:05 CDT)
-1. LONI (`ssh loni squeue -u xueqic`): scan3 x10 array 1025213 (4 cells, tree tc-hotpotqa-scan3), mechanism chain on r7_s200_ball: rescore 1025220, arms 1025221 (0-3), baselines 1025222, v1 rescore 1025190. Re-arm monitors on scan3 logs (`logs/scanvar_1025213_*`, `logs/mech_*`, `logs/rescore_*`).
-2. When `results/cr_diagnostics/segment_pilot_r7_s200_ball/segment_pilot.json` exists on scan3: `sbatch --export=ALL,CELL=r7_s200_ball --array=4-5 scripts/mech_arms.slurm` (MECH, PERM).
-3. Analysis: `tools/cr_mechanism_cell.py analyze --cell r7_s200_ball` (scan3); grid readers in scratchpad (grid_em.py); paired reader inline in PROJECT_STATE history.
-4. Report: docs/2026-09-15-setting-and-mechanism-report.md — fill §5.1 (x10 variants), §6 (pilot split-half), §7 (mechanism arms + baselines), §0 conclusion; then send to the user with the PNGs (results/cr_scan/grid*/grid.png).
-5. No purchases pending. rai: no processes of ours. Report times in America/Chicago; checkpoint-only reporting.
+## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
+1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
+2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
+3. Trees on LONI: tc-hotpotqa-scan (react6 grid), -scan2 (dose variants), -scan3 (react7/S=400 cells + mechanism root + baselines; amended wrappers registered as baseline_export_v1), -scan4 (unused). Purchases: tc-alignment-buy worktree (pools s400_new200, r7_s200 complete).
+4. Report: docs/2026-09-15-setting-and-mechanism-report.md (sent 08:30 CDT with grid PNGs). Checkpoint-only reporting; times in America/Chicago.
 
 ## ⟳ 重启后恢复 (2026-09-01 ~20:05 EDT)
 - HPG 项目路径实为 `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment`(不是 yd24f 那条)。
@@ -3038,3 +3037,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   export+evaluate,`--amendment`)已提交;scan3 有 git HEAD e6b218b(空提交,仅作 provenance)。
 - 07:52 CDT 每日 Azure 探测:P1/P2 探测 200(与昨日 22:08 相同,非"恢复");注:昨夜 luna 部署在真实负载下 P1/P2 429、P3 401,
   采购全部走 OpenAI。未做教师调用。
+- 08:30 CDT **最终节点已报 + 文档已发**(docs/2026-09-15-setting-and-mechanism-report.md + 两张图)。基线(r7_s200_ball,
+  同批 base 35.8):**SmartAD 41.4 +5.6±1.5(vs SFT +2.0±1.5)**、**SAD 40.0 +4.2±1.5(vs SFT +0.6±1.5)**,均高于五臂;
+  假设:stage-2 的 0.5·KL 锚削弱学习(SmartAD≈FIXSEG 权重、目标不同)。等用户定:去锚验证 / 反馈修复 / ALFWorld / seed 1。
+  夜间花费:OpenAI ≈6.5M in / 0.55M out;Azure 0。所有 LONI 作业结束;rai 无我们的进程。
