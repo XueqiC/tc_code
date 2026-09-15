@@ -3002,3 +3002,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   bootstrap 下界 0 → 反馈饿死;候选 RMS 映射权重与长度相关 1.00。机制臂(stage2_r7_s200_ball,同批 base 35.8):
   SFT 39.4 +3.6±1.3(30/12);FIXSEG 39.4 +3.6±1.2(26/8);META/MECH/PERM 待。评测漂移:同 base 37.0→35.8;
   同 SFT 配置 scan 37.6 vs 机制 39.4(run-to-run 1.8)。
+- 04:24 CDT 后台循环(rai task bw0a672s3)等 scan3 `results/cr_diagnostics/segment_pilot_r7_s200_ball/segment_pilot.json` 出现后
+  自动 `sbatch --array=4-5 scripts/mech_arms.slurm`(MECH/PERM)。机制臂/协议/指标已取回 results/cr_stage2_r7_s200_ball/。
