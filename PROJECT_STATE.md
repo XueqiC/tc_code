@@ -2773,3 +2773,7 @@ LONI 1024577(25 分 55 秒),8 回合固定银行,同一初始化,D0 目标,20 �
 - **教师调用累计仍为 0 新增。采购未启动。**
 - 02:30 CDT 更正先导 ETA:HF 逐条生成,rollout 约 2–3 分钟/条(9 分钟仅 2/64),64 条约 2.5–3 h + 梯度 ~0.5 h
   → **预计 23:30–24:00 CDT** 出结果(此前说 22:30 偏乐观)。判读规则不变:双向 G 为正且区间不跨零才算可重复信号。
+- 02:40 CDT:`tools/cr_baseline_bank_check.py`(hq `3b3c97d`)已部署,GPU 作业 `cr_bbank` 已提交(九个归档 HotpotQA 基线格,
+  各自 22 行银行,adapter 关/开的 CE/KL + 归档 span_ce,0.01 nat 判据)。**stage 2**(AdamW v4)在独立 worktree
+  `tc-alignment-s2`(分支 `stage2-adamw`,基于 hq `a41cc79`)由 Codex 构建中:臂 SFT / FIXSEG / META / MECH(门控)/ PERM(门控),
+  评测 500+32,剂量对齐基线 24 步;追加 SFT×3 剂量臂待 v4 交付后排队。
