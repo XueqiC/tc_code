@@ -2862,3 +2862,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 21:51 CDT **用户批准 210k 阶梯**("可以" + "可以买"):新序列从头买(support-200 固定随机顺序,luna 默认温度),
   档位 = 新序列前缀 30k/60k/120k/210k,每档单种子 AdamW SFT,dev-500(+32) EM vs 链数。新购上限 **210k output token**。
   等 Codex 工具交付后改档位/池子、dry-run、开买;30k 档先开训。
+- 22:05 CDT **预算扫描改为零采购**。核对 `data/rtd/v1_1_hotpotqa_luna`(Table 1 的银行):419 次尝试覆盖全部 200 题
+  (≤3 次/题),charged output **535,566** token,**113/200 题验证成功**(66.8k 验证 token);Table 1 的 30k =
+  固定随机顺序(`order_rule: sorted query IDs; random.Random(0).shuffle; stop before first overflow`)的前缀
+  ≈24 次尝试 ≈5–7 条验证轨迹。→ 预算轴 30k/60k/120k/240k/535k 直接从银行切嵌套前缀(同温度同顺序),每档 AdamW
+  SFT 3 遍曝光,EM vs 预算。support 轴只在 535k 仍上升时才买新题。已告知用户。Codex 当前构建完成后改任务。
