@@ -2831,3 +2831,9 @@ adapter,37.8/37.4/37.2 vs 38.2 的差异是解码噪声。**已发表方法的�
 **对比我们**:24 链 / 58 回合 / 1,883 监督 token,差 2–4 个数量级;各方法自身增益仅 1–4 点(充足数据 + 正常优化下),
 我们 500 题单臂 SE ~2.2 点;12B 学生在本协议下"训练好该到多少"无论文参照 → stage 2 SFT 臂首次给出。
 当前 LONI:先导 1024586 + stage 2 1024600(7)+ stage 2b 1024636(2)= 10 个作业。
+
+### 2026-09-15 03:33 CDT — 三基线 AdamW 重跑起跑(树 `tc-hotpotqa-t1`,hq 提交 `58df8ce`)
+`tools/baseline_run.py --optimizer adamw --bank-from <归档格> --run-dir results/table1_adamw/<格>`;九格阵列 `t1_adamw`。
+每格 manifest 带 init-vs-trained CE 证书;归档目录只读;Kang 保留其归档 batch 组成;seed 2 曝光表由归档日志恢复。
+CPU 套件 4,310 通过 / 35 失败(均为与本次无关的既有失败:AppWorld fixtures 等,文档已列)。
+stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
