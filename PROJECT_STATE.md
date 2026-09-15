@@ -3148,3 +3148,19 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   投影 Û:cand +0.097 [0, +0.29]、perm +0.017 [0, +0.05](单父任务数);有对比父任务 1/16;‖δ‖² 0.012/0.016;
   greedy 参照 cand−default +0.0000±0.0000。已取回 results/cr_diagnostics/probe_check_r7_s200_ball_lam0/。两版(锚 / λ=0)都是第 4 行。
   全天报告 docs/2026-09-15-final-report.md 已补全(§8.3、§0)并发给用户;下一步等用户在 §9 的 A/B/C/D 中定(推荐 A+B,λ=0 根)。LONI 队列空;rai 无我们的进程。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-15 15:15 CDT — supersedes the 2026-09-13 block above)
+- **正在跑:无。** LONI 队列空(scan7 1026839、scan8 1026875 已 COMPLETED);rai 上本项目无进程;无需重挂任何 Monitor/cron。
+- **等待用户决定**:全天报告 `docs/2026-09-15-final-report.md` §9 的 A/B/C/D(推荐 A+B:λ=0 根上 3–4 个结构化候选 + 反馈父任务改为
+  T=0.5 下成功率居中的题,同一探针协议;不对当前候选加样本)。用户未答前不动 GPU、不做教师调用。
+- **正式设置与目标(已定)**:support-200 + react7 教师全量(149k 计费 output token,136 验证 / 461 回合 / 20,017 监督 token);
+  共同蒸馏目标 λ=0(纯加权 CE,token 比例);反馈温度 T=0.5(工程冻结);学生 gemma-4-12B、教师 gpt-5.6-luna(不变)。
+- **代码**:hq worktree `~/hq/projects/tc-alignment-hq`(branch mech-hotpotqa,HEAD 63af061 = 2×2 + 线性化 + 控制器 + 探针检验 + 筛查 CLI
+  + λ=0 根 + 采集器修复);本目录(main)只放 PROJECT_STATE/notes/docs/results。采购工具在 `tc-alignment-buy`(buy-s400)。
+- **LONI 树** `/work/xueqic/hq/`:scan(react6 网格)、scan2(剂量)、scan3(react7/S=400 格 + v5 机制根 + 基线 + 线性化)、scan5(控制器、筛查)、
+  scan6(v6 2×2)、scan7(锚版探针,hq e872012)、scan8(λ=0 根 `stage2_r7_s200_ball_lam0` + λ=0 探针,hq 63af061)。新协议 = 新树,不覆盖。
+  vLLM:`VLLM_ATTENTION_BACKEND=FLASH_ATTN` 环境变量 + `--mm-encoder-attn-backend TORCH_SDPA`,**不要**用 `--attention-backend` CLI 参数;
+  ZMQ ipc 路径要短(节点本地)。
+- **若用户选 A/B**:在 scan8(λ=0 根)上用 `tools/cr_probe_gain.py` 同一协议(k=5、T=0.5、α0=1.0、置换种子 271828、16 父任务×2 直接 + θ0 共享反馈 64)
+  跑结构化候选;候选定义需先写进 plan 并预注册四行判读;每候选 ≈ 20 分钟单卡;结果按父任务聚合、1 SE 分辨率;零教师调用。
+- **报告纪律**:不再每小时汇报;只在预告的关键节点报;时间一律用 `TZ=America/Chicago date` 校准后再写(今天曾写快 50 分钟–2 小时)。
