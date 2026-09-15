@@ -2982,3 +2982,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   100k 档 ≤ +0.6;3e-5 无一致增益。**初步配方:AdamW 1e-5,10 遍。** react7 重购完成:343 次/136 验证(68%)/149k out/1.5M in。
   校验器 fix3(hqfix,pid 239469):model 串前缀、未结算保留、react7 身份按不变量比较;交付后 cherry-pick→scan3→冻结 5 格(3 遍 + x10)→提交。
 - 02:08 CDT rescore 兼容修复交付并提交(hq a1fbb39;147 测试;真实 v1 check-only 通过);同步 scan3;**v1 重打分重提 1025189**。
+- 02:12 CDT v1 重打分第二次(1025189)因 scan3 缺 results/hotpotqa_chain_recovery_20260913/packs.json 失败;已软链
+  tc-hotpotqa 的该目录到 scan3/results,**第三次提交 1025190**(monitor bjpmhbcxo)。
