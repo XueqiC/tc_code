@@ -2873,3 +2873,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   五档 SFT 曲线并行。LONI 树 `tc-hotpotqa-scan` 骨架已建(.venv/envs/sealed 银行/paper_baselines 软链)。
   Codex(pid 3832872,monitor ba17xws32)在做 sealed 切档;之后再派"stage-2 五臂 + 基线 @535k"任务。
   已停监视 bc0nmr3g9 / bgrtgm41q / b3e6u2c29 / bu5uj8hg3。
+- 22:08 CDT 五档在 attempt_order 下的实际含义(stop-before-overflow):30k=17 次尝试/16 题/**4 验证**(计费 29,663 =
+  归档 manifest 的 teacher_tokens_charged,规则复现);60k=35/33/**8**;120k=84/72/**21**;240k=171/122/**43**;
+  535k=419/200/**113**。已答用户"档位是否科学":对数等距、两个横轴、低档单顺序方差大(拐点 ≤120k 则补 2 个顺序)。
