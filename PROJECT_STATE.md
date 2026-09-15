@@ -2777,3 +2777,5 @@ LONI 1024577(25 分 55 秒),8 回合固定银行,同一初始化,D0 目标,20 �
   各自 22 行银行,adapter 关/开的 CE/KL + 归档 span_ce,0.01 nat 判据)。**stage 2**(AdamW v4)在独立 worktree
   `tc-alignment-s2`(分支 `stage2-adamw`,基于 hq `a41cc79`)由 Codex 构建中:臂 SFT / FIXSEG / META / MECH(门控)/ PERM(门控),
   评测 500+32,剂量对齐基线 24 步;追加 SFT×3 剂量臂待 v4 交付后排队。
+- 02:40 CDT 时间线(按实测 3 分钟/rollout):先导采集 ~23:40 → 先导结果 ~00:15;MECH/PERM 起跑 ~00:15 → ~02:30 全部配对统计;
+  stage 2 非门控三臂(SFT/FIXSEG/META)+ base ~23:30;步骤 B ~21:00;基线自银行 CE ~21:30。用户指令:今晚全部安排,不休息。
