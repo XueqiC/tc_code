@@ -2932,3 +2932,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `--format-retry`。探针已启动(rai,OpenAI,20 校准题,react6 pid 43077 / react7 pid 43078,各上限 60k);
   早期:react7 前 5 题主回复 100% 合规,react6 首题 0%。~00:30 出结果。若 react7 ≥90% → 请示用 react7 重购 support-200
   (≈6M in / 0.5M out,OpenAI,~2 h)。
+- 00:16 CDT **格式探针结果(react7)**:20/20 校准题主回复 **100% 合规**,verified 11/20(55%);react6 进行中(11 题,合规 9%)。
+  决定:用 react7 **重购 support-200**(同 approved 规模:上限 535k output,OpenAI,12 并发)作为正式银行;Codex 准备
+  `--prompt-version react7` + tier r7_s200(pid 见 codex_buy_r7.log)。S=400(react6)采购让其跑完(~00:45)。
