@@ -2972,3 +2972,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:40 CDT 机制复测工具交付并提交(hq 7e4b03d):`cr_segment_bank.py build --cell`、`cr_mechanism_cell.py freeze/train/export/
   evaluate/analyze --cell`、`cr_segment_rescore.py`(从已存 rollout 重打分)、`cr_cell_baselines.py`;78 聚焦测试通过;
   全套 4,511 通过/18 无关失败。hqfix e3e20f1 已 cherry-pick 进 hq;fix2 交付后再 cherry-pick,然后整体部署 scan3。
+- 01:47 CDT scan3 部署 hq HEAD 13536f1(机制工具 + 校验修复 #1);**v1 先导重打分作业 1025046**(scan3,从已存 64 条 rollout
+  重算 ĥ 并对 segment_pilot_v1 银行打分,输出 results/cr_diagnostics/segment_pilot_v1_rescore/)。机制脚本已放 scan3/scripts:
+  mech_arms.slurm(0 base 1 SFT 2 FIXSEG 3 META 4 MECH 5 PERM;CELL 环境变量)、mech_rescore.slurm、mech_base.slurm(smartad/sad/kang)。
