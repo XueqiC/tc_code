@@ -3107,3 +3107,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   预注册:候选 = controller_reuse(ρ=0.05)的 v,α0 = 1.0(信任域已限幅),置换种子 271828。
 - 14:25 CDT 快速筛查 CLI 交付(worktree screen ab36643;149 测试),同步 scan5;**两卡并行提交**(TEMPS "0 0.3 0.5" → feedback_screen_r7_s200_ball_lowT;
   "0.7 1.0" → _highT;16 父任务×4,greedy 参照)。
+- 14:35 CDT 快速筛查两作业(1026817/18)在工具自启 vLLM 时失败:ZMQ IPC 路径 >107 字符(工具把 TMPDIR 放在输出目录下)。改为脚本外部
+  起 vLLM + `--base-url`,重提(lowT/highT)。
