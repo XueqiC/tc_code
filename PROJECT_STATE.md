@@ -2935,3 +2935,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 00:16 CDT **格式探针结果(react7)**:20/20 校准题主回复 **100% 合规**,verified 11/20(55%);react6 进行中(11 题,合规 9%)。
   决定:用 react7 **重购 support-200**(同 approved 规模:上限 535k output,OpenAI,12 并发)作为正式银行;Codex 准备
   `--prompt-version react7` + tier r7_s200(pid 见 codex_buy_r7.log)。S=400(react6)采购让其跑完(~00:45)。
+- 00:21 CDT S=400 格 Codex 交付并提交(hq 69b2fa5:support400.py 联合排序,s400_b500k/s400_ball)。react7 池格
+  Codex 已派(pid 58419,codex_r7cells.txt:r7_s200_b100k/b300k/ball,`--source pool`)。
