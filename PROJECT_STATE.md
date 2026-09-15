@@ -3122,3 +3122,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   U/F 无一致差。react7 seed 1:ball +1.4±1.1、b100k +0.2±1.2。
 - 15:12 CDT 派 Codex:(a) ctrl worktree(已快进到 ab36643)诊断先导采集器与批量采样器的采样路径差异并统一;(b) hq:
   `cr_mechanism_cell.py freeze --objective-lambda 0 --root-suffix lam0` 建无锚片段权重根,供 λ=0 版探针(若 2×2 判 λ=0)。
+- 15:25 CDT **先导采集器 bug 定位并修复**(ctrl 5fed407;docs/hotpotqa_sampling_path_discrepancy.md):采集器本地生成只用 EOS id 1 作停止
+  (缺模型 tag 106/50),且 `skip_special_tokens=False`,生成的 Finish 因尾随原生 token 被解析拒绝 → 记为未完成、7 步上限。批量采样器走
+  服务端 chat 路径无此问题。已统一到同一路径(测试 44+27)。待 λ=0 Codex 结束后合并进 hq。
