@@ -149,7 +149,10 @@ G_{A→B} = Σ_i (w_i^A − p_i) u_i^B;bootstrap 按父任务(2000 次)。原作
 | FIXSEG | 39.4 | +3.6 ± 1.2 | 26/8 | 37.5 |
 | META | 待补 | | | |
 | MECH / PERM | 待补(反馈饿死,见 §6) | | | |
-| SmartAD / SAD / Kang(同格,AdamW) | 待补 | | | |
+| SmartAD / SAD(同格,AdamW,3 遍) | 待补(评测中) | | | |
+| Kang | gated:忠实 FTP 需专门采购的 CoT 前缀轨迹,本银行无 | | | |
+
+自银行证书(20,017 token):SmartAD CE 1.504→0.390(Δ −1.114,KL 0.830);SAD 1.504→0.391(Δ −1.112,KL 0.850)——与归档 Table 1(|Δ|<0.01)对照,本轮基线确实被训练。
 
 评测漂移:同一 base 策略昨晚 37.0、今晨 35.8;同一 SFT 配置在 scan 管线 37.6、机制管线 39.4(run-to-run 1.8 pp)。
 

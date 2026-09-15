@@ -3013,3 +3013,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 05:22 CDT 基线作业 1025222_0/1 在训练+证书后 FAILED:`cr_cell_baselines.py` 无 export/evaluate 子命令(我的 slurm 假设有)。
   SmartAD/SAD 已训练并出 bank_certificate.json。Codex baseeval(hq,codex_baseeval.txt)补 export/evaluate + analyze 含基线;
   交付后同步 scan3,只跑 export+evaluate(不重训)。
+- 05:25 CDT 基线自银行证书(r7_s200_ball,461 行/20,017 tok):SmartAD init CE 1.5035 → trained 0.3899(Δ −1.114,KL 0.830);
+  SAD 1.5035 → 0.3912(Δ −1.112,KL 0.850)——**这次基线真的被训练了**(对比归档 Table 1 的 |Δ|<0.01)。
