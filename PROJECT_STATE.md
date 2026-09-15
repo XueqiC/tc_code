@@ -2903,3 +2903,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `envs/hotpotqa/teacher_pool_v2/attempts.jsonl`(LONI tc-hotpotqa;已复制到 rai hq worktree)419 次尝试**全部**有完整
   history/transcript(steps 1–7);scan_bank 的 receipts 配对规则(每次调用一条记录)不适用于 sealed(每次尝试一条),
   多回合尝试全被丢弃。修复提示 codex_sealedfix.txt(池根取监督;默认只用验证成功的尝试;记录策略与数量),等网格 Codex 交付后派。
+- 23:03 CDT **S=400 采购重启(OpenAI only,8 并发)**:pid 4075457,log `tc-alignment-buy/logs/buy_s400_20260915_000257.log`,
+  commit 179f54d(4xx 记 0、`--providers`、续跑重算:账面 110,585→4,089)。前 4 次尝试真实 completion 350–410/次,
+  吞吐约 3 次/分钟 → 419 次约 2.2 h → 预计 ~01:15–02:15 买完。monitor 每 10 分钟。
