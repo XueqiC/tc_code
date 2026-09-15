@@ -3065,3 +3065,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   臂阵列 **1026543**(1–8)运行/排队;base 首次提交因我解析 job id 出错被误取消,重提 **1026548**。seed-1 复核首次失败
   (preflight 目录已存在),脚本改为存在则跳过,重提 **1026549**(react7 两格)、**1026550**(react6 x10)。lin e9efa47 已
   cherry-pick 进 hq(4044697);ctrl 合并冲突(stage2.py、conditional_response_distill.py)→ Codex merge(pid 见 codex_merge_ctrl.pid)。
+- 12:35 CDT 控制器合并进 hq(**5bad4eb** = v6 2×2 + 线性化 + 控制器;Codex 解冲突,全部测试通过,v5 输出逐一比对不变)。
+  LONI 在跑:v6 九格(scan6,1026548/1026543)、温度筛查 3 卡(scan5,1026518)、线性化(scan3,1026485)、seed-1 复核(1026549/1026550)。
+  下一步依赖:筛查 → 定 T → 64 条正式先导(scan5);2×2 → 定 λ → 控制器根(TR/TRPERM/默认/置换,两种子)。
