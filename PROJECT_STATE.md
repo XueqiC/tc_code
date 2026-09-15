@@ -3073,3 +3073,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   serve 阶段失败)→ 提交 eval-only 阵列(cr_objective_eval.slurm,`--dependency=aftercorr:1026543`),训练不重跑。
 - 12:12 CDT v6:base 重提 **1026672**(脚本已去掉 --attention-backend);臂训练 1026543(8 格,旧脚本在 serve 阶段会失败);
   eval-only 阵列 **1026685**(aftercorr:1026543,跳过 train,只导出+评测)。首个 eval-only 脚本版本未真正跳过 train,已取消(1026673)重提。
+- 12:50 CDT **线性化检查完成**(1026485;results/cr_diagnostics/update_linearity_r7_s200_ball/):参数空间一阶预测失败——
+  v1 尖峰方向 cos 0.16–0.25、‖实际‖/‖线性‖ 10⁸–10⁹;ρ=0.01 候选方向 cos 0.03–0.05、比值 0.46→0.06、加权损失符号预测反;
+  带锚目标 cos≈0;3 步外推 cos 0.02–0.05。仅加权训练损失 Δ 被预测对(平凡);留出 CE 真实 Δ ≤0.004、预测≈0。
+  结论:AdamW 零动量单步导数不是可执行收益代理;建议 ĝ 改为探针步有限差分。已报用户。
