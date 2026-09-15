@@ -2943,3 +2943,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 00:30 CDT **react7 重购 support-200 已启动(rai)**:pid 76329,log `tc-alignment-buy/logs/buy_r7_s200_20260915_013020.log`,
   存储 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/r7_s200/`,commit 8a3071d(manifest = support-200,顺序 = 原池
   task_order,tier r7_s200 cap 535k,`--prompt-version react7`,OpenAI 12 并发)。与 S=400(react6)采购并行。
+- 00:40 CDT react7 池格 Codex 交付并提交(hq ab988f9)。机制复测 Codex 已派(pid 91145,codex_mech.txt:`--cell` 参数化,
+  默认 r7_s200_ball;片段银行、stage-2 v5 根、先导重打分、基线 @cell、报告)。**第三棵 LONI 树 `tc-hotpotqa-scan3`**
+  @ab988f9(react7/S=400 格与机制臂用;scan/scan2 有运行中阵列不同步)。
