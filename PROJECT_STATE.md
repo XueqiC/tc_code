@@ -2867,3 +2867,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   固定随机顺序(`order_rule: sorted query IDs; random.Random(0).shuffle; stop before first overflow`)的前缀
   ≈24 次尝试 ≈5–7 条验证轨迹。→ 预算轴 30k/60k/120k/240k/535k 直接从银行切嵌套前缀(同温度同顺序),每档 AdamW
   SFT 3 遍曝光,EM vs 预算。support 轴只在 535k 仍上升时才买新题。已告知用户。Codex 当前构建完成后改任务。
+- 22:00 CDT **用户:"30k已经不行了就赶紧停呀,换上更合理的重新测试机制"** → scancel 1024600(stage 2)、1024636(SFT×3)、
+  1024682/1024695(基线 AdamW)。**30k 结果全部作废。** 保留先导 1024586(反馈 rollout/ĥ 与预算无关,可复用;若工具
+  未单独保存 ĥ 则取消)。新设置 = 全部 support-200(535k charged,113 验证轨迹);机制五臂 + 三基线在 535k 重跑,
+  五档 SFT 曲线并行。LONI 树 `tc-hotpotqa-scan` 骨架已建(.venv/envs/sealed 银行/paper_baselines 软链)。
+  Codex(pid 3832872,monitor ba17xws32)在做 sealed 切档;之后再派"stage-2 五臂 + 基线 @535k"任务。
+  已停监视 bc0nmr3g9 / bgrtgm41q / b3e6u2c29 / bu5uj8hg3。
