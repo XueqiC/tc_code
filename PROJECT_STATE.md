@@ -3053,3 +3053,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 11:08 CDT 用户:"尽量 LONI 并行"。已提交(排队):**1026457** scan3 react7 两格 seed 1(索引 0,2;SCAN_SEED=1);**1026458** scan2
   react6 (200,300k)x10 seed 1(离群复核)。基线 seed 1 被拒("Baseline cell/seed differs")。待 Codex 交付后追加 v6 九格、线性化、温度筛查。
   scan5 骨架已建(含 scan_r7_s200_ball 冻结根复制、stage1 软链)。v6 slurm 草稿 scratchpad/v6_arms.slurm。
+- 11:35 CDT 线性化检查工具交付(worktree lin e9efa47;20 测试);同步 scan3(新文件,不触冻结哈希);**lincheck 作业已提交**
+  (scan3 scripts/lincheck.slurm:默认 / --steps 3 / --rho 0.01 / --objective stage2-anchor;输出 results/cr_diagnostics/update_linearity_r7_s200_ball/)。
+  e9efa47 待 v6 Codex 结束后 cherry-pick 进 hq。
