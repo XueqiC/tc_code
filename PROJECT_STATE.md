@@ -3061,3 +3061,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   α* A→B 0 / B→A 0.003 / pooled 0 → 默认蒸馏(results/cr_diagnostics/controller_reuse_r7_s200_ball/)。diagnose-feedback 输出
   results/cr_diagnostics/feedback_diagnostics_v1。**温度筛查 1026518**(scan5,T=0.3/0.5/0.7,budget 32)。已报节点。
   待 v6 Codex 后:cherry-pick lin e9efa47 + ctrl b9a1c5e 进 hq。
+- 12:15 CDT v6 2×2 交付并提交(hq 6940039;504 测试);**scan6** 部署,v6 根冻结(U0/U1/F0/F1 × seeds 0/1,各 113 步);
+  臂阵列 **1026543**(1–8)运行/排队;base 首次提交因我解析 job id 出错被误取消,重提 **1026548**。seed-1 复核首次失败
+  (preflight 目录已存在),脚本改为存在则跳过,重提 **1026549**(react7 两格)、**1026550**(react6 x10)。lin e9efa47 已
+  cherry-pick 进 hq(4044697);ctrl 合并冲突(stage2.py、conditional_response_distill.py)→ Codex merge(pid 见 codex_merge_ctrl.pid)。
