@@ -3085,3 +3085,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (控制器根臂:base/SFT/TR/TRPERM × seeds 0/1;CTRL_PROTO/CTRL_PILOT 环境变量;臂名待与 freeze --weight-controller 核对)。
 - 13:20 CDT eval-only 阵列 1026685 因 `aftercorr` 要求训练任务成功退出(它们在 serve 阶段 exit 1)而 DependencyNeverSatisfied;
   取消并无依赖重提(训练已全部完成)。教训:对"预期失败"的前置任务用 afterany/aftercorr 不可靠,直接等其结束再提。
+- 13:15 CDT **用户决定(附件 2)**:采用真实训练探针但仅作机制检验;温度筛查继续,冻结后用独立新样本服务升级后的估计器,不重跑旧
+  Jacobian 先导。升级估计:同一 checkpoint+优化器状态,θ0=Θ_k(p),θ_j=Θ_k(w_j),δ_j=θ_j−θ0;在 θ0 上采共享反馈得 ĥ,Û_j=ĥᵀδ_j。
+  三处修正:v 只是待检验候选、不逐片段探针;有限收益不回填斜率/二次式;5 步证据不外推。最小实验:冻结一个 α0,三分支
+  (默认/候选/置换,同起点 5 步)→ 共享反馈评分 + 三模型 16 父任务×2 直接检验(96 条);预注册四行判读。温度规则只作工程冻结,
+  报完成率/成功率/有对比父任务数,同父任务比 greedy;正式反馈在 θ0 上采。保留 HotpotQA+react7;暂停 Jacobian;不接入每 5 步搜索。
