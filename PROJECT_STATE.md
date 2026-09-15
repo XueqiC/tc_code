@@ -3134,3 +3134,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 16:25 CDT **2×2 最终**(results/cr_stage2v6_r7_s200_ball/report.md):seed-avg U0 40.5、U1 37.9、F0 40.3、F1 38.3(base 37.0);
   λ 效应 −2.3±1.0 [−4.3,−0.4](s0 −2.1、s1 −2.5);分配 +0.1±0.5;交互 +0.6±1.0;conf-32 λ −3.1±5.0。**共同目标 = λ=0,默认 token 比例;
   去锚 SFT +3.5±1.1**。F0≡SmartAD 损失与 U0 打平 → 昨夜基线优势来自锚。已报节点。
+- 16:55 CDT **锚版探针检验(scan7)出数**:判读 **第 4 行:undecidable; do not add samples**(mixed evidence)。直接检验(16 父任务×2):
+  cand−default +0.094±0.050、perm−default +0.125±0.085、cand−perm −0.031±0.055(EM 单位;分辨率约 5 pp);有对比父任务 3/16;
+  投影 Û:cand −1.33 [−4.5,+0.6]、perm −4.31 [−12.7,+0.8](符号与直接检验相反);‖δ‖² 0.017/0.023。已取回 results/cr_diagnostics/probe_check_r7_s200_ball_anchor/。
