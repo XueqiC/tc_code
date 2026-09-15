@@ -3017,3 +3017,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   SAD 1.5035 → 0.3912(Δ −1.112,KL 0.850)——**这次基线真的被训练了**(对比归档 Table 1 的 |Δ|<0.01)。
 - 05:33 CDT 基线 export/evaluate 交付并提交(hq a4ba2ba;146 测试),同步 scan3;**基线评测阵列 1025358**(SmartAD、SAD,
   只导出+评测,不重训;scripts/mech_beval.slurm)。
+- 05:40 CDT cell rescore(r7_s200_ball,922 段)完成:两半各仍只有 1 个有对比的父任务(同一批 64 rollout),w_max 1.0、有效片段 1.0,
+  中心化收益相关 −0.43,G_A→B −429 / G_B→A +47,bootstrap 区间含 0 → 反馈饿死确认;MECH/PERM 仅作对照。
