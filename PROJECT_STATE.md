@@ -2923,3 +2923,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   机制五臂 + 三基线(codex_mech535.txt 改为选定格)+ 先导重打分。
 - 23:54 CDT **用户:不用每小时汇报,按关键节点汇报;最后给详细文档报告。** 节点 ETA:00:45 先导+格式探针;01:00 网格;
   00:50 采购完成→02:30 S=400 格;02:45 定设置→05:00 机制五臂+基线;随后写 docs/2026-09-15-setting-and-mechanism-report.md。
+- 00:05 CDT 剂量变体 Codex 交付并提交(2c54304);**第二棵 LONI 树 `tc-hotpotqa-scan2`**(避免在运行中的 scan 树上同步代码):
+  复制六格冻结根,冻结变体 x10(10 遍,1e-5)与 x10lr3(10 遍,3e-5);脚本 scripts/scan_var.slurm(`SCAN_VARIANT=x10 sbatch …`)。
+  S=400 格 Codex 已派(pid 10652,codex_s400.txt)。
