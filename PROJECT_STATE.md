@@ -2805,3 +2805,7 @@ LONI 1024577(25 分 55 秒),8 回合固定银行,同一初始化,D0 目标,20 �
 **三条独立路径一致**(位移范数 / 我们固定银行上的 CE / 各自银行上的 CE):Table 1 HotpotQA 列比较的是三个几乎未改变的
 adapter,37.8/37.4/37.2 vs 38.2 的差异是解码噪声。**已发表方法的比较必须在能优化的更新器上重跑。**
 产物:`results/cr_diagnostics/baseline_bank_check.txt`(已取回)。
+- 02:52 CDT:按用户"不要明天测"指令,**三基线 AdamW 重跑**构建已派出(Codex,hq worktree):`--optimizer adamw`(1e-5)、
+  `--bank-from` 读归档购买行(校验 SHA,零教师调用)、同 24 步曝光、**保留归档 SmartAD 分母**(只隔离优化器)、
+  输出 `results/table1_adamw/`,代码禁止写归档目录;manifest 记 step1/24 CE 与自银行 init-vs-trained CE。
+  交付后提交 9 格阵列(~2 h)。三条 Codex 线(hq: 基线 AdamW;s2: stage 2 v4;—)在独立 worktree。
