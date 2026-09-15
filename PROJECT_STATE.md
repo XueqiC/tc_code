@@ -3026,3 +3026,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 05:58 CDT 修订机制交付并提交(hq b3c6d18;107 测试)。**第四棵树 `tc-hotpotqa-scan4`**(hq HEAD 代码,runs/conditional_response
   软链到 scan3),注册修订 baseline_export_v1(允许 cr_mechanism_cell/cr_cell_baselines/cr_segment_bank/cr_segment_rescore),
   基线评测阵列用 `--amendment` 提交(scripts/mech_beval_amend.slurm)。scan3 的工具保持冻结版本直到 MECH/PERM 结束。
+- 06:05 CDT scan4 注册修订失败三次:"Segment bank differs from exact frozen cell rows"(runs 软链到 scan3;换 LONI YAML、还原冻结版
+  片段工具均无效——疑为软链路径解析导致重建银行不一致)。改为 **MECH/PERM 结束后在 scan3 本树同步新包装并注册修订、提交基线评测**
+  (后台脚本 scan3_baseline_eval_after_mech.sh)。
