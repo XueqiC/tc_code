@@ -3033,3 +3033,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   conf32 43.8)vs 同批 base 35.8;低于 SFT/FIXSEG 的 +3.6(噪声内)。MECH/PERM 训练 ~70/113;基线评测排在其后(scan3 修订)。
 - 07:38 CDT **节点 7 已报**:MECH 38.4 +2.6±0.9(17/4,conf32 40.6);PERM 37.6 +1.8±0.8(13/4,conf32 34.4)vs 同批 base 35.8。
   五臂:SFT 39.4 = FIXSEG 39.4 > MECH 38.4 > META 38.2 > PERM 37.6;无加权方案超过 SFT。1025363_4/5 COMPLETED(1:56)。
+- 07:45 CDT scan3 注册修订首次失败(树无 git HEAD → `git rev-parse` 报错);补空提交后重试并提交基线评测(见下一行)。
