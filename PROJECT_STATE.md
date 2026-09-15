@@ -3010,3 +3010,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 05:12 CDT x10 格:r7_s200_b100k__x10(267 步)37.4 +0.4±1.1;s400_ball__x10(214 步)37.6 +0.6±1.3;s400_b500k__x10(104 步)
   37.4 +0.4±1.3;r7_s200_ball__x10(375 步)训练 354/375。→ 重剂量在 react7 100k 与 S=400 上也无增益;唯一 >2 SE 的仍是 react6
   (200,300k)x10 +3.6(单种子,疑似离群)。机制链:META/SmartAD/SAD 导出中;cell rescore 打分中;Kang gated。
+- 05:22 CDT 基线作业 1025222_0/1 在训练+证书后 FAILED:`cr_cell_baselines.py` 无 export/evaluate 子命令(我的 slurm 假设有)。
+  SmartAD/SAD 已训练并出 bank_certificate.json。Codex baseeval(hq,codex_baseeval.txt)补 export/evaluate + analyze 含基线;
+  交付后同步 scan3,只跑 export+evaluate(不重训)。
