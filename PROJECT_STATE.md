@@ -472,17 +472,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   在跑:bfclb14(curr+clw 组合)、λ=1.00、λ=0.25(重试)。
   下一步:全家桶臂(v9 + curriculum + cluster + λ最佳档)冲 base。
 
-## ⟳ RESTART CHECKLIST (written 2026-09-01 ~19:50 EDT, before CLI restart)
-重启后第一件事(会话级的东西全部丢失,要重建):
-1. 重挂 hpg 结果监视(每 5 分钟):grep 'OVERALL=|NO SCORE|DONE' 于
-   logs/bfclb14_40823622.out(curr+cluster 组合)、logs/presev_40829742_*.out(λ=0.25, yd24f 账户)
-2. 重挂每小时 :23 进度汇报 cron(规则:分轴报、proxy 标注、无变化一句话、死作业直说)
-3. bfclb14 出分后 → 提交全家桶臂:v9 池 + AW_CURRICULUM=turn + AW_CLUSTER_FILE + AW_PRESERVE=0.5
-   (slurm 模板照 scripts/bfclb14_cc.slurm 加 AW_PRESERVE=0.5,tag bfclb15_full_s0)
-4. 出全对照表后 → 给用户发英文完整 pipeline(在对话框,不写文档)+ 五臂表
-当前已出分(全量官方,单 seed):v9+curr 38.30 > v9+clw 37.47 > v9 36.70 > v9+rep 36.34;
-λ 剂量曲线(v6池):0.50 甜点(26.56,Non-Live 86.25,Live 77.05);λ=1.00:Live=base 77.65,Non-Live 87.31。
-API 面板:置顶消息 id 在 ops/api_panel_target.json,刷新用 edit_message。
+## ⟳ RESTART CHECKLIST (2026-09-14 22:27 CDT)
+1. LONI: `ssh loni squeue -u xueqic` — only the split-half pilot 1024586 (tree tc-hotpotqa) should be alive; all 30k arrays were cancelled by the user (1024600/1024636/1024682/1024695). Re-arm a monitor on `logs/cr_pilot_1024586.out` (Collected training feedback N/64 → Paired feedback gradients → segment_pilot.json).
+2. rai Codex runs: sealed-bank scan redirect in `tc-alignment-hq` (pid 3832872, log scratchpad codex_scan_sealed.log) and the purchase-path fix in `tc-alignment-buy` (pid 3894019, codex_buyfix.log). If finished: review diff, commit, then (a) dispatch codex_grid.txt in tc-alignment-hq; (b) dry-launch the purchase (`--max-tokens 3000 --workers 1`), check the first settled usage row (model non-null), then the full command with cap 535000; monitor `envs/hotpotqa/teacher_pool_scan/s400_new200/`.
+3. Purchase process (when running): check `pgrep -f hotpotqa_teacher_pool` cmdline first; never kill others' processes.
+4. LONI tree `tc-hotpotqa-scan` exists (skeleton with symlinks); deploy the grid commit there (derive file list from `git diff --name-only`), freeze 6 cells on CPU, `sbatch scripts/scan_tiers.slurm` (draft in scratchpad scan_tiers.slurm).
+5. Report times in America/Chicago; hourly :23 report; footer with status_line.sh.
 
 ## ⟳ 重启后恢复 (2026-09-01 ~20:05 EDT)
 - HPG 项目路径实为 `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment`(不是 yd24f 那条)。
