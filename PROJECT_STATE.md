@@ -3212,3 +3212,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   已有的 API(hq b1d6a6fe:本地 is_objective_protocol;positive_terms 不传 reference;分析的评测 binding 只比较冻结评测器写出的键;测试适配冻结签名、
   λ=0 时冻结模块仍记录 reference_kl 但不进损失——已在 journal 上核实 anchor_loss == teacher_ce)。LONI 上两套新工具测试全过(45 + 25)。
   中途误提的 1027709/1027710 已取消。**重提:1027745 states_collect、1027746 states_precheck,17:12–17:16 起跑(qbd503 / qbd540)**;监视 buwofn4ux。
+- 17:45 CDT **1027745/1027746 又失败(17:42)**:(F1) 前置检查作业"Served export/checkpoint identity mismatch"——两作业并行从同一 U0_s0 run dir 导出,
+  导出器把各自的收据写回 U0_s0/export.json,后写者覆盖前者,精检作业读到的收据与自己服务的导出不一致(我并行拆分引入的竞争);
+  (F2) 采集作业 Wikipedia 429(16 并发 + 工具用自己的空缓存 results/.../wiki_cache,不复用 envs/hotpotqa/cache),单题失败即整段失败。
+  修法(仅包装层):改回单作业串行(collect → select → precheck,Codex 原设计);SS_WORKERS=4;wiki_cache 软链到共享缓存 envs/hotpotqa/cache
+  (17,206 条);collect 阶段加 `--resume` 重试循环(最多 4 次,间隔 90 s;hq 5a967a83 + 后续提交)。**重提 1027772 → 取消后再提(加了重试循环)**,
+  id 记在 LONI results/states_jobs.txt;监视器读该文件。失败产物在 _trash/repair_states_1027745、_trash/repair_states_precheck_1027746。
