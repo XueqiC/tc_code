@@ -3185,3 +3185,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   T3 worktree `tc-alignment-repairtrain`(branch repair-train @63af061)→ `tools/cr_repair_cell.py`:freeze/train/export/evaluate/analyze/local-check;
   三臂 A(s→r^T,a^T)/ B(s,r^S→a^T,r^S 只作输入)/ C(s,r^S→c^T,a^T);从 U0_s0 LoRA 继续训练,λ=0,113 步,seeds 0/1;同批 U0 control;曝光分项账本;预注册四行判读。
   唤醒:三个后台等待任务(pid 文件在 scratchpad)。LONI 新树 `tc-hotpotqa-repair` 待建(U0_s0 根硬链自 scan6)。
+- 16:20 CDT T1 交付(states worktree edd25606 + 我加的 SS_SKIP_COLLECT/SS_SKIP_PRECHECK 开关 ad68899e;45 个新测试通过):`tools/hotpotqa_student_states.py`
+  export-policy / collect / select / precheck(--phase generate|score)。LONI 新树 `tc-hotpotqa-repair`(U0_s0 根硬链自 scan6,小文件已断开硬链;
+  provenance 4c78bfd)。**两作业并行已提交**:1027602 states_collect(export → serve → collect 200 题 greedy → select 32×2,出 results/repair_states/
+  {collect.jsonl,states.jsonl,selection_summary.json}),1027603 states_precheck(export → serve → 128 回合生成 r^S → 停服务 → HF 打分三条件,
+  出 results/repair_states_precheck/thought_condition_precheck/)。均 PD(Priority)。监视器已挂。T2/T3 Codex 仍在跑。
