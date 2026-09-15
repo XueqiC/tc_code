@@ -2888,3 +2888,11 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (usage 全为 reserved→charged_bound,model 全 None,无任何 HTTP 响应);工具按未知用量每次记 2,048 → 账面 90,112、真实花费 0。
   已 kill 3887124,账本移至 `tc-alignment-buy/_trash/s400_new200_typeerror_*`。Codex 修复(codex_buyfix.txt):真实接口
   + 只 stub HTTP 的测试;未发出错误不计费不耗尝试、连续 3 次中止;每次尝试打印进度。修好后重启采购。
+- 22:47 CDT 采购探测(1 worker,pid 3980469,已停):**Azure P1/P2 全 429(共享窗口被占满),P3 401(key 无效),OpenAI 200**
+  (model gpt-5.6-luna,每次调用 prompt 1.6–2k / completion 150–230)。工具把失败 provider 调用记满 2,048 → 一次尝试
+  账面 33,732 vs 真实 ~1,400。3 次真实尝试保留在 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/s400_new200/`。
+  Codex buyfix2(codex_buyfix2.txt):确定性 4xx 记 0、`--providers`、续跑重算、进度行加真实用量。修好后
+  `--providers openai --workers 8` 重启。真实成本估计 200 题 ≈ 5M in / 0.6M out(OpenAI)。
+- 22:46 CDT sealed 切档 Codex 交付并提交(c2b20e9;五档 30k/60k/120k/240k/all 已冻结在 runs/conditional_response/scan_sealed*;
+  21 扫描测试通过;全套 4,348 通过/35 失败——Codex 称 17 个为锁文件、18 个为旧 fixture,未复核)。网格扩展 Codex
+  已派出(pid 3993105,codex_grid.txt)。
