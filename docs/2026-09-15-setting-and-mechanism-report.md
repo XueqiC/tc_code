@@ -59,7 +59,7 @@ react6 失败模式:裸答案 73%、编造 Observation 12%、空回复 5%。reac
 
 | 采购 | 结果 |
 |---|---|
-| S=400 新 200 题(react6,OpenAI) | 待补 summary |
+| S=400 新 200 题(react6,默认温度,OpenAI,12 并发,23:03–01:07) | 200 题 / 390 次尝试 / **131 验证(65.5%)**;prompt 5.02M、completion 401,775(reported 383,343);81 次 Azure 429/401 记 0;9 次不确定用量按保守计 |
 | react7 重购 support-200 | 待补 summary |
 | 事故 | 首次启动 44/44 次在发请求前报 `generate_reply() ... 'stop'`(合成测试绕过真实接口),账面 90k、真实 0,账本入 `_trash`;探测发现 Azure P1/P2 429、P3 401,失败调用被记满 2,048(账面 24×)→ 改为确定性 4xx 记 0、`--providers openai`、续跑重算 |
 
