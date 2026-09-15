@@ -3029,3 +3029,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 06:05 CDT scan4 注册修订失败三次:"Segment bank differs from exact frozen cell rows"(runs 软链到 scan3;换 LONI YAML、还原冻结版
   片段工具均无效——疑为软链路径解析导致重建银行不一致)。改为 **MECH/PERM 结束后在 scan3 本树同步新包装并注册修订、提交基线评测**
   (后台脚本 scan3_baseline_eval_after_mech.sh)。
+- 06:20 CDT **节点 6 已报**:r7_s200_ball__x10(375 步)37.2 +0.2±1.1 → 28 格设置扫描完成,结论不变。META 38.2 +2.4±1.1(20/8,
+  conf32 43.8)vs 同批 base 35.8;低于 SFT/FIXSEG 的 +3.6(噪声内)。MECH/PERM 训练 ~70/113;基线评测排在其后(scan3 修订)。
