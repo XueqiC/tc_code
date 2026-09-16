@@ -3554,3 +3554,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 15:03 CDT 用户担心 1% 不够体现方法效果 → 提议用数据定 p:今天 ALFWorld 36/71/142 曲线(36 上纯 CE ≥ +3 pp 超噪声 → 1%;71 起才有 → 2%);HotpotQA 补购按冻结前缀(704 是 1,609 的前缀),
   先采 704 再视结果续到 1,609;请批上限 1.25M 输出 token。Codex #3(buy 树)已开始加 r7_ext1609 采购层(代码准备,不采购)。
 - 15:04 CDT **用户批准 HotpotQA 补购(上限 1.25M 计费输出 token),provider 顺序 Azure P1 → P2 → P3 → OpenAI(兜底)**。采购在 Codex #3 交付后:1 题干跑 → 12 并发采前 704 → 视 ALFWorld 结果续到 1,609。
+- 15:05 CDT 采购规模核算(react7 support-200 账本 tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/r7_s200):343 次尝试 / 1,341 次模型调用,输入 1,503,277、输出 149,169 token → 每题 7.5k 入 / 746 出。
+  704 题 ≈ 5.3M 入 + 0.53M 出;1,609 题 ≈ 12.1M 入 + 1.2M 出。Azure P1/P2 今日 200(项目预算 5M token/周、50k/min),预计前几百题走 Azure,余下自动落到 OpenAI。
+- 15:11 CDT Codex #1 交付并提交(fid 348dcdb1:--optimizer adamw、--method sft(token 比例 CE)/base、--passes、--budget-fraction-total;274 测试过);部署到 LONI tc-alfworld-ce(115 测试过)。
+  **RUNNING: LONI alf_base 1030531(gpu4,base 参照)**,监视器已挂。Codex #2(fid,--support-tasks,pid scratchpad/codex_alf_support.pid)与 Codex #3(buy,r7_ext1609)在跑。
+  注意:fid 树里 Codex 运行期间不要 git stash(本次恰好为空未出事)。
