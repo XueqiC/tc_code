@@ -3335,3 +3335,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 02:15 CDT 单 checkpoint components 作业也要求含 control 配对(1029401 失败)→ 改为 `control,<arm>` 重提 **1029404(Astar_s1)、1029405(Bstar_s1)**(gpu4,等节点:
   账户 4 节点上限);原作业 1029343 继续 Astar_s0(≈02:50)→ Bstar_s0(≈03:40)→ 之后与追加作业重复,**Bstar_s0 完成后取消 1029343**。
   预计:cross 三作业 ≈02:30–03:00 完成 → merge_cross;components 五个 checkpoint ≈04:20 齐 → merge_components → readout(五行判读)≈04:30。
+- 03:05 CDT 交叉作业在阶段 B 之后做 HF 全词表打分(每个动作模型 ≈55 分钟:c2 已完 scored_b 02:59;a ≈03:05;b2 ≈03:50),再续跑;components:control ✓、Astar_s0 ✓(原作业,02:49)、
+  Bstar_s0(原作业 ≈03:40)、Astar_s1(1029404,control 已复算,≈03:50)、Bstar_s1 → 我给工具加了 `--control-records`(复用已算的 control 记录,不再重算;hq 62cdcd3e,31 测试过)
+  重提 **1029460**(等节点)。原作业 1029343 在 Bstar_s0 完成后取消(其后与并行作业重复)。readout 预计 ≈04:30–04:45。
