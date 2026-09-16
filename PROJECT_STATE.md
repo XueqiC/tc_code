@@ -3612,3 +3612,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 18:40 CDT 派 Codex(fid 树)加 `BFAS_ALFWORLD_DUMP_TURNS=1`(每局逐回合 dump:原始回复、被选命令、是否走 pick_command 的 "look" 回退、观察、是否触上限)+ metrics 恒定输出
   `fallback_command_rate` 与 `repeated_command_rate`(区分"卡死循环"与"答错但有变化")。**部署纪律:LONI ALFWorld 树在 n142_0/n142_1/n36_p1 跑完前不得 tar 覆盖**——
   `--_phase evaluate` 会重算 source_hashes,中途换码会让训练了几小时的格子在评测阶段直接失败。
+- 18:46 CDT **FSCD T2a 交付并验收**(fscd d312ac27;23 测试;LONI 44 测试):276 行 / 11,980 目标 token / 83 个可用 FIT 父任务(共 128)/ 75 步(3 遍 × 25)/ 328 个 LoRA 模块;
+  断言全过(round_trip、fit_only、每遍每行恰好一次、原生边界进监督、尾批保留)。目标 = 教师完整回合 `Thought n: …\nAction n: …<turn|>\n`(与 ALFWorld 的裸命令形成对照)。
+  **新建 LONI 树 /work/xueqic/hq/tc-fscd**(.venv 与 envs 复用 tc-hotpotqa 链接;含 react7 池),已部署并提交主干训练作业(id 在 results/fscd_backbone_job.txt)。
