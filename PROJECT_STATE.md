@@ -3528,3 +3528,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   转向"旧 RTD 核心增量复核"(一天一个问题:强 CE / RTD 完整 / 模块关 / 权重置换)。**盘点已发(docs/2026-09-16-rtd-core-audit.md,af2600c9)**:唯一进过表的正向结果 = v1.1 BFCL 10% 点
   (Qwen,单种子,无强 CE,噪声带内,checkpoint 在暂停的 hpg);当前配对上 RTD 家族无跑完的臂;唯一可一天出四行的场地 = HotpotQA react7 冻结根(U0/F0 复用,MECH-λ0/PERM-λ0 新跑,反馈用批采样器)。
   **等用户选 A/B/C 后再动 GPU。** 正在跑:无。
+- 14:26 CDT 选项 A 的准备核对(只读,未动 GPU):冻结树(dv/hq)已含完整 v6 控制器管线 —— `cr_segment_controller.py`(反馈计划 T/采样器/预算 → 控制器先导 artifact schema 2)、
+  `cr_mechanism_cell.py prepare --weight-controller --objective-lambda 0 --seeds 0 1 --pilot-artifact`(λ=0 v6 根:SFT/FIXSEG/META/MECH/PERM/TR/TRPERM)、train/export/evaluate 子命令,
+  批采样器修复 5fed4074 在树里。LONI 现有:scan5 `controller_r7_s200_ball_T0.5_b32` 只有计划 + rollouts(无 gain artifact,反馈筛选用);scan8 `stage2_r7_s200_ball_lam0` 是 v5 无控制器根、无臂;
+  scan6 `stage2v6_r7_s200_ball` 有 U0/U1/F0/F1 × s0/s1 checkpoint 与逐题结果。故 A = 控制器先导(T=0.5,1 卡 2–3 h)→ λ=0 v6 控制器根 → 8 臂 + base 并行(~2 h)→ 同批评测 → 预计 6–7 h。等用户定。
