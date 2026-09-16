@@ -3450,3 +3450,17 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 09:33 CDT fresh 模式交付并提交(dv 856d52ef;72 测试两处过);**作业 1029815**(answer-now --thought-mode fresh,242 包)已提交 gpu4,但同账户 sdl-a12 阵列(8 任务)占满
   MaxNodePerAccount → 排队;若 20 分钟内不起,改 gpu2。已向用户发盘点中期结果(消息里误写 09:55,实际 09:33;教师 Finish/非 Finish 分开;关键 11/9;证据标注 5 支持 / 5 不足 / 1 不确定;r^T 引用证据 6 / 知识 5)。
 - 09:37 CDT fresh 作业 1029815 被账户 4 节点上限(MaxNodePerAccount)挡住:sdl 项目 sdl-a12 阵列占满 4 节点(每任务 12 小时上限,尚有排队)。已告知用户,等其决定(让出节点或等待);不改动 sdl 作业。
+- 10:36 CDT **fresh 模式出数(1029815,17 分钟;results/repair_astar_r7_s200_u0/answer_now_fresh/)**:82 教师 Finish 状态 2×2(存档 × fresh;状态/父任务):都✓ 49/46(教师正确子集 47/44)、
+  存档✓fresh✗ 1/1、存档✗fresh✓ 0/0、都✗ 32/28(教师正确子集 11/9);fresh 思路与存档相同 73/82。11 个关键状态 fresh 下答案一字不变全错 → "旧 Thought 限制" = 0。
+  **最终三类(父任务):上下文支持且重答仍错且教师对 4(5 状态);当前证据不足(教师知识)5;不确定 1。** 已发用户;提议零教师候选挖掘(U0 的 828 个执行状态上强制作答 + verifier
+  + supporting facts 可见性),等用户定。LONI 队列本项目为空。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 10:45 CDT — supersedes the 06:45 block)
+- **正在跑:无。** LONI 本项目队列空(dvalue 1029708、answer-now 1029751/1029794/1029815 全部 COMPLETED);同账户 sdl-a12 阵列(sdl 项目)占节点,不动它。rai 无本项目进程。
+- **等待用户决定**:盘点已交付(上下文支持 4 父任务 / 证据不足 5 / 不确定 1;旧 Thought 限制 0);提议零教师候选挖掘(U0 828 执行状态上 answer-now + supporting facts 可见性)。
+  不训练、不采购;教师预算 29,207 / 30,000。
+- **工具(全部已提交,未训练)**:decision value(`tools/cr_decision_value.py measure / answer-now --thought-mode archived|fresh`,dv worktree 856d52ef);design dc / dc2(astar 5d9fba6c:
+  Astar / ValueCE / DCvalue、gradcheck、L1/L2/L3、analyze v3);**合并进 hq 时 cr_decision_value.py 以 dv 为准**(astar 树的该文件被 dc2 顺带改过)。LONI 树 tc-hotpotqa-repair 已部署 dv 版本。
+- **数据**:results/repair_states/{astar_packages_ok.jsonl(242), astar_nominate/, astar_diag_heldout.jsonl(138), evidence_cases.jsonl(59), key_states.json(11), key_annotations.jsonl};
+  results/repair_astar_r7_s200_u0/{decision_value, answer_now, answer_now_all, answer_now_fresh, diagnosis, analysis}/。
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`(今天又两次写快 10–20 分钟,已改);用户在 Nashville(Central)。
