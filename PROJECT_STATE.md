@@ -3561,3 +3561,19 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   注意:fid 树里 Codex 运行期间不要 git stash(本次恰好为空未出事)。
 - 15:21 CDT Codex #2 交付并提交(fid 859c9f7c:--support-tasks K;308 测试过),部署到 tc-alfworld-ce(80 测试过)。**RUNNING: LONI alf_base 1030531、alf_n142_0 1030544、alf_n142_1 1030545、
   alf_n71_0 1030546、alf_n36_0 1030547(gpu4;ids 在 LONI results/alf_base_job.txt、results/alf_ce_jobs.txt;输出 results/alf_ce/alfworld_{base,sft_N142[_s1],sft_N71,sft_N36}/)**;监视器 bdet81ut8。
+- 15:22 CDT alf_n142_1(1030545)因 seed-zero guard 失败(seed 1 需先有 seed 0 的 manifest,两作业同时起跑)→ manifest 出现后重投 **1030549**(ids 文件已更新,监视器自动跟随)。
+  规则:同格多种子提交时,seed 0 的 manifest 落盘后再投 seed ≥1。
+- 15:25 CDT **base 参照(1030531)= 55.71(78/140;rai 9/9 为 56.43,评测漂移内)**。seed-1 第二次(1030549)因残留 run-dir 失败 → 残留目录移到 LONI _trash,第三次重投(id 见 results/alf_ce_jobs.txt)。
+- 15:27 CDT 采购 provider 约束已报用户:Azure 50k token/min(含输入,每调用 7.5k 入)→ 704 题 ≈ 8 h(3 并发)、1,609 ≈ 18 h;冻结 OutputBudget 在 provider 被拒时按预留 2,048 记"估计消耗",
+  高并发 Azure 429 会白吃上限 → 选项 A(Azure 单独 3 并发过夜)/ B(OpenAI 12 并发 4 h)/ 折中(今晚 B 采 704,明天 A 采余下)。等用户选。Codex #3 在跑离线大测试(4,827 次尝试归档重放)。
+
+### 2026-09-16 17:51 CDT — 三线并行状态
+- **ALFWorld 有效主干(LONI tc-alfworld-ce)**:base 55.71(78/140,62 个 40 步未完成);**纯 CE 36 题 = 27.86(39/140,101 个未完成)**,即 −27.9 pp 崩塌。
+  该格确实训练了(loss 6.78 → 1.52,26 步,346 行,22 可用示范,181,582 计费 token)。分类:pick_two 54.2 → 0.0、pick_and_place 82.9 → 54.3、clean 59.3 → 18.5、heat 37.5 → 18.8,只有 cool 24.0 → 28.0(恰是抽到的示范任务型)。
+  **诊断线索:ALFWorld 银行的初始 CE 是 6.8 nats/token(HotpotQA react7 约 1.5);监督目标是裸命令(如 `go to cabinet 1`,346/346 行不含 THOUGHT/ACTION: 前缀),prompt 末尾把 thought 频道开了又立刻关闭;
+  而评测用 alfworld_student_react=True、max_tokens=256(学生自由生成 THOUGHT+ACTION)。训练/部署格式不一致是首要嫌疑,待 71/142 格出数后一并判定。** 归档 Table 1 的 ALFWorld 格 loss 同为 7.0–7.6,只是更新器空操作。
+  RUNNING: 1030544(142 s0,116 步)、1030556(142 s1)、1030546(71 题,55 步);监视器 blgtppoj3。
+- **HotpotQA 补购**:tier r7_ext1609 交付并提交(buy 6d64912c,186 测试);**RUNNING(rai,pid scratchpad/hotpotqa_ext_buy.pid,日志 tc-alignment-buy/logs/buy_r7_ext1609_*.log)**:
+  16 并发、providers azure-P1,azure-P2,openai(service tier priority),上限 1,210,000 计费输出 token。起步 9.3 次尝试/分,全部走 azure-P1 → 1,609 题预计约 5 h(前 704 题约 2 h)。监视器 b53m1hrb1。
+- **FSCD v1(用户 15:28 新协议)**:worktree tc-alignment-fscd(b62926c2 + 协议文档 docs/FSCD_V1_PROTOCOL_ZH.md + react7 池副本 + 数据链接 + 排除集配置);
+  Codex T1(freeze-data + build-contexts:FIT128/SELECT36/CHECK36、EVAL-200、银行回执、示范池、Q1/Q2 两复本)15:51 起跑,pid scratchpad/codex_fscd_t1.pid。
