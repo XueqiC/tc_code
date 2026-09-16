@@ -3609,3 +3609,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   但生成上限覆盖与截断计数保留备用;seed-zero guard 已识别 _AW 后缀,evaluation_protocol 比较忽略 max_action_tokens。
 - 18:39 CDT 剂量曲线第一格已提交(用户优先级里明写"训练剂量"):同 36 题材料、1 遍曝光(约 9 步)vs 已有 3 遍(26 步),RDSUFFIX=_p1;作业 id 在 LONI results/alf_dose_jobs.txt。
   采购进度 742/1609 触及、466 验证、529k/1.21M(44%);按每题 713 token 外推全量约 1.15M,勉强在上限内。
+- 18:40 CDT 派 Codex(fid 树)加 `BFAS_ALFWORLD_DUMP_TURNS=1`(每局逐回合 dump:原始回复、被选命令、是否走 pick_command 的 "look" 回退、观察、是否触上限)+ metrics 恒定输出
+  `fallback_command_rate` 与 `repeated_command_rate`(区分"卡死循环"与"答错但有变化")。**部署纪律:LONI ALFWorld 树在 n142_0/n142_1/n36_p1 跑完前不得 tar 覆盖**——
+  `--_phase evaluate` 会重算 source_hashes,中途换码会让训练了几小时的格子在评测阶段直接失败。
