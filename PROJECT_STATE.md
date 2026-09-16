@@ -3439,3 +3439,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   test_cr_decision_value.py 的改动(dc2 Codex 碰了它们);answer-now 的权威版本在 dv 树(81a078da + fresh 模式在建)——**合并进 hq 时以 dv 为准**。不训练。
   证据标注材料已建:results/repair_states/evidence_cases.jsonl(教师正确 Finish 的 59 状态 / 51 父任务;含 supporting facts 句子、可见 observation、教师 r^T、学生思路/动作;
   gold 可见 48/59,仅作描述字段)。待 243 answer-now(1029794)与 fresh 模式结果后,对"学生两种模式都错、教师对"的状态做人工三类标注并核查 r^T 内容。
+- 09:31 CDT **answer-now 全量盘点(1029794;242 个可用包;results/repair_astar_r7_s200_u0/answer_now_all/)**:重算的 72 个中 70 个强制答案与前次相同(2 个不同:服务端微小非确定性)。
+  教师非 Finish 状态 160(112 父任务):学生强制作答对 24%(仅描述,教师可答性未知)。教师 Finish 状态 82(72 父任务):教师对 59、学生强制对 50;
+  教师✓学生✓ 48 状态/45 父任务;**教师✓学生✗ 11/9**;教师✗学生✓ 2/2;教师✗学生✗ 21/20。关键集(教师正确 Finish、学生存档思路下作答错)= **11 状态 / 9 父任务,全部已在 A*/B* 训练父任务内**,
+  学生自己提议 Finish 的只有 1;无强制贪心动作与存档一致 239/242。关键 id 存 results/repair_states/key_states.json。待 fresh 模式(回到 Thought 之前重新作答)与人工证据三类标注。
