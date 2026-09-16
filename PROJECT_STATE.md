@@ -3293,3 +3293,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 22:30 CDT astar freeze 完成(1028325):72 包全部纳入;**剂量规则 3 遍 → 20 步**(每遍目标 token:reasoning 2,272 + action 856 + 边界 72 + 格式 72 = 3,272;
   20 步 × ~530 = 10,789);equality_invariant 逐包记录(A*/B* 的 reasoning/action/boundary/formatting 目标 token 数与全局分母恒等;学生 Thought 零权重、不进分母)。
   gap 作业 1028326 在跑(U0 上逐包 ℓ_T / ℓ_S / d);训练每臂约 2–3 分钟,评测约 40 分钟。
+- 22:43 CDT gap 打分完成(1028326;results/repair_astar_r7_s200_u0/gap_summary.json,已取回;单位 nats / action+边界 token,仅作描述):72 包
+  ℓ_T(教师 Thought 下)均值 0.153 / 中位 0.026;ℓ_S(学生 Thought 下)均值 1.239 / 中位 1.104;d = ℓ_S − ℓ_T 均值 1.086 / 中位 0.993(q05 ≈ −0.02,q95 ≈ 2.3)。
+  按标签:missed_finish d 1.46(n=27);按教师决策:finish d 1.33(n=32)。对比随机材料的前置检查(每 token S−T 0.196):这批材料的动作在学生 Thought 下确实难 5 倍以上——
+  "有教学差异"成立。训练阵列 1028327[0-3] 四臂在跑(20 步)。
