@@ -3469,3 +3469,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   之后 LONI 跑 archived + fresh 两模式(~30 分钟),按父任务汇总"证据已在上下文、学生答错"的数量并对照自主结果。不训练、不采购。
 - 12:00 CDT --no-teacher / --dataset 交付并提交(dv 07f558bc;97 测试两处过);**挖掘作业:1030229 mine_arch(存档思路)、1030230 mine_fresh(重新生成思路)**,各 828 状态,gpu4
   (sdl 阵列仍占 3 节点,第 4 节点给了 mine_arch,mine_fresh 排队)。输出 runs/.../repair_astar_r7_s200_u0/mine_{archived,fresh}/。监视器已挂。
+- 12:18 CDT **挖掘(存档思路模式,1030229)出数:828 状态 / 200 父任务**:强制作答 EM 30%(父任务 37%);全部 supporting titles 已见时 45%(220 状态/102 父任务),gold 可见时 66%。
+  "学生答错 & 全部 supporting titles 已在 observation 中":120 状态 / 53 父任务(其中自主运行失败的父任务 36)——比购得集合里的 4 父任务大得多(购买只抽 2 状态/父任务且要求教师差异)。
+  句子级(全部 supporting sentences 已见)与 gold 可见的更严口径见 exp_log/报告;fresh 模式(1030230)跑完后出 2×2 与严格候选集。可见性只是描述,证据充分仍需阅读标注(拟抽样 20 例)。
