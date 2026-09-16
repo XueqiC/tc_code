@@ -3429,3 +3429,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 09:30 CDT 11 个正向 Finish 包的证据核验:gold 字符串已出现在此前 observation 中 **7/11**(Rochester、intermission、Liv Kristine×2、Woman×2、New York:s6),U0 强制作答却给了别的
   实体或近似串(Midtown Manhattan / intermède / Raymond István Rohonyi / Woman Magazine / Alabama);4/11 不可见(Trigg Hound×2、Columbia University、New York:s2,教师凭知识或题面作答)。
   → "证据在上下文里但学生读不出/答不准"是主要失败形态(含 2 个近似串的 EM 严格性)。**answer-now 扩到 243 购得状态的作业已提交(results/dv_job3.txt)**,零训练零教师。
+- 09:25 CDT(9/16)**用户附件 9**:批准 243 状态 answer-now 作"有明确范围的材料盘点"(复用 72、只补其余;不训练、不采购)。五点要求:(1) 教师 Finish 与非 Finish 分开统计,
+  "教师对学生错"只能在教师正确 Finish 的状态上算;(2) 答案字符串可见 ≠ 证据充分,只作描述字段;关键候选标"上下文支持 / 当前证据不足 / 不确定"(可用 gold + supporting facts,
+  只进标注);知识注入分开报;(3) 9 个关键案例补"回到本回合 Thought 之前、同历史、让 U0 重新作答(不检索、不给教师)"的检查,区分"旧 Thought 限制"与"证据利用困难";
+  (4) 32 个 Finish 包改成两张表(学生 answer-now 正误 × 教师 Finish 正误;各组内再统计自主续跑);(5) 不预设"教教师推理"为下一版(A* 已含 s→r^T 无增益);核查 r^T 内容
+  (解释证据关系 vs "现在可答 X")。交付:含"证据充分、学生重新作答仍失败、教师正确"状态的独立父任务数,并保留"旧 Thought 限制"与"证据不足"两类。
+  注:243 作业(1029794,242 个可用包)已在跑,会重算 72(确定性,核对一致后复用)。
