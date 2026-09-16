@@ -3582,3 +3582,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   模板生成前缀 `<|turn>model\n<|channel>thought\n<channel|>`(空思考)训练/部署一致,**不一致的是监督目标**:把"先想后做"的学生训成"直接吐命令"。对照 HotpotQA react7 监督的是完整回合 → 纯 CE +3.5。
   两条修法:A(已提交 1030698:base 在命令模式 STUDENT_REACT=0 下的分数,16 分钟)、B(用 ReAct 提示重采 ALFWorld 教师,约 1.5–2.5M 输出 token,3–4 h,使两基准同构;需用户批预算)。
   slurm 加了 REACT / RDSUFFIX 旋钮(fid 树已提交)。
+- 17:58 CDT **补购限速诊断**:实测 3.3 次尝试/分(25 次请求/分),恰好撞上 OutputBudget 的 TokenBucket 上限(50,000 输出 token/分 ÷ 每请求预留 TEACHER_MAX_TOKENS=2048 = 24.4 请求/分),
+  而每次请求实际只报告约 50–150 输出 token(预留比实际大 20–40 倍),且 Azure 429 被拒的请求同样吃预留(81/275 次)。16 个线程大部分时间在等令牌桶。按此速率 704 题约 6 h、1,609 题约 13.5 h。
+  → Codex(buy 树,pid scratchpad/codex_tpm.pid)加 `BFAS_TEACHER_TPM` 环境覆盖(只改工程限速,不改预算上限/记账/身份校验,resume 兼容);交付后以更高并发重启采购(可 resume,不丢已购)。
+  provider 实况:azure-P1 成功 47 / 429 32,azure-P2 13 / 16,openai 13;ProviderHealth 在同一 provider 连续 5 次 429 后冷却 600 s。
