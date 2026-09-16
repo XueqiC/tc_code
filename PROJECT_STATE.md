@@ -3449,3 +3449,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   待 fresh 模式(回到 Thought 之前重新作答)区分"旧 Thought 限制"与"证据利用困难"。
 - 09:33 CDT fresh 模式交付并提交(dv 856d52ef;72 测试两处过);**作业 1029815**(answer-now --thought-mode fresh,242 包)已提交 gpu4,但同账户 sdl-a12 阵列(8 任务)占满
   MaxNodePerAccount → 排队;若 20 分钟内不起,改 gpu2。已向用户发盘点中期结果(消息里误写 09:55,实际 09:33;教师 Finish/非 Finish 分开;关键 11/9;证据标注 5 支持 / 5 不足 / 1 不确定;r^T 引用证据 6 / 知识 5)。
+- 09:37 CDT fresh 作业 1029815 被账户 4 节点上限(MaxNodePerAccount)挡住:sdl 项目 sdl-a12 阵列占满 4 节点(每任务 12 小时上限,尚有排队)。已告知用户,等其决定(让出节点或等待);不改动 sdl 作业。
