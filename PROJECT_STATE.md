@@ -3524,3 +3524,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - **数据**:results/repair_states/{takeover_selection.json, takeover_states.jsonl, takeover_teacher_annotations.json, mined_annotations.json, all_u0_states.jsonl};dv 树 results/takeover*/;
   Wikipedia 缓存 rai dv 树 envs/hotpotqa/cache 与 LONI /ddnB/work/xueqic/hq/tc-hotpotqa/envs/hotpotqa/cache 已双向同步(新增 13 条)。
 - **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`;用户在 Nashville(Central)。
+- 14:24 CDT **用户 14:17 决定**:本周暂停 HotpotQA 新机制训练/扩展(证据与时间不匹配,不是"没有空间");接管报告按四点收窄(docs/2026-09-16-teacher-takeover-report.md §0);
+  转向"旧 RTD 核心增量复核"(一天一个问题:强 CE / RTD 完整 / 模块关 / 权重置换)。**盘点已发(docs/2026-09-16-rtd-core-audit.md,af2600c9)**:唯一进过表的正向结果 = v1.1 BFCL 10% 点
+  (Qwen,单种子,无强 CE,噪声带内,checkpoint 在暂停的 hpg);当前配对上 RTD 家族无跑完的臂;唯一可一天出四行的场地 = HotpotQA react7 冻结根(U0/F0 复用,MECH-λ0/PERM-λ0 新跑,反馈用批采样器)。
+  **等用户选 A/B/C 后再动 GPU。** 正在跑:无。
