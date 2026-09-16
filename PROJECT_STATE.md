@@ -3270,3 +3270,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   = 冻结 v6 代码清单(从 scan6 复制的 10 模块 + 3 源文件)+ 新工具;`_trash/pre_pin/` 存 HEAD 版本。**新树消费冻结根时必须先 pin_check**(scratchpad pin_check.py)。
 - **数据/账本**:采购 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/{repair_dry8,repair_v1}`;状态 `results/repair_states/`;结果 `results/repair_r7_s200_u0/runs/`(含 analysis)。
 - **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date` 校准;用户在 Nashville(Central)。
+- 21:28 CDT **用户决定(附件 4,9KB)+ "尽快进行"**:继续这条研究但不按 A/B/C 再跑;保留 U0 主干;暂停 C;对 B 做最后一次"材料有教学差异、动作监督强度严格一致"的检验。
+  判读措辞修正:未检出稳定优势、也未建立等价(区间宽于 ±2 pp);B>C 非必要条件。主要混杂:动作 token 占监督比例 A 32% / B 85% / C 66%,B 同时改了条件与权重。
+  新设计 A*/B*(见报告 §12):两臂都学 s→r^T;动作分别在 r^T / r^S 条件下学 a^T;动作/边界 token 数与分母严格相同;学生 Thought 只作输入不进分母。
+  材料:真实 U0 状态;教师先独立出计划与动作(不看学生拟议动作);差异只负责提名,再分类(等价查询/合法替代/重复/错误实体/过早结束/漏结束),两类决策都留,
+  ≤2 状态/父任务;d_i 只作描述分层。剂量按新银行曝光(3 遍规则);局部检查加"继续执行到底"并按父任务聚合;主比较 B*−A*;四行判读。
+- 21:32 CDT 派两个 Codex(并行):T4 `tc-alignment-repair`(repair-pool):--prompt-mode independent(prompts/hotpotqa_independent_v1.txt,不给学生任何信息,
+  react7 两行格式)、`candidates`(预注册规则:排除已用 32 父任务,seed 20260917 打乱取前 140 父任务 × 2 步 = 280 状态)、`nominate`(差异标签 + 分层 + 父任务上限);
+  T5 `tc-alignment-astar`(repair-astar @892b6030):design astar(A*/B* 两视图渲染、逐段 token 数与分母恒等断言、A* 参照批、3 遍剂量规则)、`gap`(GPU 打分 ℓ_T/ℓ_S/d)、
+  local-check v2(即时决策分类 + 续跑到底 + 按父任务配对)、analyze v2(B*−A* 主比较、新四行判读)、SLURM REPAIR_DESIGN=astar;硬约束:只用冻结 v6 模块的 API。
+  采购预算:剩余授权 30,000 − 5,207 = 24,793 → 本轮 cap 24,000(280 状态独立教师回合 ≈ 70 token/状态 ≈ 20k)。
