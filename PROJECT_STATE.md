@@ -3321,3 +3321,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   我的回复(已发):同意;补充——训练日志间接显示动作条件项在训练集有 ≈0.5 nats 下降(两臂 CE 差 0.27→0.13);留出集用 243 独立教师回合中未进训练的 88 个父任务
   (同时有 r^S/r^T/a^T,不用新买);预期落在第三行"概率拟合未成决策"(20 步只抬概率,贪心解码未跨阈值)→ 若如此痛点是相对/边际目标。
   已建 results/repair_states/astar_diag_heldout.jsonl;派 Codex(astar worktree)建 tools/cr_repair_diagnose.py(components / cross / readout + SLURM)。
+- 01:05 CDT(9/16)诊断工具交付并提交(astar 8923e3a7,ff 进 hq;31 测试 rai/LONI 两处过;`tools/cr_repair_diagnose.py` components / cross / readout +
+  `cr_repair_diagnose_stats.py`)。按"尽量并行"拆成 4 个作业(我写的包装 scripts/loni/diag_components.slurm、diag_cross.slurm;合并脚本 tools/merge_cross.py):
+  **1029343 diag_comp**(gpu4;5 checkpoint × 训练 72 + 留出 138 包的 L_R / L_{A|r^T} / L_{A|r^S},按父任务配对)、**1029344 diag_xa**(gpu2;动作模型 control,Astar_s0)、
+  **1029345 diag_xb**(gpu4;Bstar_s0,Astar_s1)、**1029346 diag_xc**(gpu2;Bstar_s1);每个 cross 作业:思路生成(control / Bstar_s0 / Bstar_s1)→ 动作生成 × 5 思路来源
+  (存档 r^S、三模型生成、教师 r^T)→ 真实执行 → 固定 U0 续跑。结束后在登录节点 merge_cross + readout(五行判读)。输出 diagnosis/{components,cross_a,cross_b,cross_c}。
+  全部 PD(gpu2 约 390 排队;gpu4 较空)。
