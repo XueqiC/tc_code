@@ -3464,3 +3464,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - **数据**:results/repair_states/{astar_packages_ok.jsonl(242), astar_nominate/, astar_diag_heldout.jsonl(138), evidence_cases.jsonl(59), key_states.json(11), key_annotations.jsonl};
   results/repair_astar_r7_s200_u0/{decision_value, answer_now, answer_now_all, answer_now_fresh, diagnosis, analysis}/。
 - **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`(今天又两次写快 10–20 分钟,已改);用户在 Nashville(Central)。
+- 11:47 CDT **用户批准零教师候选挖掘**("可以,去做吧")。已建 828 个 U0 执行状态文件(200 父任务;学生动作 Search 646 / Finish 160 / Lookup 22;含 student_trajectory 结果,只作描述)
+  → LONI results/astar/all_u0_states.jsonl;派 Codex(dv 树)给 answer-now 加 --no-teacher 与 --dataset(supporting facts / gold 可见性描述字段,不进提示)。
+  之后 LONI 跑 archived + fresh 两模式(~30 分钟),按父任务汇总"证据已在上下文、学生答错"的数量并对照自主结果。不训练、不采购。
