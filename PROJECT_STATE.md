@@ -3420,3 +3420,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   父任务切分预览(seed 20260919)见下一行。answer-now 工具在建(dv worktree)。
 - 08:59 CDT 父任务切分预览(72 包,seed 20260919):留出 16 父任务 → 训练 50 包 / 36 父任务(Δ>0 10,分布 6 父任务;都✓ 12、都✗ 28)| 困难留出 22 包 / 16 父任务(Δ>0 4,3 父任务;都✓ 8、都✗ 9)。
   两侧都有正向分支但很薄(10 / 4);是否开训等 answer-now 结果与用户决定。
+- 09:07 CDT answer-now 工具交付并提交(dv worktree 81a078da;44 测试 rai/LONI 两处过);**LONI 作业 1029751**(gpu4):72 包,同状态同 r^S 下强制 `Finish[` 让 U0 补答案
+  (无教师答案、无 gold 进提示;verifier 评分)+ 无强制的贪心动作一致性;与 decision_value.jsonl 联表出三类表。输出 runs/.../repair_astar_r7_s200_u0/answer_now/。监视器已挂。
