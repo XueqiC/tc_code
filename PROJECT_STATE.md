@@ -3360,3 +3360,14 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   第 3/4 行不触发(前提"留出 CE 改善"/"固定思路下改善"不成立):固定前缀下有用 82.1 → 82.9、一致 90.7 → 88.9、续跑 EM 71.4 → 72.5(CI 含 0);
   自己思路下有用 −2.5 [−5.4, −0.4]、一致 −5.7 [−10.0, −1.8]、正确结束 +2.9 [0, +6.8]、续跑 EM +0.7(CI 含 0);第 5 行不成立(dev +0.5、conf +4.7 不显著)。
   报告 docs/2026-09-16-diagnosis-report.md 已按正式 readout 更新(§0、§4 全 25 格)。LONI 队列空。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 06:45 CDT — supersedes the 00:35 block)
+- **正在跑:无。** LONI 队列空(诊断作业 1029343–1029460 全部结束);rai 无本项目进程;无 Monitor 需重挂。
+- **等待用户决定**:诊断正式结果已发(docs/2026-09-16-diagnosis-report.md 附件):仅第 2 行成立(未泛化);瓶颈 = "产生什么思路"缺任务价值信号,不是"给定思路后的执行"。
+  用户 00:38 附件 §6 的方向:蒸馏如何同时提高有用决策前缀的产生概率与在这些前缀下正确行动的能力;片段范围由可验证的行为瓶颈决定。用户未答前不动 GPU、不做教师调用。
+- **今日(9/15–9/16)已关闭的机制线**:回报梯度→片段权重;A/B/C 修正包;A*/B* 学生前缀条件化(含诊断)。共同主干仍是 react7 银行 + 纯 CE + token 比例(U0 40.5 / +3.5)。
+  教师预算累计 29,207 / 30,000 计费 output token(剩 793,不做新采购)。
+- **可复用资产**:U0 学生 support-200 执行记录(results/repair_states/collect.jsonl);独立教师回合 243(buy 树 teacher_pool_scan/astar_v1);提名包 72;修正包 62;
+  留出诊断集 138 状态 / 70 父任务(带 r^S/r^T/a^T);诊断工具(components / cross / readout + merge 脚本);A*/B*/A/B/C checkpoint;LONI 树 tc-hotpotqa-repair(冻结 v6 清单 + 新工具)。
+- **代码**:hq worktree HEAD 62cdcd3e(diagnose --control-records);本目录 main 记录提交。新树消费冻结根前必须 pin_check;新工具只用冻结模块 API;每次 cross/components 运行须含 control。
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date` 校准;用户在 Nashville(Central)。
