@@ -3532,3 +3532,15 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `cr_mechanism_cell.py prepare --weight-controller --objective-lambda 0 --seeds 0 1 --pilot-artifact`(λ=0 v6 根:SFT/FIXSEG/META/MECH/PERM/TR/TRPERM)、train/export/evaluate 子命令,
   批采样器修复 5fed4074 在树里。LONI 现有:scan5 `controller_r7_s200_ball_T0.5_b32` 只有计划 + rollouts(无 gain artifact,反馈筛选用);scan8 `stage2_r7_s200_ball_lam0` 是 v5 无控制器根、无臂;
   scan6 `stage2v6_r7_s200_ball` 有 U0/U1/F0/F1 × s0/s1 checkpoint 与逐题结果。故 A = 控制器先导(T=0.5,1 卡 2–3 h)→ λ=0 v6 控制器根 → 8 臂 + base 并行(~2 h)→ 同批评测 → 预计 6–7 h。等用户定。
+- 14:30 CDT **用户选 C**(附件):冻结旧 RTD 与 HotpotQA 新机制扩展(A 只在有区别于失效路径的收益估计方法时登记为新实验);保留 HotpotQA 同批 U0/F0 两种子,不重评;
+  **今天:ALFWorld 有效主干 = 同 Gemma、同 luna 银行、同 harness,base + 正常 AdamW 纯 CE 两种子**(沿用渲染/终止监督/曝光检查;不加 KL/门控/回报权重);主表撤下旧更新器的方法排名(保留为历史);
+  整理 SmartAD/SAD/Kang 有效重跑配置(主干确认后并行)。明天锁唯一研究问题。已回执;正在定位 Table 1 ALFWorld 管线与更新器接口。
+- 14:44 CDT **预算口径(用户:各基准同一比例)**:Budget = support set 完整采购计费输出 token 总额 × F(含失败/重试;冻结采购顺序前缀)。HotpotQA react7 总额 149k(F=100% = U0/F0 材料);
+  ALFWorld luna 总额 521,643(233 次尝试 = 104 可用 + 118,792 token,129 失败 + 402,851 token);50% = 260,822;25% = 130,411。
+  **ALFWorld 主干计划(LONI 并行)**:base 同批 + sft F=100% ×2 种子 + F=50%/25% ×1 种子;AdamW 1e-5、LoRA 16/32、token 比例纯 CE、3 遍行曝光(步数 = ceil(3·rows/40));Table 1 管线渲染/终止监督/评测。
+  Codex(fid 树 baseline-fidelity 8be47b77,pid scratchpad/codex_alf_ce.pid,14:37)加:--optimizer adamw、--method sft/base、--passes、--budget-fraction-total。LONI 新树 /work/xueqic/hq/tc-alfworld-ce(硬链接 .venv/envs/data 自 tc-alignment 树)。
+- 14:47 CDT 用户否决"按总额比例 F"(看不懂)→ 提议**按 support 任务数定预算**:每题 ≤3 次、首个通过即停;主表 = 整个 support set 各买一次(HotpotQA 200 / ALFWorld 142),token 只报账;
+  曲线 = 前 25%/50%/100% 任务(冻结顺序整买)。等用户确认;Codex 后续任务 --support-fraction 已备(scratchpad/codex_alf_support.txt);slurm 改为 SUPPORT 变量。
+- 14:49 CDT **用户确认预算定义("可以")**:budget = 教师被问到的 support 任务比例(每题 ≤3 次、首个验证通过即停);主表 = 整个 support set(HotpotQA 200 / ALFWorld 142),token 只报账;
+  曲线 = 前 25%/50%/100%(冻结随机顺序整买)。论文 tc-paper 已改并推送:主表撤下旧更新器三行(附录 tab:updater 保留记录)、加纯 CE 行(HotpotQA 40.5*,同批 base 37.0)、
+  预算表改为 support 比例、setup 段改定义。ALFWorld 五格提交脚本 scratchpad/alf_ce_submit.sh(等 Codex #1 + 后续 --support-fraction 交付、测试、部署到 tc-alfworld-ce 后执行)。
