@@ -3327,3 +3327,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **1029345 diag_xb**(gpu4;Bstar_s0,Astar_s1)、**1029346 diag_xc**(gpu2;Bstar_s1);每个 cross 作业:思路生成(control / Bstar_s0 / Bstar_s1)→ 动作生成 × 5 思路来源
   (存档 r^S、三模型生成、教师 r^T)→ 真实执行 → 固定 U0 续跑。结束后在登录节点 merge_cross + readout(五行判读)。输出 diagnosis/{components,cross_a,cross_b,cross_c}。
   全部 PD(gpu2 约 390 排队;gpu4 较空)。
+- 01:10 CDT diag_xb(1029345)因工具要求每次 cross 运行都含 control/control 参照格而失败;取消 xc(1029346),重提 **1029353 diag_xb2**(control,Bstar_s0,Astar_s1;gpu4)、
+  **1029354 diag_xc2**(control,Bstar_s1;gpu2);merge_cross.py 改为对重复的 control 格去重。ids 文件 results/diag_jobs.txt 已更新;components 1029343 在跑。
