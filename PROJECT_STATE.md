@@ -3559,3 +3559,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 15:11 CDT Codex #1 交付并提交(fid 348dcdb1:--optimizer adamw、--method sft(token 比例 CE)/base、--passes、--budget-fraction-total;274 测试过);部署到 LONI tc-alfworld-ce(115 测试过)。
   **RUNNING: LONI alf_base 1030531(gpu4,base 参照)**,监视器已挂。Codex #2(fid,--support-tasks,pid scratchpad/codex_alf_support.pid)与 Codex #3(buy,r7_ext1609)在跑。
   注意:fid 树里 Codex 运行期间不要 git stash(本次恰好为空未出事)。
+- 15:21 CDT Codex #2 交付并提交(fid 859c9f7c:--support-tasks K;308 测试过),部署到 tc-alfworld-ce(80 测试过)。**RUNNING: LONI alf_base 1030531、alf_n142_0 1030544、alf_n142_1 1030545、
+  alf_n71_0 1030546、alf_n36_0 1030547(gpu4;ids 在 LONI results/alf_base_job.txt、results/alf_ce_jobs.txt;输出 results/alf_ce/alfworld_{base,sft_N142[_s1],sft_N71,sft_N36}/)**;监视器 bdet81ut8。
