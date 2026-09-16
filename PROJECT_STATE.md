@@ -3426,3 +3426,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   教师 Finish 32 包:U0 对且自主失败 3 / U0 错且教师对 11 / 都对 9 / 都错 10。**11 个正向 Finish 包:U0 错且教师对 9(7 父任务)、都对 2、都错 0** →
   Finish 收益主要来自答案内容而非停止时机;停止决策对比损失无依据;按用户 §6 分岔 → 转向"证据理解与答案生成"。已向用户提议:answer-now 扩到全部 243 购得状态 +
   "教师答案是否可由已获 observation 导出"的核验(区分证据理解 vs 教师自身知识),不训练,等用户不反对即起。
+- 09:30 CDT 11 个正向 Finish 包的证据核验:gold 字符串已出现在此前 observation 中 **7/11**(Rochester、intermission、Liv Kristine×2、Woman×2、New York:s6),U0 强制作答却给了别的
+  实体或近似串(Midtown Manhattan / intermède / Raymond István Rohonyi / Woman Magazine / Alabama);4/11 不可见(Trigg Hound×2、Columbia University、New York:s2,教师凭知识或题面作答)。
+  → "证据在上下文里但学生读不出/答不准"是主要失败形态(含 2 个近似串的 EM 严格性)。**answer-now 扩到 243 购得状态的作业已提交(results/dv_job3.txt)**,零训练零教师。
