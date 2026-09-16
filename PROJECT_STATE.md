@@ -3280,13 +3280,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   T5 `tc-alignment-astar`(repair-astar @892b6030):design astar(A*/B* 两视图渲染、逐段 token 数与分母恒等断言、A* 参照批、3 遍剂量规则)、`gap`(GPU 打分 ℓ_T/ℓ_S/d)、
   local-check v2(即时决策分类 + 续跑到底 + 按父任务配对)、analyze v2(B*−A* 主比较、新四行判读)、SLURM REPAIR_DESIGN=astar;硬约束:只用冻结 v6 模块的 API。
   采购预算:剩余授权 30,000 − 5,207 = 24,793 → 本轮 cap 24,000(280 状态独立教师回合 ≈ 70 token/状态 ≈ 20k)。
-- 22:25 CDT T4/T5 交付并提交(repair d392f6b2:independent 模式 + candidates + nominate,114 测试;astar 33b93f3a:design astar + gap + local v2 + analyze v2,
+- 22:12 CDT T4/T5 交付并提交(repair d392f6b2:independent 模式 + candidates + nominate,114 测试;astar 33b93f3a:design astar + gap + local v2 + analyze v2,
   54 测试含冻结 API 运行;已 ff 进 hq)。**独立教师采购 astar_v1**(不给学生任何信息,react7 两行格式;候选 = 排除已用 32 父任务后 seed 20260917 前 140 父任务 × 2 步 = 280 状态;
   8 状态干跑 ok 后全量;中途因我的 shell 10 分钟上限被杀,--resume 续完):280 状态中 242 ok、1 格式失败、1 供应商错误、**36 未买(达 cap 24,000 即停)**;
   计费 output 24,000(推理 10,480)、prompt 272,535、≈ $0.041;同学生动作 62%(修正提示时 85%——独立提示差异更多)、有用 72%。今日教师累计 29,207 / 30,000。
   **提名(冻结规则,不看结果)**:243 包 → 72 提名 = 72 选中(52 父任务;标签 missed_finish 27 / wrong_entity 17 / other 15 / repetition 8 / premature_finish 5;
   分层 teacher-finish 32 / continue 40;排除 same 151、equivalent_query 14、legal_alternative 5);选中包教师 output 9,973。留出集 seed 20260918:64 状态 / 32 父任务,与训练父任务无重叠。
   文件 results/repair_states/{astar_candidates.jsonl,astar_packages_all.jsonl,astar_nominate/,astar_heldout/};账本 buy 树 teacher_pool_scan/{astar_dry8,astar_v1}。
-- 22:33 CDT **A*/B* 管线已提交**(LONI tc-hotpotqa-repair,pin_check 75/75,astar 测试 27 过):freeze **1028325** → gap **1028326**(GPU 打分 ℓ_T/ℓ_S/d)→
+- 22:22 CDT **A*/B* 管线已提交**(LONI tc-hotpotqa-repair,pin_check 75/75,astar 测试 27 过):freeze **1028325** → gap **1028326**(GPU 打分 ℓ_T/ℓ_S/d)→
   train **1028327[0-3]**(Astar/Bstar × seeds 0/1;剂量 3 遍规则)→ evaluate+local **1028328[0-4]**(4 臂 + control;dev-500 + conf-32 + 留出 64 状态含续跑到底)→ analyze **1028329**。
   根 runs/conditional_response/repair_astar_r7_s200_u0。监视器已挂。
