@@ -3290,3 +3290,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 22:22 CDT **A*/B* 管线已提交**(LONI tc-hotpotqa-repair,pin_check 75/75,astar 测试 27 过):freeze **1028325** → gap **1028326**(GPU 打分 ℓ_T/ℓ_S/d)→
   train **1028327[0-3]**(Astar/Bstar × seeds 0/1;剂量 3 遍规则)→ evaluate+local **1028328[0-4]**(4 臂 + control;dev-500 + conf-32 + 留出 64 状态含续跑到底)→ analyze **1028329**。
   根 runs/conditional_response/repair_astar_r7_s200_u0。监视器已挂。
+- 22:30 CDT astar freeze 完成(1028325):72 包全部纳入;**剂量规则 3 遍 → 20 步**(每遍目标 token:reasoning 2,272 + action 856 + 边界 72 + 格式 72 = 3,272;
+  20 步 × ~530 = 10,789);equality_invariant 逐包记录(A*/B* 的 reasoning/action/boundary/formatting 目标 token 数与全局分母恒等;学生 Thought 零权重、不进分母)。
+  gap 作业 1028326 在跑(U0 上逐包 ℓ_T / ℓ_S / d);训练每臂约 2–3 分钟,评测约 40 分钟。
