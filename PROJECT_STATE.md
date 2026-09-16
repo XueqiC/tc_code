@@ -3472,3 +3472,17 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 12:18 CDT **挖掘(存档思路模式,1030229)出数:828 状态 / 200 父任务**:强制作答 EM 30%(父任务 37%);全部 supporting titles 已见时 45%(220 状态/102 父任务),gold 可见时 66%。
   "学生答错 & 全部 supporting titles 已在 observation 中":120 状态 / 53 父任务(其中自主运行失败的父任务 36)——比购得集合里的 4 父任务大得多(购买只抽 2 状态/父任务且要求教师差异)。
   句子级(全部 supporting sentences 已见)与 gold 可见的更严口径见 exp_log/报告;fresh 模式(1030230)跑完后出 2×2 与严格候选集。可见性只是描述,证据充分仍需阅读标注(拟抽样 20 例)。
+- 12:34 CDT **零教师挖掘出数(1030229 存档 / 1030230 fresh,各 828 状态,COMPLETED,各 ~30 分钟;监视器已自行结束)**。四个由松到紧的代理(强制作答错 580 状态/169 父任务 →
+  supporting 标题被提及 120/53 → supporting 页面实际取回 79/40 → supporting 句子可见 20/15,其中近似命中 F1≥0.5 的 9 个)。fresh 与存档强制答案相同 762/828,2×2 = 都错 574 / 都对 244 / 6 / 4,
+  父任务层各层数字不变。**逐条阅读 T3 的 31 个父任务 + 20 抽样:证据已在上下文、学生确实理解错 = 4 父任务(SNL、Liv Kristine、南通、intermission),含未抽样部分约 4–6 / 200 ≈ 2–3%**;
+  其余为学生答案可辩护但 EM 判错 7(另有 15 个自主运行的近似命中)、gold 可疑 2、第二跳尚未取回 9(多数自主 EM=1)、落到错误/消歧义页 4、页面已取回但所需句子不在返回首段或当前 Wikipedia 已变 6。
+  自主失败分解(200 父任务):88 = 40 个 7 步内未结束 + 15 近似命中 + 33 实质错。报告 docs/2026-09-16-candidate-mining-report.md;标注 results/repair_states/mined_annotations.json;
+  分层 results/repair_astar_r7_s200_u0/mining_tiers.json。结论:这一类不值得教师预算;丢分在未结束/检索深度/消歧义/答案形式。已发用户,等决定;不训练、不采购。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 12:34 CDT — supersedes the 10:45 block)
+- **正在跑:无。** LONI 本项目队列空(挖掘 1030229/1030230 COMPLETED,已取回 results/repair_astar_r7_s200_u0/mine_{archived,fresh}/);同账户 sdl-a12 阵列(sdl 项目)不动。rai 无本项目进程,无 Monitor/cron。
+- **等待用户决定**:零教师挖掘已交付(证据可见而答错 ≈ 4–6/200 父任务;失败主体 = 未结束 40、近似命中 15、检索深度/消歧义)。不训练、不采购;教师预算 29,207 / 30,000。
+- **工具(全部已提交,未训练)**:answer-now(dv 07f558bc:--thought-mode archived|fresh、--no-teacher、--dataset);dc/dc2(astar 5d9fba6c);合并进 hq 时 cr_decision_value.py 以 dv 为准。LONI 树 tc-hotpotqa-repair 已是 dv 07f558bc。
+- **数据**:results/repair_states/{all_u0_states.jsonl(828), mined_cases.jsonl(120), mined_sample20.json, mined_annotations.json, astar_packages_ok.jsonl(242), key_states.json, key_annotations.jsonl};
+  results/repair_astar_r7_s200_u0/{mine_archived, mine_fresh, mining_tiers.json, decision_value, answer_now*, diagnosis, analysis}/。脚本(scratchpad):mining_tiers.py、mining_report.py。
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`;用户在 Nashville(Central)。
