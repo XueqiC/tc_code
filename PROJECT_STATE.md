@@ -3393,3 +3393,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 08:11 CDT 每日 Azure 探测:P1/P2 探测 200(与 9/15 相同,非"恢复";9/14 真实 luna 负载下 P1/P2 429、P3 401 的状态未再验证);未做教师调用。
 - 08:22 CDT 决策价值工具交付并提交(astar 7edf6b02;19 测试 rai/LONI 两处过;hq 合并 a7d3b331);**Δ 测量作业 1029708**(gpu4;72 训练包 × 三起点续跑:教师动作 / 学生动作 / 不干预,
   固定 U0 策略;输出 runs/.../repair_astar_r7_s200_u0/decision_value/{decision_value.jsonl,decision_value_summary.md})。零训练、零教师。监视器已挂。等用户对设计稿的回复。
+- 08:30 CDT 并行派 Codex 建 design `dc`(astar worktree):按父任务切分(16 困难留出父任务,seed 20260919)、A* / DCall / DCvalue 三臂(主干同 A*;学生前缀上的
+  决策边际 hinge(m − (log π(a^T) − log π(a^S))),m=1、β=1;DCvalue 仅 Δ>0 包)、gate1–3 + 保持评测、local v3(困难留出上贪心动作 = a^T 的比例 + 固定策略续跑)、
+  analyze v3 预注册读法、SLURM REPAIR_DESIGN=dc。**只建工具,不训练;训练等用户批准且 Δ>0 包 ≥ 20。**
