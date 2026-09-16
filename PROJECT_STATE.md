@@ -3412,3 +3412,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 09:00 CDT 四种分支结果(72 包):**T✓S✗ 14(9 父任务)、两支都✓ 20(17)、两支都✗ 37(26)、T✗S✓ 1**;按标签:missed_finish 8✗✗/10 T✓/9 ✓✓,wrong_entity 8/4/5,
   other 11/0/3(+1 负),repetition 6/0/2,premature 4/0/1;教师 continue:26 ✗✗ / 11 ✓✓ / 3 T✓。强制学生动作 vs 不干预一致 68/72(3 例强制成功而基线失败,1 例反之)。
   11 个 Finish 正例的学生分支全部检索到步上限(EM 0)。派 Codex 加 `answer-now`(同状态同 r^S 下强制 `Finish[` 让 U0 补答案,gold 只评分)。设计稿/记忆已撤"上限"措辞。
+- 09:00 CDT answer-now 的 Codex 先误与 dc 任务共用 astar worktree(一树两写者);已杀掉、还原其半成品(dc 的改动保留),在新 worktree `tc-alignment-dv`(branch repair-dv @7edf6b02)重启。
+  给用户的时间表:answer-now 工具 ~09:30 → LONI 作业 ~15 分钟 → ~09:50 出三类表;若批准训练(Base-CE / Value-CE / Value-Contrast × 2 种子)≈ 2.5–3 小时出数。
