@@ -3615,3 +3615,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 18:46 CDT **FSCD T2a 交付并验收**(fscd d312ac27;23 测试;LONI 44 测试):276 行 / 11,980 目标 token / 83 个可用 FIT 父任务(共 128)/ 75 步(3 遍 × 25)/ 328 个 LoRA 模块;
   断言全过(round_trip、fit_only、每遍每行恰好一次、原生边界进监督、尾批保留)。目标 = 教师完整回合 `Thought n: …\nAction n: …<turn|>\n`(与 ALFWorld 的裸命令形成对照)。
   **新建 LONI 树 /work/xueqic/hq/tc-fscd**(.venv 与 envs 复用 tc-hotpotqa 链接;含 react7 池),已部署并提交主干训练作业(id 在 results/fscd_backbone_job.txt)。
+- 18:51 CDT FSCD 主干作业两次失败(工具按字节比较 base_model 清单,含 `_name_or_path` 等宿主路径元数据;rai 建的审计在 LONI 永远对不上;rows-only 也走同一比较)→ 作业改为先把外来审计移入 _trash、
+  在训练主机本地重建行,并断言 276 行 / 11,980 token / 83 父任务与 rai 版一致(已通过)。**RUNNING: fscd_bb 1030774**(75 步)。
+  其它在跑:alf_n142_0 1030544、alf_n142_1 1030556(3.5 h,116 步,约 20:50 出)、alf_n36_p1 1030764(1 遍剂量格,约 19:30 出);采购 1,011/1,609 触及、659 验证、719k/1.21M(59%)。
+  FSCD T2b(screen/check-context)Codex 已起跑(pid scratchpad/codex_fscd_t2b.pid)。
