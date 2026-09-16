@@ -3305,3 +3305,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **B*−A* −0.3±1.0 [−2.2,+1.6]**(28/28);按种子 A* 41.8/41.0、B* 40.4/41.8;conf-32 B*−A* +4.7±4.1(3/1,不可判)。局部 v2(64 状态/32 父任务,按父任务配对):
   有用率 73.4 → A* 71.9 → B* 68.8(B*−A* −3.1±2.2,0/2);正确结束率三者同 21.9;续跑 EM 53.1 → 51.6 → 50.0;续跑完成率 B* 93.0 vs A* 89.1(+3.9±2.5)。
   报告 docs/2026-09-16-astar-report.md 已补全并发用户。今日教师累计 29,207 / 30,000。LONI 队列空。等用户定下一步。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 00:35 CDT — supersedes the 20:30 block)
+- **正在跑:无。** LONI 队列空(astar 管线 1028325–1028328 COMPLETED;analyze 1028329 已取消,改在登录节点跑完);rai 无本项目进程;无 Monitor 需重挂。
+- **等待用户决定**:A*/B* 判读第 4 行已发(报告 docs/2026-09-16-astar-report.md 附件)。今日关闭的三条机制线:回报梯度→片段权重;A/B/C 修正包;A*/B* 学生前缀条件化。
+  共同主干仍是 react7 银行 + 纯 CE + token 比例(U0 40.5 / +3.5)。教师预算今日 29,207 / 30,000 计费 output token,**剩余 793,不做新采购**。
+- **可复用资产**:独立教师回合 243(buy 树 teacher_pool_scan/astar_v1)、提名包 72(results/repair_states/astar_nominate/selected.jsonl)、修正包 62、
+  U0 学生 support-200 执行记录(results/repair_states/collect.jsonl)、前置检查与 gap 工具、astar 训练格;LONI 树 tc-hotpotqa-repair(冻结 v6 清单 + 新工具)。
+- **代码**:hq worktree HEAD 33b93f3a(+ 上层记录提交在本目录 main);worktrees states/repairtrain/repair/astar 可留。**新树消费冻结根前必须 pin_check。**
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date` 校准后再写(今晚又有一次 10 分钟偏差,已改);用户在 Nashville(Central)。
