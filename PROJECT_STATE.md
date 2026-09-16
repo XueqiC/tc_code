@@ -3586,3 +3586,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   而每次请求实际只报告约 50–150 输出 token(预留比实际大 20–40 倍),且 Azure 429 被拒的请求同样吃预留(81/275 次)。16 个线程大部分时间在等令牌桶。按此速率 704 题约 6 h、1,609 题约 13.5 h。
   → Codex(buy 树,pid scratchpad/codex_tpm.pid)加 `BFAS_TEACHER_TPM` 环境覆盖(只改工程限速,不改预算上限/记账/身份校验,resume 兼容);交付后以更高并发重启采购(可 resume,不丢已购)。
   provider 实况:azure-P1 成功 47 / 429 32,azure-P2 13 / 16,openai 13;ProviderHealth 在同一 provider 连续 5 次 429 后冷却 600 s。
+- 18:08 CDT **用户收紧口径 + 重排优先级(Discord 18:06)**:表述改为"教师银行**没有可见的推理监督**"(不输出 Thought ≠ 没推理,不能把退化全归因于"不再思考")。
+  优先级:① 补测裸命令 CE ckpt 的命令模式部署;② 合法 `ACTION:` 包装(不编造 Thought)在同 36 题配置上从 base 重训;③ 必要时才重采完整 ReAct 示范(先试采 8–12 父任务,B 非零风险)。
+  诊断应保持共同生成上限或至少记录截断。
+- 18:08 CDT **解析器事实(src/alfworld_eval.py::pick_command)**:只看回复**第一行**,依次做完全/大小写/双向子串匹配,失败回退 `look`。→ `ACTION: go to countertop 1` 被接受;
+  `THOUGHT: …\nACTION: …` 会被判成第一行的 THOUGHT 句 → 回退 look。教师侧另有 `_teacher_command_text`(取最后一个 ACTION: 之后的内容),学生侧没有。
+  **含义:若按 B 重采完整 ReAct 示范,必须同时把学生侧解析器改成取最后一个 ACTION:,否则多行回复全部作废。**
+- 18:08 CDT **ALFWorld 零训练 2×2 进展**:base ReAct 55.71(78/140)/ base 命令模式 **54.29(76/140,作业 1030698,15 分钟)** —— 两种部署对 base 几乎无差(差 2 题),32 token 上限未伤 base;
+  **纯 CE 71 题 = 40.71**(1030546);CE-36 命令模式重评作业 **1030731** 跑中(新脚本 scripts/loni/alf_eval_ckpt.slurm:复制 run dir + `--_phase evaluate`,manifest 记 deployment_override)。
+  Codex(fid 树,pid scratchpad/codex_action_wrapper.pid)在做:`--action-wrapper action_prefix`(目标改成 `ACTION: <命令>`,命令/顺序/曝光不变,格式 token 单独记账,run dir 后缀 _AW)+ `BFAS_ALFWORLD_MAX_ACTION_TOKENS` 生成上限覆盖与截断计数。
