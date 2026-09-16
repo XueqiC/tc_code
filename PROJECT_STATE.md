@@ -3422,3 +3422,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   两侧都有正向分支但很薄(10 / 4);是否开训等 answer-now 结果与用户决定。
 - 09:07 CDT answer-now 工具交付并提交(dv worktree 81a078da;44 测试 rai/LONI 两处过);**LONI 作业 1029751**(gpu4):72 包,同状态同 r^S 下强制 `Finish[` 让 U0 补答案
   (无教师答案、无 gold 进提示;verifier 评分)+ 无强制的贪心动作一致性;与 decision_value.jsonl 联表出三类表。输出 runs/.../repair_astar_r7_s200_u0/answer_now/。监视器已挂。
+- 09:20 CDT **answer-now 出数(1029751;results/repair_astar_r7_s200_u0/answer_now/)**:72 包 U0 强制作答 EM 22%(父任务 26%);无强制贪心与存档一致 69/72。
+  教师 Finish 32 包:U0 对且自主失败 3 / U0 错且教师对 11 / 都对 9 / 都错 10。**11 个正向 Finish 包:U0 错且教师对 9(7 父任务)、都对 2、都错 0** →
+  Finish 收益主要来自答案内容而非停止时机;停止决策对比损失无依据;按用户 §6 分岔 → 转向"证据理解与答案生成"。已向用户提议:answer-now 扩到全部 243 购得状态 +
+  "教师答案是否可由已获 observation 导出"的核验(区分证据理解 vs 教师自身知识),不训练,等用户不反对即起。
