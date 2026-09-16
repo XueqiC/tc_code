@@ -3607,3 +3607,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   执行行为(命令模式 104/140 局跑满 40 步,base 64)。已向用户提议剂量曲线(同 36 题材料 1 遍 vs 3 遍)替代包装格。
 - 18:28 CDT Codex 交付 `--action-wrapper action_prefix` + `BFAS_ALFWORLD_MAX_ACTION_TOKENS`(含截断计数,9 文件,336 测试过;fid 树已提交)。**包装格暂不跑**(2×2 已否掉格式解释),
   但生成上限覆盖与截断计数保留备用;seed-zero guard 已识别 _AW 后缀,evaluation_protocol 比较忽略 max_action_tokens。
+- 18:39 CDT 剂量曲线第一格已提交(用户优先级里明写"训练剂量"):同 36 题材料、1 遍曝光(约 9 步)vs 已有 3 遍(26 步),RDSUFFIX=_p1;作业 id 在 LONI results/alf_dose_jobs.txt。
+  采购进度 742/1609 触及、466 验证、529k/1.21M(44%);按每题 713 token 外推全量约 1.15M,勉强在上限内。
