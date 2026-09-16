@@ -3332,3 +3332,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 02:10 CDT 诊断进度:components(1029343)第一个 checkpoint(control)用了 ~50 分钟(HF 逐包全词表打分慢),按此 5 个要 4 小时 → 追加 3 个单 checkpoint 作业并行
   (**1029401 Bstar_s0、1029402 Astar_s1、1029403 Bstar_s1**;gpu4;各自 out 目录 components_<ckpt>;原作业继续做 Astar_s0);合并脚本 tools/merge_components.py。
   cross 三作业都在阶段 B/C(a:第 2 个动作模型;b2:第 2 个;c2:进入续跑)。ids:results/diag_jobs.txt + diag_jobs_extra.txt。
+- 02:15 CDT 单 checkpoint components 作业也要求含 control 配对(1029401 失败)→ 改为 `control,<arm>` 重提 **1029404(Astar_s1)、1029405(Bstar_s1)**(gpu4,等节点:
+  账户 4 节点上限);原作业 1029343 继续 Astar_s0(≈02:50)→ Bstar_s0(≈03:40)→ 之后与追加作业重复,**Bstar_s0 完成后取消 1029343**。
+  预计:cross 三作业 ≈02:30–03:00 完成 → merge_cross;components 五个 checkpoint ≈04:20 齐 → merge_components → readout(五行判读)≈04:30。
