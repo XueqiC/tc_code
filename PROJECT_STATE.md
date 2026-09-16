@@ -3467,3 +3467,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 11:47 CDT **用户批准零教师候选挖掘**("可以,去做吧")。已建 828 个 U0 执行状态文件(200 父任务;学生动作 Search 646 / Finish 160 / Lookup 22;含 student_trajectory 结果,只作描述)
   → LONI results/astar/all_u0_states.jsonl;派 Codex(dv 树)给 answer-now 加 --no-teacher 与 --dataset(supporting facts / gold 可见性描述字段,不进提示)。
   之后 LONI 跑 archived + fresh 两模式(~30 分钟),按父任务汇总"证据已在上下文、学生答错"的数量并对照自主结果。不训练、不采购。
+- 12:00 CDT --no-teacher / --dataset 交付并提交(dv 07f558bc;97 测试两处过);**挖掘作业:1030229 mine_arch(存档思路)、1030230 mine_fresh(重新生成思路)**,各 828 状态,gpu4
+  (sdl 阵列仍占 3 节点,第 4 节点给了 mine_arch,mine_fresh 排队)。输出 runs/.../repair_astar_r7_s200_u0/mine_{archived,fresh}/。监视器已挂。
