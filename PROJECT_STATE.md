@@ -3544,3 +3544,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 14:49 CDT **用户确认预算定义("可以")**:budget = 教师被问到的 support 任务比例(每题 ≤3 次、首个验证通过即停);主表 = 整个 support set(HotpotQA 200 / ALFWorld 142),token 只报账;
   曲线 = 前 25%/50%/100%(冻结随机顺序整买)。论文 tc-paper 已改并推送:主表撤下旧更新器三行(附录 tab:updater 保留记录)、加纯 CE 行(HotpotQA 40.5*,同批 base 37.0)、
   预算表改为 support 比例、setup 段改定义。ALFWorld 五格提交脚本 scratchpad/alf_ce_submit.sh(等 Codex #1 + 后续 --support-fraction 交付、测试、部署到 tc-alfworld-ce 后执行)。
+- 14:55 CDT 用户追问 200/142 的来历(HotpotQA = seed-0 随机抽 200;ALFWorld = 历史采集 142)→ 提议统一 **N=128 support 任务/基准**(冻结随机顺序前 128;曲线 32/64/128),
+  主表 = 全部 128;HotpotQA 纯 CE 需在 128 题上重跑(react7 前缀,两种子,零采购),U0/F0@200 留作附录"全 support"点。等用户点头。Codex 后续任务改为 --support-tasks K;slurm/提交脚本改为 NTASKS。
+- 14:57 CDT 用户要求预算像 8:1:1 那样的通用比例 → 提出 P1(support:评测 = 1:1;ALFWorld 140 零采购,HotpotQA 500 需补购 300 题 ~230k token)、P2(训练集 1%:36 / 904)、P3(4%:142 / 3,618);建议 P1。等用户定。
+- 14:58 CDT 用户倾向"百分比"并问 1% 够不够 → 已答文献惯例(K-shot 每类;半监督 1%/10% 锚点;agent 蒸馏基线非 few-shot),建议主规则 = 原始训练集 1%(HotpotQA 904 需补购 704 题;ALFWorld 36 偏薄),
+  折中 2%(1,809 / 71);今天 ALFWorld 跑 36 / 71 / 142 三点(142 两种子)+ base;提交脚本已改为 NTASKS 142/142/71/36。等用户定 1% 或 2% 与教师预算。
+- 15:00 CDT 已答"选最经济 benchmark":HotpotQA 1% = 补购 704 题 ≈ 0.55M token ≈ 4 h(不是几天);基线其它 benchmark 按 1%:MuSiQue 199 题(可加)、2Wiki 1,670、WebShop 121(评测链未验证)、Bamboogle 无训练集。
+  建议维持 HotpotQA + ALFWorld。待用户:1%/2% + 补购预算。Codex #1(fid)在跑全量测试(AppWorld/BFCL/cc_pairs 旧测试失败为环境性,基线测试通过)。
+- 15:03 CDT 用户担心 1% 不够体现方法效果 → 提议用数据定 p:今天 ALFWorld 36/71/142 曲线(36 上纯 CE ≥ +3 pp 超噪声 → 1%;71 起才有 → 2%);HotpotQA 补购按冻结前缀(704 是 1,609 的前缀),
+  先采 704 再视结果续到 1,609;请批上限 1.25M 输出 token。Codex #3(buy 树)已开始加 r7_ext1609 采购层(代码准备,不采购)。
+- 15:04 CDT **用户批准 HotpotQA 补购(上限 1.25M 计费输出 token),provider 顺序 Azure P1 → P2 → P3 → OpenAI(兜底)**。采购在 Codex #3 交付后:1 题干跑 → 12 并发采前 704 → 视 ALFWorld 结果续到 1,609。
