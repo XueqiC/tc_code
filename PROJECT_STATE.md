@@ -3414,3 +3414,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   11 个 Finish 正例的学生分支全部检索到步上限(EM 0)。派 Codex 加 `answer-now`(同状态同 r^S 下强制 `Finish[` 让 U0 补答案,gold 只评分)。设计稿/记忆已撤"上限"措辞。
 - 09:00 CDT answer-now 的 Codex 先误与 dc 任务共用 astar worktree(一树两写者);已杀掉、还原其半成品(dc 的改动保留),在新 worktree `tc-alignment-dv`(branch repair-dv @7edf6b02)重启。
   给用户的时间表:answer-now 工具 ~09:30 → LONI 作业 ~15 分钟 → ~09:50 出三类表;若批准训练(Base-CE / Value-CE / Value-Contrast × 2 种子)≈ 2.5–3 小时出数。
+- 09:35 CDT dc 工具交付(astar 104422c5;35 测试;臂 Astar/DCall/DCvalue,含 gate1–3、local v3、analyze v3、SLURM)。按用户修订派 dc2:加 **ValueCE 臂**(正 Δ 包在学生前缀下普通 CE
+  监督教师动作,与 DCvalue 同包同曝光)、默认臂集 Astar,ValueCE,DCvalue(Base-CE / Value-CE / Value-Contrast)、`gradcheck`(冻结后训练前查主干 vs 附加项梯度量级)、
+  评测三层显式(L1 固定 r^S 动作;L2 从当前回合自主生成思路+动作再续跑;L3 全任务)、analyze v3 主比较 Value-Contrast − Value-CE、按侧报父任务数。
+  父任务切分预览(seed 20260919)见下一行。answer-now 工具在建(dv worktree)。
