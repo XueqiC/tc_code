@@ -3619,3 +3619,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   在训练主机本地重建行,并断言 276 行 / 11,980 token / 83 父任务与 rai 版一致(已通过)。**RUNNING: fscd_bb 1030774**(75 步)。
   其它在跑:alf_n142_0 1030544、alf_n142_1 1030556(3.5 h,116 步,约 20:50 出)、alf_n36_p1 1030764(1 遍剂量格,约 19:30 出);采购 1,011/1,609 触及、659 验证、719k/1.21M(59%)。
   FSCD T2b(screen/check-context)Codex 已起跑(pid scratchpad/codex_fscd_t2b.pid)。
+- 18:57 CDT 行为 dump 交付并提交(fid;357 测试):`BFAS_ALFWORLD_DUMP_TURNS=1` 写 turns.jsonl(原始回复/所选命令/是否 look 回退/观察/是否触上限,单串 2,000 字符截断并记原长),
+  metrics 恒定新增 fallback_command_rate 与 repeated_command_rate。**仍不部署到 LONI**,等三个 ALFWorld 格子跑完(source_hashes 守卫)。
