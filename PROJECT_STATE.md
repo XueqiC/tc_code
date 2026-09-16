@@ -3595,3 +3595,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 18:08 CDT **ALFWorld 零训练 2×2 进展**:base ReAct 55.71(78/140)/ base 命令模式 **54.29(76/140,作业 1030698,15 分钟)** —— 两种部署对 base 几乎无差(差 2 题),32 token 上限未伤 base;
   **纯 CE 71 题 = 40.71**(1030546);CE-36 命令模式重评作业 **1030731** 跑中(新脚本 scripts/loni/alf_eval_ckpt.slurm:复制 run dir + `--_phase evaluate`,manifest 记 deployment_override)。
   Codex(fid 树,pid scratchpad/codex_action_wrapper.pid)在做:`--action-wrapper action_prefix`(目标改成 `ACTION: <命令>`,命令/顺序/曝光不变,格式 token 单独记账,run dir 后缀 _AW)+ `BFAS_ALFWORLD_MAX_ACTION_TOKENS` 生成上限覆盖与截断计数。
+- 18:27 CDT **采购提速与代价**:BFAS_TEACHER_TPM=1000000 解开令牌桶(buy 7beff176,231 测试)→ 32 并发 155 次尝试/分但 **Wikipedia 429 使 39% 尝试失败**;10 并发仍 32%;
+  **4 并发 = 31.8 次尝试/分、错误率 0%(采用)**。代价已量化:**61 题三次尝试全部死于限流(永久损失)、42 题混合失败**;触及 463 / 验证 265 / 已花 325,555 计费 token。
+  已问用户:1% 档是"诚实记损耗"还是"冻结顺序往后顺延补齐 704 题"(我倾向后者)。全部 1,609 题预计 19:30 CDT 跑完。
+  杀进程时再次踩到 pkill -f 自匹配(exit 144,连带杀掉采购监视器 b53m1hrb1)——已按 pid 逐个 kill 的方式重做。
+- 18:27 CDT FSCD T1 已验收并提交(fscd 63b4c7d2;21 测试):FIT/SELECT/CHECK = 128/36/36(哈希规则独立复算一致)、EVAL-200 与所有排除集零重叠、示范池 83(全 FIT)、
+  Q1 951/906 token(无共享父任务)、Q2 890/893(共享 1 个父任务,已标注),覆盖度 0.906 vs 0.867;wrapper 文本逐字一致。**T2a(FIT-only 纯 CE 主干)Codex 已起跑**(pid scratchpad/codex_fscd_t2a.pid)。
