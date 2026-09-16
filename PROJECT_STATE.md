@@ -3329,3 +3329,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   全部 PD(gpu2 约 390 排队;gpu4 较空)。
 - 01:10 CDT diag_xb(1029345)因工具要求每次 cross 运行都含 control/control 参照格而失败;取消 xc(1029346),重提 **1029353 diag_xb2**(control,Bstar_s0,Astar_s1;gpu4)、
   **1029354 diag_xc2**(control,Bstar_s1;gpu2);merge_cross.py 改为对重复的 control 格去重。ids 文件 results/diag_jobs.txt 已更新;components 1029343 在跑。
+- 02:10 CDT 诊断进度:components(1029343)第一个 checkpoint(control)用了 ~50 分钟(HF 逐包全词表打分慢),按此 5 个要 4 小时 → 追加 3 个单 checkpoint 作业并行
+  (**1029401 Bstar_s0、1029402 Astar_s1、1029403 Bstar_s1**;gpu4;各自 out 目录 components_<ckpt>;原作业继续做 Astar_s0);合并脚本 tools/merge_components.py。
+  cross 三作业都在阶段 B/C(a:第 2 个动作模型;b2:第 2 个;c2:进入续跑)。ids:results/diag_jobs.txt + diag_jobs_extra.txt。
