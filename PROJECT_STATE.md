@@ -3577,3 +3577,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   16 并发、providers azure-P1,azure-P2,openai(service tier priority),上限 1,210,000 计费输出 token。起步 9.3 次尝试/分,全部走 azure-P1 → 1,609 题预计约 5 h(前 704 题约 2 h)。监视器 b53m1hrb1。
 - **FSCD v1(用户 15:28 新协议)**:worktree tc-alignment-fscd(b62926c2 + 协议文档 docs/FSCD_V1_PROTOCOL_ZH.md + react7 池副本 + 数据链接 + 排除集配置);
   Codex T1(freeze-data + build-contexts:FIT128/SELECT36/CHECK36、EVAL-200、银行回执、示范池、Q1/Q2 两复本)15:51 起跑,pid scratchpad/codex_fscd_t1.pid。
+- 17:52 CDT **ALFWorld 崩塌根因确认(账本证据)**:ALFWorld 教师采集提示 = "Reply with exactly one admissible command and nothing else",银行 behaviors[i].text 就是裸命令
+  (data/rtd/v1_alfworld_luna2.collection/teacher_ledger.jsonl 的 demo.turns[].target,payload_kind=extracted_teacher_commands);学生评测是 ReAct(alfworld_student_react=True,256 token,系统提示要求 THOUGHT+ACTION)。
+  模板生成前缀 `<|turn>model\n<|channel>thought\n<channel|>`(空思考)训练/部署一致,**不一致的是监督目标**:把"先想后做"的学生训成"直接吐命令"。对照 HotpotQA react7 监督的是完整回合 → 纯 CE +3.5。
+  两条修法:A(已提交 1030698:base 在命令模式 STUDENT_REACT=0 下的分数,16 分钟)、B(用 ReAct 提示重采 ALFWorld 教师,约 1.5–2.5M 输出 token,3–4 h,使两基准同构;需用户批预算)。
+  slurm 加了 REACT / RDSUFFIX 旋钮(fid 树已提交)。
