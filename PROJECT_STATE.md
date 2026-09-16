@@ -3486,3 +3486,41 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - **数据**:results/repair_states/{all_u0_states.jsonl(828), mined_cases.jsonl(120), mined_sample20.json, mined_annotations.json, astar_packages_ok.jsonl(242), key_states.json, key_annotations.jsonl};
   results/repair_astar_r7_s200_u0/{mine_archived, mine_fresh, mining_tiers.json, decision_value, answer_now*, diagnosis, analysis}/。脚本(scratchpad):mining_tiers.py、mining_report.py。
 - **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`;用户在 Nashville(Central)。
+- 12:54 CDT **用户新指令(附件 + "在 LONI 上并行铺开进行试验")**:暂停换损失/换前缀;做一次教师接管筛选:24 个冻结的自主失败父任务(错误页/消歧义、正确页缺所需句、未完成重复交互),
+  每题取当前 Thought 之前、剩 ≥3 步的真实状态,规则在教师调用前固定;四分支 U0 自行继续 / 教师接管到底 / 教师 1 步交还 / 教师 3 步交还;总上限 7 步;查询响应冻结;G(k) 与两类成功分开;
+  失败全计入。只交付 24 题四分支结果与每次恢复依赖的新信息;之后若有优势 → 纯 CE 迁移验证(等曝光对照 + 恢复片段臂,两配对种子,采集前切分父任务)。
+  用户对报告的收窄:已确认 4 个理解错误父任务("4–6"是推测);40 未完成不定根因;15 个 F1≥0.5 逐项判。已发工作日志;计划:Codex(dv 树)加 takeover / continue 子命令;教师采集在 rai(预计 ~120 回合,硬上限 30k 计费输出 token);三个学生分支为三个 LONI 并行作业;ETA ~15:00 CDT。
+- 13:03 CDT 接管实验准备:选题冻结 results/repair_states/takeover_selection.json + takeover_states.jsonl(24 状态:E 4 / F 7 / U 13,seed 20260916;状态 = 第一个故障信号后一步,上限第 5 步,剩 3–6 步);
+  LONI 缓存(21,100 条)已同步到 dv 树 envs/hotpotqa/cache,24 状态离线回放全部通过;教师 provider 只用 openai_api(luna 官方,flex)。Codex(dv 树,pid 见 scratchpad/codex_takeover.pid)
+  在建 tools/cr_takeover.py(takeover = continue_branch + TeacherSession;continue;report);LONI 作业脚本 scripts/loni/takeover_continue.slurm(dv 树)已写;rai 启动脚本 scratchpad/takeover_run.sh。
+  第一次 Codex 启动因 repair 分支的 hotpotqa_repair_pool.py 依赖非冻结版 hotpotqa_budget 而中止,改为纯冻结 API 重启(13:01)。
+- 13:25 CDT 接管工具:dv 4a1b3c99(tools/cr_takeover.py:takeover/continue/report,115 测试);一状态真实试跑撞上冻结缺陷(冻结 TeacherSession 向冻结 appworld_teacher 传 stop 参数 → TypeError,
+  未发请求未花钱)→ dv 63fa382d 新增 TakeoverSession(同一记账逻辑,不传 stop,客户端截断;120 测试)。试跑 2 进行中(results/takeover_dry2,cap 4k,1 状态)。
+- 13:27 CDT 试跑 2(results/takeover_dry2,状态 5a7470ca:s4)打通真实 API:luna 5 次调用、593 计费输出 token、账本已结算、分支文件正确(k1 可交还,k3 因教师第 3 步 Finish 不可交还);
+  但教师在学生 few-shot prompt 下前两步回裸字符串 "Trigg Hound" → 冻结 runner 记 "Invalid action",白耗 2 步。Codex 修复 2(pid scratchpad/codex_takeover_fix2.pid):教师侧加固定格式说明
+  FORMAT_ADDENDUM(记 sha256 进 identity),fallback 调用同样加说明;学生 continue 不变。
+- 13:31 CDT 试跑 3(results/takeover_dry3)干净:3 步 3 次调用、301 计费 token、格式正确、真实工具执行、教师 Finish 正确(知识作答,无新观察含 gold)。dv b9810f47。
+  **全部 24 题教师接管开跑:rai,scratchpad/takeover_run.sh,out = tc-alignment-dv/results/takeover,cap 30k,4 并发;pid scratchpad/takeover_full.pid。** 之后:takeover_deploy.sh(缓存 → LONI,tk_k0/k1/k3 三作业)。
+- 13:35 CDT **24 题教师接管完成(tc-alignment-dv/results/takeover;账本 ledger.jsonl)**:24/24 finish,教师 EM 12/24;86 步 86 次调用、0 无效动作;13,041 计费输出 token / 30k;
+  k1 可交还 19/24,k3 可交还 14/24。部署脚本 scratchpad/takeover_deploy.sh 在跑(缓存 → LONI、tar 代码与分支、CPU 测试、提交 tk_k0/k1/k3 到 gpu4;作业 id 写 LONI results/takeover_jobs.txt)。
+- 13:37 CDT 部署完成(13 个新缓存条目 → LONI;工具 + 分支文件 tar;LONI CPU 测试 127 过)。**RUNNING: LONI tk_k0 1030412 / tk_k1 1030413 / tk_k3 1030414(gpu4,qbd512)**,输出
+  runs/.../repair_astar_r7_s200_u0/takeover_{k0,k1,k3}/;作业 id 在 LONI results/takeover_jobs.txt;监视器已挂。教师轨迹阅读标注:results/repair_states/takeover_teacher_annotations.json
+  (12 成功 = 证据取得 4 [Osawatomie Lookup、SNL Lookup、Entr'acte 换查询、Peter Brown (Oz) 消歧义链] + 部分证据 3 + 纯知识 4 + 已有上下文 1;12 失败 = 知识猜错 7、近似命中 3、放弃 1、gold 问题 1)。
+- 13:55 CDT 三分支(离线缓存模式)完成并取回(tc-alignment-dv/results/takeover_{k0,k1,k3}/,report 在 results/takeover_report/):G(1)=+0.125 [−0.04,+0.29] 4/19/1;G(3)=+0.25 [+0.08,+0.42] 6/18/0;
+  G(full)=+0.42 [+0.21,+0.63] 10/14/0;学生自己 Finish 答对 k1 2 / k3 2;k0 = 2/24(U0 贪心续跑与存档轨迹前 1–2 步相同后分叉,vLLM 贪心不确定性;k0 是新样本)。
+  **假象:离线模式截断学生新查询(offline_cache_miss:k0 3 / k1 6 / k3 4)** → slurm 加 TK_ONLINE(dv b62926c2),**RUNNING: LONI tk_k0on 1030434 / tk_k1on 1030435 / tk_k3on 1030436**
+  (输出 takeover_{k0,k1,k3}_online/;id 在 LONI results/takeover_jobs_online.txt;监视器已挂)。最终报告以在线结果为准,离线结果作稳健性附注。
+- 14:08 CDT **教师接管筛选出数(在线续跑 1030434–6;离线 1030412–4 逐题 EM 相同)**:k0 2/24;k1 5/24(学生自己 2 + 继承 3);k3 8/24(2 + 6);教师完整 12/24;
+  G(1)=+0.125 [−0.04,+0.29] 4/19/1;G(3)=+0.25 [+0.08,+0.42] 6/18/0;G(full)=+0.42 [+0.21,+0.63] 10/14/0。交还后学生自己答对且 k0 没对的只有 2 题(intermission k1、Osawatomie k3)。
+  教师 12 成功 = 证据型 4 + 部分 3 + 知识 4 + 已有上下文 1;**证据型 4/4 在决定性检索步进入前缀后学生自己答对,知识型 0**。报告 docs/2026-09-16-teacher-takeover-report.md;
+  已发用户;等决定(用户方案:若有优势 → 纯 CE 迁移验证,等曝光对照 + 恢复片段臂,两配对种子,采集前切分父任务)。不训练、不采购。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 14:08 CDT — supersedes the 12:40 block)
+- **正在跑:无。** LONI 本项目队列空(接管续跑 1030412–4 与 1030434–6 全部 COMPLETED,已取回 tc-alignment-dv/results/takeover_{k0,k1,k3}{,_online}/);rai 无本项目进程,无 Monitor/cron。
+- **等待用户决定**:教师接管筛选已交付(可传授的是检索交互 4/24;知识型成功交还无效)。下一步若训练:验证过的恢复片段(到决定性检索步)做纯 CE 迁移验证,
+  等曝光对照,两配对种子,采集前切分父任务,留出按自主取证 + 完成判。不训练、不采购;教师今日消耗 29,207 + 13,041 + 试跑 ~900 计费输出 token。
+- **工具(dv 树,已提交)**:tools/cr_takeover.py(takeover / continue / report;TakeoverSession 绕过冻结 stop 缺陷;教师侧 FORMAT_ADDENDUM),scripts/loni/takeover_continue.slurm(TK_ONLINE),
+  答案 answer-now(--no-teacher/--dataset),dc/dc2(astar);合并进 hq 时 cr_decision_value.py 以 dv 为准。LONI 树 tc-hotpotqa-repair 已含 cr_takeover.py 与 b62926c2 的 slurm。
+- **数据**:results/repair_states/{takeover_selection.json, takeover_states.jsonl, takeover_teacher_annotations.json, mined_annotations.json, all_u0_states.jsonl};dv 树 results/takeover*/;
+  Wikipedia 缓存 rai dv 树 envs/hotpotqa/cache 与 LONI /ddnB/work/xueqic/hq/tc-hotpotqa/envs/hotpotqa/cache 已双向同步(新增 13 条)。
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date`;用户在 Nashville(Central)。
