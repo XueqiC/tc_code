@@ -3391,3 +3391,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (决策价值 Δ = EM_T − EM_S 作材料/判定信号;主干 + 学生前缀上的决策边际对比,仅 Δ>0 包;A* / DC-all / DC-value 三臂;按父任务切困难留出;三门判定;先测 Δ 再决定训练)。
   待用户:是否加"27 条精检困难回合"的 CE 迁移打分;是否按 §6 顺序起跑。Codex 在建 tools/cr_decision_value.py。
 - 08:11 CDT 每日 Azure 探测:P1/P2 探测 200(与 9/15 相同,非"恢复";9/14 真实 luna 负载下 P1/P2 429、P3 401 的状态未再验证);未做教师调用。
+- 08:22 CDT 决策价值工具交付并提交(astar 7edf6b02;19 测试 rai/LONI 两处过;hq 合并 a7d3b331);**Δ 测量作业 1029708**(gpu4;72 训练包 × 三起点续跑:教师动作 / 学生动作 / 不干预,
+  固定 U0 策略;输出 runs/.../repair_astar_r7_s200_u0/decision_value/{decision_value.jsonl,decision_value_summary.md})。零训练、零教师。监视器已挂。等用户对设计稿的回复。
