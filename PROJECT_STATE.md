@@ -3314,3 +3314,10 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   U0 学生 support-200 执行记录(results/repair_states/collect.jsonl)、前置检查与 gap 工具、astar 训练格;LONI 树 tc-hotpotqa-repair(冻结 v6 清单 + 新工具)。
 - **代码**:hq worktree HEAD 33b93f3a(+ 上层记录提交在本目录 main);worktrees states/repairtrain/repair/astar 可留。**新树消费冻结根前必须 pin_check。**
 - **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date` 校准后再写(今晚又有一次 10 分钟偏差,已改);用户在 Nashville(Central)。
+- 00:45 CDT(9/16)**用户附件 5(8KB)+ "你也可以想想你的看法"**:不再调 A*/B* 剂量;追问"训练改善停在哪一层、为什么没传到自主执行"。前提:B* 只证明在优化更难的
+  条件目标,未证明掌握。诊断(不训练):(1) 用现有 checkpoint 在固定样本上分项算训练前后的 L_R、L_{A|r^T}、L_{A|r^S},训练集与留出父任务分开;(2) 交叉诊断:留出真实状态上
+  U0 / B* 各自生成思路 × U0 / B* 生成动作,动作真实执行,续跑用固定策略;(3) 五行判读(未获得条件能力 / 未泛化 / 概率拟合未成决策 / 新思路分布抵消 / 后续决策瓶颈)。
+  理论:J_s = E_r[V(s,r)],梯度分解为"提高有用思路概率"+"改善给定思路后的执行";当前设计两者都没有任务价值信号;片段范围应由可验证的行为瓶颈决定。
+  我的回复(已发):同意;补充——训练日志间接显示动作条件项在训练集有 ≈0.5 nats 下降(两臂 CE 差 0.27→0.13);留出集用 243 独立教师回合中未进训练的 88 个父任务
+  (同时有 r^S/r^T/a^T,不用新买);预期落在第三行"概率拟合未成决策"(20 步只抬概率,贪心解码未跨阈值)→ 若如此痛点是相对/边际目标。
+  已建 results/repair_states/astar_diag_heldout.jsonl;派 Codex(astar worktree)建 tools/cr_repair_diagnose.py(components / cross / readout + SLURM)。
