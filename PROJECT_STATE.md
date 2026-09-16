@@ -3435,3 +3435,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   (4) 32 个 Finish 包改成两张表(学生 answer-now 正误 × 教师 Finish 正误;各组内再统计自主续跑);(5) 不预设"教教师推理"为下一版(A* 已含 s→r^T 无增益);核查 r^T 内容
   (解释证据关系 vs "现在可答 X")。交付:含"证据充分、学生重新作答仍失败、教师正确"状态的独立父任务数,并保留"旧 Thought 限制"与"证据不足"两类。
   注:243 作业(1029794,242 个可用包)已在跑,会重算 72(确定性,核对一致后复用)。
+- 09:40 CDT dc2 交付并提交(astar 5d9fba6c;51 测试):ValueCE 臂、gradcheck、L1/L2/L3、analyze v3。注意:该提交顺带含 astar 树里 cr_decision_value.py / decision_value.slurm /
+  test_cr_decision_value.py 的改动(dc2 Codex 碰了它们);answer-now 的权威版本在 dv 树(81a078da + fresh 模式在建)——**合并进 hq 时以 dv 为准**。不训练。
+  证据标注材料已建:results/repair_states/evidence_cases.jsonl(教师正确 Finish 的 59 状态 / 51 父任务;含 supporting facts 句子、可见 observation、教师 r^T、学生思路/动作;
+  gold 可见 48/59,仅作描述字段)。待 243 answer-now(1029794)与 fresh 模式结果后,对"学生两种模式都错、教师对"的状态做人工三类标注并核查 r^T 内容。
