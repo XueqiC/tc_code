@@ -3447,3 +3447,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   其中 3 例学生 Thought 已锁定错误实体或误解题面(旧 Thought 限制候选:Rochester→NYC、Liv→Rohonyi×2);当前证据不足(教师凭知识作答)5 状态 / 5 父任务(Columbia、Laudato si'、
   Hugh Grant 生日、Woman 1937、DCCC 主席@s2);不确定(可排除推理)1(Trigg Hound)。教师 r^T 类型:引用证据 6、陈述知识 5。文件 results/repair_states/key_annotations.jsonl。
   待 fresh 模式(回到 Thought 之前重新作答)区分"旧 Thought 限制"与"证据利用困难"。
+- 09:55 CDT fresh 模式交付并提交(dv 856d52ef;72 测试两处过);**作业 1029815**(answer-now --thought-mode fresh,242 包)已提交 gpu4,但同账户 sdl-a12 阵列(8 任务)占满
+  MaxNodePerAccount → 排队;若 20 分钟内不起,改 gpu2。已向用户发盘点中期结果(教师 Finish/非 Finish 分开;关键 11/9;证据标注 5 支持 / 5 不足 / 1 不确定;r^T 引用证据 6 / 知识 5)。
