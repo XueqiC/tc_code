@@ -3418,3 +3418,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   监督教师动作,与 DCvalue 同包同曝光)、默认臂集 Astar,ValueCE,DCvalue(Base-CE / Value-CE / Value-Contrast)、`gradcheck`(冻结后训练前查主干 vs 附加项梯度量级)、
   评测三层显式(L1 固定 r^S 动作;L2 从当前回合自主生成思路+动作再续跑;L3 全任务)、analyze v3 主比较 Value-Contrast − Value-CE、按侧报父任务数。
   父任务切分预览(seed 20260919)见下一行。answer-now 工具在建(dv worktree)。
+- 08:59 CDT 父任务切分预览(72 包,seed 20260919):留出 16 父任务 → 训练 50 包 / 36 父任务(Δ>0 10,分布 6 父任务;都✓ 12、都✗ 28)| 困难留出 22 包 / 16 父任务(Δ>0 4,3 父任务;都✓ 8、都✗ 9)。
+  两侧都有正向分支但很薄(10 / 4);是否开训等 answer-now 结果与用户决定。
