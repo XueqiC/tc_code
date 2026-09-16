@@ -3396,3 +3396,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 08:30 CDT 并行派 Codex 建 design `dc`(astar worktree):按父任务切分(16 困难留出父任务,seed 20260919)、A* / DCall / DCvalue 三臂(主干同 A*;学生前缀上的
   决策边际 hinge(m − (log π(a^T) − log π(a^S))),m=1、β=1;DCvalue 仅 Δ>0 包)、gate1–3 + 保持评测、local v3(困难留出上贪心动作 = a^T 的比例 + 固定策略续跑)、
   analyze v3 预注册读法、SLURM REPAIR_DESIGN=dc。**只建工具,不训练;训练等用户批准且 Δ>0 包 ≥ 20。**
+- 08:40 CDT **Δ 测量完成(1029708;results/repair_astar_r7_s200_u0/decision_value/)**:72 训练包 / 52 父任务,固定 U0 续跑:教师动作 > 学生动作 14、相等 57、< 1;
+  正向 Δ 份额 19.4%(父任务加权 16.4% [6.7, 26.9]);contrast 均值 +0.18/包(父任务 +0.14 [0.04, 0.26]);value_T +0.21、value_S +0.03(学生动作 ≈ 不干预基线)。
+  按标签:missed_finish 27 包中 10 个正向(37%,contrast +0.37);other_difference 0/15(1 个负);其余见摘要。**Δ>0 的包 = 14 < 预注册阈值 20 → 按设计稿 §6 不训练**;
+  "有差异 ≠ 有价值"量化:57/72 的教学差异在续跑结果上殊途同归。价值集中在"该结束时结束"(missed_finish)。dc 工具仍在建(备用)。
