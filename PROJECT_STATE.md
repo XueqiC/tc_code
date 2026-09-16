@@ -3258,3 +3258,15 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   按种子 B +1.0/+0.2、C −0.4/+2.0、A 0.0/−1.0;conf-32 不可判。局部(留出 56 状态):有用率 对照 64.3 → A 67.9 / B 69.6 / C 68.8(B +5.4±3.0,3 个状态变好 0 变差,
   两种子一致);C Finish 率 33.9 → 23.2(−10.7±4.0,CI 不含 0)+ 1 状态不可解析。读法:材料对比太少(85% 同动作、82% NONE;B 起始损失 0.07),
   113 步记忆;C 修正监督有"少 Finish"副作用。报告 docs/2026-09-15-repair-distillation-report.md 已补全并发用户。等用户定:接受关闭 / 一次"有对比材料"检验 / 回采购侧。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-15 20:30 CDT — supersedes the 15:15 block)
+- **正在跑:无。** LONI 队列空(repair 管线 1027814/1027823/1027827/1027828 全部 COMPLETED;states_all 1027773 COMPLETED);rai 上本项目无进程;无 Monitor 需重挂。
+- **等待用户决定**(节点 ⑤ 已发,报告 docs/2026-09-15-repair-distillation-report.md 已附):接受"end hypothesis"关闭 / 一次"有对比材料"检验
+  (选状态规则改为教师动作 ≠ 学生拟议动作;128 条前置检查回合中 42 条可零教师调用直接用,或同规则再买 ≤64 包 ≈ 5k token;其余协议不变,~2 小时)/ 回采购侧重新立题。
+  用户未答前不动 GPU、不做教师调用。
+- **今日已关闭的两条机制线**:回报梯度→片段权重(控制器冻结、探针检验两版第 4 行);学生思路条件下的动作蒸馏(三臂第 4 行)。共同主干仍是
+  react7 银行 + 纯 CE + token 比例(U0 40.5 / +3.5)。
+- **代码**:hq worktree HEAD b1d6a6fe+(repair 工具、frozen-API 适配、SLURM 修补:892b6030、5a967a83、fe52eb1f);LONI 树 `tc-hotpotqa-repair`
+  = 冻结 v6 代码清单(从 scan6 复制的 10 模块 + 3 源文件)+ 新工具;`_trash/pre_pin/` 存 HEAD 版本。**新树消费冻结根时必须先 pin_check**(scratchpad pin_check.py)。
+- **数据/账本**:采购 `tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/{repair_dry8,repair_v1}`;状态 `results/repair_states/`;结果 `results/repair_r7_s200_u0/runs/`(含 analysis)。
+- **报告纪律**:只在预告的关键节点报;时间用 `TZ=America/Chicago date` 校准;用户在 Nashville(Central)。
