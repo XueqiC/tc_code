@@ -3443,3 +3443,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   教师非 Finish 状态 160(112 父任务):学生强制作答对 24%(仅描述,教师可答性未知)。教师 Finish 状态 82(72 父任务):教师对 59、学生强制对 50;
   教师✓学生✓ 48 状态/45 父任务;**教师✓学生✗ 11/9**;教师✗学生✓ 2/2;教师✗学生✗ 21/20。关键集(教师正确 Finish、学生存档思路下作答错)= **11 状态 / 9 父任务,全部已在 A*/B* 训练父任务内**,
   学生自己提议 Finish 的只有 1;无强制贪心动作与存档一致 239/242。关键 id 存 results/repair_states/key_states.json。待 fresh 模式(回到 Thought 之前重新作答)与人工证据三类标注。
+- 09:33 CDT **11 个关键状态的证据标注(人工阅读,gold + supporting facts 只作标注)**:上下文支持 5 状态 / 4 父任务(Rochester、intermission、Liv Kristine×2、New York:s6),
+  其中 3 例学生 Thought 已锁定错误实体或误解题面(旧 Thought 限制候选:Rochester→NYC、Liv→Rohonyi×2);当前证据不足(教师凭知识作答)5 状态 / 5 父任务(Columbia、Laudato si'、
+  Hugh Grant 生日、Woman 1937、DCCC 主席@s2);不确定(可排除推理)1(Trigg Hound)。教师 r^T 类型:引用证据 6、陈述知识 5。文件 results/repair_states/key_annotations.jsonl。
+  待 fresh 模式(回到 Thought 之前重新作答)区分"旧 Thought 限制"与"证据利用困难"。
