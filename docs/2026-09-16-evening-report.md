@@ -1,5 +1,6 @@
 # 2026-09-16 晚间报告:ALFWorld 有效主干、HotpotQA 支持集扩充、FSCD v1 启动
 
+> **本文已被 `docs/2026-09-17-overnight-report.md` 取代**,保留为按时间顺序的原始记录。
 > 状态:草稿,随节点更新。时间为 America/Chicago。所有数字来自本仓库与 LONI 上的账本与作业产物,路径在各节标注。
 
 ## 0. 三句话
