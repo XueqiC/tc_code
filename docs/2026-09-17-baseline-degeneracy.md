@@ -77,3 +77,54 @@ ALFWorld 这一列**在结构上无法区分分段加权类基线**,因为教师
 - 没有训练、没有评测,全部结论来自静态材料分析,GPU 消耗为 0。
 - 没有断言 SmartAD/SAD 在 HotpotQA 上会赢或会输,只断言它们在那里**有区别**。
 - 宏 vs 微的实际数值差距**未测**,只给出行长分布作为上界线索。
+
+---
+
+## 6. 补充:Kang 在我们的材料上根本跑不起来(2026-09-17 04:10 CDT 追查)
+
+上面第 4 节说"Kang 需先定一个预算 < support 的点"。追进代码后,情况比那更硬:
+
+### 6.1 忠实版 Kang(first-thought prefix)在我们的银行上直接抛错
+
+`src/bfas/rtd/baselines/paper_train.py::PaperTrainer.__init__`:
+
+```python
+if method == KANG_PREFIX and any(r.acquisition_method != KANG_PREFIX for r in self.rows):
+    raise ValueError("kang_first_thought_prefix requires newly acquired prefixed trajectories; "
+                     "use kang_action_list_summary for legacy data")
+```
+
+我们两个银行里**每一行的 `acquisition_method` 都是 `None`**(已在训练行上确认)。
+**忠实版 Kang 需要用它自己的前缀重新向教师采集**,也就是一笔新的教师开销。
+
+### 6.2 能跑的那个版本,代码自己声明是偏离的
+
+`paper_fidelity.py` 对 `kang_action_list_summary` 的标注:
+
+> `implementation_basis="local_adaptation"`, `fidelity="deviating"`,
+> `limitation="NOT the published mechanism: retrospective action-list summary rewrites the first training target."`
+
+**所以不花新钱能跑的 Kang,只有代码自己承认"不是发表的机制"的那个改写版。**
+
+### 6.3 HotpotQA 上 Kang 没有实现
+
+`install_alfworld_kang` 与 `install_bfcl_kang` 存在,**没有 HotpotQA 版本**;
+`paper_evaluation.py` 只在 ALFWorld 分支安装投票。HotpotQA 的 Kang 行需要先写实现。
+
+### 6.4 SAD 的配置自证了第 2.2 节的结论
+
+`paper_train.py` 里 SAD 的配置是
+`sad=dict(reason_coefficient=.5, act_coefficient=.5, absent_span="renormalize present groups")`。
+**"缺失的段组就在present的组上重新归一"** —— ALFWorld 没有 reason 段,于是只剩一组、归一化后就是纯 CE。
+这不是我的推断,是实现自己的既定行为。
+
+### 6.5 Kang 这一行的三个选项(需要你定)
+
+| 选项 | 代价 | 得到什么 |
+|---|---|---|
+| A. 只报 `kang_action_list_summary` | 0 新开销;ALFWorld 可跑,HotpotQA 仍需实现 | 一行明确标注"偏离发表机制"的对照 |
+| B. 为忠实 FTP 重新采集 | 一笔新教师采购(量级与已花的 665k token 相当);HotpotQA 还要先写实现 | 忠实的 Kang 行 |
+| C. 主表不放 Kang,在正文说明原因 | 0 | 少一条基线,但不会有"偏离版冒充忠实版"的风险 |
+
+我的建议是 **C 或 A**,并且无论哪个都必须在表注里写明限制。
+在预算已经紧张、且 Kang 的忠实版还要 HotpotQA 新实现的情况下,B 的性价比最低。
