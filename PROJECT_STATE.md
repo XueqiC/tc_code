@@ -3625,3 +3625,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   计费 1,174,631 / 1,210,000(97%),未用 35,369;加原 support-200 的 149,169,HotpotQA 教师累计 1,323,800 输出 token。
   **支持集(冻结顺序 + 跳过基础设施失败)**:1% = 904 题(200 + 704)**完整可用**,新增 704 题中验证 478(68%,与原 support-200 的 136/200 一致);
   2% = 1,809 题需 1,609 新题但只有 1,548 可用,**差 61 题**(补齐约需 45k token,超上限 4%)。已把两个选项发给用户。
+- 19:22 CDT 派 Codex(buy 树)建 HotpotQA support-904 材料:合并两个 react7 池(r7_s200 + r7_ext1609,跳过 61 个基础设施失败题)→ 新池 r7_s904 与 RTD 银行 data/rtd/v1_1_hotpotqa_luna_s904,
+  以便用与 ALFWorld 同一个预算化 runner(--method sft --support-tasks K --optimizer adamw --passes 3)跑 1% 档纯 CE。pid scratchpad/codex_hotpotqa_s904.pid。
