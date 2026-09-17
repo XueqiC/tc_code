@@ -3733,13 +3733,24 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   处置:`scancel 1031346` → 旧 run dir 移入 `_trash/hotpotqa_sft_N904_p3_timeout_1789635215` → 以 `sbatch --time=14:00:00` 重投为 **1031701**(已 R,gpu4/qbd512)。代价是丢掉 4h41,但比再空烧 1h19 后同样全丢要好。
   **规则(与 ALFWorld 同源,现推广)**:任何超过 100 步的格都不能用 slurm 脚本里 `--time=06:00:00` 的默认值。ALFWorld 约 2.7 min/步、HotpotQA 约 2.8 min/步;提交时按 `步数 x 3min + 1h 评测 + 0.5h 载入` 估算并留一倍余量,用 `sbatch --time=` 覆盖。
 - 03:54 CDT **两格 ETA(按已完成格的实测墙钟外推)**:ALFWorld p1=1.88h(39 步)、p2=3.61h(77 步) → **1031692(154 步)≈7h,约 10:30–11:00 CDT 出**;HotpotQA p1=2.65h(52 步) → **1031701(156 步)≈8.5h,约 12:30–13:30 CDT 出**。夜间文档不等这两格,先发已完成部分。
-- 05:10 CDT **基线退化静态分析(零 GPU)**,见 `docs/2026-09-17-baseline-degeneracy.md`:
+- 03:57 CDT **基线退化静态分析(零 GPU)**,见 `docs/2026-09-17-baseline-degeneracy.md`:
   ① SmartAD 的选择在两个银行上都是 1 选 1(ALFWorld 104 任务/104 包,HotpotQA 614/614)→ 采集侧空操作;
   ② ALFWorld 银行 reason 段为 0 且无混合行 → **SmartAD 损失 ≡ SAD 损失 ≡ 按行宏平均纯 CE**;HotpotQA 则 100% 的行都生效(SAD 等效权重 reason ×0.63 / action+final ×2.42);
   ③ 预算 = 100% support 时 Kang 的一致性投票无取舍空间。
   **计划**:ALFWorld 不跑 SmartAD/Kang,最多跑一格并改名"宏平均 CE";HotpotQA 跑 SmartAD 与 SAD;Kang 需先定一个预算 < support 的点。
   论文必须写明 ALFWorld 列在结构上无法区分分段加权基线,否则三条相同的数字会被读成实现错误。
-- 05:20 CDT **提交 HotpotQA 两格基线(按上条分析,只跑真正有区别的)**:`METHOD=smartad` → **1031704**、`METHOD=sad` → **1031705**,
+- 04:00 CDT **提交 HotpotQA 两格基线(按上条分析,只跑真正有区别的)**:`METHOD=smartad` → **1031704**、`METHOD=sad` → **1031705**,
   均为 support 904 / 1 遍 / AdamW / seed 0,`--time=10:00:00`,与已确认的 CE 主干点(52 步,38.60,+1.00)**曝光完全一致**,构成三方对照。
   ALFWorld 的 SmartAD/SAD/Kang 格按分析**不提交**。
   RUNNING JOBS:1031692(ALFWorld 142×4 遍,R)、1031701(HotpotQA 904×3 遍,R)、1031704 / 1031705(HotpotQA 基线,PD)。
+- 04:02 CDT **更正:此前几条 Discord 消息的时间戳是我凭印象写的,超前真实时钟一小时以上**(真实 04:00 CDT 时我写成 05:25)。
+  rai / loni / 计算节点三方时钟一致(UTC 09:00:33),作业日志里的 `start 03:59` 才是对的。
+  **规则**:任何写给用户的时间戳必须现取 `TZ=America/Chicago date`,ETA 必须从 `sacct` 的真实 Start 加实测速率推,不得凭印象。
+- 04:02 CDT **四格真实开始时间与修正 ETA**(`sacct -X`):
+
+| 作业 | 内容 | Start (CDT) | 上限 | 修正 ETA (CDT) |
+|---|---|---|---|---|
+| 1031692 | ALFWorld 142×4 遍(154 步) | 03:34:26 | 14h | 10:30–11:00 |
+| 1031701 | HotpotQA 904×3 遍(156 步) | 03:53:41 | 14h | **11:30–12:30**(原报 12:30–13:30,偏晚) |
+| 1031704 | HotpotQA × SmartAD(52 步) | 03:59:57 | 10h | 06:40–07:30 |
+| 1031705 | HotpotQA × SAD(52 步) | 03:59:57 | 10h | 06:40–07:30 |
