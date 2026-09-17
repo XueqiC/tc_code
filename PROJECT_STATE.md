@@ -3621,3 +3621,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   FSCD T2b(screen/check-context)Codex 已起跑(pid scratchpad/codex_fscd_t2b.pid)。
 - 18:57 CDT 行为 dump 交付并提交(fid;357 测试):`BFAS_ALFWORLD_DUMP_TURNS=1` 写 turns.jsonl(原始回复/所选命令/是否 look 回退/观察/是否触上限,单串 2,000 字符截断并记原长),
   metrics 恒定新增 fallback_command_rate 与 repeated_command_rate。**仍不部署到 LONI**,等三个 ALFWorld 格子跑完(source_hashes 守卫)。
+- 19:19 CDT **HotpotQA 补购完成**(tier r7_ext1609,tc-alignment-buy/envs/hotpotqa/teacher_pool_scan/r7_ext1609):1,609 题全部查询;验证 1,067(66%)、教师真实失败 481、**基础设施失败 61**;
+  计费 1,174,631 / 1,210,000(97%),未用 35,369;加原 support-200 的 149,169,HotpotQA 教师累计 1,323,800 输出 token。
+  **支持集(冻结顺序 + 跳过基础设施失败)**:1% = 904 题(200 + 704)**完整可用**,新增 704 题中验证 478(68%,与原 support-200 的 136/200 一致);
+  2% = 1,809 题需 1,609 新题但只有 1,548 可用,**差 61 题**(补齐约需 45k token,超上限 4%)。已把两个选项发给用户。
