@@ -3785,3 +3785,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   然后对 **base 与 CE p1 两个模型**评测 dev[500:2000] 的 1,500 题,与已有 500 题合并成 n=2,000。
   预期分辨率从 ±2.74 pp 提升到 **±1.37 pp**,足以判定 +1.00 是否真实。成本约 2.5 GPU 小时/模型,共约 5 小时,不涉及任何教师采购。
   **必须在隔离树里做**:三个 HotpotQA 格正在训练,其评测阶段会重算 `source_hashes`,改部署树会让它们在评测阶段失败。
+- 04:18 CDT **Codex 额度用尽,到 2026-09-19 04:10 才恢复。** 两个委派任务都因此中断:
+  ① `tc-alignment-evalext`(HotpotQA 评测扩到 2,000 题)**实际已完成**——改动写完、测试 28 passed / 1 skipped,
+     我已 review 并提交为 `9fa17ef8`(分支 `hpqa-eval-ext`)。默认调用仍取前 500 题、split 标签逐字不变。
+  ② `tc-alignment-fid`(`tools/table_valid_backbone.py` 把 base 格误判为"无效更新器"而排除,导致 Δbase 整列为空)**未修好**。
+- 04:18 CDT **扩大评测仍被一处代码阻塞**:`src/bfas/rtd/baselines/paper_evaluation.py` 在四处硬编码 500
+  (第 22 行 "HotpotQA evaluation requires the frozen 500-question dev split"、第 23/202/212 行 tasks=500)。
+  走既有 `baseline_run.py --_phase evaluate` 管线(它会自动 merge LoRA 再起 vLLM)就必须改这个文件。
+  **另注(重要且已避开的坑)**:`baseline_run.py` 第 209 行把 `configs/hotpotqa_*_split.json` 整个 glob 进 source_hashes,
+  新增的 `hotpotqa_eval_split_first2000.json` **正好命中该 glob**——若放进部署树,三个在跑的 HotpotQA 格会在评测阶段失败。隔离树是必须的。
+  **待用户决定**:Codex 停摆两天,是否例外允许我直接写这部分 Python。
