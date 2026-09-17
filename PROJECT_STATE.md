@@ -3680,3 +3680,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   HotpotQA 904×1 遍:训练已完成(2,079 行 / 52 步 / loss 0.54 / 183 秒),评测中(500 题实时检索,约 40 分钟)。
 - 22:49 CDT 步数扫描第一格:**142 题 × 0.5 遍(20 步)= 55.00(−0.71,基本等于 base)**。同材料曲线现为:20 步 −0.71、**39 步 −32.86**、116 步 +2.14/+5.71;77 步与 155 步在跑。
   即"谷底"在 20–116 步之间,且 20 步时还没掉下去 → 崩塌发生在约 39 步附近,再训久能爬出来。
+- 22:51 CDT FSCD T4 交付、测试(32)、提交(fscd d47830fe)并部署;作业脚本 scripts/loni/fscd_final.slurm。**夜间链路已自动化**:
+  scratchpad/fscd_chain.sh(状态池 → 六臂)、scratchpad/fscd_final_chain.sh(六臂全部 COMPLETED → 七个 EVAL 评测;任一臂失败则不提交并记录)、scratchpad/night_watch.sh(每 10 分钟收集 RESULT 行到 night_results.log)。
