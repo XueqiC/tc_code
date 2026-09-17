@@ -3663,3 +3663,15 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 21:31 CDT **142 题 × 1 遍(39 步)= 22.86(−32.86)→ 推翻"材料越多同样遍数越安全"的归纳(该说法撤回)**。按步数排:9 步 +2.86、19 步 +1.43、26 步 −27.86、**39 步 −32.86**、55 步 −15.00、116 步 +2.14/+5.71
   → **U 形非单调曲线**;同材料两组方向相反(36 题 9→26 步变差;142 题 39→116 步变好)。未验证的机制猜想:从 ReAct 多行回复过渡到裸命令策略要穿过一个破碎区(base 命令模式 54.29 说明终点合理)。
   **已提交固定材料步数扫描:142 题 × 0.5/2/4 遍 = 1031204/1031205/1031206(约 20/77/155 步)**,与 39、116 步一起画完曲线;在曲线出来前不再给因果解释。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-16 22:00 CDT — supersedes the 12:40 block)
+- **LONI 树**:`tc-alfworld-ce`(ALFWorld + HotpotQA 预算化 runner,来自 fid 树)、`tc-fscd`(FSCD v1)、`tc-hotpotqa-repair`(旧冻结协议,勿动)。rai worktrees:fid(runner)、buy(采购/合并)、fscd(FSCD)、dv(answer-now/takeover)。
+- **在跑(检查 `ssh loni squeue -u xueqic`)**:hpqa_p1 1030860(HotpotQA 904 题 × 1 遍);ALFWorld 固定材料步数扫描 1031204/1031205/1031206(142 题 × 0.5/2/4 遍)。
+  已完成结果见 `ssh loni "cd /work/xueqic/hq/tc-alfworld-ce && python3 alf_table.py"`(ALFWorld)与 results/hpqa_ce/(HotpotQA)。
+- **FSCD v1 状态**:T1 数据/上下文、T2a 主干(已 verify)、T2b 阶段 1 **门槛四项全过**(SELECT +0.111、CHECK +0.125,家族 Q1 随机示范;Q2 覆盖度为负,不得宣称有贡献)。
+  **T3(阶段 2:collect-states + CE/SELF/CTX × seeds 0/1)Codex 正在建**(pid scratchpad/codex_fscd_t3.pid);建完先 CPU 测试,再 collect-states,再六臂,最后 EVAL-200 一次性评 7 个模型。
+- **ALFWorld 结论(截至此刻)**:base 55.71(命令模式 54.29);EM 随优化器步数**非单调 U 形**(9 步 +2.86、19 +1.43、26 −27.86、39 −32.86、55 −15.00、116 +2.14/+5.71)。
+  "格式错配""材料无可见推理""材料越多越安全"三个解释已依次撤回。步数扫描出来前不给因果解释。
+- **HotpotQA**:support-904(1% 训练集)材料就绪(614 验证 / 665k token);同批 base EM 37.6(500 题)。教师累计 1,323,800 计费输出 token;**未经用户批准不得新增采购**。
+- **纪律**:LONI 上格子训练期间**不要覆盖部署树源码**(evaluate 阶段会重算 source_hashes);杀进程先查 pid 再 kill,禁止 `pkill -f <自匹配>`;时间一律 `TZ=America/Chicago date`。
+- **待用户定**:2% 档是否补买那 61 题(约 45k token,超上限 4%);ALFWorld `ACTION:` 包装格是否作为正式对照(2×2 已否掉其主要动机)。
