@@ -3656,3 +3656,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   这也解释了为什么按 B=30k(只买到约 5 条示范)的旧格子如果真训练过会是灾难性的,而空操作更新器把这一点掩盖了。
 - 20:58 CDT **142 题 × 3 遍第二种子 = 61.43(+5.71)** → 两种子 57.86 / 61.43,均值 **59.65(+3.94)**,种子极差 3.57(与 ALFWorld 已知种子噪声 2.5–5 一致)。
   **ALFWorld 纯 CE 在完整 support(142 题 / 104 示范 / 1,535 行 / 116 步)上是明确正向的**,这就是主表 ALFWorld 列"正常训练纯 CE"应当填的数。
+- 21:01 CDT **FSCD 阶段 1 门槛全部通过(CHECK 作业 1031085,33 分钟,108/108 episode)**:CHECK 上 Q0 0.472 → Q1 0.597,**Δ +0.125 [+0.028, +0.222],8 胜 1 负 27 平**;
+  复本 +0.111 / +0.139 均非负;gate.passed=true(select_gain / check_gain / replicas_nonnegative / no_systematic_condition_difference 四项全过),pending_check 关闭。
+  **限制**:只证明"冻结学生看到两条跨父任务示范后完整任务成功率提高",未证明可内化;Q2 覆盖度选择在 SELECT 上为负,不得宣称选择规则有贡献。
+  **已派 Codex 建第二阶段(T3:collect-states + train-arms CE/SELF/CTX × seeds 0/1,固定状态池、全词表温度 1 前向 KL、系数 0.25 不搜、学生侧永不带上下文)**,pid scratchpad/codex_fscd_t3.pid。
