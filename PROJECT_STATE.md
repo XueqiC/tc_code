@@ -3640,3 +3640,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 19:29 CDT FSCD 验证器修好并部署(fscd 2c03cb5f;33 测试):按 PEFT 短名集合 = 全路径末段集合、张量成对(2 × 模块数)校验。**主干 verify 通过:status complete、75 步、固定 FIT 批 CE 1.2363 → 0.2736。**
   **RUNNING: fscd_s1 1030834**(阶段 1 筛查:SELECT 36 父任务 × {Q0, Q1×2, Q2×2} = 180 episode + 16 个 Q0 重复;本地 Transformers 贪心)。
   ALFWorld 六格在跑/已完成:1030544/1030556(142×3 遍)、1030826(36×1 遍 seed1)、1030827(71×1 遍)、1030828(142×1 遍)。
+- 19:41 CDT **HotpotQA support-904 材料就绪**(buy f8e4c581;15 测试):合并池 r7_s904 = 904 题 / 1,606 次尝试 / **614 验证** / 665,173 计费输出 token(跳过 61 个基础设施失败题);
+  银行 data/rtd/v1_1_hotpotqa_luna_s904(1,609 sealed,支持集顺序 904)已部署到 tc-alfworld-ce 并逐字节校验(1,614 文件 / 61,732,964 字节 / support.json md5 一致)。
+  **提交 HotpotQA 格子(与 ALFWorld 同一 runner、同预算规则):hpqa_base 1030859、hpqa_p1(904 题 × 1 遍)1030860**;3 遍格待 1 遍出数后再定(按今晚的剂量教训不照抄)。
