@@ -3627,3 +3627,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   2% = 1,809 题需 1,609 新题但只有 1,548 可用,**差 61 题**(补齐约需 45k token,超上限 4%)。已把两个选项发给用户。
 - 19:22 CDT 派 Codex(buy 树)建 HotpotQA support-904 材料:合并两个 react7 池(r7_s200 + r7_ext1609,跳过 61 个基础设施失败题)→ 新池 r7_s904 与 RTD 银行 data/rtd/v1_1_hotpotqa_luna_s904,
   以便用与 ALFWorld 同一个预算化 runner(--method sft --support-tasks K --optimizer adamw --passes 3)跑 1% 档纯 CE。pid scratchpad/codex_hotpotqa_s904.pid。
+- 19:24 CDT **FSCD 主干训练完成但验证器误报**:75/75 步、固定 FIT 批 CE **1.2363 → 0.2736**、LoRA 位移 l2 2.37(656 个张量 = 328 模块 × 2)、audit status=complete、receipt 齐全;
+  但 `verify` 拿 PEFT 保存的 7 个短名 target_modules 去比 audit 里 328 个全路径模块名,必然不等 → 作业被标 FAILED。**checkpoint 本身有效可用**。
+  Codex(fscd 树)在改这个比较(短名集合 = 全路径末段集合、每个审计模块都有对应短名、adapter 张量数 = 2 × 模块数),改完只需重跑 verify,无需再训练。
+- 19:24 CDT FSCD T2b 交付并提交(fscd f0f6ea79;38 测试):screen-context / check-context(锚点插入逐字校验、条件按父任务哈希轮换、缓存未命中与 429 单独标注、CHECK 仅开一次)、
+  Δ̂ 与父任务 bootstrap(10,000,seed 271828)、四条门槛分项判定。注入后提示长度:Q1 2,622/2,577,Q2 2,561/2,564(原生约 1,671),原生停止符 id 1/50/106 已核。
