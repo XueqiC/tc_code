@@ -958,3 +958,5 @@ takeover_handback | student hand-back continuations (frozen U0_s0 greedy, live t
 hpqa_smartad_N904_p1 | support 904, 1 pass, AdamW 1e-5, LoRA 16/32, seed 0 | LONI 1031704 | pending | results/hpqa_ce/hotpotqa_smartad_N904_p1
 hpqa_sad_N904_p1     | support 904, 1 pass, AdamW 1e-5, LoRA 16/32, seed 0 | LONI 1031705 | pending | results/hpqa_ce/hotpotqa_sad_N904_p1
 alf_sft_N142_p1_s1 | 142 support, 1 pass, 39 steps, AdamW 1e-5, LoRA 16/32, seed 1 | LONI 1031706 COMPLETED 2:05:41 | EM 20.71 (base 55.71, net -35.00, p=3.2e-13, cap-outs 111/140) | results/alf_ce/alfworld_sft_N142_p1_s1
+hpqa_sad_N904_p1     | support 904, 1 pass, 52 steps, AdamW 1e-5, seed 0 | LONI 1031705 COMPLETED 3:26:24 | EM 38.60 F1 0.491 (base 37.60; SAD-CE +0.00, p=1) | results/hpqa_ce/hotpotqa_sad_N904_p1
+hpqa_smartad_N904_p1 | support 904, 1 pass, 52 steps, AdamW 1e-5, seed 0 | LONI 1031704 COMPLETED 5:36:26 | EM 38.40 F1 0.484 (base 37.60; SmartAD-CE -0.20, p=1) | results/hpqa_ce/hotpotqa_smartad_N904_p1
