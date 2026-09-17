@@ -3675,3 +3675,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - **HotpotQA**:support-904(1% 训练集)材料就绪(614 验证 / 665k token);同批 base EM 37.6(500 题)。教师累计 1,323,800 计费输出 token;**未经用户批准不得新增采购**。
 - **纪律**:LONI 上格子训练期间**不要覆盖部署树源码**(evaluate 阶段会重算 source_hashes);杀进程先查 pid 再 kill,禁止 `pkill -f <自匹配>`;时间一律 `TZ=America/Chicago date`。
 - **待用户定**:2% 档是否补买那 61 题(约 45k token,超上限 4%);ALFWorld `ACTION:` 包装格是否作为正式对照(2×2 已否掉其主要动机)。
+- 22:31 CDT FSCD T3 交付并提交(fscd 950bf7d3;26 测试,LONI 26 测试):`fscd_arms.py collect-states / train-arms --arm CE|SELF|CTX --seed 0|1`。
+  **RUNNING: fscd_states 1031327**(固定学生状态池:FIT_QUERY = FIT 去掉 4 个示范来源父任务 = 124 个,每父任务取哈希最前的 2 个合法回合,展开为 token 位置集合 Z)。
+  HotpotQA 904×1 遍:训练已完成(2,079 行 / 52 步 / loss 0.54 / 183 秒),评测中(500 题实时检索,约 40 分钟)。
