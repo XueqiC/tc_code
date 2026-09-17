@@ -3739,3 +3739,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   ③ 预算 = 100% support 时 Kang 的一致性投票无取舍空间。
   **计划**:ALFWorld 不跑 SmartAD/Kang,最多跑一格并改名"宏平均 CE";HotpotQA 跑 SmartAD 与 SAD;Kang 需先定一个预算 < support 的点。
   论文必须写明 ALFWorld 列在结构上无法区分分段加权基线,否则三条相同的数字会被读成实现错误。
+- 05:20 CDT **提交 HotpotQA 两格基线(按上条分析,只跑真正有区别的)**:`METHOD=smartad` → **1031704**、`METHOD=sad` → **1031705**,
+  均为 support 904 / 1 遍 / AdamW / seed 0,`--time=10:00:00`,与已确认的 CE 主干点(52 步,38.60,+1.00)**曝光完全一致**,构成三方对照。
+  ALFWorld 的 SmartAD/SAD/Kang 格按分析**不提交**。
+  RUNNING JOBS:1031692(ALFWorld 142×4 遍,R)、1031701(HotpotQA 904×3 遍,R)、1031704 / 1031705(HotpotQA 基线,PD)。
