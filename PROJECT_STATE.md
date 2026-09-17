@@ -3795,3 +3795,30 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **另注(重要且已避开的坑)**:`baseline_run.py` 第 209 行把 `configs/hotpotqa_*_split.json` 整个 glob 进 source_hashes,
   新增的 `hotpotqa_eval_split_first2000.json` **正好命中该 glob**——若放进部署树,三个在跑的 HotpotQA 格会在评测阶段失败。隔离树是必须的。
   **待用户决定**:Codex 停摆两天,是否例外允许我直接写这部分 Python。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-17 04:19 CDT — supersedes the 09-16 22:00 block)
+
+**先读**:`docs/2026-09-17-overnight-report.md`(交付版通宵报告,含全部撤回清单与判读标准)、
+`docs/2026-09-17-baseline-degeneracy.md`(基线退化静态分析)。
+
+- **LONI 树**:`tc-alfworld-ce`(ALFWorld + HotpotQA 预算化 runner)、`tc-fscd`(FSCD v1)、`tc-hotpotqa-repair`(旧冻结协议,勿动)。
+  rai worktrees:`fid`(runner;表格工具 `tools/table_valid_backbone.py` **有 bug 未修**)、`buy`、`fscd`、`dv`、**`evalext`(新,分支 `hpqa-eval-ext`,已提交 9fa17ef8)**。
+- **在跑(`ssh loni "squeue -u xueqic"`)**:1031692 ALFWorld 142×4 遍(154 步,ETA 10:30–11:00);1031701 HotpotQA 904×3 遍(156 步,ETA 11:30–12:30);
+  1031704 HotpotQA×SmartAD(ETA 09:00–10:00,selection 阶段慢);1031705 HotpotQA×SAD(ETA 07:35);**1031706 ALFWorld 39 步 seed 1(ETA 06:15,预注册复现)**。
+  三条 Monitor 已挂;重启后全部丢失,需重挂。表格:`ssh loni "cd /work/xueqic/hq/tc-alfworld-ce && python3 /work/xueqic/alf_table.py"`(及 hpqa_table.py)。
+- **本夜最重要的结论(改变项目判断)**:经得起配对检验的只有三件事——ALFWorld 39 步崩塌 −32.86(p=3.8e-11)、
+  HotpotQA 终止率 +8.60 pp(p=1.3e-06)、格式错误 −17.80 pp(p=4.9e-20)。
+  **其余所有准确率收益都不可检出**,原因是评测规模:ALFWorld 140 局 MDE@80% = **11.13 pp**,HotpotQA 500 题 = **3.92 pp**,
+  而我们的效应量在 +1.0 到 +5.7 pp。**主表建议"ALFWorld 填 +3.94"已撤回;HotpotQA "+1.00 是收益"已撤回。**
+- **预注册(不得事后更改)**:1031706 的 EM <40 = 谷底可复现;40–50 = 部分;**>50 = 撤回整条 U 形曲线主张**(且处理方式是撤回,不是加种子重试)。
+- **基线计划**:ALFWorld 的 SmartAD/SAD/Kang **不跑**(SmartAD 损失 ≡ SAD 损失 ≡ 纯 CE,已数值验证逐位相同);
+  HotpotQA 的 SmartAD/SAD 在跑;**Kang 忠实版在我们的银行上直接抛错**(需 KANG_PREFIX 采集),HotpotQA 无实现 → 选项 A/B/C 待定。
+- **Codex 停摆到 2026-09-19 04:10(额度用尽)**。扩评测卡在 `paper_evaluation.py` 四处硬编码 500;**待用户决定是否例外允许我直接写这段 Python**。
+- **纪律(本夜新增/重申)**:
+  ① 训练期间**不得改部署树**;`baseline_run.py` 把 `configs/hotpotqa_*_split.json` **整个 glob** 进 source_hashes,新增同名模式文件也会破坏它。
+  ② **rai 的 `date` 是 EDT,比 Central 快一小时**;写给用户的时间一律当场取 `TZ=America/Chicago date`,日志文件名里的时间要减一小时。
+  ③ 状态 footer 等小数字必须现跑 `ops/status_line.sh`,不得凭印象。
+  ④ >100 步的格不得用 slurm 默认的 `--time=06:00:00`(按 步数×3min + 1h 评测 + 0.5h 载入 估,留一倍余量);训练不存中间 checkpoint,超时全丢。
+  ⑤ 禁止 `pkill -f <自匹配>`;先查 pid 再 kill。
+- **待用户定(五项)**:① HotpotQA 2% 差的 61 题补不补;② `ACTION:` 包装格跑不跑;③ Kang 选 A/B/C;
+  ④ **评测规模怎么办**(建议:扩 HotpotQA 到 2,000 题 + 论文只声称测得出的效应);⑤ Codex 停摆期间是否允许我直接写代码。
