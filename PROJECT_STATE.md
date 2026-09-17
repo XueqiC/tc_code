@@ -3685,3 +3685,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 23:10 CDT **FSCD 状态池完成(1031327,35 分钟)**:124 个 FIT_QUERY 父任务、每题最多 2 个合法回合 → **|Z| = 10,594 个 token 位置**(单位是 token 位置,不是回合或父任务);
   冻结参考哈希训练前后一致、训练期间不刷新;命名为 "fixed distribution distillation on initial-student states"(不称 on-policy)。
   **链路自动提交六臂:CE s0/s1 = 1031340/1031341、SELF s0/s1 = 1031342/1031343、CTX s0/s1 = 1031344/1031345**;六臂全部 COMPLETED 后会自动提交七个 EVAL 评测。
+- 23:10 CDT 行为探针交付并提交(fid 143a8276;28 测试)+ scripts/loni/alf_probe.slurm。**第三条夜间链路已挂**(scratchpad/probe_chain.sh):
+  等 1031205/1031206 结束(部署冻结解除)→ 部署 fid 树(含 dump 与探针)→ 对 base / 39 步崩塌格 / 116 步恢复格 各跑 8 局并 dump 每回合原始回复,
+  输出 fallback/repeat/ACTION 标记/首行是否合法命令等比率,用来检验"过渡区破碎"的猜想。
