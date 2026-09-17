@@ -3682,3 +3682,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   即"谷底"在 20–116 步之间,且 20 步时还没掉下去 → 崩塌发生在约 39 步附近,再训久能爬出来。
 - 22:51 CDT FSCD T4 交付、测试(32)、提交(fscd d47830fe)并部署;作业脚本 scripts/loni/fscd_final.slurm。**夜间链路已自动化**:
   scratchpad/fscd_chain.sh(状态池 → 六臂)、scratchpad/fscd_final_chain.sh(六臂全部 COMPLETED → 七个 EVAL 评测;任一臂失败则不提交并记录)、scratchpad/night_watch.sh(每 10 分钟收集 RESULT 行到 night_results.log)。
+- 23:10 CDT **FSCD 状态池完成(1031327,35 分钟)**:124 个 FIT_QUERY 父任务、每题最多 2 个合法回合 → **|Z| = 10,594 个 token 位置**(单位是 token 位置,不是回合或父任务);
+  冻结参考哈希训练前后一致、训练期间不刷新;命名为 "fixed distribution distillation on initial-student states"(不称 on-policy)。
+  **链路自动提交六臂:CE s0/s1 = 1031340/1031341、SELF s0/s1 = 1031342/1031343、CTX s0/s1 = 1031344/1031345**;六臂全部 COMPLETED 后会自动提交七个 EVAL 评测。
