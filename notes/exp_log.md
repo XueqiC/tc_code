@@ -960,3 +960,5 @@ hpqa_sad_N904_p1     | support 904, 1 pass, AdamW 1e-5, LoRA 16/32, seed 0 | LON
 alf_sft_N142_p1_s1 | 142 support, 1 pass, 39 steps, AdamW 1e-5, LoRA 16/32, seed 1 | LONI 1031706 COMPLETED 2:05:41 | EM 20.71 (base 55.71, net -35.00, p=3.2e-13, cap-outs 111/140) | results/alf_ce/alfworld_sft_N142_p1_s1
 hpqa_sad_N904_p1     | support 904, 1 pass, 52 steps, AdamW 1e-5, seed 0 | LONI 1031705 COMPLETED 3:26:24 | EM 38.60 F1 0.491 (base 37.60; SAD-CE +0.00, p=1) | results/hpqa_ce/hotpotqa_sad_N904_p1
 hpqa_smartad_N904_p1 | support 904, 1 pass, 52 steps, AdamW 1e-5, seed 0 | LONI 1031704 COMPLETED 5:36:26 | EM 38.40 F1 0.484 (base 37.60; SmartAD-CE -0.20, p=1) | results/hpqa_ce/hotpotqa_smartad_N904_p1
+alf_sft_N142_p4 | 142 support, 4 passes, 154 steps, AdamW 1e-5, seed 0 | LONI 1031692 COMPLETED 7:23:33 | EM 70.71 (base 55.71, net +15.00, p=3.2e-04, cap-outs 41/140) | results/alf_ce/alfworld_sft_N142_p4
+hpqa_sft_N904_p3 | support 904, 3 passes, 156 steps, AdamW 1e-5, seed 0 | LONI 1031701 COMPLETED 8:42:30 | EM 38.00 F1 0.483 (base 37.60, net +0.40, p=0.885; finished +5.80pp p=0.0017; format failures 220->7) | results/hpqa_ce/hotpotqa_sft_N904_p3
