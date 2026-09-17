@@ -3733,3 +3733,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   处置:`scancel 1031346` → 旧 run dir 移入 `_trash/hotpotqa_sft_N904_p3_timeout_1789635215` → 以 `sbatch --time=14:00:00` 重投为 **1031701**(已 R,gpu4/qbd512)。代价是丢掉 4h41,但比再空烧 1h19 后同样全丢要好。
   **规则(与 ALFWorld 同源,现推广)**:任何超过 100 步的格都不能用 slurm 脚本里 `--time=06:00:00` 的默认值。ALFWorld 约 2.7 min/步、HotpotQA 约 2.8 min/步;提交时按 `步数 x 3min + 1h 评测 + 0.5h 载入` 估算并留一倍余量,用 `sbatch --time=` 覆盖。
 - 03:54 CDT **两格 ETA(按已完成格的实测墙钟外推)**:ALFWorld p1=1.88h(39 步)、p2=3.61h(77 步) → **1031692(154 步)≈7h,约 10:30–11:00 CDT 出**;HotpotQA p1=2.65h(52 步) → **1031701(156 步)≈8.5h,约 12:30–13:30 CDT 出**。夜间文档不等这两格,先发已完成部分。
+- 05:10 CDT **基线退化静态分析(零 GPU)**,见 `docs/2026-09-17-baseline-degeneracy.md`:
+  ① SmartAD 的选择在两个银行上都是 1 选 1(ALFWorld 104 任务/104 包,HotpotQA 614/614)→ 采集侧空操作;
+  ② ALFWorld 银行 reason 段为 0 且无混合行 → **SmartAD 损失 ≡ SAD 损失 ≡ 按行宏平均纯 CE**;HotpotQA 则 100% 的行都生效(SAD 等效权重 reason ×0.63 / action+final ×2.42);
+  ③ 预算 = 100% support 时 Kang 的一致性投票无取舍空间。
+  **计划**:ALFWorld 不跑 SmartAD/Kang,最多跑一格并改名"宏平均 CE";HotpotQA 跑 SmartAD 与 SAD;Kang 需先定一个预算 < support 的点。
+  论文必须写明 ALFWorld 列在结构上无法区分分段加权基线,否则三条相同的数字会被读成实现错误。
