@@ -3906,3 +3906,20 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **328/328 对 A/B 已逐对数值验证 `B_cat@A_cat == sum_i B_i@A_i`**,不是近似。
   工具 `tools/lora_soup.py` 在 `tc-alignment-evalext`;评测脚本 `scripts/loni/alf_eval_prepped.slurm`(新文件,不改任何被 hash 的源码)。
   **说明**:Codex 额度到 09-19 才恢复,这两段代码是我自己写的,已数值自验;待 Codex 恢复后补做审查。
+- 00:08 CDT **种子敏感性的机制根因(定量,零 GPU)**:两个种子的解在权重空间里**近似正交**。
+  154 步 seed 0 与 seed 1 的有效 ΔW(328 个矩阵):**全局余弦相似度 +0.0215**,逐矩阵余弦中位 +0.011(范围 −0.004 ~ +0.065);
+  `||ΔW_s0||`=1.667、`||ΔW_s1||`=1.697、`||ΔW_s0−ΔW_s1||`=2.353(相对距离 1.41);
+  `||mean||/mean(||·||)` = **0.7147**,与正交向量的理论值 1/√2 = 0.7071 吻合。
+  **容量失配是直接原因**:LoRA 可训练参数 **65,568,768**;
+  ALFWorld 监督仅 1,535 行 / 26,982 字符(约 6,745 token)→ **每个监督 token 对应 9,720 个参数**;
+  HotpotQA 约 83,823 token → **782:1**。
+  **结论:目标函数对更新方向几乎没有约束,两次训练落进正交的解,且都把损失压到约 0.09 nats。这是方法问题,不是某个种子特殊。**
+- 00:08 CDT **今晚五格(均在跑)**:
+  1033531 154 步 seed 2(ETA 约 07:30);**1033604 LoRA soup(s0+s1)评测**;
+  **1033592 HotpotQA 52 步 seed 1**(检验"过参数化比例越低、种子越稳":HotpotQA 782:1 vs ALFWorld 9,720:1);
+  **1033596 / 1033598 = ALFWorld r=4 双种子**(容量从 65.6M 降到 16.4M,**alpha 同步 32→8 以保持 alpha/r=2 不变**,只改容量不改有效步长)。
+  低秩实验在隔离树 `/work/xueqic/hq/tc-alf-lowrank`;soup 评测在隔离树 `/work/xueqic/hq/tc-alf-soup`(仅把 `--max-lora-rank` 16→64,已在 manifest 记录唯一差异文件)。
+- 00:08 CDT **两个踩过的坑(已记录)**:
+  ① 我先只查了 `baseline_run.py` 里的 checkpoint 校验就下结论"不校验",实际 `paper_evaluation.py:273` 会校验 `checkpoint_sha256`,soup 首次评测 8 秒即失败;已重算哈希。
+  ② vLLM 服务端 `--max-lora-rank` 在 `paper_evaluation.py` 里硬编码 16,而精确双种子平均必然是 **rank 32**(因两解近正交,不存在精确的 rank-16 表示);
+  第二次提交在没确认能否加载时就起跑,我主动 scancel 改用隔离树,避免拿到"静默错误"的结果。
