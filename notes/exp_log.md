@@ -967,3 +967,4 @@ alf_soup_s01_p4 | exact LoRA mean of 154-step seeds 0+1, r16->32 alpha 32, no ex
 alf_shrink072_s0_p4 | seed0 dW scaled 0.7212 via alpha 32->23.08, no averaging | LONI 1033635 COMPLETED 0:07:11 | EM 66.43 (s0 raw 70.71; vs soup -1.43 p=0.79) | tc-alf-soup/results/alf_ce/alfworld_shrink072_s0_p4
 alf_shrink072_p4_s1 | seed1 dW scaled 0.7212 via alpha 32->23.08, no averaging | LONI 1033687 COMPLETED 0:07:22 | EM 60.00 (s1 raw 62.14; soup-shrink(s1) +7.86 p=0.0034) | tc-alf-soup/results/alf_ce/alfworld_shrink072_p4_s1
 alf_soup_s01_p1 | exact LoRA mean of the two collapsed 39-step seeds | LONI 1033705 COMPLETED 0:08:01 | EM 29.29 (inputs 22.86/20.71, base 55.71; soup-base -26.43 p=2.5e-08) | tc-alf-soup/results/alf_ce/alfworld_soup_s01_p1
+hpqa_sft_N904_p1_s1 | support 904, 1 pass, 52 steps, AdamW 1e-5, seed 1 | LONI 1033592 COMPLETED 3:26:17 | EM 38.20 F1 n/a (seed0 38.60, base 37.60; seed spread 0.40 pp, s1-s0 p=0.86) | results/hpqa_ce/hotpotqa_sft_N904_p1_s1
