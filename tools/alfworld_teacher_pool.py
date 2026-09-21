@@ -292,7 +292,9 @@ class PoolAdapter:
                 if not self.budget.has_calls(task_id, attempt_index):
                     raise AcquisitionStopped(self.budget.stopped) from None
             except Exception as exc:
-                print(f'[alfworld-pool] task={task_id} attempt={attempt_index} failed: {type(exc).__name__}', flush=True)
+                # Carry the cause: a bare type name hides why a whole run bought nothing.
+                print(f'[alfworld-pool] task={task_id} attempt={attempt_index} failed: '
+                      f'{type(exc).__name__}: {exc}', flush=True)
             finally:
                 if stepper is not None:
                     stepper.close()
