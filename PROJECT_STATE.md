@@ -550,6 +550,30 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
    → D0 采购要么 workers=1,要么接上 `appworld_teacher.RATE_LIMIT_RETRIES=7` 的退避。
    原日志只打印异常类型,什么都看不出来;已改成连原因一起打印(`039752dc`)。
 
+### ReAct D0 链路打通(2026-09-21 13:20 CDT,`4d33cfa6`)
+两处修复经复核后合入,**真实双 worker 采集 3/3 verified**(修复前 0/19):
+- **429 退避**:只有 HTTP 429 重试,其他传输失败仍不重试(那种请求**可能已计费,重试等于重复付费**);
+  Budget 未动,一次请求仍只预留一次、只结算一次。CLI 加 `--rate-limit-retries`(默认 7)。
+- **ALFWorld 分段**:`segment_spans` 把首个 action marker 之前的作者文本判为 `reason`。
+  四种情况实测:真实无标签回复 → `reason`+`action`;显式 `THOUGHT:` 不变;裸命令不变;终局步 → `reason`+`final`;
+  span 始终互斥且完全覆盖,observation 仍屏蔽,HotpotQA/BFCL 未变。287 测试通过;
+  **七个冻结投影 + `alfworld_identity.py` 逐位未变**(自行复算)。
+
+**采集出来的材料(3 个 verified demo / 13 回合 / 228 监督 token,gemma 分词器实算):**
+| 类别 | token | 占比 |
+|---|---:|---:|
+| **reason** | 106 | **46.5%** |
+| action | 94 | 41.2% |
+| final | 28 | 12.3% |
+
+**关键观察:教师只有 1/13 = 8% 的回合自己写 `THOUGHT:` 标签。** 没有分段修复,**92% 的回合不产生 reason span**,
+SmartAD/SAD 仍会退化。老银行 reason 占比是 **0%**。→ **这是 ALFWorld 上第一次让三条基线有可区分的材料。**
+
+**真实单价(按 `usage.jsonl` 的 `status` 区分预留与结算)**:约 **560 token/次调用**
+(prompt 420–510、completion 80–140);三次探测实际结算共 **17,258 token ≈ $0.008**
+(工具汇总里的 8 万 token / $0.055 是**预留**,不是实付,那些 2,048 的"补全"是失败调用的预留)。
+32 任务 D0 估 **约 18 万 token ≈ $0.08**,含 attempt 与重试**不超过 $0.25**。
+
 ### RUNNING JOBS(2026-09-21 13:05 CDT)
 | 作业 | 位置 | 标识 | 内容 | 预计 |
 |---|---|---|---|---|
