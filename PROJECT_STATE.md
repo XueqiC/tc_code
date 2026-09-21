@@ -507,6 +507,40 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
     `loni_depedlab11` 已 **−4,538.83** 且 2026-10-01 到期。按上一批 1,557 core-hours 的强度,
     **只剩约 2.5 天的额度**,不是 4 天。"拉满并行"因此是预算决定,不是免费动作。
 
+- 2026-09-21 11:20–11:40 CDT **Wave 0 开工(用户 11:27 修订版任务书,详见 `docs/external/2026-09-21/`)。**
+  用户定的边界:**K=32 固定支持集为主协议**(1% 降为次级、不同时跑两套);**seen 开发 / unseen 确认**,
+  **不接受 251/255 扩容**,以加载器导出的有效全集为准;**按部署契约重采 ReAct D0**;**π1 ≥ base 作为起点门**
+  (预登记 3 遍与 10 遍两个曝光终点,两 seed seen 均值选同一配置);**单步决策价值筛查只作辅助诊断,不作硬门**;
+  HotpotQA 降为次级稳健性实验,**不预登记为"预期为负"**。
+  我方撤回三处:①「纯动作银行 ⇒ 三条基线必然同一模型」②「历史两次 null 已否定完整后缀方案」
+  ③「+3pp 有一半概率被噪声触发」(只从样本量推的断言)。
+  **Wave 0 实测结果:**
+  1. **manifest 已用官方加载器导出**(`tools/alf_manifest_export.py` → `results/manifest/alfworld_manifest_20260921.json`):
+     **train 3,553 / valid_seen 140 / valid_unseen 134**,与官方标准规模完全一致;三个 split 里
+     加载器清单与磁盘过滤清单**逐个 id 相同**。→ **我 11:00 提的 251/255 扩容作废**(那是未过滤的 trial 目录数)。
+  2. **K=32 support 已冻结**(`tools/alf_support_k32.py` → `configs/alfworld_support_k32_20260921.json`):
+     六类分层 largest-remainder,配额 place_simple 7 / two 7 / clean 6 / cool 5 / heat 4 / look_at 3,
+     salt `tc-alignment/alfworld/support/2026-09-21`,support sha256 `f11d713f9dbf4d99…`。
+  3. **银行审计:现有 ALFWorld 材料三条理由全部不可复用** —— 教师是 **gpt-5.4**(非冻结 luna);
+     监督目标是**裸命令**(1,377 个 turn 里 0 个含 THOUGHT);`data/alf_sft/events_v1.jsonl` 里**思维存在但被写进
+     `_rejected` 字段、没进监督目标**;**与 K=32 support 重合 0/32**。→ D0 必须全新采购。
+  4. **基线实现核对**:SmartAD 的分段加权已实现(reason 1.0/action 1.5/final 2.0/obs 0),
+     **多候选按初始学生 NLL 选例不在损失侧**;SAD 的两组 span 损失已实现、**课程缺失**;
+     `paper_kang.py` 自述 "Inference-only SAG hooks",**训练侧 FTP 生成流程未实现**。
+     在不含 reasoning span 的目标上,`segment_spans` 只产出一种 kind → 我们这版 SmartAD 退化成 1.5×CE、
+     SAD 退化成单组 CE(**是实现退化,不是方法注定退化**)。
+  5. **坑**:rai 上不设 `CUDA_DEVICE_ORDER=PCI_BUS_ID` 时 `CUDA_VISIBLE_DEVICES=1` 拿到的是
+     **nvidia-smi 的 2 号卡(别人占用中)**。已全部改 PCI 序 + UUID 复核。
+
+### RUNNING JOBS(2026-09-21 11:40 CDT)
+| 作业 | 位置 | 标识 | 内容 | 预计 |
+|---|---|---|---|---|
+| ALFWorld base 评测 | rai **GPU1**(uuid 97762062) | pid **155172**,tag `base_s0` | 官方 harness,valid_seen 140 / 40 步 / greedy / ReAct / 256 token,快照 `707f0a3b…` | 实测约 **3 分钟/题** → **约 7 小时**,ETA ≈ **18:30 CDT** |
+| Codex:K=32 sealed source | rai CPU | pid 161480,`logs/codex_20260921_123539.log` | 为 `tools/alfworld_teacher_pool.py` 铸造 K=32 采集源(仅新文件,禁改运行中模块) | 数十分钟 |
+
+**评测吞吐是当前瓶颈**:HFBackend 无批处理、单进程串行,`evaluate()` 还按 tag 上锁,
+所以同一 campaign 无法并发。要加速必须在**隔离树**里做分片评测器(不得改运行中的 `alfworld_evaluation.py`)。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
