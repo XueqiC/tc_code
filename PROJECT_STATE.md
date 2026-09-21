@@ -479,6 +479,34 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   工作树干净、`64b8553f` 已在盘。hpg 仍是 **Duo 未注册**(非隧道)。**无监视需重挂。**
   同时按用户 9/19 的指示重排了待决列表:约束解码降级为工程项,research 问题回到"机制上如何提升"。
 
+- 2026-09-21 10:45–11:20 CDT **与 9/19–9/21 外部执行线对齐(用户在 Mac 上用另一套 agent 推进,工作区
+  `/Users/chengxueqi/Documents/ChatGPT/ICLR_TC_alignment`,作业跑在 LONI)。** 用户发来两份文档:
+  `RTD_PROJECT_COMPLETE_REPORT_2026-09-21_ZH.md`(75KB,18 节)与 `FOUR_DAY_DISTILLATION_EXECUTION_PLAN_ZH.md`。
+  两份原件已存 `docs/external/2026-09-21/`。**要点与对我方状态的修正:**
+  1. **统一 harness 下 ALFWorld 重评**:base 78/140 = 55.71%、CE 39 步 35/140 = 25.00%、CE 154 步 97/140 = 69.29%
+     (配对区间 [5.71,22.14],McNemar p=.002563)。与我记的 70.71/62.14/65.00 是**同 checkpoint 换 harness**,不是新种子。
+  2. **端口串线结论与我一致**(58.57 作废,干净重跑 21.43)。
+  3. **修正我的两处口径**:① 「9.46% 决策监督」原统计是**字符比例**不是 token 比例,
+     「90.5% CE 梯度浪费」不成立——固定 gate 的 24 对诊断给出动作 token 占比 **16.76%**,
+     且 `w*(g_action·g_full)/‖g_full‖²` 中位数为 **−2.45e−6**,**16/24 对为负**,所以动作梯度不是 full 梯度的非负份额;
+     ② 「跑满步数 ≡ 失败」非严格恒等(存在第 40 步成功的局)。
+  4. **「先学格式后学词汇」尚未被因果确认**:旧 `fallback` 字段是基于首行/look 的启发式,不是解析器内部计数;
+     约束解码的配对因果干预**始终没做**。我 9/18 的机制表要按"相关、未证因果"降级。
+  5. **新 HotpotQA 协议(1%-support=904,实际采购 348 父题,live-Wikipedia ReAct,前 500 题)下没有任何臂超过 base**:
+     base 27.6 / CE 18.4(seed0)、1.0(seed1,失稳)/ Scalar 26.1 / Candidate 10.9 / Random 25.4(两 seed 均值)。
+     **注册主比较 Candidate−同 beta Random = −14.5 pp,[−16.8,−12.2]** → 学习式目标构造器这条线是**负结果**。
+     旧 base 37.6 与新 base 27.6 是不同 harness,不可比。
+  6. 资源:9/19 起 LONI **229 个顶层作业、1,556.8 分配 core-hours**(我用 sacct 独立复算,与报告完全一致)。
+     教师只花了 **$0.71 / $10、1.6M / 4M token**,两个硬 cap 都没碰到。
+  **我实测补充的三个数字(计划书要求"以真实 manifest 为准"):**
+  - ALFWorld 官方 train 在本地 env 副本里是 **6,374 个 trial 实例 / 2,435 个 task 目录** →
+    `floor(N/100)` 按 trial 计是 **63**,按 task 目录计是 **24**。这个口径必须先定,差 2.6 倍。
+  - 评测集还有余量:本地 valid_seen 有 **251** 个 trial(我们一直只用 140),valid_unseen 有 **255**(只用过 134,
+    且**只在已退役的 Qwen-4B 线上用过**,当前 gemma-12B 协议下没用过)。
+  - **LONI allocation 快用完了**:`balance` 显示 `loni_depedlab03` 剩 **4,075.06 / 150,000 SU**,
+    `loni_depedlab11` 已 **−4,538.83** 且 2026-10-01 到期。按上一批 1,557 core-hours 的强度,
+    **只剩约 2.5 天的额度**,不是 4 天。"拉满并行"因此是预算决定,不是免费动作。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
