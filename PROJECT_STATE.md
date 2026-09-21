@@ -538,8 +538,22 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 | ALFWorld base 评测 | rai **GPU1**(uuid 97762062) | pid **155172**,tag `base_s0` | 官方 harness,valid_seen 140 / 40 步 / greedy / ReAct / 256 token,快照 `707f0a3b…` | 实测约 **3 分钟/题** → **约 7 小时**,ETA ≈ **18:30 CDT** |
 | Codex:K=32 sealed source | rai CPU | pid 161480,`logs/codex_20260921_123539.log` | 为 `tools/alfworld_teacher_pool.py` 铸造 K=32 采集源(仅新文件,禁改运行中模块) | 数十分钟 |
 
-**评测吞吐是当前瓶颈**:HFBackend 无批处理、单进程串行,`evaluate()` 还按 tag 上锁,
-所以同一 campaign 无法并发。要加速必须在**隔离树**里做分片评测器(不得改运行中的 `alfworld_evaluation.py`)。
+**评测吞吐是当前瓶颈,已实测清楚:**
+- **17.0 s/step**(前四题 16.5 / 17.5 / 17.1,步数 3/15/3/40)。**耗时只跟步数走,与输赢无关**;
+  负局必然吃满 40 步,所以平均更贵。按 78 胜局均 12 步 + 62 负局 40 步外推,**140 题 ≈ 16 小时**。
+- **注意力实现不是原因**(这条路封死):`attn_implementation` eager vs sdpa,ctx=3000 是 15.3 vs 16.2 tok/s,
+  **ctx=12000 是 20.24s vs 20.31s,完全一样**。瓶颈是 12B 在 batch=1 下的解码带宽。
+- 因此唯一安全的加速是**并发**。关键发现:`alfworld_identity.SCOPES` 把 harness hash 定义成
+  **对指定符号的 AST 投影**,评测模块里只含 `Generation/_checked_state/official_episode/validate_records/
+  aggregate_records/compare_base/HFBackend/EvaluationEnvBridge.__init__`——**`evaluate()` 本身不在投影里**,
+  所以新增分片驱动、用同一批函数写出同样字节的逐题产物,**评测身份一位不变**,最后仍由原 `run` 收尾聚合。
+- 单进程占 24GB → GPU1/GPU4 各 3 片、GPU3 3 片、GPU0 2 片 = **11 片**,16 小时可压到约 1.5 小时。
+
+**采集侧的关键发现(2026-09-21 12:45 CDT):裸动作银行的成因是采集时丢弃,不是提示词。**
+`tools/alfworld_teacher_pool.py` **本来就用 ReAct 提示、教师也确实产出 THOUGHT**,但采集循环里
+`command = _teacher_command(strip_think(reply), admissible)` 之后 `Turn(..., command, ...)`,
+**target 被换成裸命令**;`export_pool` 再写成 `commands=[t['target']…]` + `payload_kind='extracted_teacher_commands'`,
+完整回复只留在**不导出**的 `responses` 里。→ **"换个 ReAct 提示重采"不够,会再产出一份裸动作银行。**
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
