@@ -538,6 +538,21 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   5. **坑**:rai 上不设 `CUDA_DEVICE_ORDER=PCI_BUS_ID` 时 `CUDA_VISIBLE_DEVICES=1` 拿到的是
      **nvidia-smi 的 2 号卡(别人占用中)**。已全部改 PCI 序 + UUID 复核。
 
+### D0 采购完成(2026-09-21 15:11 CDT)
+```
+tasks 32 | attempted 32 | verified 30 (94%) | uncertain_calls 0 | stop_reason complete
+681,640 token (prompt 614,588 / completion 67,052) = $0.2034
+424 个监督回合,平均 14.1 回合/demo
+```
+**材料构成(gemma 分词器实算,9,225 个监督 token):reason 63.6% / action 33.0% / final 3.4%。**
+对照**老银行 reason 占比 0%**(纯裸命令)。
+**只有 84/424 = 20% 的回合自带 `THOUGHT:` 标签**,所以**80% 的回合依赖分段修复才产生 reason span**——
+两处修复缺一不可,这一点已由完整银行复核。
+
+**成本口径修正(我连错两次,记下来)**:最初按早期探测的 560 token/次估 $0.06;
+第一轮跑完发现 **prompt 占 91%**(每步重发完整历史+可执行命令,成本随 episode 长度增长)改估 $0.15;
+**实际 $0.2034 / 68.2 万 token**。→ **REPAIR 后缀从 episode 中段接管、prompt 只会更长,按每任务 2 万 token 起算。**
+
 ### 迁移已验证并跑通(2026-09-21 13:24 CDT,分支 `alf-eval-vllm` / `6466ceda`)
 **整轮 140 题 vLLM base:29 分钟**(16 个客户端)。对比 HF 串行 16 小时 = **33×**;对比 HF 六分片 7.6 小时 = **15×**。
 真 harness 单客户端实测 **6.6 s/step**(HF 是 17.0)。
