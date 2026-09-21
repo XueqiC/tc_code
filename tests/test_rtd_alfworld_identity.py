@@ -87,6 +87,9 @@ def test_training_and_operational_drift_outside_scoring_inventory(campaign):
     ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", "range(40)", "range(39)"),
     ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", '"--split", "valid_seen"', '"--split", "train"'),
     ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", "100 * successes / 140", "successes / 140"),
+    ("src/bfas/rtd/benchmarks/alfworld_evaluation.py", "return_token_ids=True", "return_token_ids=False"),
+    ("src/bfas/rtd/benchmarks/alfworld_server.py", 'server.get("host") != "127.0.0.1"',
+     'server.get("host") != "localhost"'),
 ])
 def test_scientific_edits_change_identity(campaign, name, old, new):
     c = campaign

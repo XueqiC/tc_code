@@ -4,12 +4,13 @@ Layout: TAG/artifacts/{binding.json,tasks/*.json,aggregate.json}, campaign.json,
 and audit.jsonl. The completion receipt hashes the entire artifacts tree; it is
 outside that tree to avoid a recursive hash. Task envelopes permit interrupted
 campaigns to resume only complete episodes, never a sampled prefix. Historical
-scores and training directories are read-only. No server or port is used.
+scores and training directories are read-only. Inference may be local or served.
 """
 from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+import http.client
 import json
 import os
 from pathlib import Path
@@ -199,6 +200,74 @@ class HFBackend:
 
     def close(self):
         self.model = None
+
+
+class VLLMBackend:
+    """Official greedy completions from a launch-bound loopback vLLM server.
+
+    Send locally tokenized prompts and decode returned IDs locally, just as HF
+    does. The launch-specific model name prevents a reused port from silently
+    serving another job. Clients never load weights or inspect CUDA.
+    """
+    def __init__(self, manifest, *, server):
+        from .alfworld_server import checked_server_identity
+        self.server = checked_server_identity(server, manifest=manifest)
+        self.renderer = FrozenRenderer(manifest["paths"]["tokenizer_path"])
+        self.tokenizer = self.renderer.adapter._tokenizer
+        self.max_context = manifest["config"]["max_context_tokens"]
+        if type(self.tokenizer.eos_token_id) is not int:
+            raise ValueError("a single tokenizer EOS is required")
+
+    def generate(self, prompt, *, temperature, max_new_tokens):
+        if temperature != 0.0 or max_new_tokens != 256:
+            raise ValueError("official generation requires greedy/256 tokens")
+        prompt_ids = self.tokenizer(prompt, add_special_tokens=False)["input_ids"]
+        if len(prompt_ids) + 256 > self.max_context:
+            raise ValueError("context overflow; official prompts/actions cannot be silently shortened")
+        eos = self.tokenizer.eos_token_id
+        payload = dict(model=self.server["served_model_name"], prompt=prompt_ids,
+            temperature=0.0, max_tokens=256, n=1, stream=False, echo=False,
+            use_beam_search=False, top_p=1.0, top_k=-1, min_p=0.0,
+            repetition_penalty=1.0, frequency_penalty=0.0, presence_penalty=0.0,
+            min_tokens=0, stop=[], stop_token_ids=[eos],
+            # Disable the engine's potentially different EOS; the bound local
+            # EOS above remains the sole explicit stop token.
+            ignore_eos=True, include_stop_str_in_output=False,
+            skip_special_tokens=False, add_special_tokens=False,
+            truncate_prompt_tokens=None, return_token_ids=True)
+        connection = http.client.HTTPConnection("127.0.0.1", self.server["port"], timeout=600)
+        try:
+            connection.request("POST", "/v1/completions", body=json.dumps(payload),
+                               headers={"Content-Type": "application/json"})
+            response = connection.getresponse()
+            raw = response.read()
+            if response.status != 200:
+                raise ValueError(f"vLLM completion failed (HTTP {response.status}): {raw[:1000]!r}")
+            result = json.loads(raw)
+        finally:
+            connection.close()
+        if result.get("model") != self.server["served_model_name"] or len(result.get("choices", [])) != 1:
+            raise ValueError("completion server/model identity mismatch")
+        choice, usage = result["choices"][0], result.get("usage", {})
+        ids, count = choice.get("token_ids"), usage.get("completion_tokens")
+        if (not isinstance(ids, list) or any(type(i) is not int or i < 0 for i in ids) or
+                type(count) is not int or not 1 <= count <= 256 or len(ids) != count or
+                usage.get("prompt_tokens") != len(prompt_ids)):
+            raise ValueError("completion token count disagrees with returned tokens")
+        reason = choice.get("finish_reason")
+        if reason not in ("stop", "length"):
+            raise ValueError("unexpected completion finish_reason")
+        truncated = reason == "length"
+        # EOS at token 256 is a stop, not truncation. Count alone is insufficient.
+        # Explicit checks (also under python -O) fail closed on shortened replies.
+        if (truncated and count != 256 or truncated != (ids[-1] != eos) or
+                eos in ids[:-1] or choice.get("stop_reason") not in (None, eos)):
+            raise ValueError("completion finish_reason, EOS and token count disagree")
+        text = self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False)
+        return Generation(text, count, truncated)
+
+    def close(self):
+        pass  # Each request owns its connection; the shared server outlives us.
 
 
 def validate_records(expected, records, identity, *, complete=True):

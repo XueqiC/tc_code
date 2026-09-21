@@ -47,7 +47,8 @@ SCOPES = {
         "prompt_messages", "FrozenRenderer", "EnvironmentUnavailable", "BoundedEnvBridge._rpc_error_type"),
     "src/bfas/rtd/benchmarks/alfworld_evaluation.py": (
         "Generation", "_checked_state", "official_episode", "validate_records",
-        "aggregate_records", "compare_base", "HFBackend", "EvaluationEnvBridge.__init__"),
+        "aggregate_records", "compare_base", "HFBackend", "VLLMBackend", "EvaluationEnvBridge.__init__"),
+    "src/bfas/rtd/benchmarks/alfworld_server.py": ("SERVER_VERSION", "checked_server_identity"),
 }
 
 

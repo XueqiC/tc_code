@@ -15,10 +15,11 @@ from tools import alf_eval_shard as shards
 from tools import rtd_alfworld_evaluate as serial_cli
 
 
-# Recorded from the clean alf-eval-shard checkout before adding this driver.
+# Deliberately re-frozen for the launch-bound vLLM backend. Previous projection:
+# 8eb084055b8caa8f4b970004b8c2f2521ab0092b956d5b1ebe90beb59ba8c69e
 # Covers every projected symbol/import/dispatch and the identity module bytes
 # (including SCOPES), independently of git availability or fixture identities.
-FROZEN_SCORING_FILES_HASH = "8eb084055b8caa8f4b970004b8c2f2521ab0092b956d5b1ebe90beb59ba8c69e"
+FROZEN_SCORING_FILES_HASH = "a475f62fd4014f1ec43d1e1ea0b885283a43a2038b396ab9aec7964557f010e9"
 
 
 def test_frozen_harness_projection_unchanged():
