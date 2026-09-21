@@ -532,11 +532,28 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   5. **坑**:rai 上不设 `CUDA_DEVICE_ORDER=PCI_BUS_ID` 时 `CUDA_VISIBLE_DEVICES=1` 拿到的是
      **nvidia-smi 的 2 号卡(别人占用中)**。已全部改 PCI 序 + UUID 复核。
 
-### RUNNING JOBS(2026-09-21 11:40 CDT)
+### Wave 0 采集侧实测(2026-09-21 12:00–13:05 CDT,共花约 9.5 万 token / 约 $0.062)
+1. **教师可用,但不写 `THOUGHT:` 标签。** Azure P1 单调用正常返回散文推理 + `ACTION: <cmd>`(含 57 reasoning token),
+   **没有 `THOUGHT:` 前缀**。实测 `segment_spans(reply, benchmark="alfworld")` 对真实回复给出
+   **两个 `action` span、零 `reason` span** → SmartAD 权重全 1.5、SAD 的 reason 组为空,**两者仍退化成 CE**。
+   加上显式 `THOUGHT:` 后分段正常。**只能从损失侧修**:`TEACHER_REACT_INSTRUCTION/PROMPT/EXAMPLES`
+   都在冻结评测投影里,改提示词会作废正在跑的 base。
+2. **采集在 workers≥2 时 19/19 全失败**:`TeacherAPIError: chat completion returned HTTP 429 after 1 attempts`。
+   池子把 `retries=0` 写死,一次 429 判死整个 attempt;账面按预留记了 8 万 token / $0.055 而 **verified=0**。
+   **workers=1 完全正常**(真实调用、按预算正常停、`uncertain_calls=0`)。
+   → D0 采购要么 workers=1,要么接上 `appworld_teacher.RATE_LIMIT_RETRIES=7` 的退避。
+   原日志只打印异常类型,什么都看不出来;已改成连原因一起打印(`039752dc`)。
+
+### RUNNING JOBS(2026-09-21 13:05 CDT)
 | 作业 | 位置 | 标识 | 内容 | 预计 |
 |---|---|---|---|---|
-| ALFWorld base 评测 | rai **GPU1**(uuid 97762062) | pid **155172**,tag `base_s0` | 官方 harness,valid_seen 140 / 40 步 / greedy / ReAct / 256 token,快照 `707f0a3b…` | 实测约 **3 分钟/题** → **约 7 小时**,ETA ≈ **18:30 CDT** |
-| Codex:K=32 sealed source | rai CPU | pid 161480,`logs/codex_20260921_123539.log` | 为 `tools/alfworld_teacher_pool.py` 铸造 K=32 采集源(仅新文件,禁改运行中模块) | 数十分钟 |
+| ALFWorld base 评测(**6 分片**) | rai **GPU1 + GPU4**(各 3 片) | pids 204389–204394,tag `base_s0` | 官方 harness,valid_seen 140 / 40 步 / greedy / ReAct;`tools/alf_eval_shard.py` + `alf_eval_fanout.sh` | 串行 418 s/题;分片首 8 分钟只测到 **1.76×**(样本 2 题),正在做 25 分钟窗口复测 |
+| Codex#4:429 退避 + ALFWorld 分段 | rai CPU | `logs/codex_20260921_130309.log` | 两处修复(见上) | 数十分钟 |
+
+**硬件类别约束(重要)**:评测绑定含硬件类别哈希,`guard_manifest` 拒绝类别不符的卡。实测
+GPU1/GPU4(RTX PRO 6000 Blackwell 97G)= `01008afb…` **与绑定一致**;GPU0(RTX 6000 Ada 49G)= `47d17502…`、
+GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨设备类别**,所以 ALFWorld 评测
+只能落在这两张 Blackwell 上,**上限 6 片**,不能摊到 A100。
 
 **评测吞吐是当前瓶颈,已实测清楚:**
 - **17.0 s/step**(前四题 16.5 / 17.5 / 17.1,步数 3/15/3/40)。**耗时只跟步数走,与输赢无关**;
