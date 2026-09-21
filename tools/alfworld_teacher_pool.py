@@ -36,7 +36,7 @@ from bfas.rtd.benchmarks import alfworld_bank as bank
 from bfas.rtd.benchmarks.alfworld_state import _observed, canonical_hash, parent_hash
 from bfas.rtd.benchmarks.alfworld_support import (
     ALFWorldSupport, RealStepper, _signed, audit_verified_bank, prompt_messages,
-    seal_verified_bank, validate_support, verify_package,
+    seal_verified_bank, teacher_payload_fields, validate_support, verify_package,
 )
 from bfas.rtd.transport import FullState
 
@@ -247,7 +247,7 @@ class PoolAdapter:
         recovered = self.budget.has_calls(task_id, attempt_index)
         if not recovered:
             self.budget.ensure_available()
-        turns, responses, won = [], [], False
+        turns, responses, commands, won = [], [], [], False
         if not recovered:
             try:
                 config = self.config_loader(self.teacher)
@@ -276,7 +276,9 @@ class PoolAdapter:
                     responses.append(reply)
                     command = ALFWorldAdapter._teacher_command(appworld_teacher.strip_think(reply), observation.admissible)
                     context = prompt_messages(request, history, react=False)
-                    turns.append(Turn(context[0]['content'], command, context))
+                    # Preserve the generated turn verbatim; only commands drive the environment.
+                    turns.append(Turn(context[0]['content'], reply, context))
+                    commands.append(command)
                     cursor, observation = stepper.step(cursor, command)
                     history.extend([dict(role='assistant', index=observation.index, content=command), _observed(observation)])
                     if observation.done:
@@ -295,7 +297,8 @@ class PoolAdapter:
                 if stepper is not None:
                     stepper.close()
         usage = self.budget.usage(task_id, attempt_index)
-        demo = Demo(task_id, tuple(turns), '\n'.join(t.target for t in turns)[-4000:]) if won and turns else None
+        demo = Demo(task_id, tuple(turns), '\n'.join(commands)[-4000:],
+                    raw=dict(teacher_commands=commands)) if won and turns else None
         return TeacherEpisode(task_id, demo is not None, demo, tuple(responses),
                               usage['completion_tokens'], teacher=self.teacher, usage=usage)
 
@@ -349,7 +352,8 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper):
         tid = row['task_id']
         request = support['tasks'][tid]['request']
         q = bank.query_id(ledger_hash, row, line)
-        commands = [t['target'] for t in row.get('demo', {}).get('turns', [])]
+        teacher_fields = teacher_payload_fields(row)
+        commands = teacher_fields['commands']
         excluded = ['protected probe/calibration parent'] if support['tasks'][tid]['excluded'] else []
         candidate = bool(row['verified'] and commands and not excluded)
         payload = dict(
@@ -357,8 +361,7 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper):
             status='candidate' if candidate else 'unavailable',
             unavailable_reason=None if candidate else 'failed, interrupted, or protected attempt',
             exclusion_reasons=excluded, success=row['verified'],
-            payload_kind='extracted_teacher_commands' if commands else None,
-            commands=commands, behaviors=[], cost=row['tokens_spent'], cost_basis='reported_or_reserved',
+            **teacher_fields, behaviors=[], cost=row['tokens_spent'], cost_basis='reported_or_reserved',
             cost_confidence='estimated', usage=row.get('usage', {}),
             provenance=dict(kind='alf_demo_episode', ledger_path=str(ledger), ledger_sha256=ledger_hash,
                             line=line, task_id=tid, attempt_index=row['attempt_index'], timestamp=row['timestamp'],

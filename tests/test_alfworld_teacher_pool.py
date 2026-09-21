@@ -1,5 +1,6 @@
 """CPU-only collection, hard reservation, crash recovery, and bank conversion."""
 from copy import deepcopy
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from decimal import Decimal
@@ -64,8 +65,10 @@ def source(tmp_path, request):
 
 
 class Teacher:
-    def __init__(self, *, error=None, usage=True):
+    def __init__(self, *, error=None, usage=True,
+                 reply_template='THOUGHT: solve the task.\nACTION: {command}'):
         self.calls, self.error, self.report_usage = [], error, usage
+        self.reply_template, self.replies = reply_template, []
 
     def __call__(self, config, messages, **kwargs):
         self.calls.append((config, messages, kwargs))
@@ -76,7 +79,9 @@ class Teacher:
             kwargs['usage_callback'](dict(prompt_tokens=100, completion_tokens=20,
                                          prompt_tokens_details=dict(cached_tokens=80)))
         command = messages[-1]['content'].split('Admissible commands:\n')[1].split('\n')[0]
-        return 'THOUGHT: solve the task.\nACTION: ' + command
+        reply = self.reply_template.format(command=command)
+        self.replies.append(reply)
+        return reply
 
 
 def factory(teacher):
@@ -87,13 +92,21 @@ def factory(teacher):
 
 
 def collect(source, out, teacher, **kwargs):
-    return pool.collect(source, out, adapter_factory=factory(teacher), stepper_factory=FakeStepper, **kwargs)
+    kwargs.setdefault('stepper_factory', FakeStepper)
+    return pool.collect(source, out, adapter_factory=factory(teacher), **kwargs)
 
 
 @pytest.mark.parametrize('workers', [1, 3])
 def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeypatch, workers):
-    teacher, out = Teacher(), tmp_path / 'luna'
-    summary = collect(source, out, teacher, workers=workers)
+    # Include whitespace, Unicode, a think wrapper and the native turn boundary:
+    # preserving only strip_think(reply), ACTION, or a stripped reply must fail.
+    teacher = Teacher(reply_template='\n<think>plan</think>\r\nTHOUGHT: place the café apple.\r\nACTION: {command}\r\n<|im_end|>\n  ')
+    out, steppers = tmp_path / 'luna', []
+    def stepper_factory(request):
+        stepper = FakeStepper(request)
+        steppers.append(stepper)
+        return stepper
+    summary = collect(source, out, teacher, workers=workers, stepper_factory=stepper_factory)
     assert summary['tasks'] == summary['tasks_attempted'] == summary['verified'] == 3
     assert summary['teacher'] == 'openai/gpt-5.6-luna'
     assert summary['service_tier'] == 'flex'
@@ -104,7 +117,8 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     assert summary['estimated_usd'] == pytest.approx((120*.1 + 480*.01 + 120*.6)/1e6)
     assert {p.name for p in out.iterdir()} == {'public', 'sealed'}
     assert {p.name for p in (out/'public').iterdir()} == {'requests.json', 'support.json', 'reset_states.json', 'reset_requests.json'}
-    assert pool.audit_verified_bank(out)['usable_packages'] == 3
+    audit = pool.audit_verified_bank(out)
+    assert audit['passed'] and audit['usable_packages'] == 3
     support = pool.load_source(out)
     assert support['historical_task_ids'] == pool.load_source(source)['historical_task_ids']
     ledger = Path(summary['ledger'])
@@ -112,6 +126,30 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     assert len(rows) == 3 and {r['attempt_index'] for r in rows} == {0}
     assert {r['teacher'] for r in rows} == {'openai/gpt-5.6-luna'}
     assert {r['tokens_spent'] for r in rows} == {40}
+    commands = ['go to table 1', 'put apple 1 on table 1']
+    assert len(steppers) == 6  # Three acquisitions and three verification replays.
+    assert all(s.closed and s.calls == ['reset', *commands] for s in steppers)
+    targets = [t['target'] for r in rows for t in r['demo']['turns']]
+    assert Counter(targets) == Counter(teacher.replies)
+    assert all(r['demo']['teacher_commands'] == commands for r in rows)
+    restored = gateway.compact_records(rows)
+    assert all(s['best_demo'].raw['teacher_commands'] == commands for s in restored.values())
+    assert Counter(t.target for s in restored.values() for t in s['best_demo'].turns) == Counter(targets)
+    payloads = {}
+    for record in json.loads((out/'public/requests.json').read_text()):
+        q = record['spec']['query_id']
+        payload = json.loads((out/'sealed'/f'{q}.json').read_text())
+        payloads[q] = payload
+        assert payload['payload_kind'] == 'teacher_react_turns'
+        assert payload['commands'] == commands
+        assert payload['teacher_react_turns'] == [t['target'] for t in payload['historical_response']['demo']['turns']]
+        assert payload['teacher_react_turns'] == [teacher.reply_template.format(command=c) for c in commands]
+        assert [b['text'] for b in payload['behaviors']] == commands
+        from bfas.rtd.benchmarks.alfworld_state import reconstruct_package
+        request = support['tasks'][payload['provenance']['task_id']]['request']
+        replay = reconstruct_package(payload, request, FakeStepper(request), pool.render,
+                                     owned_ids={q}, inner_parent_hashes={pool.parent_hash(request['task_id'])})
+        assert replay.won and [b.text for b in replay.behaviors] == commands
     before = ledger.read_bytes()
     hashes = {str(p.relative_to(out)): pool.bank.file_hash(p) for p in out.rglob('*.json')}
     resumed = collect(source, out, teacher)
@@ -127,6 +165,11 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     assert converted['available_packages'] == 3
     assert converted['recorded_bank_usage'] == 120
     assert validate_state_certificate(built)['core']['benchmark'] == 'alfworld'
+    for q, original in payloads.items():
+        converted_payload = json.loads((built/'sealed'/f'{q}.json').read_text())
+        assert converted_payload['payload_kind'] == 'teacher_react_turns'
+        assert converted_payload['teacher_react_turns'] == original['teacher_react_turns']
+        assert converted_payload['commands'] == commands
     converted_support = json.loads((built/'public/support.json').read_text())
     assert converted_support == pool.load_source(source)
     assert converted_support['parents'] == pool.load_source(source)['parents']
@@ -134,6 +177,79 @@ def test_teacher_pool_layout_resume_and_real_converter(source, tmp_path, monkeyp
     monkeypatch.setenv('BFAS_TEACHER', 'openai/different')
     with pytest.raises(ValueError, match='resume'):
         collect(source, out, teacher)
+
+
+def test_teacher_pool_legacy_commands_only_source_still_loads(source, tmp_path):
+    before = {str(p.relative_to(source)): p.read_bytes() for p in source.rglob('*.json')}
+    support = pool.load_source(source)
+    assert pool.audit_verified_bank(source)['passed']
+    rows = []
+    for record in json.loads((source/'public/requests.json').read_text()):
+        q = record['spec']['query_id']
+        payload = json.loads((source/'sealed'/f'{q}.json').read_text())
+        assert payload['payload_kind'] == 'extracted_teacher_commands'
+        assert 'teacher_react_turns' not in payload
+        assert payload['commands'] == [t['target'] for t in payload['historical_response']['demo']['turns']]
+        rows.append(dict(payload['historical_response'], teacher='fixture'))
+    # Re-export an old ledger into a new temporary bank without fabricating replies.
+    ledger = tmp_path/'legacy.jsonl'
+    ledger.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+    out = tmp_path/'legacy-export'
+    assert pool.export_pool(source, out, ledger, support, stepper_factory=FakeStepper) == 3
+    assert pool.load_source(out) == support and pool.audit_verified_bank(out)['passed']
+    for record in json.loads((out/'public/requests.json').read_text()):
+        payload = json.loads((out/'sealed'/f"{record['spec']['query_id']}.json").read_text())
+        assert payload['payload_kind'] == 'extracted_teacher_commands'
+        assert 'teacher_react_turns' not in payload
+    assert before == {str(p.relative_to(source)): p.read_bytes() for p in source.rglob('*.json')}
+
+
+def test_teacher_pool_no_admissible_command_keeps_failed_attempts(source, tmp_path):
+    teacher, steppers = Teacher(reply_template='THOUGHT: stuck.\nACTION: invent something\n'), []
+    class StrictStepper(FakeStepper):
+        def step(self, cursor, command):
+            self.calls.append(command)
+            raise ValueError('command is not admissible')
+    def stepper_factory(request):
+        stepper = StrictStepper(request)
+        steppers.append(stepper)
+        return stepper
+    summary = collect(source, tmp_path/'invalid', teacher, stepper_factory=stepper_factory)
+    rows = gateway.read_records(Path(summary['ledger']))
+    assert len(teacher.calls) == len(rows) == len(steppers) == 9
+    assert summary['verified'] == 0 and all(not r['verified'] and 'demo' not in r for r in rows)
+    for stepper in steppers:
+        admissible = stepper.observations[0]['admissible']
+        expected = pool.ALFWorldAdapter._teacher_command(pool.appworld_teacher.strip_think(teacher.replies[0]), admissible)
+        assert expected not in admissible
+        assert stepper.closed and stepper.calls == ['reset', expected]
+
+
+@pytest.mark.parametrize('field', ['teacher_react_turns', 'commands', 'payload_kind'])
+def test_teacher_pool_audit_binds_full_turns_and_commands_to_ledger(source, tmp_path, field):
+    out = tmp_path/'tampered'
+    collect(source, out, Teacher())
+    q = json.loads((out/'public/requests.json').read_text())[0]['spec']['query_id']
+    path = out/'sealed'/f'{q}.json'
+    payload = json.loads(path.read_text())
+    if field == 'payload_kind':
+        payload[field] = 'extracted_teacher_commands'
+    elif field == 'commands':
+        payload[field].reverse()
+    else:
+        payload[field][0] = payload['commands'][0]  # Loss of THOUGHT must fail even after re-signing.
+    write_json(path, payload)
+    integrity = json.loads((out/'sealed/integrity.json').read_text())
+    integrity[q] = pool.bank.digest(payload)
+    write_json(out/'sealed/integrity.json', integrity)
+    manifest = json.loads((out/'sealed/manifest.json').read_text())
+    for name in (f'sealed/{q}.json', 'sealed/integrity.json'):
+        manifest['artifacts'][name] = pool.bank.file_hash(out/name)
+    write_json(out/'sealed/manifest.json', manifest)
+    with pytest.raises(ValueError, match='teacher payload differs'):
+        pool.audit_verified_bank(out)
+    with pytest.raises(ValueError, match='teacher payload differs'):
+        pool.load_source(out)
 
 
 @pytest.mark.parametrize('limits', [pool.Limits(max_tokens=0), pool.Limits(max_usd=0), pool.Limits(max_tokens=10)])

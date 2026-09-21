@@ -185,6 +185,7 @@ def reconstruct_package(payload, request, stepper, renderer, *, owned_ids, inner
         raise ValueError("protected teacher prefix")
     if identity["task_id"] != request["task_id"] or payload["request_state_hash"] != canonical_hash(request):
         raise ValueError("package/reset request mismatch")
-    if payload["status"] == "unavailable" or payload["payload_kind"] != "extracted_teacher_commands":
+    if payload["status"] == "unavailable" or payload["payload_kind"] not in (
+            "extracted_teacher_commands", "teacher_react_turns"):
         raise ValueError("payload unavailable")
     return replay_commands(request, payload["commands"], stepper, renderer)

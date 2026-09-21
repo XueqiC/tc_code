@@ -437,6 +437,19 @@ class FrozenRenderer:
         return thinking_off(self.adapter._render(prompt_messages(request, history)))
 
 
+def teacher_payload_fields(row):
+    """Read full-turn demos or legacy command targets without rewriting either."""
+    demo = row.get("demo", {})
+    targets = [turn["target"] for turn in demo.get("turns", [])]
+    if "teacher_commands" not in demo:
+        return dict(commands=targets, payload_kind="extracted_teacher_commands" if targets else None)
+    commands = demo["teacher_commands"]
+    if (not isinstance(commands, list) or len(commands) != len(targets) or not targets or
+            not all(isinstance(text, str) and text for text in commands + targets)):
+        raise ValueError("teacher commands/full turns must be aligned non-empty text lists")
+    return dict(commands=commands, teacher_react_turns=targets, payload_kind="teacher_react_turns")
+
+
 def verify_package(payload, request, stepper, renderer, *, support=None):
     """Offline privileged audit; failures retain partial states and explicit reasons."""
     bank._privileged()
@@ -461,8 +474,13 @@ def verify_package(payload, request, stepper, renderer, *, support=None):
         return prompt
     try:
         validate_request(request)
-        if payload["status"] != "candidate" or payload["payload_kind"] != "extracted_teacher_commands":
+        if payload["status"] != "candidate" or payload["payload_kind"] not in (
+                "extracted_teacher_commands", "teacher_react_turns"):
             raise ValueError("candidate command payload required")
+        if payload["payload_kind"] == "teacher_react_turns":
+            fields = teacher_payload_fields(payload["historical_response"])
+            if any(payload.get(key) != value for key, value in fields.items()):
+                raise ValueError("teacher payload differs from archived demonstration")
         if payload["provenance"]["task_id"] != request["task_id"]:
             raise ValueError("package/reset task mismatch")
         if payload.get("exclusion_reasons"):
@@ -499,6 +517,10 @@ def verification_summary(records, payloads, support, *, historical_summary=None)
     usable = [p for p in payloads.values() if p["status"] == "usable"]
     replayed = [p for p in payloads.values() if p.get("verification", {}).get("replayed")]
     unavailable = [p for p in payloads.values() if p["status"] == "unavailable"]
+    limitations = list(bank.LIMITATIONS)
+    if any(p["payload_kind"] == "teacher_react_turns" for p in payloads.values()):
+        limitations = ["payload_kind distinguishes full teacher ReAct turns from legacy extracted commands; replay uses commands."
+                       if s.startswith("payload_kind=") else s for s in limitations]
     return dict(version=VERSION, scope="exploratory", attempts=len(payloads),
                 candidate_packages=len(replayed), usable_packages=len(usable),
                 unavailable_candidates=sum(p["status"] == "unavailable" for p in replayed),
@@ -517,7 +539,7 @@ def verification_summary(records, payloads, support, *, historical_summary=None)
                 cap_audit=cap_audit(records, payloads), support_manifest_hash=support["manifest_hash"],
                 new_teacher_calls=0, new_teacher_tokens=0, gpu_used=False,
                 historical_inventory=historical_summary,
-                limitations=[s for s in bank.LIMITATIONS if not s.startswith(("C26-A:", "107 is", "Proposed parent"))] + [
+                limitations=[s for s in limitations if not s.startswith(("C26-A:", "107 is", "Proposed parent"))] + [
                     "Full ordered states are reconstructed now, not recovered historical raw API states.",
                     "Every saved deployment context is compared; historical context was windowed, so hidden historical world evolution cannot be proven beyond retained evidence.",
                     "State hashes bind per-trial world bytes, installed environment, tokenizer and frozen ReAct scaffold.",
@@ -599,6 +621,9 @@ def audit_verified_bank(directory, *, expected_manifest_sha256=None):
                 or json.loads(p["raw_ledger_line"]) != p["historical_response"]):
             raise ValueError("historical payload binding mismatch")
         row = p["historical_response"]
+        teacher_fields = teacher_payload_fields(row)
+        if any(p.get(key) != value for key, value in teacher_fields.items()):
+            raise ValueError("teacher payload differs from archived demonstration")
         if (bank.query_id(prov["ledger_sha256"], row, prov["line"]) != q or prov["task_id"] != tid
                 or p["cost"] != row.get("tokens_spent") or p["success"] is not row["verified"]):
             raise ValueError("historical cost/outcome mismatch")
@@ -619,7 +644,7 @@ def audit_verified_bank(directory, *, expected_manifest_sha256=None):
                 raise ValueError("protected/dependent usable package")
             verification = p["verification"]
             states = [FullState(**s) for s in verification["states"]]
-            commands = [t["target"] for t in row["demo"]["turns"]]
+            commands = teacher_fields["commands"]
             if (p["commands"] != commands or len(states) != len(commands) + 1 or
                     len(p["behaviors"]) != len(commands) or verification["won"] is not True or
                     verification["done"] is not True or verification["success_reproduced"] is not True):
