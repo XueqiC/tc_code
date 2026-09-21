@@ -483,6 +483,7 @@ def generate_reply(
     usage_callback: Callable[[Mapping[str, Any]], None] | None = None,
     max_completion_tokens: int | None = None,
     retries: int | None = None,
+    rate_limit_retries: int | None = None,
     response_callback: Callable[[Mapping[str, Any]], None] | None = None,
     reasoning_effort: str | None = None,
 ) -> str:
@@ -499,12 +500,17 @@ def generate_reply(
         body[key] = max_completion_tokens
     if retries is not None and (type(retries) is not int or retries < 0):
         raise ValueError("retries must be a non-negative integer")
+    if rate_limit_retries is not None and (type(rate_limit_retries) is not int or rate_limit_retries < 0):
+        raise ValueError("rate_limit_retries must be a non-negative integer")
     payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     # Direct HTTP has no SDK auto-retries; all attempts are bounded below.
     opener = urllib.request.build_opener()
 
     total_attempts = (CHAT_COMPLETION_RETRIES if retries is None else retries) + 1
     rate_limit_attempts = (RATE_LIMIT_RETRIES if retries is None else retries) + 1
+    if rate_limit_retries is not None:
+        # Allow 429 backoff without retrying potentially billed transport failures.
+        rate_limit_attempts = rate_limit_retries + 1
     for request_attempt in range(1, max(total_attempts, rate_limit_attempts) + 1):
         request = urllib.request.Request(
             config.endpoint,

@@ -39,6 +39,7 @@ def segment_spans(text, *, benchmark="bfcl", final_step=False, prompt=""):
     """Disjoint exhaustive spans; observations never receive a training label.
 
     Plain ALF commands are actions (the terminal command is a final decision).
+    ALF authored text preceding the first action marker is reasoning.
     BFCL prose is final; native tool calls are actions. Native format tokens
     are generated tokens too, including the empty thought block and EOS.
     HotpotQA inherits its numbered prefill; only finish is a final decision.
@@ -47,6 +48,7 @@ def segment_spans(text, *, benchmark="bfcl", final_step=False, prompt=""):
     if benchmark == "hotpotqa":
         default = hotpotqa_prefill_kind(prompt)
     kind, cursor, spans = default, 0, []
+    first_alfworld_action = None
     markers = HOTPOTQA_MARKERS if benchmark == "hotpotqa" else MARKERS
     for match in markers.finditer(text):
         if cursor < match.start():
@@ -74,12 +76,20 @@ def segment_spans(text, *, benchmark="bfcl", final_step=False, prompt=""):
         elif any(word in marker for word in ("THOUGHT", "THINK", "REASON")):
             kind = "reason"
         elif "ACT" in marker or "TOOL_CALL" in marker:
+            if benchmark == "alfworld" and first_alfworld_action is None:
+                first_alfworld_action = match.start()
             kind = "final" if benchmark == "alfworld" and final_step else "action"
         else:
             kind = "final"
         cursor = match.start()
     if cursor < len(text):
         spans.append(Span(cursor, len(text), kind))
+    if first_alfworld_action is not None:
+        # ReAct does not require THOUGHT labels. Keep observed prefixes masked
+        # and preserve the existing command-only and terminal-action behavior.
+        spans = [Span(s.start, s.end, "reason")
+                 if s.end <= first_alfworld_action and s.kind != "observation" else s
+                 for s in spans]
     return spans
 
 

@@ -232,8 +232,10 @@ class PoolAdapter:
     """BFAS episode interface using the ALFWorld scaffold and official CPU metric."""
 
     def __init__(self, support, budget, teacher, *, stepper_factory=real_stepper,
-                 generate_reply=None, config_loader=None):
+                 generate_reply=None, config_loader=None,
+                 rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES):
         self.support, self.budget, self.teacher = support, budget, teacher
+        self.rate_limit_retries = rate_limit_retries
         self.stepper_factory = stepper_factory
         self.generate_reply = generate_reply or appworld_teacher.generate_reply
         self.config_loader = config_loader or appworld_teacher.load_teacher_config
@@ -268,6 +270,7 @@ class PoolAdapter:
                     try:
                         reply = self.generate_reply(
                             config, messages, temperature=temperature, retries=0,
+                            rate_limit_retries=self.rate_limit_retries,
                             max_completion_tokens=call['usage']['completion_tokens'],
                             usage_callback=lambda usage: self.budget.settle(call, usage),
                         )
@@ -420,7 +423,8 @@ def recover_attempts(ledger, budget, teacher):
                            verified=False, tokens_spent=usage['completion_tokens'], usage=usage)
 
 
-def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, stepper_factory):
+def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, stepper_factory,
+                 rate_limit_retries):
     # The collection lock excludes other collectors, including the old sequential
     # command. Queue ownership excludes duplicate tasks within this collector.
     # Only accounting holds the ledger lock; each worker owns its adapter/stepper.
@@ -449,7 +453,8 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
 
     def work():
         try:
-            adapter = adapter_factory(support, budget, teacher, stepper_factory=stepper_factory)
+            adapter = adapter_factory(support, budget, teacher, stepper_factory=stepper_factory,
+                                      rate_limit_retries=rate_limit_retries)
             while True:
                 try:
                     task_id, first_attempt = tasks.get_nowait()
@@ -496,9 +501,12 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
         executor.shutdown(wait=True, cancel_futures=True)
 
 
-def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper, adapter_factory=PoolAdapter):
+def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper, adapter_factory=PoolAdapter,
+            rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES):
     if type(workers) is not int or workers < 1:
         raise ValueError('workers must be a positive integer')
+    if type(rate_limit_retries) is not int or rate_limit_retries < 0:
+        raise ValueError('rate_limit_retries must be a non-negative integer')
     source, out = Path(source).resolve(), Path(out).resolve()
     if source == out or source in out.parents or out in source.parents:
         raise ValueError('source and output must be separate directories')
@@ -543,7 +551,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
         recover_attempts(ledger, budget, teacher)
         try:
             acquire_pool(ledger, support, budget, teacher, workers=workers,
-                         adapter_factory=adapter_factory, stepper_factory=stepper_factory)
+                         adapter_factory=adapter_factory, stepper_factory=stepper_factory,
+                         rate_limit_retries=rate_limit_retries)
         except AcquisitionStopped as exc:
             reason = str(exc)
         except KeyboardInterrupt:
@@ -572,6 +581,8 @@ def main(argv=None):
     parser.add_argument('--max-tokens', type=int, default=400000)
     parser.add_argument('--workers', type=int, default=1,
                         help='concurrent episodes, each with its own environment process (default: 1)')
+    parser.add_argument('--rate-limit-retries', type=int, default=appworld_teacher.RATE_LIMIT_RETRIES,
+                        help='retries per request for HTTP 429 only (default: %(default)s; 0 disables)')
     parser.add_argument('--max-usd', type=Decimal, default=Decimal('5.0'))
     parser.add_argument('--usd-per-mtok-in', type=Decimal, default=Decimal('0.10'))
     parser.add_argument('--usd-per-mtok-out', type=Decimal, default=Decimal('0.60'))
@@ -580,11 +591,14 @@ def main(argv=None):
     try:
         if args.workers < 1:
             raise ValueError('workers must be a positive integer')
+        if args.rate_limit_retries < 0:
+            raise ValueError('rate_limit_retries must be a non-negative integer')
         limits = Limits(args.max_tokens, args.max_usd, args.usd_per_mtok_in,
                         args.usd_per_mtok_out, args.usd_per_mtok_cached)
     except ValueError as exc:
         parser.error(str(exc))
-    collect(args.source, args.out, limits=limits, workers=args.workers)
+    collect(args.source, args.out, limits=limits, workers=args.workers,
+            rate_limit_retries=args.rate_limit_retries)
 
 
 if __name__ == '__main__':

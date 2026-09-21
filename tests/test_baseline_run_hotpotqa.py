@@ -56,6 +56,12 @@ def test_react_spans_and_losses_mask_wikipedia_and_weight_finish():
             "lookup[quoted example]\nThought 2: Find the detail.\nAction 2: lookup[Beta]\n"
             "Observation 2: More Wikipedia.\nThought 3: I can answer.\nAction 3: finish[Gamma]")
     spans = segment_spans(text, benchmark="hotpotqa", prompt=native_prompt("Thought 1:"), final_step=True)
+    assert [(text[s.start:s.end], s.kind) for s in spans] == [
+        ("I need a page.\n", "reason"), ("Action 1: search[Alpha]\n", "action"),
+        ("Observation 1: Wikipedia text.\n", "observation"), ("lookup[quoted example]\n", "observation"),
+        ("Thought 2: Find the detail.\n", "reason"), ("Action 2: lookup[Beta]\n", "action"),
+        ("Observation 2: More Wikipedia.\n", "observation"), ("Thought 3: I can answer.\n", "reason"),
+        ("Action 3: finish[Gamma]", "final")]
     assert spans[0].start == 0 and spans[-1].end == len(text)
     assert all(a.end == b.start for a, b in zip(spans, spans[1:]))
     def at(word):

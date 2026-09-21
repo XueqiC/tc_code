@@ -5,12 +5,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from decimal import Decimal
 import fcntl
+import io
 import json
 import multiprocessing
 from pathlib import Path
+import socket
 import sys
 import threading
 from types import SimpleNamespace
+import urllib.error
 
 import pytest
 
@@ -21,16 +24,26 @@ from bfas.rtd.benchmarks.alfworld_support import adapter as env_adapter, freeze_
 from test_rtd_alfworld_state import FakeStepper, make_payload, render
 from test_rtd_alfworld_support import write_json
 from test_webshop_adapter import StubTokenizer
+from test_appworld_teacher import http_error, payload, stub_client
 
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
-    import socket
     def forbidden(*args, **kwargs):
         pytest.fail('CPU collector test attempted network access')
     monkeypatch.setattr(socket.socket, 'connect', forbidden)
+    monkeypatch.setattr(pool.appworld_teacher.urllib.request, 'build_opener', forbidden)
     monkeypatch.setenv('BFAS_TEACHER_MIN_INTERVAL_S', '0')
     monkeypatch.delenv('BFAS_TEACHER', raising=False)
+    monkeypatch.delenv('AZURE_USAGE_LOG', raising=False)
+
+
+@pytest.fixture
+def azure_teacher(monkeypatch):
+    monkeypatch.setenv('BFAS_TEACHER', 'gpt-5.6-luna')
+    monkeypatch.setenv('AZURE_LLM_ENDPOINT', 'https://stub.invalid')
+    monkeypatch.setenv('AZURE_LLM_KEY', 'stub-key')
+    return 'gpt-5.6-luna'
 
 
 @pytest.fixture
@@ -333,6 +346,102 @@ def test_teacher_pool_api_failure_and_interrupt_keep_paid_reservations(source, t
     assert len({(r['task_id'], r['attempt_index']) for r in rows}) == len(rows)
 
 
+@pytest.mark.parametrize('workers', [1, 2])
+@pytest.mark.parametrize('cap', ['tokens', 'usd'])
+def test_teacher_pool_429_retries_settle_one_reservation(source, tmp_path, monkeypatch, azure_teacher, workers, cap):
+    # One envelope fits: another worker must wait until the retried call settles.
+    bound = initial_prompt_bound(source)
+    envelope = dict(prompt_tokens=bound, cached_tokens=0,
+                    completion_tokens=pool.appworld_teacher.MAX_COMPLETION_TOKENS)
+    limits = (pool.Limits(max_tokens=bound + envelope['completion_tokens']) if cap == 'tokens'
+              else pool.Limits(max_usd=pool.Limits().cost(envelope)))
+    adapters, requests, sleeps = [], [], []
+    lock = threading.Lock()
+
+    def adapter_factory(*args, **kwargs):
+        adapter = pool.PoolAdapter(*args, **kwargs)
+        adapters.append(adapter)
+        return adapter
+
+    def opener():
+        attempts = []
+        with lock:
+            requests.append(attempts)
+        def open_request(request, timeout):
+            budget = adapters[0].budget
+            pending = [c for c in budget.calls.values() if c['status'] == 'reserved']
+            assert len(pending) == 1
+            attempts.append((request.data, pending[0]))
+            if len(attempts) <= 2:
+                raise http_error(429, '0')
+            body = json.loads(request.data)
+            command = body['messages'][-1]['content'].split('Admissible commands:\n')[1].split('\n')[0]
+            return io.BytesIO(json.dumps(payload('ACTION: ' + command, usage=dict(
+                prompt_tokens=100, completion_tokens=20,
+                prompt_tokens_details=dict(cached_tokens=80),
+                completion_tokens_details=dict(reasoning_tokens=10)))).encode())
+        return SimpleNamespace(open=open_request)
+
+    monkeypatch.setattr(pool.appworld_teacher.urllib.request, 'build_opener', opener)
+    monkeypatch.setattr(pool.appworld_teacher.time, 'sleep', sleeps.append)
+    summary = pool.collect(source, tmp_path/'retried', workers=workers, limits=limits,
+                           rate_limit_retries=2, adapter_factory=adapter_factory, stepper_factory=FakeStepper)
+    assert len(requests) == 6 and all(len(attempts) == 3 for attempts in requests)
+    assert all(attempts[0] == attempts[1] == attempts[2] for attempts in requests)
+    assert sleeps == [0] * 12
+    assert summary['verified'] == 3 and summary['tokens'] == 720
+    assert summary['uncertain_calls'] == 0
+    rows = assert_accounting(summary, limits)
+    assert len(rows) == 3 and {r['attempt_index'] for r in rows} == {0}
+    assert {r['temperature'] for r in rows} == {0.0}
+    budget = adapters[0].budget
+    journal = [json.loads(line) for line in budget.path.read_text().splitlines()]
+    assert Counter((r['id'], r['status']) for r in journal) == Counter(
+        (i, status) for i in range(6) for status in ('reserved', 'reported'))
+    assert not budget._pending
+    assert all(c['status'] == 'reported' for c in budget.calls.values())
+    assert pool.Budget(budget.path, limits).usage() == budget.usage() == dict(
+        prompt_tokens=600, cached_tokens=480, completion_tokens=120)
+
+
+@pytest.mark.parametrize('retries', [0, 2])
+def test_teacher_pool_exhausted_429_keeps_one_uncertain_envelope(source, tmp_path, monkeypatch, azure_teacher, retries):
+    calls = stub_client(monkeypatch, [http_error(429, '0') for _ in range(retries + 1)])
+    sleeps = []
+    monkeypatch.setattr(pool.appworld_teacher.time, 'sleep', sleeps.append)
+    budget = pool.Budget(tmp_path/'usage.jsonl', pool.Limits())
+    support = pool.load_source(source)
+    adapter = pool.PoolAdapter(support, budget, azure_teacher, stepper_factory=FakeStepper,
+                               rate_limit_retries=retries)
+    episode = adapter.teacher_episode(support['historical_task_ids'][0], 0, 0.0)
+    assert not episode.verified and len(calls) == retries + 1 and sleeps == [0] * retries
+    journal = [json.loads(line) for line in budget.path.read_text().splitlines()]
+    assert len(journal) == 1 and journal[0]['status'] == 'reserved'
+    assert budget.usage() == episode.usage == journal[0]['usage']
+    assert not budget._pending
+
+
+@pytest.mark.parametrize('failure', [400, 401, 503, 'timeout', 'url_timeout', 'connection', 'malformed'])
+@pytest.mark.parametrize('after_429', [False, True])
+def test_teacher_pool_never_retries_non_429(source, tmp_path, monkeypatch, azure_teacher, failure, after_429):
+    response = (http_error(failure) if isinstance(failure, int) else
+                {'timeout': socket.timeout(), 'url_timeout': urllib.error.URLError(socket.timeout()),
+                 'connection': urllib.error.URLError(ConnectionError()), 'malformed': {}}[failure])
+    calls = stub_client(monkeypatch, ([http_error(429, '0')] if after_429 else []) + [response, payload()])
+    sleeps = []
+    monkeypatch.setattr(pool.appworld_teacher.time, 'sleep', sleeps.append)
+    budget = pool.Budget(tmp_path/'usage.jsonl', pool.Limits())
+    support = pool.load_source(source)
+    adapter = pool.PoolAdapter(support, budget, azure_teacher, stepper_factory=FakeStepper)
+    episode = adapter.teacher_episode(support['historical_task_ids'][0], 0, 0.0)
+    assert not episode.verified and len(calls) == 1 + after_429
+    assert sleeps == ([0] if after_429 else [])
+    journal = [json.loads(line) for line in budget.path.read_text().splitlines()]
+    assert len(journal) == 1 and journal[0]['status'] == 'reserved'
+    assert budget.usage() == episode.usage == journal[0]['usage']
+    assert not budget._pending
+
+
 @pytest.mark.parametrize('kwargs', [dict(max_tokens=-1), dict(max_usd='NaN'), dict(usd_out=-1), dict(usd_in='Infinity')])
 def test_teacher_pool_invalid_caps(kwargs):
     with pytest.raises(ValueError):
@@ -459,7 +568,8 @@ def test_alfworld_teacher_pool_workers_three_cli_and_locks(source, tmp_path, mon
                                       stepper_factory=stepper_factory))
     monkeypatch.setattr(pool, 'collect', stub_collect)
     out = tmp_path/'parallel'
-    pool.main(['--source', str(source), '--out', str(out), '--workers', '3'])
+    pool.main(['--source', str(source), '--out', str(out), '--workers', '3', '--rate-limit-retries', '2'])
+    assert all(call[2]['rate_limit_retries'] == 2 for call in teacher.calls)
     summary = summaries[0]
     assert summary['verified'] == 3 and summary['tokens'] == 720
     assert len(teacher.calls) == 6 and len(teacher.threads) == len(adapters) == 3
@@ -578,6 +688,21 @@ def test_alfworld_teacher_pool_invalid_workers(workers, monkeypatch):
     monkeypatch.setattr(pool, 'collect', lambda *a, **k: pytest.fail('invalid workers started collection'))
     with pytest.raises(SystemExit) as exc:
         pool.main(['--workers', str(workers)])
+    assert exc.value.code == 2
+
+
+@pytest.mark.parametrize('value', [None, 0, 2])
+def test_alfworld_teacher_pool_retry_cli_default_and_override(monkeypatch, value):
+    calls = []
+    monkeypatch.setattr(pool, 'collect', lambda *a, **kw: calls.append(kw))
+    pool.main([] if value is None else ['--rate-limit-retries', str(value)])
+    assert calls[0]['rate_limit_retries'] == (pool.appworld_teacher.RATE_LIMIT_RETRIES if value is None else value)
+
+
+def test_alfworld_teacher_pool_invalid_retry_cli(monkeypatch):
+    monkeypatch.setattr(pool, 'collect', lambda *a, **k: pytest.fail('invalid retries started collection'))
+    with pytest.raises(SystemExit) as exc:
+        pool.main(['--rate-limit-retries', '-1'])
     assert exc.value.code == 2
 
 
