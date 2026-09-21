@@ -4158,13 +4158,36 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **可直接导出的方法**:部署时做**合法动作约束解码**(admissibility-constrained decoding)应当整体消除崩塌带,
   并可能同时抬高低剂量格的表现。这是本项目第一个**由机制推出、且未被证伪**的方法候选。
 
-## ⟳ RESTART CHECKLIST (rewritten 2026-09-21 10:30 CDT — supersedes the 09-18 block)
+- 2026-09-21 10:25–10:40 CDT **会话重启 + 重启前交接(无实验)。**
+  会话于 10:25 被中控重开(三个 tmux 会话同时建立),本会话按清单读回状态。核对结果:
+  **LONI 队列空、rai 4/5 空闲、工作树干净**;9/18 那批八个实验的结果全部在盘,**无任何丢失**。
+  9/18 因中断未确认的两个 memory 文件(`project-collapse-format-before-vocabulary-0918.md`、
+  `feedback-check-shared-resources-before-parallel-submit.md`)**经核实已完整写入**。
+  **Codex 额度已恢复**(实测正常响应),9/18 我自己写的工具仍待补审查。
+  **hpg 实测连不上**:`Permission denied (keyboard-interactive)`,原因是 **Duo 未注册**,非隧道故障。
+  另外把两个一直未入库的冻结 split 配置纳入版本管理(`5ed9ee06`)。
+  **纠正一处流程误解(值得记住)**:`FRESH=1 bash ~/hq/ops/start_all.sh` **在会话still活着时是空操作**——
+  `relaunch.sh` 开头 `if tmux has-session … exit 0`,它是**幂等拉起**而非重启。真要 FRESH 重开必须先
+  `tmux kill-session` + `claude daemon stop --any` + 删 `.relaunched`,且**必须在目标会话之外执行**。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-21 10:40 CDT — supersedes the 09-18 block)
 
 **先读**:本节 + `docs/2026-09-18-improvement-plan.md`(开头有"结论速览"逐条判决)。
 
-### 当前状态(重启时先核对这三行)
-- **LONI 队列空**;rai 4/5 空闲;hpg 隧道 offline(中控的事,本项目当前不依赖)。
-- **没有在跑的作业**,9/18 那批八个实验全部完成并落盘。**重启不会丢任何东西。**
+### 接手三行(一个全新会话读这三行就能开工)
+1. **在跑的作业:无。** LONI 队列空(`ssh loni "squeue -u xueqic"` 已确认),rai 上本项目无进程。
+   9/18 那批八个实验全部完成并落盘,**重启不丢任何东西**;工作树干净,无未跟踪文件。
+2. **需要重挂的监视 / cron:无。** 会话级 Monitor 与后台 watcher 随重启全部消失,但**当前没有任何在跑的作业需要守候**,
+   所以**不需要重挂**。下次提交作业后才需要重新挂 watcher(模式见 `scratchpad/watch_*.sh`,重启后 scratchpad 已失效,照着重写即可)。
+3. **下一步:等用户在五项待决里点一个**(见本节末"待用户决定")。我的建议是先做第 1 项——
+   **合法动作约束解码验证**:零训练,拿现有 39 步 checkpoint 直接评,若 EM 从 ~23 跳回 55+,
+   崩塌机制与第一个方法候选一起坐实。**在用户点头之前不要开新作业。**
+
+### 集群可达性(2026-09-21 实测)
+- **LONI 可用**(`ssh loni` 正常),本项目所有 ALFWorld / HotpotQA 实验都在 LONI,树见下。
+- **hpg 连不上**:`ssh hpg` 返回 `Permission denied (keyboard-interactive)`。
+  **原因是 Duo 双因子未注册**,不是隧道问题——**不要按"隧道断了"去处理,也不要反复重试**。
+  本项目当前**不依赖 hpg**,无需等它恢复;真要用 hpg 请在 DM 里让中控处理注册。
 - **Codex 额度已恢复**(2026-09-21 探测正常)。9/18 我自己写的 `tools/lora_soup.py` 与三个 slurm 脚本**仍待 Codex 补审查**。
 
 ### 最新的、也是最重要的机制结论(2026-09-18 20:25)
