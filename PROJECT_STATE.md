@@ -538,6 +538,36 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
   5. **坑**:rai 上不设 `CUDA_DEVICE_ORDER=PCI_BUS_ID` 时 `CUDA_VISIBLE_DEVICES=1` 拿到的是
      **nvidia-smi 的 2 号卡(别人占用中)**。已全部改 PCI 序 + UUID 复核。
 
+### 评测后端迁移决定(2026-09-21 13:30 CDT,用户批准)
+**实测 vLLM 0.27.1 / gemma-4-12B / rai GPU4(Blackwell 97G),prompt 2,330 token、输出 256、greedy:**
+
+| 并发 | 聚合 tok/s | 对比 HF 单流 16 tok/s |
+|---:|---:|---:|
+| 1 | 52.4 | 3.3× |
+| 16 | 712.6 | 44.5× |
+| 32 | 1,141.0 | 71.3× |
+| 64 | **1,900.8** | **118.8×** |
+
+一次 140 题评测 = 3,417 个 agent step ≈ 87.5 万输出 token →
+**HF 15.2 小时(与实测 16.1 吻合)→ 并发 64 纯解码 0.13 小时,给 prefill+环境步进留 3 倍余量约 0.4 小时。**
+25 次评测从 **399 GPU-小时 → 约 10–16**;整个项目 **660 → 约 100 GPU-小时**,**四天排程成立**。
+
+**⚠️ 基准陷阱(已踩过一次)**:合成重复文本 prompt 会让模型立刻吐 EOS,第一次测出"每请求 4 个 token",
+吞吐数毫无意义。必须 `ignore_eos:true` + `min_tokens` 强制跑满,并**先核对返回的 completion_tokens**。
+**服务参数**:`VLLM_USE_FLASHINFER_SAMPLER=0`;**不要设** `VLLM_ATTENTION_BACKEND`(0.27.1 不识别,
+且 Gemma 4 异构 head 维度会强制 TRITON_ATTN);`--disable-log-requests` 已改名 `--no-enable-log-requests`。
+
+**用户的口径(2026-09-21)**:比特级生成差异**不重要**,真正会毁掉论文的是**不同格用了不同后端**;
+所以做法是**重新冻结 harness + 重跑 base**,不追求 token 一致。现跑的 HF base 保留作 55.71% 锚点对照。
+**hpg 23 号恢复**(8×B200 = 192 GPU-小时/天),但当前卡在 **Duo 未注册**,需中控尽早办。
+
+### 现场变化(2026-09-21 13:11–13:25 CDT)
+- **四个评测分片死于 `ALFWorld worker timeout (step=120.0s)`**,时间 13:11:17/13:11:39/13:11:39/13:12:51
+  (两个同秒)→ **系统级停顿**,非单任务问题。**vLLM 13:21:54 才启动,比死亡晚十分钟,已排除**。
+  已完成记录不丢,重启两片接上。
+- **GPU0 / GPU3 被 `wangshu` 于 13:20:56 占用**(两个 vLLM,43GB + 77.8GB),我未触碰其进程;
+  我方只剩 **GPU1 + GPU4**。→ **rai 日产能要按 1–2 张卡打折**,不能再按 48 GPU-小时/天算。
+
 ### Wave 0 采集侧实测(2026-09-21 12:00–13:05 CDT,共花约 9.5 万 token / 约 $0.062)
 1. **教师可用,但不写 `THOUGHT:` 标签。** Azure P1 单调用正常返回散文推理 + `ACTION: <cmd>`(含 57 reasoning token),
    **没有 `THOUGHT:` 前缀**。实测 `segment_spans(reply, benchmark="alfworld")` 对真实回复给出
