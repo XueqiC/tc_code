@@ -157,3 +157,11 @@ three-seed means so far: plain CE 80/77/77 = 78.0 (55.71%);  Kang 79/74/80 = 77.
 v2sads2p10    76/140    -2.14    27     15     12      0.701 |  100.0%    0.0%    5.6%   64      64   SAD-sum, seed 2 (184 steps); clean +3, cool -4
 v2smartads2p3 67/140    -8.57    32     22     10     0.0501 |   99.8%    0.0%    8.2%   73      73   SmartAD, seed 2, 3-pass
 three-seed means: SAD-sum 76/81/76 = 77.7 (55.48%)
+
+##### S. rai platform (vLLM 0.27.1, Blackwell, 14 clients): filtered D0 (sweep share <= 0.5, 22 demos, 10 passes = 44,130 tok, 85 steps) vs rai base (added 14:55 CDT)
+rai_base        84/140 = 60.00%
+rai_le50s0p10   69/140   -10.71  disc 29 (b22/c7)  p=0.008 | fallback 10.1% caps 71   per type look 7/9 pp 28/29 clean 15/16 cool 4/8 heat 3/8 two 12/14  (cell/base)
+rai_le50s1p10   72/140    -8.57  disc 26 (b19/c7)  p=0.029 | fallback  8.9% caps 68   per type look 8/9 pp 28/29 clean 15/16 cool 6/8 heat 4/8 two 11/14
+-> pre-registered readout NOT met: the filtered bank at its own 10 passes (85 updates, 44k tokens) sits well below base; heat and cool lose, clean does not gain.
+   Caveats: (i) rai platform, single base run (84; LONI base 79/84/80); same-platform CE 10-pass references queued (rai_ces0p10/rai_ces1p10);
+   (ii) 85 updates is between D0's 3-pass dip (55) and 10-pass recovery (184): a dose-position confound. Token-matched run (96,490 tok) queued on mike (le50tok s0/s1).
