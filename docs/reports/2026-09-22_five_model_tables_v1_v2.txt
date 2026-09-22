@@ -165,3 +165,16 @@ rai_le50s1p10   72/140    -8.57  disc 26 (b19/c7)  p=0.029 | fallback  8.9% caps
 -> pre-registered readout NOT met: the filtered bank at its own 10 passes (85 updates, 44k tokens) sits well below base; heat and cool lose, clean does not gain.
    Caveats: (i) rai platform, single base run (84; LONI base 79/84/80); same-platform CE 10-pass references queued (rai_ces0p10/rai_ces1p10);
    (ii) 85 updates is between D0's 3-pass dip (55) and 10-pass recovery (184): a dose-position confound. Token-matched run (96,490 tok) queued on mike (le50tok s0/s1).
+
+##### T. rai platform table (vLLM 0.27.1, Blackwell RTX PRO 6000, 14 clients, same 140 tasks) — added 16:05 CDT
+rai_base        84/140 = 60.00%        rai_base_rep 81/140 (-2.14, 11 flips 7/4, p=0.55)   -> rai repeat noise: 11 flips
+rai_ces0p10     74/140   -7.14  disc 22 (b16/c6) p=0.052 | plain CE 10-pass seed 0 (LONI read 80 vs base 79)
+rai_ces1p10     74/140   -7.14  disc 22 (b16/c6) p=0.052 | plain CE 10-pass seed 1 (LONI read 77)
+rai_highs0p10   76/140   -5.71  disc 26 (b17/c9) p=0.17  | high-sweep half, 10 passes (137 steps, 71.6k tok)
+rai_highs1p10   77/140   -5.00  disc 25 (b16/c9) p=0.23
+rai_le50s0p10   69/140  -10.71  disc 29 (b22/c7) p=0.008 | filtered D0 (sweep<=0.5), 10 passes (85 steps, 44k tok)
+rai_le50s1p10   72/140   -8.57  disc 26 (b19/c7) p=0.029
+-> CROSS-PLATFORM SHIFT: the same CE 10-pass checkpoints read 80/77 on LONI (base 79/84/80) but 74/74 on rai (base 84/81).
+   The base is stable across platforms (mean 81.0 vs 82.5); the trained models lose ~5 tasks on rai. Within rai: filtered-D0 -5/-2 vs CE,
+   high-sweep +2/+3 vs CE, all inside rai's own repeat noise. Conclusion: the sweep-filter test is inconclusive at this dose; the
+   token-matched run (mike) and a single evaluation platform (hpg B200, one vLLM pin) are needed before any material claim.
