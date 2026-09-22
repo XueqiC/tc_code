@@ -42,6 +42,61 @@ from bfas.rtd.transport import FullState
 
 ATTEMPTS = 3
 DEFAULT_TEACHER = "openai/gpt-5.6-luna"
+METHODS = ('plain', 'smartad', 'kang-ftp')
+
+
+def reasoning_messages(request, observation):
+    """FTP's plain reasoning purchase sees only the goal and reset observation."""
+    return [dict(role='system', content=(
+        'Explain how you would solve this ALFWorld household task. Give clear reasoning '
+        'in paragraphs, beginning with your initial plan. This is a planning question; '
+        'do not issue an ACTION or interact with the environment.')),
+        dict(role='user', content=f"Goal: {request['goal']}\n\nInitial observation:\n{observation.observation}")]
+
+
+def first_thought_prefix(response):
+    # Exact vendored build_prefix_memory.py rule, with ALFWorld's marker casing.
+    return 'THOUGHT: ' + response.split('\n\n')[0] + '\n\n'
+
+
+class PrefixMemory:
+    """One durable reasoning response per task, shared by trajectory retries."""
+
+    def __init__(self, directory):
+        self.path = directory / 'prefix_records.json'
+        self.memory_path = directory / 'prefix_memory.json'
+        self.lock = threading.Lock()
+        self.records = json.loads(self.path.read_text()) if self.path.exists() else {}
+        for record in self.records.values():
+            if record['prefix'] != first_thought_prefix(record['response']):
+                raise ValueError('prefix memory differs from its reasoning response')
+
+    def save(self, task_id, call, messages, response):
+        with self.lock:
+            record = dict(call_id=call['id'], attempt_index=call['attempt_index'],
+                          messages=messages, response=response, prefix=first_thought_prefix(response))
+            self.records[task_id] = record
+            write_json(self.path, self.records)
+            self.export()
+            return record['prefix']
+
+    def export(self):
+        write_json(self.memory_path, {tid: r['prefix'] for tid, r in self.records.items()})
+
+    def missing_paid_response(self, task_id, calls):
+        return task_id not in self.records and any(
+            c['task_id'] == task_id and c.get('phase') == 'cot' for c in calls.values())
+
+
+def sampling_parameters(config, temperature):
+    # Archive only sampling fields, never configuration/headers/credentials.
+    if not hasattr(config, 'backend'):  # injected test transport
+        return dict(requested_temperature=temperature, temperature=temperature,
+                    temperature_source='injected transport')
+    body = appworld_teacher._build_request_body(config, [], temperature)
+    return dict(requested_temperature=temperature, temperature=body.get('temperature'),
+                temperature_source='explicit' if 'temperature' in body else 'provider default',
+                seed=body.get('seed'), top_p=body.get('top_p'))
 
 
 def write_json(path, value):
@@ -167,7 +222,7 @@ class Budget:
             return None, 'budget cannot reserve next prompt and completion'
         return dict(prompt_tokens=prompt, cached_tokens=0, completion_tokens=output), None
 
-    def _admit(self, task_id=None, attempt_index=None, messages=None):
+    def _admit(self, task_id=None, attempt_index=None, messages=None, *, phase='trajectory', sampling=None):
         with self._condition:
             while True:
                 with self._locked():
@@ -178,7 +233,9 @@ class Budget:
                         if messages is None:
                             return
                         call = dict(id=max(self._calls, default=-1) + 1, task_id=task_id,
-                                    attempt_index=attempt_index, status='reserved', usage=usage)
+                                    attempt_index=attempt_index, status='reserved', usage=usage,
+                                    phase=phase, sampling=dict(sampling or {},
+                                        max_completion_tokens=usage['completion_tokens']))
                         # fsync precedes the external call, while admission is locked.
                         append_record(self.path, call)
                         self._pending[call['id']] = threading.get_ident()
@@ -189,8 +246,8 @@ class Budget:
                 # crash are charged but never waited on. No file lock spans I/O.
                 self._condition.wait()
 
-    def reserve(self, task_id, attempt_index, messages):
-        return self._admit(task_id, attempt_index, messages)
+    def reserve(self, task_id, attempt_index, messages, *, phase='trajectory', sampling=None):
+        return self._admit(task_id, attempt_index, messages, phase=phase, sampling=sampling)
 
     def finish(self, call):
         """A request ended, possibly without usage; retain any uncertain bill."""
@@ -233,12 +290,38 @@ class PoolAdapter:
 
     def __init__(self, support, budget, teacher, *, stepper_factory=real_stepper,
                  generate_reply=None, config_loader=None,
-                 rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES):
+                 rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES, prefix_memory=None):
         self.support, self.budget, self.teacher = support, budget, teacher
         self.rate_limit_retries = rate_limit_retries
         self.stepper_factory = stepper_factory
         self.generate_reply = generate_reply or appworld_teacher.generate_reply
         self.config_loader = config_loader or appworld_teacher.load_teacher_config
+        self.prefix_memory = prefix_memory
+
+    def purchase(self, config, task_id, attempt_index, messages, temperature, *, phase='trajectory'):
+        call = self.budget.reserve(task_id, attempt_index, messages, phase=phase,
+                                   sampling=sampling_parameters(config, temperature))
+        raw_response = []
+        def capture_response(event):
+            # The generic transport strips content whitespace. FTP must split
+            # the original response, including leading blank lines, verbatim.
+            data = event.get('data', {})
+            choices = data.get('choices') if isinstance(data, dict) else None
+            if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+                message = choices[0].get('message')
+                if isinstance(message, dict) and isinstance(message.get('content'), str):
+                    raw_response.append(message['content'])
+        try:
+            reply = self.generate_reply(
+                config, messages, temperature=temperature, retries=0,
+                rate_limit_retries=self.rate_limit_retries,
+                max_completion_tokens=call['usage']['completion_tokens'],
+                usage_callback=lambda usage: self.budget.settle(call, usage),
+                **(dict(response_callback=capture_response) if phase == 'cot' else {}),
+            )
+            return (raw_response[-1] if raw_response else reply), call
+        finally:
+            self.budget.finish(call)
 
     def teacher_name(self):
         return self.teacher
@@ -261,22 +344,31 @@ class PoolAdapter:
                 stepper = self.stepper_factory(request)
                 cursor, observation = stepper.reset(request)
                 history = [_observed(observation)]
-                for _ in range(request['max_episode_steps']):
+                prefix = None
+                if self.prefix_memory is not None:
+                    record = self.prefix_memory.records.get(task_id)
+                    if record is None:
+                        if self.prefix_memory.missing_paid_response(task_id, self.budget.calls):
+                            raise ValueError('paid reasoning response missing; refusing to repurchase')
+                        messages = reasoning_messages(request, observation)
+                        response, call = self.purchase(config, task_id, attempt_index, messages, 0.0, phase='cot')
+                        prefix = self.prefix_memory.save(task_id, call, messages, response)
+                    else:
+                        prefix = record['prefix']
+                for step_index in range(request['max_episode_steps']):
                     if observation.done:
                         won = observation.won
                         break
                     messages = prompt_messages(request, history)
-                    call = self.budget.reserve(task_id, attempt_index, messages)
-                    try:
-                        reply = self.generate_reply(
-                            config, messages, temperature=temperature, retries=0,
-                            rate_limit_retries=self.rate_limit_retries,
-                            max_completion_tokens=call['usage']['completion_tokens'],
-                            usage_callback=lambda usage: self.budget.settle(call, usage),
-                        )
-                    finally:
-                        self.budget.finish(call)
+                    if prefix is not None and step_index == 0:
+                        messages[0]['content'] += (
+                            '\nContinue the supplied assistant first-thought prefix. Return only '
+                            'the continuation, ending with the required ACTION. Do not repeat the prefix.')
+                        messages.append(dict(role='assistant', content=prefix))
+                    reply, _ = self.purchase(config, task_id, attempt_index, messages, temperature)
                     responses.append(reply)
+                    if prefix is not None and step_index == 0 and not reply.startswith(prefix):
+                        reply = prefix + reply
                     command = ALFWorldAdapter._teacher_command(appworld_teacher.strip_think(reply), observation.admissible)
                     context = prompt_messages(request, history, react=False)
                     # Preserve the generated turn verbatim; only commands drive the environment.
@@ -341,9 +433,42 @@ def collection_support(source_support):
     return validate_support(_signed(support))
 
 
-def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper):
+def purchase_cost(calls, limits):
+    usage = {key: sum(c['usage'][key] for c in calls)
+             for key in ('prompt_tokens', 'cached_tokens', 'completion_tokens')}
+    return dict(**usage, tokens=usage['prompt_tokens'] + usage['completion_tokens'],
+                estimated_usd=float(limits.cost(usage)), estimated_usd_decimal=str(limits.cost(usage)),
+                calls=len(calls), uncertain_calls=sum(c['status'] == 'reserved' for c in calls))
+
+
+def attempt_material(row, calls, limits, method, prefix_memory):
+    purchases = [c for c in calls.values()
+                 if (c['task_id'], c['attempt_index']) == (row['task_id'], row['attempt_index'])]
+    phases = {phase: purchase_cost([c for c in purchases if c.get('phase', 'trajectory') == phase], limits)
+              for phase in ('cot', 'trajectory')}
+    fields = teacher_payload_fields(row)
+    result = dict(method=method, candidate_id=canonical_hash([row['task_id'], row['attempt_index']]),
+                  attempt_index=row['attempt_index'], requested_temperature=row['temperature'],
+                  purchase_cost=purchase_cost(purchases, limits), phase_costs=phases,
+                  sampling=[dict(call_id=c['id'], phase=c.get('phase', 'trajectory'), **c['sampling'])
+                            for c in purchases],
+                  trajectory_hash=canonical_hash(fields) if row['verified'] else None,
+                  commands_hash=canonical_hash(fields['commands']) if row['verified'] else None)
+    if prefix_memory is not None and phases['trajectory']['calls']:
+        record = prefix_memory.records[row['task_id']]
+        result['first_thought_prefix'] = record['prefix']
+        result['prefix_cot_call_id'] = record['call_id']
+    return result
+
+
+def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper,
+                budget=None, method='plain', candidates_per_task=1, prefix_memory=None):
     """Rebuild solely from paid ledger rows; verification makes no teacher calls."""
     payloads, records, resets = {}, [], {}
+    calls = budget.calls if budget is not None else {}
+    candidate_sets = {tid: dict(attempts=[], verified_candidates=0, distinct_verified_candidates=0,
+                               distinct_verified_command_trajectories=0)
+                      for tid in support['historical_task_ids']}
     old_resets = json.loads((Path(source) / 'public/reset_states.json').read_text())
     for tid, raw in old_resets.items():
         request = support['tasks'][tid]['request']
@@ -373,12 +498,17 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper):
                             teacher=row['teacher'], state_validation='pending CPU replay'),
             historical_response=row, raw_ledger_line=raw, historical_events=[],
         )
+        if budget is not None:
+            payload['collection'] = attempt_material(row, calls, budget.limits, method, prefix_memory)
         if candidate:
             payload = verify_package(payload, request, stepper_factory(request), render, support=ALFWorldSupport(support))
             if payload['status'] == 'usable':
                 resets[tid] = payload['verification']['states'][0]
         payloads[q] = payload
         records.append(bank.public_record(q, request))
+        if budget is not None:
+            candidate_sets[tid]['attempts'].append(dict(query_id=q, status=payload['status'],
+                collection_verified=row['verified'], **payload['collection']))
     archive = bank.Archive(records, payloads, {}, [], dict(source_files=[dict(path=str(ledger), sha256=ledger_hash)]))
     out = Path(out)
     with tempfile.TemporaryDirectory(prefix=f'.{out.name}-', dir=out.parent) as temporary:
@@ -398,6 +528,23 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper):
             raise
         if previous.exists():
             shutil.rmtree(previous)
+    if budget is not None:
+        for tid, group in candidate_sets.items():
+            candidates = [a for a in group['attempts'] if a['status'] == 'usable']
+            group.update(attempt_count=len(group['attempts']), verified_candidates=len(candidates),
+                         distinct_verified_candidates=len({c['trajectory_hash'] for c in candidates}),
+                         distinct_verified_command_trajectories=len({c['commands_hash'] for c in candidates}),
+                         requested_candidates=candidates_per_task,
+                         shortfall=max(0, candidates_per_task - len(candidates)),
+                         purchase_cost=purchase_cost([c for c in calls.values() if c['task_id'] == tid], budget.limits),
+                         phase_costs={phase: purchase_cost([c for c in calls.values()
+                             if c['task_id'] == tid and c.get('phase', 'trajectory') == phase], budget.limits)
+                             for phase in ('cot', 'trajectory')})
+        write_json(ledger.parent / 'candidate_sets.json', dict(
+            method=method, bank_manifest_sha256=bank.file_hash(out / 'sealed/manifest.json'),
+            ledger_sha256=ledger_hash, usage_sha256=bank.file_hash(budget.path) if budget.path.exists() else None,
+            distinctness='exact teacher payload (full ReAct targets and executed commands)',
+            tasks=candidate_sets))
     return sum(p['status'] == 'usable' for p in payloads.values())
 
 
@@ -424,7 +571,7 @@ def recover_attempts(ledger, budget, teacher):
 
 
 def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, stepper_factory,
-                 rate_limit_retries):
+                 rate_limit_retries, candidates_per_task=1, attempts_per_task=ATTEMPTS, prefix_memory=None):
     # The collection lock excludes other collectors, including the old sequential
     # command. Queue ownership excludes duplicate tasks within this collector.
     # Only accounting holds the ledger lock; each worker owns its adapter/stepper.
@@ -448,20 +595,23 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
         rows = read_records(ledger)
     for task_id in support['historical_task_ids']:
         previous = [r for r in rows if r['task_id'] == task_id]
-        if len(previous) < ATTEMPTS and not any(r['verified'] for r in previous):
-            tasks.put((task_id, len(previous)))
+        verified = sum(r['verified'] for r in previous)
+        first_attempt = max((r['attempt_index'] for r in previous), default=-1) + 1
+        if (first_attempt < attempts_per_task and verified < candidates_per_task
+                and not (prefix_memory is not None and prefix_memory.missing_paid_response(task_id, budget.calls))):
+            tasks.put((task_id, first_attempt, verified))
 
     def work():
         try:
             adapter = adapter_factory(support, budget, teacher, stepper_factory=stepper_factory,
-                                      rate_limit_retries=rate_limit_retries)
+                                      rate_limit_retries=rate_limit_retries, prefix_memory=prefix_memory)
             while True:
                 try:
-                    task_id, first_attempt = tasks.get_nowait()
+                    task_id, first_attempt, verified = tasks.get_nowait()
                 except Empty:
                     return
                 try:
-                    for attempt_index in range(first_attempt, ATTEMPTS):
+                    for attempt_index in range(first_attempt, attempts_per_task):
                         pace()
                         temperature = 0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE
                         episode = adapter.teacher_episode(task_id, attempt_index, temperature)
@@ -476,7 +626,9 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
                                            attempt_index=attempt_index, temperature=temperature,
                                            verified=episode.verified, demo=episode.demo,
                                            tokens_spent=usage['completion_tokens'], usage=usage)
-                        if episode.verified:
+                        verified += episode.verified
+                        if (verified >= candidates_per_task or
+                                prefix_memory is not None and prefix_memory.missing_paid_response(task_id, budget.calls)):
                             break
                 finally:
                     tasks.task_done()
@@ -501,8 +653,24 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
         executor.shutdown(wait=True, cancel_futures=True)
 
 
+def collection_options(method, candidates_per_task, attempts_per_task):
+    if method not in METHODS:
+        raise ValueError(f'method must be one of {METHODS}')
+    if type(candidates_per_task) is not int or candidates_per_task < 1:
+        raise ValueError('candidates_per_task must be a positive integer')
+    if method != 'smartad' and candidates_per_task != 1:
+        raise ValueError('multiple candidates require --method smartad')
+    if attempts_per_task is None:
+        attempts_per_task = ATTEMPTS * candidates_per_task
+    if type(attempts_per_task) is not int or attempts_per_task < candidates_per_task:
+        raise ValueError('attempts_per_task must be an integer >= candidates_per_task')
+    return attempts_per_task
+
+
 def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper, adapter_factory=PoolAdapter,
-            rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES):
+            rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES, method='plain',
+            candidates_per_task=1, attempts_per_task=None):
+    attempts_per_task = collection_options(method, candidates_per_task, attempts_per_task)
     if type(workers) is not int or workers < 1:
         raise ValueError('workers must be a positive integer')
     if type(rate_limit_retries) is not int or rate_limit_retries < 0:
@@ -519,7 +687,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
     with collection_lock(directory):
         identity = dict(source_manifest=bank.file_hash(source / 'sealed/manifest.json'),
                         support_manifest=support['manifest_hash'], teacher=teacher, service_tier='flex',
-                        attempts=ATTEMPTS, prices=[str(limits.usd_in), str(limits.usd_out), str(limits.usd_cached)])
+                        attempts=attempts_per_task, method=method, candidates_per_task=candidates_per_task,
+                        prices=[str(limits.usd_in), str(limits.usd_out), str(limits.usd_cached)])
         identity_path = directory / 'identity.json'
         if identity_path.exists():
             if json.loads(identity_path.read_text()) != identity:
@@ -535,14 +704,23 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
         seen = set()
         for row in rows:
             key = row['task_id'], row['attempt_index']
-            if (key in seen or key[0] not in support['historical_task_ids'] or key[1] >= ATTEMPTS
+            if (key in seen or key[0] not in support['historical_task_ids'] or not 0 <= key[1] < attempts_per_task
                     or row['teacher'] != teacher):
                 raise ValueError('ledger contains duplicate/outside task attempts or a different teacher')
             seen.add(key)
         budget = Budget(directory / 'usage.jsonl', limits)
         for call in budget.calls.values():
-            if call['task_id'] not in support['historical_task_ids'] or not 0 <= call['attempt_index'] < ATTEMPTS:
+            if call['task_id'] not in support['historical_task_ids'] or not 0 <= call['attempt_index'] < attempts_per_task:
                 raise ValueError('request accounting contains an outside task attempt')
+        prefix_memory = PrefixMemory(directory) if method == 'kang-ftp' else None
+        if prefix_memory is not None:
+            calls = budget.calls
+            for tid, record in prefix_memory.records.items():
+                call = calls.get(record['call_id'], {})
+                if (call.get('task_id') != tid or call.get('phase') != 'cot'
+                        or call.get('attempt_index') != record['attempt_index']):
+                    raise ValueError('prefix memory lacks its paid reasoning call')
+            prefix_memory.export()
         for row in rows:
             usage = budget.usage(row['task_id'], row['attempt_index'])
             if row['tokens_spent'] != usage['completion_tokens'] or row.get('usage', {}) != usage:
@@ -552,7 +730,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
         try:
             acquire_pool(ledger, support, budget, teacher, workers=workers,
                          adapter_factory=adapter_factory, stepper_factory=stepper_factory,
-                         rate_limit_retries=rate_limit_retries)
+                         rate_limit_retries=rate_limit_retries, candidates_per_task=candidates_per_task,
+                         attempts_per_task=attempts_per_task, prefix_memory=prefix_memory)
         except AcquisitionStopped as exc:
             reason = str(exc)
         except KeyboardInterrupt:
@@ -560,8 +739,15 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
         finally:
             recover_attempts(ledger, budget, teacher)
             with _purchase_lock(ledger):
-                verified = export_pool(source, out, ledger, support, stepper_factory=stepper_factory)
+                verified = export_pool(source, out, ledger, support, stepper_factory=stepper_factory,
+                    budget=budget, method=method, candidates_per_task=candidates_per_task, prefix_memory=prefix_memory)
         usage = budget.usage()
+        groups = json.loads((directory / 'candidate_sets.json').read_text())['tasks']
+        per_task = {tid: {k: v for k, v in group.items() if k != 'attempts'} for tid, group in groups.items()}
+        if prefix_memory is not None:
+            for tid, task in per_task.items():
+                if prefix_memory.missing_paid_response(tid, budget.calls):
+                    task['blocked_reason'] = 'paid reasoning response missing; not repurchased'
         summary = dict(tasks=len(support['historical_task_ids']),
                        tasks_attempted=len({r['task_id'] for r in read_records(ledger)}),
                        verified=verified, tokens=usage['prompt_tokens'] + usage['completion_tokens'],
@@ -569,6 +755,20 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
                        uncertain_calls=sum(c['status'] == 'reserved' for c in budget.calls.values()),
                        stop_reason=budget.stopped or reason, teacher=teacher, service_tier='flex',
                        ledger=str(ledger), out=str(out))
+        summary.update(method=method, candidates_per_task=candidates_per_task, attempts_per_task=attempts_per_task,
+                       attempts=sum(g['attempt_count'] for g in groups.values()), verified_candidates=verified,
+                       distinct_verified_candidates=sum(g['distinct_verified_candidates'] for g in groups.values()),
+                       tasks_at_target=sum(g['shortfall'] == 0 for g in groups.values()),
+                       shortfall=sum(g['shortfall'] for g in groups.values()), per_task=per_task,
+                       candidate_sets=str(directory / 'candidate_sets.json'),
+                       phase_costs={phase: purchase_cost([c for c in budget.calls.values()
+                           if c.get('phase', 'trajectory') == phase], limits) for phase in ('cot', 'trajectory')})
+        if summary['shortfall'] and summary['stop_reason'] == 'complete':
+            summary['stop_reason'] = 'attempts exhausted or unavailable; candidate shortfall'
+        if prefix_memory is not None:
+            summary.update(prefix_memory=str(prefix_memory.memory_path), prefix_records=str(prefix_memory.path),
+                           prefix_memory_sha256=bank.file_hash(prefix_memory.memory_path),
+                           prefix_records_sha256=bank.file_hash(prefix_memory.path) if prefix_memory.path.exists() else None)
         write_json(directory / 'summary.json', summary)
         print(json.dumps(summary, indent=2), flush=True)
         return summary
@@ -579,6 +779,11 @@ def main(argv=None):
     parser.add_argument('--source', type=Path, default=ROOT / 'data/rtd/v1_alfworld_c26')
     parser.add_argument('--out', type=Path, default=ROOT / 'data/rtd/v1_alfworld_luna')
     parser.add_argument('--max-tokens', type=int, default=400000)
+    parser.add_argument('--method', choices=METHODS, default='plain')
+    parser.add_argument('--candidates-per-task', type=int, default=1,
+                        help='SmartAD verified trajectory target; duplicates are retained (default: 1)')
+    parser.add_argument('--attempts-per-task', type=int,
+                        help='total trajectory attempt cap per task (default: 3 * candidates-per-task)')
     parser.add_argument('--workers', type=int, default=1,
                         help='concurrent episodes, each with its own environment process (default: 1)')
     parser.add_argument('--rate-limit-retries', type=int, default=appworld_teacher.RATE_LIMIT_RETRIES,
@@ -593,12 +798,14 @@ def main(argv=None):
             raise ValueError('workers must be a positive integer')
         if args.rate_limit_retries < 0:
             raise ValueError('rate_limit_retries must be a non-negative integer')
+        collection_options(args.method, args.candidates_per_task, args.attempts_per_task)
         limits = Limits(args.max_tokens, args.max_usd, args.usd_per_mtok_in,
                         args.usd_per_mtok_out, args.usd_per_mtok_cached)
     except ValueError as exc:
         parser.error(str(exc))
     collect(args.source, args.out, limits=limits, workers=args.workers,
-            rate_limit_retries=args.rate_limit_retries)
+            rate_limit_retries=args.rate_limit_retries, method=args.method,
+            candidates_per_task=args.candidates_per_task, attempts_per_task=args.attempts_per_task)
 
 
 if __name__ == '__main__':

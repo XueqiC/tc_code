@@ -852,3 +852,247 @@ def test_alfworld_teacher_pool_workers_drain_queue_and_exhaust_attempts(source, 
     no_calls = Teacher()
     assert collect(source, tmp_path/'queue', no_calls, workers=3) == summary
     assert not no_calls.calls
+
+
+def mechanism_http(monkeypatch, *, reasoning='Find the apple.\n\nThen put it on the table.',
+                   distinct=False, errors=None):
+    """Exercise the real transport/usage callback while replacing only HTTP."""
+    calls, lock = [], threading.Lock()
+    def open_request(request, timeout):
+        body = json.loads(request.data)
+        with lock:
+            index = len(calls)
+            calls.append(body)
+        if errors and index in errors:
+            raise errors[index]
+        messages = body['messages']
+        if 'planning question' in messages[0]['content']:
+            reply = reasoning
+        else:
+            question = next(m['content'] for m in messages if m['role'] == 'user')
+            command = question.split('Admissible commands:\n')[1].split('\n')[0]
+            thought = f'plan {index}' if distinct else 'solve the task'
+            reply = f'THOUGHT: {thought}.\nACTION: {command}'
+        return io.BytesIO(json.dumps(payload(reply, dict(prompt_tokens=100, completion_tokens=20,
+            prompt_tokens_details=dict(cached_tokens=80)))).encode())
+    monkeypatch.setattr(pool.appworld_teacher.urllib.request, 'build_opener',
+                        lambda: SimpleNamespace(open=open_request))
+    monkeypatch.setattr(pool.appworld_teacher.time, 'sleep', lambda _: None)
+    return calls
+
+
+def http_collect(source, out, **kwargs):
+    return pool.collect(source, out, stepper_factory=FakeStepper, **kwargs)
+
+
+def settled_journal(summary, expected):
+    path = Path(summary['ledger']).parent / 'usage.jsonl'
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    assert len(records) == 2 * expected
+    assert Counter((r['id'], r['status']) for r in records) == Counter(
+        (i, status) for i in range(expected) for status in ('reserved', 'reported'))
+    return [r for r in records if r['status'] == 'reported']
+
+
+@pytest.mark.parametrize('workers', [1, 3])
+@pytest.mark.parametrize('distinct', [False, True])
+def test_smartad_candidate_sets_http(source, tmp_path, monkeypatch, azure_teacher, workers, distinct):
+    calls = mechanism_http(monkeypatch, distinct=distinct)
+    out = tmp_path / 'smartad'
+    summary = http_collect(source, out, method='smartad', candidates_per_task=4, workers=workers)
+    rows = assert_accounting(summary)
+    assert summary['attempts'] == summary['verified_candidates'] == 12
+    assert summary['tasks_at_target'] == 3 and summary['shortfall'] == 0
+    assert len(calls) == 24 and summary['tokens'] == 2880
+    assert len(rows) == 12
+    settled_journal(summary, 24)
+    groups = json.loads(Path(summary['candidate_sets']).read_text())
+    assert groups['bank_manifest_sha256'] == pool.bank.file_hash(out / 'sealed/manifest.json')
+    for tid, group in groups['tasks'].items():
+        assert group['attempt_count'] == group['verified_candidates'] == 4
+        assert group['distinct_verified_candidates'] == (4 if distinct else 1)
+        assert group['distinct_verified_command_trajectories'] == 1
+        assert group['purchase_cost']['tokens'] == 960
+        assert [c['requested_temperature'] for c in group['attempts']] == [0.0, 0.7, 0.7, 0.7]
+        assert len({c['candidate_id'] for c in group['attempts']}) == 4
+        for candidate in group['attempts']:
+            assert candidate['purchase_cost']['tokens'] == 240
+            assert candidate['purchase_cost']['estimated_usd'] == pytest.approx(float(pool.Limits().cost(
+                dict(prompt_tokens=200, completion_tokens=40, cached_tokens=160))))
+            assert len(candidate['sampling']) == 2
+            assert all(s['temperature'] is None and s['temperature_source'] == 'provider default'
+                       for s in candidate['sampling'])
+            sealed = json.loads((out / 'sealed' / f"{candidate['query_id']}.json").read_text())
+            assert sealed['collection']['purchase_cost'] == candidate['purchase_cost']
+            assert sealed['usage']['completion_tokens'] == sealed['cost'] == 40
+            assert sealed['provenance']['task_id'] == tid
+    assert all('temperature' not in body for body in calls)  # Luna's actual wire behavior
+    assert pool.audit_verified_bank(out)['usable_packages'] == 12
+    assert http_collect(source, out, method='smartad', candidates_per_task=4, workers=workers) == summary
+    assert len(calls) == 24
+
+
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_smartad_failed_attempts_and_shortfall(source, tmp_path, monkeypatch, azure_teacher):
+    calls = mechanism_http(monkeypatch)
+    acquisitions = 0
+    def stepper(request):
+        nonlocal acquisitions
+        acquisitions += 1
+        return FakeStepper(request, fault='lost' if acquisitions == 1 else None)
+    summary = pool.collect(source, tmp_path / 'retry', method='smartad', candidates_per_task=4,
+                           attempts_per_task=4, stepper_factory=stepper)
+    assert summary['attempts'] == 4 and summary['verified_candidates'] == 3
+    assert summary['shortfall'] == 1 and 'shortfall' in summary['stop_reason']
+    assert summary['tokens'] == 960 and len(calls) == 8
+    assert len(assert_accounting(summary)) == 4
+    settled_journal(summary, 8)
+
+
+@pytest.mark.parametrize('reasoning', ['  Locate the apple.\n\nSECOND paragraph must be excluded.',
+                                      'No blank line', 'First.\r\n\r\nStill same paragraph',
+                                      '\n\nAn empty first paragraph is retained.'])
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_kang_ftp_http_order_prefix_and_cost(source, tmp_path, monkeypatch, azure_teacher, reasoning):
+    calls = mechanism_http(monkeypatch, reasoning=reasoning)
+    out = tmp_path / 'kang'
+    summary = http_collect(source, out, method='kang-ftp')
+    assert summary['verified'] == 1 and len(calls) == 3 and summary['tokens'] == 360
+    tid = next(iter(summary['per_task']))
+    prefix = 'THOUGHT: ' + reasoning.split('\n\n')[0] + '\n\n'
+    assert 'planning question' in calls[0]['messages'][0]['content']
+    assert 'Initial observation:' in calls[0]['messages'][1]['content']
+    assert pool.load_source(source)['tasks'][tid]['request']['goal'] in calls[0]['messages'][1]['content']
+    assert calls[1]['messages'][-1] == dict(role='assistant', content=prefix)
+    assert all(m['role'] != 'assistant' for m in calls[2]['messages'])
+    assert json.loads(Path(summary['prefix_memory']).read_text()) == {tid: prefix}
+    record = json.loads(Path(summary['prefix_records']).read_text())[tid]
+    assert record['response'] == reasoning and record['messages'] == calls[0]['messages']
+    assert record['call_id'] == 0
+    rows = assert_accounting(summary)
+    assert rows[0]['demo']['turns'][0]['target'] == prefix + 'THOUGHT: solve the task.\nACTION: go to table 1'
+    assert rows[0]['demo']['teacher_commands'] == ['go to table 1', 'put apple 1 on table 1']
+    assert rows[0]['tokens_spent'] == 60  # planning completion also belongs to Kang
+    journal = settled_journal(summary, 3)
+    assert [r['phase'] for r in journal] == ['cot', 'trajectory', 'trajectory']
+    for costs in (summary['phase_costs'], summary['per_task'][tid]['phase_costs']):
+        assert costs['cot']['tokens'] == 120 and costs['trajectory']['tokens'] == 240
+    groups = json.loads(Path(summary['candidate_sets']).read_text())['tasks']
+    candidate = groups[tid]['attempts'][0]
+    assert candidate['first_thought_prefix'] == prefix and candidate['purchase_cost']['tokens'] == 360
+    sealed = json.loads((out / 'sealed' / f"{candidate['query_id']}.json").read_text())
+    assert sealed['collection']['prefix_cot_call_id'] == record['call_id']
+    assert sealed['teacher_react_turns'][0].startswith(prefix)
+    assert pool.audit_verified_bank(out)['passed']
+    assert http_collect(source, out, method='kang-ftp') == summary
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_kang_ftp_cap_resume_reuses_paid_prefix(source, tmp_path, monkeypatch, azure_teacher):
+    calls = mechanism_http(monkeypatch)
+    out = tmp_path / 'resume-kang'
+    # Planning fits; its reported cost leaves no room for the larger ReAct prompt.
+    request = pool.load_source(source)['tasks'][pool.load_source(source)['historical_task_ids'][0]]['request']
+    _, observation = FakeStepper(request).reset(request)
+    cap = pool.prompt_bound(pool.reasoning_messages(request, observation)) + 20
+    first = http_collect(source, out, method='kang-ftp', limits=pool.Limits(max_tokens=cap))
+    assert first['verified'] == 0 and len(calls) == 1 and first['tokens'] == 120
+    assert_accounting(first)
+    resumed = http_collect(source, out, method='kang-ftp')
+    assert resumed['verified'] == 1 and len(calls) == 3 and resumed['tokens'] == 360
+    assert resumed['attempts'] == 2
+    assert resumed['phase_costs']['cot']['calls'] == 1
+    rows = assert_accounting(resumed)
+    assert rows[0]['usage']['completion_tokens'] == 20
+    assert rows[1]['usage']['completion_tokens'] == 40
+    settled_journal(resumed, 3)
+
+
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_kang_ftp_missing_paid_reasoning_never_repurchased(source, tmp_path, monkeypatch, azure_teacher):
+    calls = mechanism_http(monkeypatch, errors={0: urllib.error.URLError(TimeoutError('stub'))})
+    out = tmp_path / 'lost-prefix'
+    summary = http_collect(source, out, method='kang-ftp')
+    assert len(calls) == summary['attempts'] == summary['uncertain_calls'] == 1
+    assert summary['phase_costs']['trajectory']['calls'] == 0
+    assert 'not repurchased' in next(iter(summary['per_task'].values()))['blocked_reason']
+    assert_accounting(summary)
+    assert http_collect(source, out, method='kang-ftp') == summary
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('method', ['smartad', 'kang-ftp'])
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_mechanism_429_retries_one_reservation(source, tmp_path, monkeypatch, azure_teacher, method):
+    calls = mechanism_http(monkeypatch, errors={0: http_error(429, '0')})
+    kwargs = dict(method=method, candidates_per_task=2 if method == 'smartad' else 1)
+    summary = http_collect(source, tmp_path / method, **kwargs)
+    assert summary['verified'] == kwargs['candidates_per_task']
+    assert_accounting(summary)
+    journal = settled_journal(summary, len(calls) - 1)
+    assert len(journal) == (4 if method == 'smartad' else 3)
+
+
+@pytest.mark.parametrize('args', [ ['--candidates-per-task', '0'],
+    ['--method', 'kang-ftp', '--candidates-per-task', '2'],
+    ['--method', 'smartad', '--candidates-per-task', '4', '--attempts-per-task', '3'] ])
+def test_mechanism_invalid_cli(args):
+    with pytest.raises(SystemExit):
+        pool.main(args)
+
+
+def test_kang_workers_share_prefix_memory(source, tmp_path, monkeypatch, azure_teacher):
+    calls = mechanism_http(monkeypatch)
+    summary = http_collect(source, tmp_path / 'kang-workers', method='kang-ftp', workers=3)
+    assert summary['verified'] == 3 and len(calls) == 9
+    assert len(json.loads(Path(summary['prefix_memory']).read_text())) == 3
+    assert summary['phase_costs']['cot']['calls'] == 3
+    assert summary['phase_costs']['trajectory']['calls'] == 6
+    assert_accounting(summary)
+    settled_journal(summary, 9)
+
+
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_smartad_resume_fills_remaining_candidates(source, tmp_path, monkeypatch, azure_teacher):
+    calls = mechanism_http(monkeypatch)
+    out = tmp_path / 'smart-resume'
+    original_settle = pool.Budget.settle
+    def stop_after_candidate(self, call, usage):
+        original_settle(self, call, usage)
+        if call['id'] == 1:
+            self.cancel('stub interruption after first candidate')
+    monkeypatch.setattr(pool.Budget, 'settle', stop_after_candidate)
+    first = http_collect(source, out, method='smartad', candidates_per_task=4)
+    assert first['verified'] == 1 and first['attempts'] == 1 and len(calls) == 2
+    assert_accounting(first)
+    monkeypatch.setattr(pool.Budget, 'settle', original_settle)
+    resumed = http_collect(source, out, method='smartad', candidates_per_task=4)
+    assert resumed['verified'] == 4 and resumed['attempts'] == 4 and len(calls) == 8
+    assert_accounting(resumed)
+    settled_journal(resumed, 8)
+    with pytest.raises(ValueError, match='choose a new --out'):
+        http_collect(source, out, method='smartad', candidates_per_task=3)
+    assert len(calls) == 8
+
+
+def test_mechanism_cli_options(monkeypatch):
+    captured = []
+    monkeypatch.setattr(pool, 'collect', lambda *args, **kwargs: captured.append(kwargs))
+    pool.main(['--method', 'smartad', '--candidates-per-task', '4', '--attempts-per-task', '12'])
+    pool.main(['--method', 'kang-ftp'])
+    assert captured[0]['method'] == 'smartad' and captured[0]['candidates_per_task'] == 4
+    assert captured[0]['attempts_per_task'] == 12
+    assert captured[1]['method'] == 'kang-ftp' and captured[1]['candidates_per_task'] == 1
+
+
+@pytest.mark.parametrize('source', [1], indirect=True)
+def test_kang_malformed_reasoning_still_settles_usage(source, tmp_path, monkeypatch, azure_teacher):
+    calls = stub_client(monkeypatch, [dict(choices=[dict(message='invalid')],
+        usage=dict(prompt_tokens=100, completion_tokens=20))])
+    summary = http_collect(source, tmp_path / 'malformed-cot', method='kang-ftp')
+    assert len(calls) == 1 and summary['tokens'] == 120 and summary['uncertain_calls'] == 0
+    assert summary['phase_costs']['cot']['tokens'] == 120
+    assert summary['phase_costs']['trajectory']['tokens'] == 0
+    assert_accounting(summary)
+    settled_journal(summary, 1)
