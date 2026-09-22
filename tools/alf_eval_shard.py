@@ -17,6 +17,7 @@ import tempfile
 
 from bfas.rtd.benchmarks import alfworld_evaluation as evaluation
 from bfas.rtd.benchmarks.alfworld_identity import campaign_identity, guard_manifest
+from bfas.rtd.benchmarks.alfworld_server import checked_server_identity
 from bfas.rtd.evaluation_lock import evaluation_lock
 from bfas.rtd.hardware import checked_hardware, hardware_identity
 from bfas.rtd.persistence import ComputeJournal, atomic_json, digest, fsync_directory, manifest_digest
@@ -62,13 +63,20 @@ def _publish_record(path, record, *, output_root):
 
 
 def evaluate_shard(root, manifest, *, output_root, tag, shard, of, device="cuda:0",
-                   hardware=None, backend_factory=None, env_factory=None, lock_timeout=None):
+                   hardware=None, backend_factory=None, env_factory=None, lock_timeout=None,
+                   server=None):
     """Write complete official episodes; factories are the serial CPU test seam."""
     if type(of) is not int or of < 1 or type(shard) is not int or not 0 <= shard < of:
         raise ValueError("require --of N >= 1 and zero-based 0 <= --shard I < N")
     lock = evaluation.tag_lock_path(root, tag)
     directory = Path(output_root) / tag
-    hardware = manifest["hardware"] if hardware is None else hardware
+    if server is not None:
+        server = checked_server_identity(server, manifest=manifest)
+        if hardware is not None and hardware["hard"] != server["hardware"]["hard"]:
+            raise ValueError("server hardware class differs from supplied hardware")
+        hardware = server["hardware"]
+    else:
+        hardware = manifest["hardware"] if hardware is None else hardware
     for name in ("data_root", "model_path", "tokenizer_path", "environment_root", "run_directory", "checkpoint"):
         value = manifest["paths"].get(name)
         if value and directory.resolve().is_relative_to(Path(value).resolve()):
@@ -101,6 +109,8 @@ def evaluate_shard(root, manifest, *, output_root, tag, shard, of, device="cuda:
 
     backend, generated, skipped = None, [], []
     counts = dict(tag=tag, shard=shard, of=of, device=device, manifest_hash=manifest_digest(manifest))
+    if server is not None:
+        counts.update(device="server", server_identity_hash=server["identity_hash"], port=server["port"])
     with ExitStack() as stack:
         measured = False
         try:
@@ -118,7 +128,7 @@ def evaluate_shard(root, manifest, *, output_root, tag, shard, of, device="cuda:
                         skipped.append(tid)
                         continue
                     if backend is None:
-                        if backend_factory is None:
+                        if backend_factory is None and server is None:
                             # The official hardware guard requires one visible GPU.
                             if device not in ("cuda", "cuda:0"):
                                 raise ValueError("official shards require the single visible device cuda:0")
@@ -127,12 +137,19 @@ def evaluate_shard(root, manifest, *, output_root, tag, shard, of, device="cuda:
                             journal.cuda = True
                         stack.enter_context(journal.measure("alfworld_evaluation_shard", **counts))
                         measured = True
-                        backend = (evaluation.HFBackend(current, device=device) if backend_factory is None
-                                   else backend_factory(current))
+                        if backend_factory is not None:
+                            backend = backend_factory(current)
+                        elif server is not None:
+                            backend = evaluation.VLLMBackend(current, server=server)
+                        else:
+                            backend = evaluation.HFBackend(current, device=device)
                     factory = env_factory or (lambda t: evaluation.EvaluationEnvBridge(t,
                         data_root=manifest["paths"]["data_root"],
                         environment_root=manifest["paths"]["environment_root"]))
-                    record = evaluation.official_episode(tid, backend, env_factory=factory, identity=identity)
+                    from bfas.rtd.benchmarks.alfworld_diagnostics import EpisodeParserDiagnostics
+                    with EpisodeParserDiagnostics(factory) as (diagnostics, factory):
+                        record = evaluation.official_episode(tid, backend, env_factory=factory, identity=identity)
+                    diagnostics.annotate(record)
                     evaluation.validate_records(expected, [record], identity, complete=False)
                     with evaluation_lock(lock, tag=lock_tag, timeout=lock_timeout):
                         # A serial coordinator may have published while we ran.
@@ -163,13 +180,15 @@ def main(argv=None):
     parser.add_argument("--shard", type=int, required=True, help="zero-based shard index")
     parser.add_argument("--of", type=int, required=True, help="total shard count")
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--server-json", type=Path, help="launch identity; use shared vLLM instead of local HF")
     parser.add_argument("--lock-timeout", type=float)
     args = parser.parse_args(argv)
     if args.of < 1 or not 0 <= args.shard < args.of:
         parser.error("require --of N >= 1 and zero-based 0 <= --shard I < N")
     manifest = json.loads(args.binding.read_text())
+    options = dict(server=json.loads(args.server_json.read_text())) if args.server_json else {}
     result = evaluate_shard(args.root, manifest, output_root=args.output_root, tag=args.tag,
-        shard=args.shard, of=args.of, device=args.device, lock_timeout=args.lock_timeout)
+        shard=args.shard, of=args.of, device=args.device, lock_timeout=args.lock_timeout, **options)
     print(json.dumps(result, indent=2, sort_keys=True, allow_nan=False))
     return 0
 

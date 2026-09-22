@@ -135,6 +135,8 @@ class EpisodeStep:
     command: str
     parser_fallback: bool
     observation: Observation | None = None  # None when the step RPC failed
+    parser_candidate: str = ""
+    parser_fallback_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -182,7 +184,11 @@ class ALFWorldEpisode:
         return TaskRollout(self.task_id, self.actions, self.reward, self.policy_id)
 
     def record(self):
-        return dict(**asdict(self), status="failed_with_reason" if self.failure else "completed",
+        fields = asdict(self)
+        for step in fields["steps"]:
+            if step["parser_fallback_reason"] is None:
+                del step["parser_fallback_reason"]
+        return dict(**fields, status="failed_with_reason" if self.failure else "completed",
                     excluded=self.failure is not None, success=self.success, reward=self.reward,
                     from_task_start=self.from_task_start, truncated=self.truncated,
                     sampled_steps=len(self.steps),
@@ -311,7 +317,11 @@ def _alfworld_task_rollout_stream(task_ref, backend: SamplingBackend, parameters
             action = yield (state.prompt, generator)
             _validate_action(action, state, backend, parameters)
             command, fallback = parse_action(action.text, observation.admissible)
-            steps.append(EpisodeStep(state, action, command, fallback))
+            from .alfworld_diagnostics import fallback_fields
+            diagnostic = fallback_fields(action.text, fallback)
+            steps.append(EpisodeStep(state, action, command, fallback,
+                parser_candidate=diagnostic["parser_candidate"],
+                parser_fallback_reason=diagnostic.get("parser_fallback_reason")))
             cursor, observation = yield from _env_step(step_executor, "step", env, cursor, command)
             observation = _observation(observation, request, index + 1)
             steps[-1] = replace(steps[-1], observation=observation)

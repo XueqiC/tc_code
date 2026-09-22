@@ -27,6 +27,7 @@ from bfas.rtd.benchmarks.alfworld_identity import (
     OFFICIAL_CONFIG, campaign_identity, guard_manifest, make_manifest,
 )
 from bfas.rtd.persistence import manifest_digest, atomic_json, digest
+from bfas.rtd.benchmarks.alfworld_server import checked_server_identity
 
 
 def read(path):
@@ -42,7 +43,9 @@ def main(argv=None):
     prepare.add_argument("--tokenizer", type=Path)
     prepare.add_argument("--data-root", required=True, type=Path)
     prepare.add_argument("--environment-root", type=Path)
-    prepare.add_argument("--hardware-json", required=True, type=Path)
+    source = prepare.add_mutually_exclusive_group(required=True)
+    source.add_argument("--hardware-json", type=Path)
+    source.add_argument("--server-json", type=Path, help="consume hardware from a vLLM launch identity")
     prepare.add_argument("--config", type=Path, help="full ALFWorld training config JSON")
     prepare.add_argument("--checkpoint", type=Path, help="PEFT adapter or round-N/lora parent; omit for merged/base")
     prepare.add_argument("--run-directory", type=Path)
@@ -68,10 +71,13 @@ def main(argv=None):
             parser.error("--run-directory and --round must be provided together")
         if args.run_directory and args.checkpoint:
             parser.error("--run-directory resolves its checkpoint; omit --checkpoint")
+        server = checked_server_identity(read(args.server_json)) if args.server_json else None
         result = make_manifest(args.root, read(args.config) if args.config else OFFICIAL_CONFIG,
             data_root=args.data_root, model_path=args.model, tokenizer_path=args.tokenizer,
-            checkpoint=args.checkpoint, hardware=read(args.hardware_json),
+            checkpoint=args.checkpoint, hardware=server["hardware"] if server else read(args.hardware_json),
             run_directory=args.run_directory, round_number=args.round, environment_root=args.environment_root)
+        if server is not None:
+            checked_server_identity(server, manifest=result)
         atomic_json(args.out, result)
     else:
         tag_lock_path(args.root, args.tag)  # validate tag syntax without touching a lock

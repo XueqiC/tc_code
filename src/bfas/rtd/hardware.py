@@ -64,7 +64,7 @@ def device_inventory():
     return rows
 
 
-def hardware_identity():
+def hardware_identity(*, optional_packages=()):
     import torch
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise ValueError('exactly one CUDA GPU is required')
@@ -72,10 +72,20 @@ def hardware_identity():
     hostname = socket.gethostname()
     uuid = str(getattr(props, 'uuid', 'unknown')).removeprefix('GPU-')
     pci = next((row['pci_bus_id'] for row in device_inventory() if row['uuid'] == uuid), None)
+    # A serving environment need not install training-only packages (PEFT).
+    # Record their absence as a class fact; never borrow client versions.
+    versions = {}
+    for name in PACKAGES:
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            if name not in optional_packages:
+                raise
+            versions[name] = 'not-installed'
     return dict(version=VERSION, hard=dict(
         gpu=props.name, capability=[props.major, props.minor], memory=props.total_memory,
         cuda=torch.version.cuda, driver=driver_version(),
-        versions={name: importlib.metadata.version(name) for name in PACKAGES},
+        versions=versions,
         python=platform.python_version(), machine=platform.machine(),
         host_class=host_class(hostname, props.name)), metadata=dict(
         hostname=hostname, uuid=uuid, pci_bus_id=pci,

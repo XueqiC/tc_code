@@ -154,27 +154,6 @@ class HFBackend:
     RTD _flatten_adapter), then moves to the single evaluation device. A merged
     HF checkpoint loads directly. No export is written into a training run.
     """
-    @staticmethod
-    def native_stop_ids(tokenizer, model_path):
-        """Read only native stops, never inherit model sampling defaults."""
-        if type(tokenizer.eos_token_id) is not int:
-            raise ValueError("a single tokenizer EOS is required")
-        stops = [tokenizer.eos_token_id]
-        path = Path(model_path) / "generation_config.json"
-        if path.is_file():
-            eos = json.loads(path.read_text()).get("eos_token_id", [])
-            stops.extend(eos if isinstance(eos, list) else [eos])
-        # Older/non-Gemma tokenizers need not have this special token.
-        if "<turn|>" in getattr(tokenizer, "all_special_tokens", ()):
-            turn = tokenizer.convert_tokens_to_ids("<turn|>")
-            if (type(turn) is not int or turn == tokenizer.unk_token_id or
-                    tokenizer.encode("<turn|>", add_special_tokens=False) != [turn]):
-                raise ValueError("native turn boundary must be one special-token ID")
-            stops.append(turn)
-        if any(type(i) is not int or i < 0 for i in stops):
-            raise ValueError("invalid native stop token IDs")
-        return list(dict.fromkeys(stops))
-
     def __init__(self, manifest, *, device="cuda:0"):
         import torch
         from transformers import AutoModelForCausalLM, GenerationConfig
@@ -193,10 +172,11 @@ class HFBackend:
         self.device = device
         self.max_context = manifest["config"]["max_context_tokens"]
         # Do not inherit sampling/repetition/min-length defaults from a model's
-        # generation_config.json. Only its native stop set is retained.
-        self.stop_token_ids = self.native_stop_ids(self.tokenizer, paths["model_path"])
+        # generation_config.json. EOS comes from the bound local tokenizer.
+        if type(self.tokenizer.eos_token_id) is not int:
+            raise ValueError("a single tokenizer EOS is required")
         self.generation_config = GenerationConfig(do_sample=False, num_beams=1,
-            max_new_tokens=256, eos_token_id=self.stop_token_ids,
+            max_new_tokens=256, eos_token_id=self.tokenizer.eos_token_id,
             pad_token_id=(self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None
                           else self.tokenizer.eos_token_id),
             use_cache=True)
@@ -213,7 +193,8 @@ class HFBackend:
         with torch.inference_mode():
             output = self.model.generate(**inputs, generation_config=self.generation_config)
         ids = output[0, n:].tolist()
-        truncated = not ids or ids[-1] not in self.stop_token_ids
+        eos = self.tokenizer.eos_token_id
+        truncated = not ids or ids[-1] != eos
         text = self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False)
         return Generation(text, len(ids), truncated)
 
@@ -234,7 +215,8 @@ class VLLMBackend:
         self.renderer = FrozenRenderer(manifest["paths"]["tokenizer_path"])
         self.tokenizer = self.renderer.adapter._tokenizer
         self.max_context = manifest["config"]["max_context_tokens"]
-        self.stop_token_ids = HFBackend.native_stop_ids(self.tokenizer, manifest["paths"]["model_path"])
+        if type(self.tokenizer.eos_token_id) is not int:
+            raise ValueError("a single tokenizer EOS is required")
 
     def generate(self, prompt, *, temperature, max_new_tokens):
         if temperature != 0.0 or max_new_tokens != 256:
@@ -242,12 +224,14 @@ class VLLMBackend:
         prompt_ids = self.tokenizer(prompt, add_special_tokens=False)["input_ids"]
         if len(prompt_ids) + 256 > self.max_context:
             raise ValueError("context overflow; official prompts/actions cannot be silently shortened")
+        eos = self.tokenizer.eos_token_id
         payload = dict(model=self.server["served_model_name"], prompt=prompt_ids,
             temperature=0.0, max_tokens=256, n=1, stream=False, echo=False,
             use_beam_search=False, top_p=1.0, top_k=-1, min_p=0.0,
             repetition_penalty=1.0, frequency_penalty=0.0, presence_penalty=0.0,
-            min_tokens=0, stop=[], stop_token_ids=self.stop_token_ids,
-            # The bound local native stops are the explicit authority.
+            min_tokens=0, stop=[], stop_token_ids=[eos],
+            # Disable the engine's potentially different EOS; the bound local
+            # EOS above remains the sole explicit stop token.
             ignore_eos=True, include_stop_str_in_output=False,
             skip_special_tokens=False, add_special_tokens=False,
             truncate_prompt_tokens=None, return_token_ids=True)
@@ -276,9 +260,8 @@ class VLLMBackend:
         truncated = reason == "length"
         # EOS at token 256 is a stop, not truncation. Count alone is insufficient.
         # Explicit checks (also under python -O) fail closed on shortened replies.
-        if (truncated and count != 256 or truncated != (ids[-1] not in self.stop_token_ids) or
-                any(i in self.stop_token_ids for i in ids[:-1]) or
-                choice.get("stop_reason") not in (None, ids[-1] if not truncated else None)):
+        if (truncated and count != 256 or truncated != (ids[-1] != eos) or
+                eos in ids[:-1] or choice.get("stop_reason") not in (None, eos)):
             raise ValueError("completion finish_reason, EOS and token count disagree")
         text = self.tokenizer.decode(ids if truncated else ids[:-1], skip_special_tokens=False)
         return Generation(text, count, truncated)
@@ -488,10 +471,7 @@ def evaluate(root, manifest, *, output_root, tag, hardware, backend_factory=None
                         backend = backend_factory(current)
                 factory = env_factory or (lambda t: EvaluationEnvBridge(t, data_root=manifest["paths"]["data_root"],
                     environment_root=manifest["paths"]["environment_root"]))
-                from .alfworld_diagnostics import EpisodeParserDiagnostics
-                with EpisodeParserDiagnostics(factory) as (diagnostics, factory):
-                    record = official_episode(tid, backend, env_factory=factory, identity=identity)
-                diagnostics.annotate(record)
+                record = official_episode(tid, backend, env_factory=factory, identity=identity)
                 validate_records(expected, [record], identity, complete=False)
                 atomic_json(artifacts / "tasks" / f"{digest(tid)}.json", dict(record=record, record_hash=digest(record)))
                 records.append(record)
