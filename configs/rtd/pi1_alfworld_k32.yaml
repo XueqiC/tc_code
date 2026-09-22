@@ -1,0 +1,34 @@
+# Pre-registered plain-CE pi1; one 10-pass trajectory per seed, save at 3 and 10.
+method: pi1_ce
+benchmark: alfworld
+student: google/gemma-4-12B-it
+bank: data/rtd/v1_alfworld_k32_d0
+sealed_manifest_sha256: dcc043b0649e29b0fbec4319ab3f9c62b86b6f71f62156ac781586a8df4d9f3b
+support_size: 32
+demonstrations: 30
+supervised_turns: 424
+# 9,225 authored tokens plus one native boundary for each of 424 turns.
+bank_supervised_tokens: 9649
+training_seeds: [0, 1]
+exposure_passes: [3, 10]
+exposure_relative_tolerance: 0.0
+optimizer: AdamW
+learning_rate: 1.0e-5
+adam_betas: [0.9, 0.999]
+adam_epsilon: 1.0e-8
+# Historical torch.optim.AdamW default, now explicit.
+weight_decay: 0.01
+gradient_clip: 1.0
+supervised_tokens_per_update: 512
+lora_rank: 16
+lora_alpha: 32
+lora_target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+lora_dropout: 0.0
+max_context_tokens: 32768
+score_position_chunk_size: 32
+cpu_threads: 4
+# Existing load_backend: BF16 base, FP32 LoRA, eager attention, checkpointed
+# decoder, one complete turn graph at a time, bounded vocabulary projection.
+memory_peak_budget_gb: 68
+memory_reserve_gb: 2
+model_local_files_only: true

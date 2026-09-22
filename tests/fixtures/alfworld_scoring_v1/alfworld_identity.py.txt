@@ -17,7 +17,7 @@ from ..persistence import manifest_digest, digest, file_hash, tree_hash
 from ..scoring_scope import _ScientificAST
 
 
-VERSION = "alfworld-evaluation-scoring-c26d-v2"
+VERSION = "alfworld-evaluation-scoring-c26d-v1"
 SUPPLEMENT_VERSION = "alfworld-audited-scoring-continuity-v1"
 OFFICIAL_CONFIG = dict(benchmark="alfworld", alfworld_evaluation_split="valid_seen",
     alfworld_expected_eval_tasks=140, alfworld_max_episode_steps=40,

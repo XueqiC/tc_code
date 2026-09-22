@@ -55,7 +55,7 @@ def renderer(monkeypatch, tokenizer=None):
     monkeypatch.setattr(evaluation, "FrozenRenderer", lambda path: Renderer())
 
 
-def stub_http(monkeypatch, server, ids, *, mutate=None, status=200):
+def stub_http(monkeypatch, server, ids, *, mutate=None, status=200, stop_ids=(2,)):
     calls, connections = [], []
     class Connection:
         def __init__(self, host, port, timeout):
@@ -71,14 +71,14 @@ def stub_http(monkeypatch, server, ids, *, mutate=None, status=200):
                 temperature=0.0, max_tokens=256, n=1, stream=False, echo=False,
                 use_beam_search=False, top_p=1.0, top_k=-1, min_p=0.0,
                 repetition_penalty=1.0, frequency_penalty=0.0, presence_penalty=0.0,
-                min_tokens=0, stop=[], stop_token_ids=[2], ignore_eos=True,
+                min_tokens=0, stop=[], stop_token_ids=list(stop_ids), ignore_eos=True,
                 include_stop_str_in_output=False, skip_special_tokens=False,
                 add_special_tokens=False, truncate_prompt_tokens=None, return_token_ids=True)
         def getresponse(self):
             body = dict(model=server["served_model_name"], choices=[dict(
                 text="server detokenization is not the HF decode authority",
-                token_ids=ids, finish_reason="stop" if ids[-1] == 2 else "length",
-                stop_reason=2 if ids[-1] == 2 else None)],
+                token_ids=ids, finish_reason="stop" if ids[-1] in stop_ids else "length",
+                stop_reason=ids[-1] if ids[-1] in stop_ids else None)],
                 usage=dict(prompt_tokens=2, completion_tokens=len(ids)))
             if mutate:
                 mutate(body)
@@ -114,6 +114,47 @@ def test_server_matches_hf_generation_contract(campaign, monkeypatch, ids):
     assert len(calls) == 1 and all(c.closed for c in connections)
     hf.close()
     remote.close()
+
+
+@pytest.mark.parametrize("ids", [[20, 106], [20, 1], [20, 50], [20]*256, [20]*255+[106]])
+def test_native_turn_stop_contract_in_both_backends(campaign, monkeypatch, ids):
+    import torch
+    class NativeTokenizer(Tokenizer):
+        eos_token_id, unk_token_id = 1, 3
+        all_special_tokens = ["<turn|>"]
+        def convert_tokens_to_ids(self, token):
+            assert token == "<turn|>"
+            return 106
+        def encode(self, text, **kwargs):
+            assert text == "<turn|>" and kwargs == dict(add_special_tokens=False)
+            return [106]
+    renderer(monkeypatch, NativeTokenizer())
+    # Sampling defaults must not leak into HF or vLLM requests.
+    put(campaign.model/"generation_config.json", dict(eos_token_id=[1, 106, 50],
+        do_sample=True, temperature=.7, top_p=.8, max_new_tokens=900))
+    class Model:
+        def to(self, device):
+            assert device == "cpu"
+            return self
+        def eval(self):
+            return self
+        def generate(self, **kwargs):
+            cfg = kwargs["generation_config"]
+            assert cfg.eos_token_id == [1, 106, 50]
+            assert cfg.do_sample is False and cfg.num_beams == 1 and cfg.max_new_tokens == 256
+            assert not hasattr(cfg, "temperature")
+            return torch.tensor([[10, 11]+ids])
+    monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(
+        AutoModelForCausalLM=SimpleNamespace(from_pretrained=lambda *a, **k: Model()),
+        GenerationConfig=lambda **kw: SimpleNamespace(**kw)))
+    server = launch_identity(campaign)
+    stub_http(monkeypatch, server, ids, stop_ids=(1, 106, 50))
+    hf = evaluation.HFBackend(campaign.manifest, device="cpu")
+    remote = evaluation.VLLMBackend(campaign.manifest, server=server)
+    got = remote.generate("prompt", temperature=0, max_new_tokens=256)
+    assert got == hf.generate("prompt", temperature=0, max_new_tokens=256)
+    stopped = ids[-1] in (1, 106, 50)
+    assert got == evaluation.Generation("ACTION: look"*(len(ids)-int(stopped)), len(ids), not stopped)
 
 
 def test_context_guard_before_http(campaign, monkeypatch):

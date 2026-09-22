@@ -73,10 +73,39 @@ class ExposureDistribution:
             offset += size
         return batches
 
+    def pass_schedule(self, *, endpoints, seed, tokens_per_update):
+        """Offline full-bank CE: shuffle without replacement, never split a turn.
+
+        Unlike schedule(), this is an exhaustive pass protocol, with no RTD
+        feedback windows or importance weighting. Freeze all batches before
+        training; flush at registered endpoints, even for a short last batch.
+        """
+        if (not endpoints or any(type(p) is not int or p < 1 for p in endpoints)
+                or list(endpoints) != sorted(set(endpoints))
+                or type(tokens_per_update) is not int or tokens_per_update < 1
+                or any(type(c) is not int or c < 1 for c in self.costs)):
+            raise ValueError("positive integer costs, token budget and increasing pass endpoints required")
+        if any(not math.isclose(q, 1 / len(self.costs)) for q in self.q):
+            raise ValueError("exhaustive passes require uniform row exposure")
+        rng = np.random.default_rng(seed)
+        batches, pending, tokens, total = [], [], 0, 0
+        for epoch in range(1, endpoints[-1] + 1):
+            order = rng.permutation(len(self.costs)).tolist()
+            for offset, index in enumerate(order):
+                pending.append(index)
+                tokens += self.costs[index]
+                endpoint = epoch if epoch in endpoints and offset == len(order)-1 else None
+                if tokens >= tokens_per_update or endpoint is not None:
+                    total += tokens
+                    batches.append(dict(indices=pending, supervised_tokens=tokens,
+                        cumulative_tokens=total, endpoint=endpoint))
+                    pending, tokens = [], 0
+        return batches
+
 
 def budget_match(targets, actuals, max_microbatch_costs, *, relative_tolerance=.01):
-    if not (len(targets) == len(actuals) == len(max_microbatch_costs) == 3) or any(t <= 0 for t in targets):
-        raise ValueError("three positive round targets and measured costs required")
+    if not (0 < len(targets) == len(actuals) == len(max_microbatch_costs)) or any(t <= 0 for t in targets):
+        raise ValueError("aligned positive exposure targets and measured costs required")
     errors = [a - t for t, a in zip(targets, actuals)]
     relative = abs(sum(actuals) - sum(targets)) / sum(targets)
     matched = relative <= relative_tolerance and all(abs(e) <= b for e, b in zip(errors, max_microbatch_costs))

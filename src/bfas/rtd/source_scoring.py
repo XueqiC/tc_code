@@ -43,6 +43,12 @@ def generated_token_scores(scores, ids, *, device, position_chunk_size=32):
     return tuple(torch.cat(values).tolist())
 
 
+def teacher_forcing_inputs(prompt_ids, action_ids, *, device):
+    """One complete turn per forward: no padding, collation, or truncation."""
+    return dict(input_ids=torch.tensor([tuple(prompt_ids) + tuple(action_ids)], device=device),
+                labels=torch.tensor([(-100,) * len(prompt_ids) + tuple(action_ids)], device=device))
+
+
 def chunked_token_scores(backend, prompt_ids, action_ids, parameters, *, eos_token_id,
                          truncated=False, position_chunk_size=32):
     """Native hard-label CE with bounded vocabulary tensors, also under backward.
@@ -65,7 +71,8 @@ def chunked_token_scores(backend, prompt_ids, action_ids, parameters, *, eos_tok
     prefix = next(n for n, module in backend.model.named_modules() if module is head)
     prefix = prefix + '.' if prefix else ''
     bound = {n[len(prefix):]: p for n, p in parameters.items() if n.startswith(prefix)}
-    ids = torch.tensor([tuple(prompt_ids) + tuple(action_ids)], device=device)
+    inputs = teacher_forcing_inputs(prompt_ids, action_ids, device=device)
+    ids = inputs["input_ids"]
     hidden = _hidden_at_head(backend, head, parameters, ids)
     require_device(device, hidden=hidden, input_ids=ids, **dict(head.named_parameters()))
     softcap = logit_softcap(backend.model)
@@ -84,7 +91,7 @@ def chunked_token_scores(backend, prompt_ids, action_ids, parameters, *, eos_tok
     for start in range(0, len(action_ids), position_chunk_size):
         end = min(start+position_chunk_size, len(action_ids))
         h = hidden[0, len(prompt_ids)-1+start:len(prompt_ids)-1+end]
-        labels = ids[0, len(prompt_ids)+start:len(prompt_ids)+end]
+        labels = inputs["labels"][0, len(prompt_ids)+start:len(prompt_ids)+end]
         values = (checkpoint(score_chunk, h, labels, bound, use_reentrant=False)
                   if torch.is_grad_enabled() else score_chunk(h, labels, bound))
         require_device(device, token_logprobs=values)

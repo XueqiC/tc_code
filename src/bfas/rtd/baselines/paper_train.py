@@ -1,4 +1,4 @@
-"""Shared 24-commit LoRA trainer. Model loading stays behind the worker entry."""
+"""Shared paper-baseline and plain-CE LoRA trainer; loading stays in the worker."""
 from dataclasses import asdict
 import hashlib
 from pathlib import Path
@@ -20,6 +20,9 @@ from ..source_scoring import require_device
 
 def hyperparameters(config, method):
     seed = training_seed(config)
+    if method == "pi1_ce":
+        from .pi1 import plain_ce_hyperparameters
+        return plain_ce_hyperparameters(config, seed)
     settings = dict(student=config["student"], seed=seed, lora_rank=config["lora_rank"],
         lora_alpha=config["lora_alpha"], lora_target_modules=config["lora_target_modules"],
         lora_dropout=0., optimizer="fixed_preconditioned_single_step",
@@ -77,6 +80,14 @@ class PaperTrainer:
     def encode(self, row):
         if row in self.encoded_rows:
             return self.encoded_rows[row]
+        if getattr(self, "method", None) == "pi1_ce":
+            from .pi1 import encode_teacher_turn
+            encoded = encode_teacher_turn(self.backend.tokenizer, row,
+                                          self.config["max_context_tokens"])
+            result = (encoded["prompt_ids"], encoded["target_ids"],
+                      ["teacher"] * len(encoded["target_ids"]), encoded["target_ids"][-1])
+            self.encoded_rows[row] = result
+            return result
         if row.prompt not in self.encoded_prompts:
             self.encoded_prompts[row.prompt] = tuple(self.backend.tokenizer.encode(row.prompt, add_special_tokens=False))
         prompt = self.encoded_prompts[row.prompt]
@@ -95,6 +106,9 @@ class PaperTrainer:
             eos = ids[-1]
         else:
             eos = self.backend.tokenizer.eos_token_id
+            if row.benchmark == "alfworld" and "<turn|>" in getattr(self.backend.tokenizer, "all_special_tokens", ()):
+                from .pi1 import native_turn_id
+                eos = native_turn_id(self.backend.tokenizer)
             ids += (eos,)
             kinds.append(next((k for k in reversed(kinds) if k != "observation"), "final"))
         if not prompt or len(prompt)+len(ids) > self.config["max_context_tokens"]:
@@ -191,9 +205,18 @@ class PaperTrainer:
             loss_value += float(loss.detach())
         return gradient, loss_value
 
-    def train(self):
+    def save_adapter(self, directory):
+        self.backend.model.save_pretrained(directory, safe_serialization=True)
+        self.backend.tokenizer.save_pretrained(directory)
+
+    def train(self, *, resume=False):
         if not self.rows:
             raise ValueError("no usable purchased trajectories; cannot train a baseline")
+        if (self.manifest is not None and self.config.get("benchmark") == "alfworld" and
+                "<turn|>" in getattr(self.backend.tokenizer, "all_special_tokens", ())):
+            from .pi1 import boundary_contract
+            self.manifest["target_boundary"] = boundary_contract(self.backend.tokenizer)
+            atomic_json(self.directory/"manifest.json", self.manifest)
         source_rows = self.rows
         with stage("rendering", rows=len(self.rows)):
             for index, row in enumerate(self.rows, 1):
@@ -210,22 +233,33 @@ class PaperTrainer:
                 self.rows = first_thought(self.rows)
                 for row in self.rows:
                     self.encode(row)
-        atomic_json(self.directory/"training_rows.json", [asdict(row) for row in self.rows])
-        if self.manifest is not None and self.seed:
+        if self.method != "pi1_ce":
+            atomic_json(self.directory/"training_rows.json", [asdict(row) for row in self.rows])
+        if self.method != "pi1_ce" and self.manifest is not None and self.seed:
             verify_seed_zero(self.directory, self.manifest, selection=True)
             atomic_json(self.directory/"manifest.json", self.manifest)
         teacher_by_prompt = {}
         for row in self.rows:
             teacher_by_prompt.setdefault(row.prompt, row)
-        schedule_rng = random.Random(self.seed)
-        schedule = [[schedule_rng.randrange(len(self.rows)) for _ in range(self.hp["slots_per_step"])]
-                    for _ in range(self.hp["student_steps"])]
-        atomic_json(self.directory/"exposure_schedule.json", dict(
-            rows=[dict(package_id=r.package_id, index=r.index) for r in self.rows], batches=schedule))
-        losses = []
+        plain = None
+        if self.method == "pi1_ce":
+            from .pi1 import PlainCEState
+            plain = PlainCEState(self, resume=resume)
+            schedule, losses = [b["indices"] for b in plain.batches], plain.losses
+        else:
+            if resume:
+                raise ValueError("resumable PaperTrainer mode requires pi1_ce")
+            schedule_rng = random.Random(self.seed)
+            schedule = [[schedule_rng.randrange(len(self.rows)) for _ in range(self.hp["slots_per_step"])]
+                        for _ in range(self.hp["student_steps"])]
+            atomic_json(self.directory/"exposure_schedule.json", dict(
+                rows=[dict(package_id=r.package_id, index=r.index) for r in self.rows], batches=schedule))
+            losses = []
         for step, indices in enumerate(schedule):
+            if step < len(losses):
+                continue
             with stage("training", step=step+1, total_steps=len(schedule)), self.journal.measure("student_step", step=step+1):
-                if step % 12 == 0:
+                if plain is None and step % 12 == 0:
                     rule = self.step_rule(step, source_rows)
                 started, before_tokens = time.monotonic(), self.scored_tokens
                 gradient = {n: torch.zeros_like(p) for n, p in self.parameters.items()}
@@ -243,17 +277,25 @@ class PaperTrainer:
                         loss = span_ce(values, kinds, self.method)
                         require_device(self.device, loss=loss)
                         g, loss_value = gradients(loss, self.parameters), float(loss.detach())
+                    weight = (len(self.encode(row)[1]) / plain.batches[step]["supervised_tokens"]
+                              if plain is not None else 1/len(indices))
                     for n in gradient:
-                        gradient[n].add_(g[n], alpha=1/len(indices))
-                    total += loss_value/len(indices)
+                        gradient[n].add_(g[n], alpha=weight)
+                    total += loss_value*weight if plain is not None else loss_value/len(indices)
                     if slot % 5 == 0 or slot == len(indices):
+                        partial_mean = (total * plain.batches[step]["supervised_tokens"] /
+                                        (self.scored_tokens-before_tokens) if plain is not None
+                                        else total*len(indices)/slot)
                         progress("training", "slots", step=step+1, completed=slot, total=len(indices),
-                                 loss=total*len(indices)/slot,
+                                 loss=partial_mean,
                                  tokens_per_second=(self.scored_tokens-before_tokens)/(time.monotonic()-started))
-                updated = rule.update(self.parameters, gradient)
-                with torch.no_grad():
-                    for n, parameter in self.parameters.items():
-                        parameter.copy_(updated[n])
+                if plain is not None:
+                    plain.update(gradient)
+                else:
+                    updated = rule.update(self.parameters, gradient)
+                    with torch.no_grad():
+                        for n, parameter in self.parameters.items():
+                            parameter.copy_(updated[n])
                 losses.append(total)
                 tokens = self.scored_tokens-before_tokens
                 seconds = time.monotonic()-started
@@ -262,8 +304,11 @@ class PaperTrainer:
                 self.journal.append("student_commit", step=step+1, loss=total,
                     tokens=tokens, tokens_per_second=tokens/seconds, wall_seconds=seconds,
                     gad_round=(None if step < 4 or self.method != "gad" else (step-4)//5+1))
-        self.backend.model.save_pretrained(self.directory/"checkpoint/lora", safe_serialization=True)
-        self.backend.tokenizer.save_pretrained(self.directory/"checkpoint/lora")
+                if plain is not None:
+                    plain.commit(step+1, total, tokens)
+        if plain is not None:
+            return plain.finish()
+        self.save_adapter(self.directory/"checkpoint/lora")
         if self.discriminator is not None:
             torch.save(self.discriminator.state_dict(), self.directory/"checkpoint/discriminator.pt")
         return dict(student_commits=len(schedule), losses=losses, trained_rows=len(self.rows),

@@ -15,11 +15,11 @@ from tools import alf_eval_shard as shards
 from tools import rtd_alfworld_evaluate as serial_cli
 
 
-# Deliberately re-frozen for the launch-bound vLLM backend. Previous projection:
-# 8eb084055b8caa8f4b970004b8c2f2521ab0092b956d5b1ebe90beb59ba8c69e
+# Re-frozen for native turn stopping, scoring c26d-v2. The v1 hash is
+# tested separately against tests/fixtures/alfworld_scoring_v1.
 # Covers every projected symbol/import/dispatch and the identity module bytes
 # (including SCOPES), independently of git availability or fixture identities.
-FROZEN_SCORING_FILES_HASH = "a475f62fd4014f1ec43d1e1ea0b885283a43a2038b396ab9aec7964557f010e9"
+FROZEN_SCORING_FILES_HASH = "4d666d0189b01a779e707d6f355e7bbe9584df21d4f96f2bd9828d91a6d79a7d"
 
 
 def test_frozen_harness_projection_unchanged():

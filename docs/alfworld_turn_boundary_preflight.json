@@ -1,0 +1,54 @@
+{
+  "package_id": "1523a82e1439e38a4dd6ff34769654a5bbf620a1ed1636573a184e476934c12a",
+  "turn_index": 0,
+  "last_8_input_ids": [
+    236787,
+    817,
+    531,
+    16083,
+    5127,
+    236743,
+    236770,
+    106
+  ],
+  "last_8_label_ids": [
+    236787,
+    817,
+    531,
+    16083,
+    5127,
+    236743,
+    236770,
+    106
+  ],
+  "decoded_last_tokens": ": go to diningtable 1<turn|>",
+  "boundary": {
+    "appended": true,
+    "token": "<turn|>",
+    "token_id": 106,
+    "supervised": true,
+    "tokens_per_turn": 1
+  },
+  "supervised_tokens": 38,
+  "tensor_shape": [
+    1,
+    756
+  ],
+  "padding": false,
+  "truncation": false,
+  "assertions_passed": true,
+  "exposure": {
+    "turns": 424,
+    "authored_tokens": 9225,
+    "boundary_tokens": 424,
+    "bank_supervised_tokens": 9649,
+    "passes": [
+      3,
+      10
+    ],
+    "target_tokens": [
+      28947,
+      96490
+    ]
+  }
+}

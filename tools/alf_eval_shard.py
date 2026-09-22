@@ -146,7 +146,10 @@ def evaluate_shard(root, manifest, *, output_root, tag, shard, of, device="cuda:
                     factory = env_factory or (lambda t: evaluation.EvaluationEnvBridge(t,
                         data_root=manifest["paths"]["data_root"],
                         environment_root=manifest["paths"]["environment_root"]))
-                    record = evaluation.official_episode(tid, backend, env_factory=factory, identity=identity)
+                    from bfas.rtd.benchmarks.alfworld_diagnostics import EpisodeParserDiagnostics
+                    with EpisodeParserDiagnostics(factory) as (diagnostics, factory):
+                        record = evaluation.official_episode(tid, backend, env_factory=factory, identity=identity)
+                    diagnostics.annotate(record)
                     evaluation.validate_records(expected, [record], identity, complete=False)
                     with evaluation_lock(lock, tag=lock_tag, timeout=lock_timeout):
                         # A serial coordinator may have published while we ran.
