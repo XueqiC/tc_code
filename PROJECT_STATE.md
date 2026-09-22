@@ -561,6 +561,20 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 零采购材料检验开跑;LONI 按"申请时长"预扣 SU(2026-09-22 08:50 CDT)
+- **Codex#13(alf-baselines `044b3d97`)**:`tools/alf_bank_subset.py` + 三个冻结子银行/配置(配方键与 Kang 完全一致,36 测试通过,
+  我跑):`alfworld_k32_d0_lowsweep` 15 包 / 136 回合 / **2,490** token;`alfworld_k32_d0_highsweep` 15 / 288 / **7,159**;
+  `alfworld_k32_smartad_all87` 87 / 1,343 / **33,436**。**注意低/高扫描两半 token 量差 2.9×(零扫描的 demo 都很短)——
+  两半互比时"材料量"与"扫描内容"混杂;各自对 base 按类型看仍有效。** `export_pool(method='plain')` 保留全部候选,
+  `load_bank` 接受一任务多包(Codex 核实)。银行已同步 `tc-alf-banks/`,树同步到 s2 树。
+- **LONI 作业(s2 树,TRAIN_CMD = `--preflight && train`)**:lowsweep s0 1041505 / s1 1041508(3h)、highsweep s0 1041506(→4.5h)/
+  s1 1041515(4.5h)、all87 s0 1041507(**时限从 20h 改为 7h**:3 遍终点 ≈ 196 步 ≈ 5h 内必到,10 遍 653 步 ≈ 16h 视 3 遍结果再 `--resume`)。
+  **all87 s1 三次被系统即时 CANCELLED**(1041510/12/16,Submit==End,无日志,QOS 限额未触及):
+  **LONI 在提交时按"队列中所有作业的申请时长 × 64 SU/h"预扣,总额超过余额就自动取消新作业**(`balance` 显示 2,006,
+  队列申请总时长 71h ≈ 4,544 SU)。处置:压缩在跑作业的时限(SmartAD s0/s1 → 5.5h、highsweep s0 → 4.5h、smartad-s2 → 5.5h),
+  等 6 个评测作业(各申请 2h、实用 20 分)结束释放预扣后再提 all87 s1。qbd496 节点曾取消两作业,已恢复 IDLE,非根因。
+- 监视:bcv4620d5(五个诊断训练)、bt2n1rvkc(3 遍链 + base 重复)。
+
 ### 用户要求 LONI 拉满并行(2026-09-22 08:28 CDT)
 - 提前送评所有已过 3 遍点的 checkpoint:v2smartads0p3 1041452/53、v2smartads1p3 1041454/55、v2sads2p3 1041456/57、
   v2fixs2p3 1041458/59(rai CE seed2,adapter 同步到 `tc-alf-adapters-v2/seed-2`)、v2kangs2p3 1041460/61(rai Kang seed2,
