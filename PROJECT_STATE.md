@@ -561,6 +561,14 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### ADD-DEMO 臂三 seed 投 mike;mike 首批端点开始自动评测(2026-09-22 18:28 CDT)
+- Codex#19(alf-baselines `2151e774`):并集工具逐任务比世界文件哈希与 reset 字段(目标/步数/观测/有序可执行动作/提示),只放行 environment_hash 差异并记录来源;
+  **D0+ADD 1:1 = 37 包 / 516 回合 / 12,900 token(各 6,450)**,**D0+ADD 全量 = 50 / 673 / 16,099**;195 测试通过;两并集继承 D0 的 support/环境身份。
+- taskeq 树注册 token 端点配置 `pi1_alfworld_k32_d0_plus_add_{1to1,all}_tok.yaml`(`9a05406b`,preflight 过);银行同步 mike;
+  **mike 提交:d0add1to1_v2 s0/1/2 861306/08/10,d0addall_v2 s0/1/2 861307/09/11**(排除 mike183)。
+- mike 自动评测循环已加入 ADD1/ADDALL 并重启;首批已提交 `mike_Bs1t28947` 861294、`mike_SADTCs0p3` 861295。mike 队列:13 跑 / 21 排。
+- 教训:`pkill/pgrep -f` 的括号模式对 ssh 远端同样会被同一命令里的另一处字面量自匹配(两次断连);杀进程与启动分两次 ssh。
+
 ### D0 与 ADD-DEMO 并集被拒:只差 environment_hash(采集器代码指纹),世界/状态/提示 32/32 相同(2026-09-22 18:15 CDT)
 - Codex#18 诊断:任务、世界文件哈希、reset 目标/步数/观测/可执行动作/提示全部相同;每个 reset 请求只在 `environment_hash` 上不同
   (d574… → 3ab0…,源于 Codex#14 改过 alfworld_teacher_pool.py / alfworld_support.py 后重新采集),由此派生的 request_hash / 全状态哈希也不同。
