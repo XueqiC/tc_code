@@ -110,3 +110,20 @@ v2kangs2p3     66/140    -9.29    31     22      9     0.0294 |  100.0%    0.0% 
 v2base_rep2 80/140    +0.71    17      8      9          1     (vs v2base 79);  vs v2base_rep 84: -2.86, 20 discordant (12/8), p=0.50
 -> base three runs: 79 / 84 / 80 (mean 81.0 = 57.86%); pairwise flips 17 / 17 / 20 tasks.
 v2fixs0p10_rep 81/140  +0.71     7      3      4          1     (vs v2fixs0p10 80)  -> the trained model flips only 7/140 between repeats.
+
+##### O. SmartAD 10-pass, v2 stop config (added 10:22 CDT)
+cell            wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2smartads0p10  82/140    +2.14    31     14     17       0.72 |  100.0%    0.0%    6.4%   60      58   (vs v2base 79)  206 steps, 107,800 tok, 30 tasks
+v2smartads1p10  82/140    +2.14    25     11     14       0.69 |  100.0%    0.0%    8.2%   58      58   (vs v2base 79)
+vs plain CE fixed labels, same seed: s0 +1.43 (18 disc 8/10, p=0.82), s1 +3.57 (7 disc 1/6, p=0.125)
+per type (8 cells now incl. SmartAD): clean +12.5 pp (8/8 up), cool -15.0 pp (8/8 down), pick&place +4.3, two -4.2, look -1.0, heat -0.8
+
+##### P. MAIN TABLE (two seeds, 10-pass endpoint, LONI vLLM v2, 140 valid_seen, paired vs first base run 79/140)
+method            seed0  seed1  mean(%)      vs base79  vs base mean 81.0   teacher tokens (settled)   notes
+base              79 / 84 / 80 (three repeats)  mean 81.0 = 57.86%                                     -                   flips 17/17/20 between repeats
+plain CE (D0)      80     77   78.5 = 56.07%   -0.36     -1.79              681,640                  30 demos, 184 steps
+SmartAD N=3        82     82   82.0 = 58.57%   +2.14     +0.71              2,064,510 (+4,837 unc.)  30 tasks, best-of-3 by initial-student NLL
+SAD-sum            76     81   78.5 = 56.07%   -0.36     -1.79              681,640                  paper token-sum + curriculum, D0
+Kang FTP           79     74   76.5 = 54.64%   -1.79     -3.21              794,301                  28 packages, 223/222 steps
+3-pass endpoint (two seeds): CE 68/68, SmartAD 67/70, SAD 68/69, Kang 68/66 -> all -6 to -9 pp.
+No cell differs from base beyond the single-model repeat noise (17-20 task flips, +-3.6 pp).
