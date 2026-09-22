@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike venv 重建成功,14 个作业第三次提交(2026-09-22 15:07 CDT)
+- uv 托管 CPython 3.12.12:Python.h OK,torch 2.13.0+cu130 / peft 0.20.0 / transformers 5.14.1;vllm-serve-venv(vllm 0.27.1 + tf 5.14.1)也建好。
+- 作业(全 /ddnA 规范路径,preflight && train):四格 B s2 860855、C s1/s2 860856/57、D s1/s2 860858/59、le50tok s0/s1 860860/61;
+  SmartAD turn_mean 选例 860862 → afterok weight_norm s0/1/2 860863/65/67;SAD trajectory_cost s0/1/2 860864/66/68。监视 bd9u50is6。
+
 ### mike 第二批失败:系统 python3.12 无 Python.h(Triton JIT 编译失败);改用 uv 托管 Python 重建(2026-09-22 15:05 CDT)
 - le50tok s0/s1(860766/67)开跑 1.5 分钟后失败:`fatal error: Python.h: No such file or directory`——`uv venv --python 3.12` 选中了
   RHEL 的 `/usr/bin/python3.12`(无 devel 头文件),Triton 编译 `cuda_utils.c` 时炸。其余 12 个排队作业会同样失败 → 已全部 scancel。
