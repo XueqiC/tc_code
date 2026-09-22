@@ -561,6 +561,15 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 用户要求 LONI 拉满并行(2026-09-22 08:28 CDT)
+- 提前送评所有已过 3 遍点的 checkpoint:v2smartads0p3 1041452/53、v2smartads1p3 1041454/55、v2sads2p3 1041456/57、
+  v2fixs2p3 1041458/59(rai CE seed2,adapter 同步到 `tc-alf-adapters-v2/seed-2`)、v2kangs2p3 1041460/61(rai Kang seed2,
+  `tc-alf-adapters-kang-s2/seed-2`);**base 重复评测 v2base_rep 1041462**(评测噪声底)。监视 bt2n1rvkc。
+- **Codex#13**(alf-baselines):零采购子银行工具 `tools/alf_bank_subset.py` + 三个银行/配置:D0 按扫描占比低/高各 15 条
+  (`alfworld_k32_d0_lowsweep/highsweep`)、SmartAD 全部 87 条验证轨迹(`alfworld_k32_smartad_all87`)。就绪后各训两 seed
+  (3/10 遍;all87 的 10 遍 ≈ 280k token ≈ 13 h,需看 gpu2 时限,必要时 `--resume` 接力)。已告知用户,不反对即提交。
+- 已发消息说明;用户 08:25 指示"尽量在 LONI 上并行起来"。
+
 ### 类型分裂背后的行为:柜子/抽屉顺序扫描 vs "clean"子技能(2026-09-22 ~07:27 CDT;原写 08:05 是猜的,已按时钟改)
 - **cool 掉分的方式**(看了 4 个 base 成、Kang s1 败的局,全部一样):训练后模型逐个 `go to cabinet k / open cabinet k`,扫完柜子扫抽屉,
   直到 40 步;物品在 countertop 上。量化:base 在 13/25 局拿到物品(首次 take 平均第 17.6 步),扫描类动作占 65.9%;
