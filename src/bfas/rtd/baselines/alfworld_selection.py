@@ -73,7 +73,7 @@ def select_candidates(candidates, task_ids, scorer, output, identity, data_cost,
     """Scorer returns (unweighted total NLL, supervised token count) per row.
 
     Save one immutable score per whole trajectory. An interruption redoes at
-    most that trajectory. Selection is identical for both training seeds.
+    most that trajectory. Selection is identical for all training seeds.
     """
     candidates = sorted(candidates, key=lambda c: (c['task_id'], c['candidate_id']))
     if len(task_ids) != len(set(task_ids)):

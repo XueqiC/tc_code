@@ -223,7 +223,7 @@ D0=/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0
   --bank "$D0" --output results/alfworld_k32_sad_mean/seed-0
 ```
 
-For the second registered seed, change `--seed 0` to `--seed 1` and the output suffix to `seed-1`.
+For seeds 1 and 2, change `--seed 0` to `--seed 1` or `--seed 2` and the output suffix to `seed-1` or `seed-2`, respectively.
 Omitting `--sad-variant sad_sum` in the first command gives the same main objective.
 
 CPU validation command from the same worktree:

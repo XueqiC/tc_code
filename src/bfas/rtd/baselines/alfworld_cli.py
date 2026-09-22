@@ -74,7 +74,7 @@ def parser():
             q.add_argument('--method', choices=('smartad', 'sad'), required=True)
             q.add_argument('--sad-variant', choices=('sad_sum', 'sad_mean'),
                            help='SAD loss: paper token sum (default: sad_sum) or group-mean ablation')
-            q.add_argument('--seed', type=int, choices=(0, 1), required=True)
+            q.add_argument('--seed', type=int, choices=(0, 1, 2), required=True)
             q.add_argument('--selection', type=Path)
         if command == 'cost':
             q.add_argument('--method', choices=('smartad', 'sad', 'ce', 'kang'), required=True)

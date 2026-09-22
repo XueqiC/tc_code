@@ -55,7 +55,7 @@ def verify_cuda_device(selected, config):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT/"configs/rtd/pi1_alfworld_k32.yaml")
-    parser.add_argument("--seed", type=int, choices=(0, 1))
+    parser.add_argument("--seed", type=int, choices=(0, 1, 2))
     parser.add_argument("--output", type=Path)
     parser.add_argument("--bank", type=Path, help="read-only bank location override")
     parser.add_argument("--gpu-uuid", help="full GPU UUID from nvidia-smi; required for training")

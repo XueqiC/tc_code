@@ -28,7 +28,7 @@ The initial student uses the same local snapshot, tokenizer, shared
 LoRA construction as training, before any optimizer step. Selection binds
 snapshot/tokenizer/encoder/source hashes and versions. A subsequent encoder
 change, including the native-boundary fix, invalidates old selection artifacts.
-Both training seeds use the same frozen selection.
+All three training seeds (0, 1, 2) use the same frozen selection.
 
 `selection.json` contains every task, all verified candidate IDs, their scores
 and purchase cost, task-level total purchase cost, the chosen ID, the choice
@@ -165,7 +165,7 @@ $PY tools/alf_baseline.py select \
 # To continue interrupted scoring, repeat this exact command with --resume.
 
 # (b) SmartAD: only the selection artifact supplies training data/cost.
-for seed in 0 1; do
+for seed in 0 1 2; do
   $PY tools/alf_baseline.py train --method smartad --seed "$seed" \
     --pi1-root "$PI1" --config "$CFG" --model-path "$MODEL" --gpu-uuid "$GPU_UUID" \
     --selection results/alfworld_k32_smartad_selection_v1/selection.json \
@@ -173,7 +173,7 @@ for seed in 0 1; do
 done
 
 # (c) SAD hard-label adaptation with the explicitly unverified schedule above.
-for seed in 0 1; do
+for seed in 0 1 2; do
   $PY tools/alf_baseline.py train --method sad --seed "$seed" \
     --pi1-root "$PI1" --config "$CFG" --model-path "$MODEL" --gpu-uuid "$GPU_UUID" \
     --bank "$D0" --output "results/alfworld_k32_sad_v1/seed-$seed"
