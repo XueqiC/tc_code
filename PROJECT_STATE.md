@@ -561,7 +561,7 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
-### Codex#14/#15/#16 落地,四格与 REPAIR 开跑(2026-09-22 14:05 CDT)
+### Codex#14/#15/#16 落地,四格与 REPAIR 开跑(2026-09-22 13:55 CDT)
 - **Codex#15 → alf-taskeq `58975764`**:`pi1_ce_taskeq`(每次更新内各任务等权,w_t=(N/n_tasks)/T_t,总权重=token 均值;等长时与 CE 逐位相同)、
   `exposure_tokens: [28947, 96490]`(D0 上与 3/10 遍同步);配置 B `pi1_alfworld_k32_taskeq.yaml`、C `..._all87_tok.yaml`、D `..._all87_taskeq.yaml`;
   220 测试通过(我复跑 56)。**评测 harness SCOPES 投影三棵树一致**(a2d91fef…)。
