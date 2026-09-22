@@ -76,6 +76,22 @@ Use the whole collection's costs for method comparisons, not just selected
 candidate costs. Acquisition success uses the existing ALFWorld metric; exported
 verified counts additionally require the existing CPU command replay to pass.
 
+Offline `alf_baseline.py cost` reports the last durable state per request ID.
+An unresolved `reserved` call is billed at its reserved prompt + completion
+envelope without changing either ledger. Any other status besides `reported`
+and `reserved` is rejected. Under `teacher_data_cost`, the existing `tokens`,
+usage counts and dollar estimates include both parts; `settled` contains only
+reported calls. `uncertain_reservations` records `count`, `tokens`, `call_ids`,
+`prompt_tokens`, `cached_tokens`, `completion_tokens`, `estimated_usd`, and
+`estimated_usd_decimal`. `cost_basis` is `settled + uncertain (upper bound)` when
+any reservation remains, or `settled` otherwise. Empty uncertain blocks have
+zero counts/cost and an empty ID list.
+
+The same breakdown appears in `per_task`, `per_attempt`, and `phase_costs`, in
+the cost command's JSON output, and under `teacher_data_cost` in selection,
+training, and endpoint manifests and `selection.json`. Reservations contribute
+cost only: SmartAD candidates still come from the frozen verified bank.
+
 ## Declared adaptations / deviations
 
 - Both methods use the sealed K=32 ALFWorld train tasks, initial observations,

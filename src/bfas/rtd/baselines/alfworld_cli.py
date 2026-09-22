@@ -146,7 +146,8 @@ def main(argv=None):
         args.output.mkdir(parents=True, exist_ok=False)
         exclusive_json(args.output/'manifest.json', dict(receipt, teacher_data_cost=cost))
         print(json.dumps(dict(output=str(args.output), method=args.method, tokens=cost['tokens'],
-                              estimated_usd=cost['estimated_usd'])))
+                              estimated_usd=cost['estimated_usd'], cost_basis=cost['cost_basis'],
+                              settled=cost['settled'], uncertain_reservations=cost['uncertain_reservations'])))
         return 0
 
     pi1 = use_pi1_root(args.pi1_root)

@@ -1,6 +1,7 @@
 """CPU-only oracles for selection, scheduling, accounting and shared training."""
 from collections import Counter
 from dataclasses import asdict
+from decimal import Decimal
 import json
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 from bfas.rtd.baselines.alfworld_cli import main, parser, safe_output, use_pi1_root
 from bfas.rtd.baselines.alfworld_cost import collection_cost
 from bfas.rtd.baselines.alfworld_curriculum import exposure_schedule
-from bfas.rtd.baselines.alfworld_selection import read_selection, select_candidates
+from bfas.rtd.baselines.alfworld_selection import load_candidates, read_selection, select_candidates
 from bfas.rtd.baselines.alfworld_training import K32PaperTrainer, encoded_spans, prepare_training
 from bfas.rtd.baselines.paper_data import TeacherRow
 from bfas.rtd.baselines.paper_losses import span_ce
@@ -142,7 +143,7 @@ def write_json(path, data):
     path.write_text(json.dumps(data))
 
 
-def ledger_bank(tmp_path, method):
+def ledger_bank(tmp_path, method, *, unresolved=False):
     bank = tmp_path/method
     collection = Path(str(bank)+'.collection')
     collection.mkdir(parents=True)
@@ -155,10 +156,17 @@ def ledger_bank(tmp_path, method):
     if method == 'kang':
         calls.append(dict(id=2, task_id='t', attempt_index=0, status='reported', phase='cot',
                           usage=dict(prompt_tokens=50, cached_tokens=0, completion_tokens=5)))
-    reservations = [dict(c, status='reserved', usage=dict(prompt_tokens=999, cached_tokens=0, completion_tokens=999)) for c in calls]
+    if unresolved:
+        calls.extend([
+            dict(id=3, task_id='t', attempt_index=3, status='reported', phase='trajectory',
+                 usage=dict(prompt_tokens=50, cached_tokens=0, completion_tokens=5)),
+            dict(id=2587, task_id='t', attempt_index=3, status='reserved', phase='trajectory',
+                 usage=dict(prompt_tokens=2789, cached_tokens=0, completion_tokens=2048))])
+    reservations = [dict(c, status='reserved', usage=dict(prompt_tokens=999, cached_tokens=0, completion_tokens=999))
+                    for c in calls if c['status'] == 'reported']
     (collection/'usage.jsonl').write_text('\n'.join(json.dumps(r) for r in reservations+calls)+'\n')
     episodes = []
-    for a in (0, 1):
+    for a in sorted({c['attempt_index'] for c in calls}):
         usage = {k: sum(c['usage'][k] for c in calls if c['attempt_index'] == a)
                  for k in ('prompt_tokens', 'cached_tokens', 'completion_tokens')}
         episodes.append(dict(task_id='t', attempt_index=a, usage=usage,
@@ -181,6 +189,10 @@ def test_cost_manifests_equal_ledger_sums_include_unselected_failed_and_planning
         assert cost[k] == sum(c['usage'][k] for c in calls)
     assert cost['tokens'] == sum(c['usage']['prompt_tokens']+c['usage']['completion_tokens'] for c in calls)
     assert cost['calls'] == len(calls)
+    assert cost['settled']['tokens'] == cost['tokens']
+    assert cost['cost_basis'] == 'settled'
+    assert cost['uncertain_reservations']['count'] == cost['uncertain_reservations']['tokens'] == 0
+    assert cost['uncertain_reservations']['call_ids'] == []
     assert cost['per_task']['t']['tokens'] == cost['tokens']
     assert cost['phase_costs']['cot']['tokens'] == (55 if method == 'kang' else 0)
     assert cost['per_attempt']['t']['1']['tokens'] == 230  # failed attempt still costs money
@@ -188,12 +200,79 @@ def test_cost_manifests_equal_ledger_sums_include_unselected_failed_and_planning
         main(['cost', '--method', method, '--bank', str(bank), '--output', str(output)])
 
 
-def test_cost_rejects_unsettled_and_changed_collection(tmp_path):
+@pytest.mark.parametrize('method', ['smartad', 'sad', 'ce', 'kang'])
+def test_cost_bills_reserved_upper_bound_separately_in_manifests_and_output(tmp_path, method, capsys):
+    bank, calls = ledger_bank(tmp_path, method, unresolved=True)
+    collection = Path(str(bank)+'.collection')
+    before = {p: p.read_bytes() for p in collection.iterdir()}
+    output = tmp_path/'cost-report'
+    assert main(['cost', '--method', method, '--bank', str(bank), '--output', str(output)]) == 0
+    cost = json.loads((output/'manifest.json').read_text())['teacher_data_cost']
+    uncertain = dict(count=1, tokens=4837, call_ids=[2587], prompt_tokens=2789,
+                     cached_tokens=0, completion_tokens=2048, estimated_usd=0.0030154,
+                     estimated_usd_decimal='0.0030154')
+    reported = [c for c in calls if c['status'] == 'reported']
+    for k in ('prompt_tokens', 'cached_tokens', 'completion_tokens'):
+        assert cost['settled'][k] == sum(c['usage'][k] for c in reported)
+        assert cost[k] == cost['settled'][k] + uncertain[k]
+    assert cost['settled']['tokens'] == (450 if method == 'kang' else 395)
+    assert cost['calls'] == cost['settled']['calls'] + uncertain['count'] == len(calls)
+    for subtotal in (cost, cost['per_task']['t'], cost['per_attempt']['t']['3'],
+                     cost['phase_costs']['trajectory']):
+        assert subtotal['cost_basis'] == 'settled + uncertain (upper bound)'
+        assert subtotal['uncertain_reservations'] == uncertain
+        assert subtotal['tokens'] == subtotal['settled']['tokens'] + 4837
+        assert Decimal(subtotal['estimated_usd_decimal']) == (
+            Decimal(subtotal['settled']['estimated_usd_decimal']) + Decimal('0.0030154'))
+    assert cost['per_attempt']['t']['3']['settled']['tokens'] == 55
+    assert cost['phase_costs']['cot']['uncertain_reservations']['count'] == 0
+    printed = json.loads(capsys.readouterr().out)
+    for k in ('tokens', 'estimated_usd', 'cost_basis', 'settled', 'uncertain_reservations'):
+        assert printed[k] == cost[k]
+    assert {p: p.read_bytes() for p in collection.iterdir()} == before
+
+
+def test_selection_preserves_uncertain_cost_without_adding_failed_candidate(tmp_path, pi1, monkeypatch):
+    bank, _ = ledger_bank(tmp_path, 'smartad', unresolved=True)
+    cost = collection_cost(bank, method='smartad')
+    write_json(bank/'sealed/manifest.json', dict(version='fixture'))
+    write_json(bank/'public/requests.json', [
+        dict(spec=dict(query_id='a'), unavailable_reason=None),
+        dict(spec=dict(query_id='failed'), unavailable_reason='not verified')])
+    write_json(bank/'sealed/a.json', dict(provenance=dict(task_id='t', attempt_index=0)))
+    rows = [row('a', 't')]
+    monkeypatch.setattr(pi1, 'load_bank', lambda *args: (rows, dict(path=str(bank))))
+    collection = Path(str(bank)+'.collection')
+    sets = collection/'candidate_sets.json'
+    write_json(sets, dict(method='smartad', bank_manifest_sha256=file_hash(bank/'sealed/manifest.json'),
+        ledger_sha256=file_hash(collection/'teacher_ledger.jsonl'), usage_sha256=file_hash(collection/'usage.jsonl'),
+        tasks=dict(t=dict(attempts=[dict(status='usable', candidate_id='a', query_id='a'),
+                                   dict(status='failed', candidate_id='failed', query_id='failed')]))))
+    candidates, tasks, bank_identity = load_candidates(bank, None, cost, candidate_sets=sets)
+    assert len(candidates) == 1 and candidates[0]['attempt_index'] == 0
+    scored = []
+    def score(r):
+        scored.append(r.package_id)
+        return 1., 1
+    identity = dict(student=dict(base='frozen'), bank=bank_identity)
+    artifact = select_candidates(candidates, tasks, score, tmp_path/'selection', identity, cost)
+    assert scored == ['a']
+    assert artifact['tasks'][0]['candidate_count'] == 1
+    assert artifact['tasks'][0]['chosen_candidate_id'] == 'a'
+    assert artifact['tasks'][0]['purchase_cost']['uncertain_reservations']['call_ids'] == [2587]
+    assert artifact['tasks'][0]['candidates'][0]['cost']['uncertain_reservations']['count'] == 0
+    selected_rows, saved = read_selection(tmp_path/'selection/selection.json', identity['student'])
+    assert selected_rows == rows and saved['teacher_data_cost'] == cost
+    manifest = json.loads((tmp_path/'selection/manifest.json').read_text())
+    assert manifest['teacher_data_cost'] == cost
+
+
+def test_cost_rejects_unknown_request_status(tmp_path):
     bank, calls = ledger_bank(tmp_path, 'sad')
     usage = Path(str(bank)+'.collection')/'usage.jsonl'
     with usage.open('a') as f:
-        f.write(json.dumps(dict(calls[0], status='reserved'))+'\n')
-    with pytest.raises(ValueError, match='actual cost unavailable'):
+        f.write(json.dumps(dict(calls[0], status='unknown'))+'\n')
+    with pytest.raises(ValueError, match="unexpected request status 'unknown'"):
         collection_cost(bank, method='sad')
 
 
@@ -254,12 +333,15 @@ def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(
     rows = [row('long', index=i, target='think\nOBSERVATION: a room\nACTION: look')
             for i in range(2)] + [row('short', target='ACTION: go')]
     costs = [sum(k != 'observation' for k in encoded_spans(b.tokenizer, r, 32768)[1]) for r in rows]
-    bank, _ = ledger_bank(tmp_path, method)
+    bank, _ = ledger_bank(tmp_path, method, unresolved=method == 'smartad')
     cost = collection_cost(bank, method=method)
     identity = dict(bank=dict(path=str(bank)), teacher_data_cost=cost)
     manifest, plan = prepare_training(tmp_path/'run', rows, cfg, 0, method, identity, costs,
                                       sad_variant=variant)
     prepared = json.loads((tmp_path/'run/manifest.json').read_text())
+    assert prepared['teacher_data_cost'] == cost
+    if method == 'smartad':
+        assert cost['uncertain_reservations']['call_ids'] == [2587]
     assert prepared['hyperparameters']['loss'] == f'span_ce({loss_method})'
     if method == 'sad':
         assert prepared['sad_variant'] == prepared['hyperparameters']['sad_variant'] == loss_method
@@ -294,6 +376,7 @@ def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(
     assert result['supervised_tokens'] == 10*sum(costs)
     assert result['endpoints'] == [3, 10] and b.samples == 0
     trained = json.loads((tmp_path/'run/manifest.json').read_text())
+    assert trained['teacher_data_cost'] == cost
     assert trained['status'] == 'trained'
     assert trained['hyperparameters'] == prepared['hyperparameters']
     if method == 'sad':

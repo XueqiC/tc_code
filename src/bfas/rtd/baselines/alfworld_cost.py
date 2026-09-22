@@ -13,8 +13,9 @@ def read_json(path):
 def collection_cost(bank, *, method, collection=None):
     """Charge each request once at its last ledger state, including failed buys.
 
-    Reservations are updates to request IDs, not extra calls. An unresolved
-    reservation cannot be presented as ACTUAL cost: fail instead of guessing.
+    Reservations are updates to request IDs, not extra calls. Unresolved
+    reservations retain their full envelopes as explicit uncertain upper bounds,
+    separate from settled usage at every aggregation level.
     Monetary cost is an estimate at the collector's recorded prices.
     """
     bank = Path(bank).resolve()
@@ -45,13 +46,13 @@ def collection_cost(bank, *, method, collection=None):
     if not calls or any(c['task_id'] not in task_ids for c in calls):
         raise ValueError('empty or out-of-support usage ledger')
     for call in calls:
-        if call['status'] != 'reported':
-            raise ValueError('actual cost unavailable: unresolved request reservation')
+        if call['status'] not in {'reported', 'reserved'}:
+            raise ValueError(f"actual cost unavailable: unexpected request status {call['status']!r}")
         u = call['usage']
         if (any(type(u[k]) is not int or u[k] < 0 for k in
                 ('prompt_tokens', 'cached_tokens', 'completion_tokens'))
                 or u['cached_tokens'] > u['prompt_tokens']):
-            raise ValueError('invalid reported usage')
+            raise ValueError(f"invalid {call['status']} usage")
         if call.get('phase', 'trajectory') not in {'cot', 'trajectory'}:
             raise ValueError('unknown purchase phase')
     rates = [Decimal(str(x)) for x in identity['prices']]
@@ -66,6 +67,15 @@ def collection_cost(bank, *, method, collection=None):
         return dict(**counts, tokens=counts['prompt_tokens']+counts['completion_tokens'],
                     calls=len(items), estimated_usd=float(usd), estimated_usd_decimal=str(usd))
 
+    def accounted_total(items):
+        reserved = [c for c in items if c['status'] == 'reserved']
+        uncertain = total(reserved)
+        uncertain['count'] = uncertain.pop('calls')
+        uncertain['call_ids'] = sorted(c['id'] for c in reserved)
+        return dict(**total(items), settled=total([c for c in items if c['status'] == 'reported']),
+                    uncertain_reservations=uncertain,
+                    cost_basis='settled + uncertain (upper bound)' if reserved else 'settled')
+
     # The episode ledger aggregates all request phases for that attempt. Use it
     # as a cross-check, not a second bill (Kang planning would be counted twice).
     attempts = {}
@@ -74,14 +84,14 @@ def collection_cost(bank, *, method, collection=None):
         key = (row['task_id'], row['attempt_index'])
         if key in attempts or key[0] not in task_ids:
             raise ValueError('duplicate or out-of-support episode')
-        subtotal = total([c for c in calls if (c['task_id'], c['attempt_index']) == key])
+        subtotal = accounted_total([c for c in calls if (c['task_id'], c['attempt_index']) == key])
         if (row['usage'] != {k: subtotal[k] for k in row['usage']}
                 or row['tokens_spent'] != subtotal['completion_tokens']):
             raise ValueError('episode and request ledger sums disagree')
         attempts[key] = subtotal
     if {(c['task_id'], c['attempt_index']) for c in calls} != set(attempts):
         raise ValueError('request ledger has attempts absent from episode ledger')
-    phases = {p: total([c for c in calls if c.get('phase', 'trajectory') == p])
+    phases = {p: accounted_total([c for c in calls if c.get('phase', 'trajectory') == p])
               for p in ('cot', 'trajectory')}
     if expected != 'kang-ftp' and phases['cot']['calls']:
         raise ValueError('planning charges in a non-Kang bank')
@@ -90,12 +100,13 @@ def collection_cost(bank, *, method, collection=None):
     if file_hash(ledger) != ledger_hash or file_hash(usage) != usage_hash:
         raise ValueError('collection changed during accounting')
     return dict(method=method, bank=str(bank), bank_audit_sha256=file_hash(bank/'sealed/audit.json'),
-        **total(calls), phase_costs=phases,
-        per_task={t: total([c for c in calls if c['task_id'] == t]) for t in sorted(task_ids)},
+        **accounted_total(calls), phase_costs=phases,
+        per_task={t: accounted_total([c for c in calls if c['task_id'] == t]) for t in sorted(task_ids)},
         per_attempt={t: {str(a): cost for (tid, a), cost in sorted(attempts.items()) if tid == t}
                      for t in sorted(task_ids)},
         scope='all purchases for frozen support, including failed and unselected candidates',
-        usage_basis='last reported state per request ID; prompt + completion; cached input is a subset',
+        usage_basis='last durable state per request ID; reported usage settled, reserved usage uncertain '
+                    '(upper bound); prompt + completion; cached input is a subset',
         prices_per_million=[str(r) for r in rates], currency='USD (estimate at recorded prices)',
         sources={str(ledger): ledger_hash, str(usage): usage_hash,
                  str(collection/'identity.json'): file_hash(collection/'identity.json')},
