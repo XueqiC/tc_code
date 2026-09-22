@@ -178,3 +178,10 @@ rai_le50s1p10   72/140   -8.57  disc 26 (b19/c7) p=0.029
    The base is stable across platforms (mean 81.0 vs 82.5); the trained models lose ~5 tasks on rai. Within rai: filtered-D0 -5/-2 vs CE,
    high-sweep +2/+3 vs CE, all inside rai's own repeat noise. Conclusion: the sweep-filter test is inconclusive at this dose; the
    token-matched run (mike) and a single evaluation platform (hpg B200, one vLLM pin) are needed before any material claim.
+
+##### U. REPAIR seed 0 material (added 17:12 CDT): pi1 = CE s0 10-pass; 32 support rollouts -> 21 succeed / 11 fail -> 11 takeover requests
+takeover rule fired: repeated_command in 11/11 (k = 3..39, remaining horizon 1..37); teacher (luna, T=0) continued from the replayed student state
+verified suffixes: 2/11 (clean Tomato-DiningTable k=3, 6 teacher cmds; heat Plate-Fridge k=15, 11 cmds); 9/11 not verified (teacher did not finish within the horizon)
+sweep share of the teacher suffix > 0.5 in 6/11 requests (all among the unverified ones) -> the filter removed nothing that had verified
+cost: 496 calls, 1,408,383 tokens (cap 1.5M; stop_reason complete). usable bank: 2 demos / 17 turns / 442 tokens; D0+REPAIR 1:1 union = 884 tokens (degenerate).
+-> at this cap REPAIR yields ~1/8 of one D0 demo's material per 700k tokens; the teacher rescues stalled student states rarely (2/11).
