@@ -52,3 +52,11 @@ two-seed mean 78.5/140 = 56.07%  vs base 79/140 = 56.43%  -> -0.36 pp (gate rule
 ##### G. same stop config, old labels -> fixed labels, 10-pass endpoint, paired
 v2fixs0p10  80/140    +0.71    17      8      9          1     (vs v2s0p10 79)
 v2fixs1p10  77/140    +0.00    12      6      6          1     (vs v2s1p10 77)
+
+##### H. baselines, 3-pass endpoint, v2 stop config, vs v2 base (added 06:45 CDT)
+cell          wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2kangs0p3  68/140    -7.86    33     22     11     0.0801 |   99.9%    0.0%    7.3%   72      72   Kang FTP bank (28 pkgs / 412 turns / 11,749 tok x3)
+v2kangs1p3  66/140    -9.29    37     25     12      0.047 |   99.9%    0.0%    7.4%   74      74
+v2sads0p3   68/140    -7.86    35     23     12     0.0895 |   99.8%    0.0%    8.3%   73      72   SAD paper-literal sum + curriculum, D0 bank
+v2sads1p3   69/140    -7.14    30     20     10     0.0987 |   99.8%    0.0%    7.6%   72      71
+(reference: plain CE 3-pass, fixed labels: 68 / 68)
