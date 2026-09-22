@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 第二批失败:系统 python3.12 无 Python.h(Triton JIT 编译失败);改用 uv 托管 Python 重建(2026-09-22 15:05 CDT)
+- le50tok s0/s1(860766/67)开跑 1.5 分钟后失败:`fatal error: Python.h: No such file or directory`——`uv venv --python 3.12` 选中了
+  RHEL 的 `/usr/bin/python3.12`(无 devel 头文件),Triton 编译 `cuda_utils.c` 时炸。其余 12 个排队作业会同样失败 → 已全部 scancel。
+- 修法:`uv python install 3.12` + `uv venv --python-preference only-managed`(自带头文件)重建 baselines venv 与 vllm-serve venv,
+  校验 Python.h 与 torch 后**自动重提全部 14 个作业**(`/ddnA/work/xueqic/hq/rebuild_and_submit.sh`,日志同名 .log;监视 b9y394lmp)。
+- 教训:LSU 集群上建 venv 必须用 uv 托管的 CPython,不要用系统 python。
+
 ### 过滤高扫描 demo 的 D0 CE:rai 平台 69 / 72 vs rai base 84 → 预注册读法未达成(2026-09-22 14:55 CDT)
 - `rai_le50s0p10` 69(−10.71,29 题不一致 22/7,p=0.008)、`rai_le50s1p10` 72(−8.57,26 题 19/7,p=0.029);按类型 heat 3/8 & 4/8(base 8)、
   cool 4/8 & 6/8(base 8)、clean 15/16(无涨)。**低于 base,显著。**
