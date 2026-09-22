@@ -95,3 +95,14 @@ clean (n=27): base fails by placing without cleaning and then looping look/take/
 Sweep share rises in every type after training (+10-20 pp; look 10.5 -> 2.7-14.2 is the exception).
 Teacher demos (D0, 30 verified): sweep share look 60 / pick&place 30 / clean 46 / cool 46 / heat 13 / two 58 %; 4 of 5 cool demos go straight to countertop/diningtable
   (first take at step 2-4); one (Plate-Cabinet-7) is a 33-step cabinet sweep. The student amplifies the enumeration pattern beyond its frequency in the demos.
+
+##### M. base repeat: same base snapshot, same LONI vLLM config, same 140 tasks, paired vs the first base run (added 08:55 CDT)
+v2base_rep  84/140    +3.57    17      6     11      0.332 |   98.3%    0.0%    9.8%   58      56   (vs v2base 79)
+-> single-model evaluation repeat flips 17/140 tasks (12%); net +3.57 pp. This is the noise floor for every +-2 pp comparison above.
+   against base_rep the 10-pass CE cells read -2.86 / -5.00 (p 0.56 / 0.27) instead of +0.71 / -1.43.
+##### N. more 3-pass cells vs v2base (added 08:55 CDT)
+v2smartads0p3  67/140    -8.57    32     22     10     0.0501 |  100.0%    0.0%    7.7%   74      73   SmartAD N=3 selection, 30 tasks
+v2smartads1p3  70/140    -6.43    35     22     13      0.175 |   99.9%    0.0%    8.3%   70      70
+v2sads2p3      69/140    -7.14    30     20     10     0.0987 |   99.8%    0.0%    8.9%   71      71   seed 2
+v2fixs2p3      70/140    -6.43    31     20     11       0.15 |   99.9%    0.0%    7.8%   71      70   plain CE fixed labels, seed 2
+v2kangs2p3     66/140    -9.29    31     22      9     0.0294 |  100.0%    0.0%    6.3%   74      74   seed 2
