@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### D0 与 ADD-DEMO 并集被拒:只差 environment_hash(采集器代码指纹),世界/状态/提示 32/32 相同(2026-09-22 18:15 CDT)
+- Codex#18 诊断:任务、世界文件哈希、reset 目标/步数/观测/可执行动作/提示全部相同;每个 reset 请求只在 `environment_hash` 上不同
+  (d574… → 3ab0…,源于 Codex#14 改过 alfworld_teacher_pool.py / alfworld_support.py 后重新采集),由此派生的 request_hash / 全状态哈希也不同。
+  这是**代码版本指纹差异,不是模拟器行为差异**;按我给的"请求不同就拒绝"规则 Codex 正确地停了。
+- 决定:允许"仅代码指纹不同"的并集(逐任务比世界哈希与 reset 字段,只放行 environment_hash 差异,并集清单记录双方哈希与比较字段)。
+  **Codex#19** 实现并产出 `alfworld_k32_d0_plus_add_{1to1,all}` + 配置 + preflight。届时转 token 端点配置,三 seed 投 mike。
+
 ### Azure P1 额度耗尽(403);REPAIR s1/s2 首轮全部失败,改 P2 重采(2026-09-22 18:12 CDT)
 - `ops/api_status.py`:**azure-p1 403 forbidden / budget exhausted**(项目 5M token/周);azure-p2 200 可用;ollama ×2 可用。
 - REPAIR s1(10 请求)/ s2(13 请求)在 P1 上每个请求首个调用即失败(全部 'reserved' 悬置,各 ~2.2k prompt + 2,048 预留),0 可用;
