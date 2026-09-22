@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### SmartAD 账本的悬置预留如何入账(2026-09-22 02:05 CDT)
+暂停采集时一条在途请求(call 2587)从未收到回复,durable 状态停在 `reserved`;池的 `cancel()/finish()/recover_attempts()`
+对新实例都不写终态,**账本不手改**。按项目既有口径("缺失 usage 单列保守上界"),成本模块改为:
+**settled 2,064,510 token / 2,587 次 / $0.6395 + uncertain 1 条 4,837 token / $0.0030,`cost_basis = settled + uncertain (upper bound)`**,
+call id 列明;选例永不把该预留当候选。主表里 SmartAD 的数据成本按此两部分分别列出。
+
 ### 第一张表:停止修复后的五模型配对(2026-09-22 01:43 CDT,LONI,同平台同配置同 140 题)
 文件 `results/reports/2026-09-22_five_model_tables_v1_v2.txt`。**v2 base 重测 = 79/140 = 56.43%**(v1 为 85,差 −4.29,p=0.21)。
 
