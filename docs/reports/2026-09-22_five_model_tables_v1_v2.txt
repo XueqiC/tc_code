@@ -74,7 +74,7 @@ v2sads0p10   76/140    -2.86    14      9      5      0.424     (vs v2fixs0p10 8
 v2kangs1p10  74/140    -2.14    17     10      7      0.629     (vs v2fixs1p10 77)
 v2sads1p10   81/140    +2.86    10      3      7      0.344     (vs v2fixs1p10 77)
 
-##### K. per task type, v2 base vs the six 10-pass cells (CE-fixed s0/s1, Kang s0/s1, SAD s0/s1), added 07:50 CDT
+##### K. per task type, v2 base vs the six 10-pass cells (CE-fixed s0/s1, Kang s0/s1, SAD s0/s1), added ~07:23 CDT (clock read 07:28; the earlier "07:50" was a guess)
 type                            n  base | CE0 | CE1 | Kang0 | Kang1 | SAD0 | SAD1   (wins; paired b=base-only c=cell-only)
 look_at_obj_in_light           13   8   |  9  |  7  |  8    |  9    |  8   |  7     mean delta  +0.0 pp
 pick_and_place_simple          35  27   | 28  | 29  | 29    | 27    | 28   | 29     mean delta  +3.8 pp
@@ -87,7 +87,7 @@ Support K=32 by type: look 3 / pick&place 7 / clean 6 / cool 5 / heat 4 / two 7 
 Kang 28 (pick&place 6, clean 4, two 6), SmartAD 30 (cool 4, two 6). Coverage does not explain the cool drop: all 5 cool demos are in D0.
 Cells share the same 140 tasks, so "6/6" is consistency across seeds/methods, not six independent samples.
 
-##### L. behaviour behind the per-type split (added 08:05 CDT): systematic cabinet/drawer sweep, and the "clean" sub-skill
+##### L. behaviour behind the per-type split (added ~07:27 CDT (clock read 07:28; the earlier "08:05" was a guess)): systematic cabinet/drawer sweep, and the "clean" sub-skill
 cool (n=25): base finds the object (any take) in 13/25 episodes, mean first take at step 17.6, sweep share 65.9%;
   trained 10-pass cells find it in 5-8/25, first take at step 6-9 when found, sweep share 82.9-89.3%; 3-pass CE 4/25, sweep 87.4%.
   Failure mode (all inspected cases): "go to cabinet k / open cabinet k" for every k, then drawers, until the 40-step horizon; the object sat on a countertop.
