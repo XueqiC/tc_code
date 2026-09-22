@@ -100,9 +100,32 @@ positive demonstration and token counts. Inspect `summary.json` for that case.
 An interrupted collection is not resumed by this tool: preserve its paid
 journals; do not point a new purchase at that directory.
 
-Union inputs must share the same frozen support, reset requests, environment
-identity and reset states. REPAIR preserves D0's identity for this reason.
-Every selected sealed package is copied byte for byte. Complete source
+Union inputs must share the same support tasks, parent/fold metadata, every
+world-file hash and combined world hash, and every reset request/state field:
+goal, horizon, complete initial observation, ordered admissible actions, prompt,
+history flags and parent identity. Differences name the task and field.
+Environment identity may differ only in the collector-code fingerprints for
+`tools/alfworld_teacher_pool.py` and `alfworld_support.py`, plus the environment
+and historical-environment hashes. Other environment metadata, including the
+tokenizer and renderer settings, must match. Both source banks still pass the
+unchanged auditor, which checks their signatures and derived hashes.
+
+The union inherits the left/D0 environment, requests and resets, preserving
+its exact support manifest/hash when it describes the complete support. If the
+left bank has a `training_selection` marker, only that training inventory is
+recomputed and the derived support is re-signed. This keeps D0's registered
+identity for the D0 + ADD-DEMO unions. The manifest's `derivation` records both
+source environment/support hashes, every compared field, the statement
+`code-identity-only difference`, and the chosen identity and reason.
+
+Packages already using the left identity are copied byte for byte. Packages
+using the other identity are normalized **only in the union copy**: update the
+request hash and state task identities, recompute the transcript and sealing
+hashes, and record both original and derived package hashes. Historical ledger
+evidence, teacher replies, commands, observations, admissible lists and stored
+prompts remain unchanged. The tool also checks that the same renderer produces
+identical prompts before and after normalization for every verified state.
+The unchanged auditor and `pi1.load_bank` must accept the result. Complete source
 historical accounting is retained without prorating unselected purchases.
 `--mixing all` retains all usable packages, deduplicating byte-identical IDs.
 `--mixing tokens-1:1` requires disjoint IDs, keeps the smaller token side whole,
@@ -233,3 +256,49 @@ The two deselected tests require real ALFWorld; synthetic REPAIR and union
 registration and CPU preflights are included in the passing tests. A read-only
 D0 audit also confirmed 32 support tasks, 32 matching portable reset states and
 30 usable packages.
+
+### D0 + ADD-DEMO unions (Codex#19, 2026-09-22)
+
+Built from `/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0`
+and `data/alfworld_k32_add_demo`, using the Kang template and local tokenizer
+snapshot `/home/xueqi/.cache/huggingface/hub/models--google--gemma-4-12B-it/snapshots/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7`.
+All 32 task/reset comparisons passed. Both unions preserve D0's exact support
+hash `6a3f856d466fce1d63e34bc74440988f7abae52bec62ca69efc5ae64f39b2a9c`
+and environment hash
+`d5747372239d8b530fb154a32102238a2e62c8f3c299d85c4cdaf8987d0bc301`.
+The union manifests record both original identities and the normalization of
+the 20 selected ADD-DEMO packages. Source banks and pinned modules are unchanged.
+
+| Bank under `artifacts/` | Packages | Turns | Supervised tokens | D0 / ADD tokens |
+| --- | ---: | ---: | ---: | ---: |
+| `alfworld_k32_d0_plus_add_1to1` | 37 | 516 | 12,900 | 6,450 / 6,450 |
+| `alfworld_k32_d0_plus_add_all` | 50 | 673 | 16,099 | 9,649 / 6,450 |
+
+The 1:1 selection uses seed 0 and retains 17 D0 plus all 20 ADD-DEMO packages.
+Both `configs/rtd/pi1_alfworld_k32_d0_plus_add_{1to1,all}.yaml` registrations
+use counts from `pi1.load_bank` and its encoder, including one native turn
+boundary per turn. Every selected rendered training row equals its source row.
+Both `tools/alf_pi1_train.py --preflight` runs passed with CUDA hidden and
+offline tokenization: exact exposure targets are 38,700 / 129,000 for 1:1 and
+48,297 / 160,990 for all. No GPU, teacher calls or simulator replay were used
+to materialize or preflight these banks.
+
+Regression command:
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+HF_DATASETS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q \
+  tests/test_alf_bank_union.py tests/test_alf_repair_pipeline.py \
+  tests/test_alf_pi1_train.py tests/test_rtd_alfworld_support.py \
+  tests/test_rtd_alfworld_state.py tests/test_alfworld_boundary_identity.py \
+  tests/test_rtd_identity_update.py -m 'not integration'
+```
+
+`195 passed, 1 skipped, 1 deselected, 1 warning in 58.46s`
+
+The skipped test needs the separate original pi1 bank; real-environment
+integration was deselected. The warning is PEFT's missing-config vocabulary
+assumption in its synthetic export test. New tests include audited synthetic
+banks with changed world bytes or admissible actions, identity-only unions in
+both mixing modes, unchanged loaded rows and source bytes, and rejection of a
+renderer whose output depends on the environment hash.
