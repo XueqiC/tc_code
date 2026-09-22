@@ -1,0 +1,34 @@
+##### A. v1 (old stop config): cells vs v1 base
+lonibase: 85/140 = 60.71%  | native-stop 3.6%  repeated-ACTION 96.8%  parser-fallback 0.0%  cap-outs 55 (of which failed 55)  failed 55
+   fallback reasons: {'n/a (v1 record)': 0}
+
+cell          wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+s0p3       50/140   -25.00    45     40      5   7.88e-08 |    1.2%   99.7%    0.0%   90      90
+           fallback reasons: {'n/a (v1 record)': 0}
+s0p10      68/140   -12.14    35     26      9    0.00599 |   19.4%   99.5%    0.0%   73      72
+           fallback reasons: {'n/a (v1 record)': 0}
+s1p3       55/140   -21.43    50     40     10   2.39e-05 |    1.1%   99.5%    0.0%   85      85
+           fallback reasons: {'n/a (v1 record)': 0}
+s1p10      71/140   -10.00    36     25     11     0.0288 |   27.6%   98.9%    0.0%   69      69
+           fallback reasons: {'n/a (v1 record)': 0}
+
+##### B. v2 (native stop): cells vs v2 base
+v2base: 79/140 = 56.43%  | native-stop 97.7%  repeated-ACTION 0.0%  parser-fallback 8.5%  cap-outs 61 (of which failed 61)  failed 61
+   fallback reasons: {'candidate_not_admissible': 266, 'no_action_marker': 32}
+
+cell          wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2s0p3     67/140    -8.57    36     24     12     0.0652 |   99.8%    0.0%    8.0%   73      73
+           fallback reasons: {'candidate_not_admissible': 305, 'no_action_marker': 1}
+v2s0p10    79/140    +0.00    30     15     15          1 |  100.0%    0.0%    5.0%   61      61
+           fallback reasons: {'candidate_not_admissible': 176}
+v2s1p3     72/140    -5.00    39     23     16      0.337 |   99.8%    0.0%    8.0%   69      68
+           fallback reasons: {'candidate_not_admissible': 298, 'no_action_marker': 1}
+v2s1p10    77/140    -1.43    30     16     14      0.856 |  100.0%    0.0%    5.5%   63      63
+           fallback reasons: {'candidate_not_admissible': 198}
+
+##### C. same checkpoint, old stop -> native stop, paired per task
+v2base     79/140    -4.29    16     11      5       0.21 |   97.7%    0.0%    8.5%   61      61
+v2s0p3     67/140   +12.14    27      5     22    0.00151 |   99.8%    0.0%    8.0%   73      73
+v2s0p10    79/140    +7.86    15      2     13    0.00739 |  100.0%    0.0%    5.0%   61      61
+v2s1p3     72/140   +12.14    29      6     23    0.00232 |   99.8%    0.0%    8.0%   69      68
+v2s1p10    77/140    +4.29    20      7     13      0.263 |  100.0%    0.0%    5.5%   63      63
