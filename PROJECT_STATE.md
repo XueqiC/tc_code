@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 首批 12 个作业因 /work→/ddnA 软链全部秒失败,已按规范路径重提(2026-09-22 14:36 CDT)
+- 与 LONI 一样:`/work` 是 `/ddnA/work` 的软链,pi1 的 `relative_to(ROOT)` 子路径检查失败(`--preflight &&` 短路,各 10 秒,几乎不耗 SU)。
+- 重提(全部 `/ddnA/work/xueqic/hq/...`):四格 B s2 860747、C s1/s2 860748/49、D s1/s2 860750/51;SmartAD turn_mean 选例 860752 →
+  afterok weight_norm s0/1/2 860753/55/57;SAD trajectory_cost s0/1/2 860754/56/58。监视 buzffsyds(首个开跑 12 分钟后查日志)。
+- 教训已写入 memory(LSU 文件)。
+
 ### Codex#17 忠实性修法落地;忠实基线在 mike 排队(2026-09-22 14:15 CDT)
 - **alf-baseline-audit `4e1d3b91`**(worktree tc-alignment-audit3):`select --statistic {token_mean,turn_mean}`(默认不变;turn_mean = 逐回合均值再平均,
   论文口径;`tools/alf_smartad_recompute.py` 可离线重算但现有 scores 只存轨迹总量 → 需重打分)、`train --method smartad --smartad-variant weight_norm`
