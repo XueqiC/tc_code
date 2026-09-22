@@ -91,19 +91,25 @@ def main(argv=None):
         check_output(args.output, resume=args.resume)
     config = load_config(args.config)
     config.update(training_seed=args.seed, training_device="cuda:0")
+    method = config["method"]
+    endpoint_mode = "tokens" if "exposure_tokens" in config else "passes"
     bank = (args.bank or ROOT/config["bank"]).resolve()
     model = (args.model_path.resolve() if args.model_path else _snapshot_for_model(config["student"]).resolve())
     if args.preflight:
         renderer = FrozenRenderer(model)
-        rows, _ = load_bank(bank, config, renderer)
+        rows, bank_identity = load_bank(bank, config, renderer)
         tokenizer = renderer.adapter._tokenizer
-        sample = preflight_row(tokenizer, rows[0], config["max_context_tokens"])
+        sample = preflight_row(tokenizer, rows[0], config["max_context_tokens"], method=method)
         costs = [len(encode_teacher_turn(tokenizer, r, config["max_context_tokens"])["target_ids"]) for r in rows]
         assert sum(costs) == config["bank_supervised_tokens"]
         plan = exposure_plan(costs, config, args.seed or 0)
         sample["exposure"] = dict(turns=len(rows), authored_tokens=sum(costs)-len(rows),
             boundary_tokens=len(rows), bank_supervised_tokens=sum(costs),
-            passes=config["exposure_passes"], target_tokens=plan["target_tokens"])
+            **{endpoint_mode: config[f"exposure_{endpoint_mode}"]}, target_tokens=plan["target_tokens"])
+        if endpoint_mode == "tokens" or method == "pi1_ce_taskeq":
+            sample.update(method=method, endpoint_mode=endpoint_mode, bank=bank_identity,
+                          distinct_tasks=len({r.task_id for r in rows}))
+            sample["exposure"]["endpoint_saves"] = plan.get("endpoint_saves", [])
         print(json.dumps(sample, indent=2))
         return 0
     output = args.output.resolve()
@@ -121,7 +127,8 @@ def main(argv=None):
             if args.resume:
                 raise ValueError("execution check requires a fresh output")
             rows, costs = rows[:4], costs[:4]
-            config.update(exposure_passes=[1], supervised_tokens_per_update=sum(costs))
+            config.update({f"exposure_{endpoint_mode}": [sum(costs)] if endpoint_mode == "tokens" else [1]},
+                          supervised_tokens_per_update=sum(costs))
         plan = exposure_plan(costs, config, args.seed)
         source_files = [Path(__file__), ROOT/"tools/bfcl_hub_merge_export.py",
             ROOT/"src/bfas/behavior/deltas.py", *[ROOT/name for name in SCOPES],
@@ -130,9 +137,12 @@ def main(argv=None):
              "baselines/paper_losses.py", "baselines/exposure.py", "runtime.py",
              "checkpointing.py", "source_scoring.py", "persistence.py", "functional_step.py",
              "return_gradient.py", "transport.py", "student.py", "scoring.py")]]
+        if method == "pi1_ce_taskeq" or endpoint_mode == "tokens":
+            source_files.append(ROOT/"src/bfas/rtd/baselines/pi1_taskeq.py")
         sources = {str(p.relative_to(ROOT)): file_hash(p) for p in source_files}
         identity = dict(version=VERSION, config=config, config_sha256=file_hash(args.config),
-            seed=args.seed, hyperparameters=hyperparameters(config, "pi1_ce"), bank=bank_identity,
+            seed=args.seed, method=method, endpoint_mode=endpoint_mode,
+            hyperparameters=hyperparameters(config, method), bank=bank_identity,
             model_path=str(model), base_checkpoint_hash=tree_hash(model),
             tokenizer_hash=tokenizer_identity(model)["hash"], source_hashes=sources,
             versions={n: importlib.metadata.version(n) for n in ("torch", "transformers", "peft", "numpy")},
@@ -140,6 +150,8 @@ def main(argv=None):
             target_boundary=boundary_contract(renderer.adapter._tokenizer),
             execution_check=bool(args.check_step),
             new_teacher_calls=0, new_teacher_tokens=0)
+        if endpoint_mode == "tokens":
+            identity["endpoint_strategy"] = plan["rule"]
         if args.check_step:
             identity["endpoint_strategy"] = "execution check: one optimizer step on four rows"
     # The lease serializes explicit resumes. New runs still fail on mkdir races.
@@ -167,7 +179,7 @@ def main(argv=None):
         atomic_json(output/"manifest.json", manifest)
         with stage("model_load"):
             backend = load_backend(config, dict(identity, harness_hash=digest(identity["source_hashes"])), journal)
-        trainer = PaperTrainer(backend, rows, config, "pi1_ce", output, journal, manifest=manifest)
+        trainer = PaperTrainer(backend, rows, config, method, output, journal, manifest=manifest)
         result = check_optimizer_step(trainer) if args.check_step else trainer.train(resume=args.resume)
         print(json.dumps(dict(output=str(output), seed=args.seed, **result)))
     return 0

@@ -31,13 +31,17 @@ RECIPE = dict(method="pi1_ce", benchmark="alfworld", student="google/gemma-4-12B
 
 def load_config(path):
     config = yaml.safe_load(Path(path).read_text())
-    required = set(RECIPE) | {"bank", "sealed_manifest_sha256", "support_size", "demonstrations",
+    recipe = RECIPE
+    if isinstance(config, dict) and (config.get("method") == "pi1_ce_taskeq" or "exposure_tokens" in config):
+        from .pi1_taskeq import registered_recipe
+        recipe = registered_recipe(config)
+    required = set(recipe) | {"bank", "sealed_manifest_sha256", "support_size", "demonstrations",
         "supervised_turns", "bank_supervised_tokens", "exposure_relative_tolerance", "adam_betas",
         "adam_epsilon", "weight_decay", "max_context_tokens", "score_position_chunk_size",
         "cpu_threads", "memory_peak_budget_gb", "memory_reserve_gb"}
     if not isinstance(config, dict) or set(config) != required:
         raise ValueError("pi1 config requires exactly the declared configuration keys")
-    for key, expected in RECIPE.items():
+    for key, expected in recipe.items():
         if config[key] != expected or type(config[key]) is not type(expected):
             raise ValueError(f"pre-registered pi1 recipe differs: {key}")
     for key in ("support_size", "demonstrations", "supervised_turns", "bank_supervised_tokens",
@@ -108,11 +112,11 @@ def encode_teacher_turn(tokenizer, row, max_context_tokens):
                 labels=(-100,)*len(prompt)+target)
 
 
-def preflight_row(tokenizer, row, max_context_tokens):
+def preflight_row(tokenizer, row, max_context_tokens, *, method="pi1_ce"):
     """Exercise PaperTrainer.encode and the scorer's actual tensor preparation."""
     from .paper_train import PaperTrainer
     from ..source_scoring import teacher_forcing_inputs
-    context = SimpleNamespace(method="pi1_ce", backend=SimpleNamespace(tokenizer=tokenizer),
+    context = SimpleNamespace(method=method, backend=SimpleNamespace(tokenizer=tokenizer),
         config=dict(max_context_tokens=max_context_tokens), encoded_rows={})
     prompt, target, kinds, eos = PaperTrainer.encode(context, row)
     inputs = teacher_forcing_inputs(prompt, target, device="cpu")
@@ -134,7 +138,9 @@ def preflight_row(tokenizer, row, max_context_tokens):
 def check_optimizer_step(trainer):
     """Run the production token-mean optimizer loop once on four complete rows."""
     from .paper_losses import span_ce
-    if len(trainer.rows) != 4 or trainer.config["exposure_passes"] != [1]:
+    one_endpoint = (trainer.config["exposure_tokens"] == [sum(len(trainer.encode(r)[1]) for r in trainer.rows)]
+                    if "exposure_tokens" in trainer.config else trainer.config["exposure_passes"] == [1])
+    if len(trainer.rows) != 4 or not one_endpoint:
         raise ValueError("execution check requires four rows and one pass")
     boundary = native_turn_id(trainer.backend.tokenizer)
     assert boundary == 106
@@ -202,6 +208,9 @@ def load_bank(bank, config, renderer):
 
 
 def exposure_plan(costs, config, seed):
+    if "exposure_tokens" in config:
+        from .pi1_taskeq import token_exposure_plan
+        return token_exposure_plan(costs, config, seed)
     total = sum(costs)
     distribution = ExposureDistribution(tuple(c/total for c in costs), tuple(costs), "tokens")
     batches = distribution.pass_schedule(endpoints=config["exposure_passes"], seed=seed,
@@ -225,7 +234,9 @@ def prepare_run(directory, identity, rows, plan, *, resume=False):
     directory = Path(directory)
     check_output(directory, resume=resume)
     row_values = [asdict(r) for r in rows]
-    identity = dict(identity, rows_hash=digest(row_values), exposure_schedule_hash=digest(plan))
+    identity = dict(identity, method=identity["config"]["method"],
+        endpoint_mode="tokens" if "exposure_tokens" in identity["config"] else "passes",
+        rows_hash=digest(row_values), exposure_schedule_hash=digest(plan))
     if resume:
         manifest = json.loads((directory/"manifest.json").read_text())
         if manifest.get("identity") != identity or manifest.get("identity_hash") != digest(identity):
@@ -237,8 +248,14 @@ def prepare_run(directory, identity, rows, plan, *, resume=False):
     directory.mkdir(parents=True, exist_ok=False)
     manifest = dict(version=VERSION, identity=identity, identity_hash=digest(identity), status="prepared",
         seed=identity["seed"], hyperparameters=identity["hyperparameters"], bank=identity["bank"],
-        exposure_passes=identity["config"]["exposure_passes"], exposure_endpoint=None,
+        **{key: identity["config"][key] for key in ("exposure_passes", "exposure_tokens") if key in identity["config"]},
+        exposure_endpoint=None,
         supervised_token_count=0, optimizer_step_count=0, loss_trace="loss_trace.json", endpoints=[])
+    if identity["method"] == "pi1_ce_taskeq" or identity["endpoint_mode"] == "tokens":
+        manifest.update(method=identity["method"], endpoint_mode=identity["endpoint_mode"],
+                        loss_normalization=identity["hyperparameters"]["loss_normalization"])
+    if identity["method"] == "pi1_ce_taskeq":
+        manifest["loss_formula"] = identity["hyperparameters"]["loss_formula"]
     manifest["target_boundary"] = identity["target_boundary"]
     atomic_json(directory/"training_rows.json", row_values)
     atomic_json(directory/"exposure_schedule.json", plan)

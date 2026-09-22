@@ -23,6 +23,9 @@ def hyperparameters(config, method):
     if method == "pi1_ce":
         from .pi1 import plain_ce_hyperparameters
         return plain_ce_hyperparameters(config, seed)
+    if method == "pi1_ce_taskeq":
+        from .pi1_taskeq import task_equal_hyperparameters
+        return task_equal_hyperparameters(config, seed)
     settings = dict(student=config["student"], seed=seed, lora_rank=config["lora_rank"],
         lora_alpha=config["lora_alpha"], lora_target_modules=config["lora_target_modules"],
         lora_dropout=0., optimizer="fixed_preconditioned_single_step",
@@ -80,7 +83,7 @@ class PaperTrainer:
     def encode(self, row):
         if row in self.encoded_rows:
             return self.encoded_rows[row]
-        if getattr(self, "method", None) == "pi1_ce":
+        if getattr(self, "method", None) in {"pi1_ce", "pi1_ce_taskeq"}:
             from .pi1 import encode_teacher_turn
             encoded = encode_teacher_turn(self.backend.tokenizer, row,
                                           self.config["max_context_tokens"])
@@ -233,18 +236,22 @@ class PaperTrainer:
                 self.rows = first_thought(self.rows)
                 for row in self.rows:
                     self.encode(row)
-        if self.method != "pi1_ce":
+        if self.method not in {"pi1_ce", "pi1_ce_taskeq"}:
             atomic_json(self.directory/"training_rows.json", [asdict(row) for row in self.rows])
-        if self.method != "pi1_ce" and self.manifest is not None and self.seed:
+        if self.method not in {"pi1_ce", "pi1_ce_taskeq"} and self.manifest is not None and self.seed:
             verify_seed_zero(self.directory, self.manifest, selection=True)
             atomic_json(self.directory/"manifest.json", self.manifest)
         teacher_by_prompt = {}
         for row in self.rows:
             teacher_by_prompt.setdefault(row.prompt, row)
         plain = None
-        if self.method == "pi1_ce":
+        if self.method in {"pi1_ce", "pi1_ce_taskeq"}:
             from .pi1 import PlainCEState
-            plain = PlainCEState(self, resume=resume)
+            if "exposure_tokens" in self.config:
+                from .pi1_taskeq import TokenCEState
+                plain = TokenCEState(self, resume=resume)
+            else:
+                plain = PlainCEState(self, resume=resume)
             schedule, losses = [b["indices"] for b in plain.batches], plain.losses
         else:
             if resume:
@@ -264,6 +271,11 @@ class PaperTrainer:
                 started, before_tokens = time.monotonic(), self.scored_tokens
                 gradient = {n: torch.zeros_like(p) for n, p in self.parameters.items()}
                 total = 0.
+                if self.method == "pi1_ce_taskeq":
+                    from .pi1_taskeq import task_equal_token_weights
+                    task_weights = task_equal_token_weights(
+                        [self.rows[i].task_id for i in indices],
+                        [len(self.encode(self.rows[i])[1]) for i in indices])
                 for slot, index in enumerate(indices, 1):
                     row = self.rows[index]
                     if self.method == "gad":
@@ -279,6 +291,8 @@ class PaperTrainer:
                         g, loss_value = gradients(loss, self.parameters), float(loss.detach())
                     weight = (len(self.encode(row)[1]) / plain.batches[step]["supervised_tokens"]
                               if plain is not None else 1/len(indices))
+                    if self.method == "pi1_ce_taskeq":
+                        weight *= task_weights[row.task_id]
                     for n in gradient:
                         gradient[n].add_(g[n], alpha=weight)
                     total += loss_value*weight if plain is not None else loss_value/len(indices)

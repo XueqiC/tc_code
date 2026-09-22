@@ -1,5 +1,98 @@
 # ALFWorld K=32 training mechanisms
 
+## Task-equal CE and matched token endpoints (Codex#15)
+
+`pi1_ce_taskeq` is a separate pi1 registration. It shares `load_bank`,
+`encode_teacher_turn`, complete-turn batching (at least 512 supervised tokens,
+with the existing short flush at pass endpoints), seeded row order, row CE,
+AdamW, and LoRA with `pi1_ce`. The existing `plain_ce_hyperparameters`, encoder,
+bank loader, `PlainCEState`, `span_ce`, and pass scheduler are byte-identical to
+the parent branch. The existing pi1 configs are unchanged.
+
+For each update, let `T_t` count all supervised tokens from rows with support
+`task_id == t`, `N_update = sum_t T_t`, and `n_tasks_update` count distinct tasks
+present. The exact objective is:
+
+```text
+w_t = (N_update / n_tasks_update) / T_t
+loss = sum_i(w_{task(i)} * nll_i) / N_update
+```
+
+The trainer multiplies its existing row coefficient `row_tokens / N_update`
+by `w_t`. It retains one complete turn graph at a time. Packages sharing a task
+pool into the same `T_t`; task totals are recomputed for every update. Native
+turn-boundary tokens count in `T_t` and exposure, and prompts remain masked.
+The hyperparameters and run manifest record the full formula and
+`loss_normalization: task_equal_weight_per_update`. Two tasks with 10 and 90
+tokens receive per-token weights 5 and 5/9; total weight is 100. Equal task
+token totals give weights exactly 1 and the same CE loss and optimizer result
+bit for bit.
+
+Configs may specify **either** `exposure_tokens` **or** `exposure_passes`.
+Token schedules continue the same seeded exhaustive pass permutations as
+needed. They save at the first update whose cumulative supervised tokens reach
+the target. Complete turns are never split. Targets that equal whole bank
+passes retain the legacy endpoint flush, including a short final update;
+other targets use the normal update boundary and may overshoot. This makes
+D0's `[28947, 96490]` token targets reproduce its pass-3/pass-10 updates exactly.
+
+Token checkpoints are `tokens-28947/` and `tokens-96490/`. Each endpoint receipt
+records `target_supervised_tokens`, actual `supervised_token_count`,
+`optimizer_step_count`, the previous cumulative count, and overshoot. The run
+manifest's `endpoint_saves` lists the actual counts and steps. Multiple targets
+crossed in one update save that same state under each target. Resume recovers
+interrupted endpoint publication from the existing durable optimizer commit.
+Identity includes method, endpoint mode, config, bank, tokenizer/model, source
+hashes (including `pi1_taskeq.py`), rows and schedule. Pass configs keep their
+existing batching and `pass-3/`, `pass-10/` checkpoint names.
+
+The specification names three new configs (B/C/D); A remains the existing D0
+plain CE registration. Counts below were checked with `load_bank` and the
+cached native-boundary tokenizer through CPU `--preflight`. All have K=32
+support and 30 tasks with usable packages; all87 pools its 87 packages by task.
+
+| Config under `configs/rtd/` | Method | Bank | Packages | Turns | Tokens/pass | Token targets | Seeds |
+|---|---|---|---:|---:|---:|---|---|
+| `pi1_alfworld_k32_taskeq.yaml` (B) | `pi1_ce_taskeq` | D0 | 30 | 424 | 9,649 | 28,947; 96,490 | 0, 1, 2 |
+| `pi1_alfworld_k32_all87_tok.yaml` (C) | `pi1_ce` | all87 | 87 | 1,343 | 33,436 | 28,947; 96,490 | 0, 1, 2 |
+| `pi1_alfworld_k32_all87_taskeq.yaml` (D) | `pi1_ce_taskeq` | all87 | 87 | 1,343 | 33,436 | 28,947; 96,490 | 0, 1, 2 |
+
+D0 is `/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0`;
+all87 is `artifacts/alfworld_k32_smartad_all87`. Every other recipe key equals
+the corresponding existing bank config. These are matched **token** exposures;
+the all87 targets are not its third and tenth passes.
+
+`tools/alf_pi1_train.py --config <config> --preflight` exercises the selected
+method's encoder on CPU. `--check-step` preserves the configured endpoint mode
+and runs one update on four rows; its GPU/UUID guards are unchanged. Validation
+here used only tiny CPU optimizer tests and cached-tokenizer CPU preflights,
+including mocked CLI checks. No GPU preflight, model training, LONI operation,
+or writes to `results/` or `artifacts/` were performed.
+
+The synthetic D0 bank `[22] * 423 + [343]` has 9,649 supervised tokens.
+The token/pass equivalence test compares every row, update and endpoint for
+seeds 0/1/2 and update budgets 37/512/4096. At the registered 512 budget, both
+schedules save 28,947 tokens at step 55 and 96,490 at step 182 for each seed
+(these step numbers describe the synthetic bank).
+
+CPU regression command:
+
+```bash
+CUDA_VISIBLE_DEVICES='' \
+ALF_PI1_BANK=/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0 \
+.venv/bin/python -m pytest -q \
+  tests/test_alf_pi1_taskeq.py tests/test_alf_pi1_train.py \
+  tests/test_alf_baseline_mechanisms.py tests/test_baseline_run_losses.py \
+  tests/test_baseline_run_training.py tests/test_baseline_run_seeds.py \
+  tests/test_alf_training_seeds.py tests/test_rtd_baselines_exposure.py
+```
+
+Result: `220 passed, 1 skipped, 1 warning in 61.69s (0:01:01)`.
+The skipped check needs the absent Kang bank. The warning is the existing tiny
+PEFT export fixture's missing vocabulary config; all new tests passed.
+
+## Earlier baseline-mechanism implementation
+
 Implementation is additive: `tools/alf_baseline.py` dispatches to the new
 `baselines/alfworld_*.py` modules. No edits to `pi1.py`, `paper_train.py`, existing
 losses, any `SCOPES` file, or input banks. Tests and preparation used no GPU,
