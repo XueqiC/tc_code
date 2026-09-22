@@ -106,3 +106,7 @@ v2smartads1p3  70/140    -6.43    35     22     13      0.175 |   99.9%    0.0% 
 v2sads2p3      69/140    -7.14    30     20     10     0.0987 |   99.8%    0.0%    8.9%   71      71   seed 2
 v2fixs2p3      70/140    -6.43    31     20     11       0.15 |   99.9%    0.0%    7.8%   71      70   plain CE fixed labels, seed 2
 v2kangs2p3     66/140    -9.29    31     22      9     0.0294 |  100.0%    0.0%    6.3%   74      74   seed 2
+##### M2. second base repeat and a trained-model repeat (added 09:16 CDT)
+v2base_rep2 80/140    +0.71    17      8      9          1     (vs v2base 79);  vs v2base_rep 84: -2.86, 20 discordant (12/8), p=0.50
+-> base three runs: 79 / 84 / 80 (mean 81.0 = 57.86%); pairwise flips 17 / 17 / 20 tasks.
+v2fixs0p10_rep 81/140  +0.71     7      3      4          1     (vs v2fixs0p10 80)  -> the trained model flips only 7/140 between repeats.
