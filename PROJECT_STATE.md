@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 评测链路打通:mike_base 78/140;自动"训完即评"循环(2026-09-22 17:35 CDT)
+- 861078(mike183,A100-40GB)25 分钟完成 140 题:**mike_base = 78/140 = 55.71%**(平台参照;LONI 79/84/80,rai 84/81)。mike_base_rep 861208 已提交。
+- `$H/slurm/eval_adapter.slurm`(作业内 CPU 合并 adapter → 服务端评测,ADAPTER + EVAL_TAG)+ `$H/slurm/eval_body.sh`;
+  **`$H/eval_when_ready.sh`(login 节点 nohup 循环,每 10 分钟)**:发现 taskeq/faithful 树里新的 `tokens-28947/96490` 或 `pass-3/10` adapter 就提交评测,
+  tag 形如 `mike_Bs2t96490`、`mike_SADTCs0p10`,已提交列表 `$H/eval_submitted.txt`。rai 训出的 B s0/C s0 adapter 同步进 mike 的对应目录即可被自动评。
+- 表 §V。mike 现有 9 训 + 5 排 + 评测。
+
 ### REPAIR s0 采集结果:11 个接管只有 2 个验证成功,花 1.41M token(2026-09-22 17:12 CDT)
 - 11 个失败局全部按 `repeated_command` 规则接管(k = 3–39,剩余步数 1–37);教师从回放到的学生真实状态续跑:**验证成功 2/11**
   (clean Tomato k=3 6 步;heat Plate-Fridge k=15 11 步),**9/11 教师也没在剩余步数内完成**;6/11 教师后缀扫描占比 > 0.5(全在未验证那组,过滤没丢掉任何成功)。
