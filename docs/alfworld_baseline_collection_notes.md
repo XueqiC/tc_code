@@ -175,6 +175,14 @@ listed in `alfworld_identity.SCOPES` was edited.
 
 ## SAD fidelity check against the paper (arXiv 2505.13820v1, read 2026-09-22 01:40 CDT)
 
+Codex#17 adds optional length-based `--sad-curriculum trajectory_cost` alongside
+the unchanged turn-count default discussed below. It also registers SmartAD
+turn-mean selection and weight normalization, a read-only X2 inventory, and Kang
+first-attempt export metadata. See [commands, measured inventory and rerun
+requirements](alfworld_baseline_fidelity_fixes.md). The default `sad_sum` is a
+normalized hard-label adaptation; “paper-literal sum” below refers only to its
+equal token weights, not to an unnormalized objective or the full v5 action head.
+
 - **Curriculum exists** (Eq. 7 + Algorithm 1 line 3): trajectories are sorted easiest -> hardest by
   `C(tau) = alpha*len(reasoning) + beta*len(actions) + gamma*entropy(pi_T(tau))`. No weighting, only ordering.
 - **Implemented curriculum adaptation**: the existing trainer orders short-to-long by the number

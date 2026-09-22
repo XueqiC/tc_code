@@ -15,13 +15,13 @@ nor a macro average of turn means. Both total and mean NLL and their denominator
 are recorded. Observation spans are excluded; the shared encoder's native
 boundary is included and inherits the last supervised span kind.
 
-The known local description in [PAPER_BASELINES.md](PAPER_BASELINES.md) says
-“Select the lowest generated-token mean NLL; break ties by package ID.” This
-motivates token normalization rather than a bias toward shorter trajectories.
-The original SmartAD paper's normalization was not locally available to verify;
-**per-token mean is explicitly recorded as a normalization choice/deviation**.
-The paper reference already recorded locally is
-https://aclanthology.org/2026.findings-acl.1349/ (not fetched).
+The default `--statistic token_mean` preserves this legacy token-wide mean.
+The [fidelity audit](alfworld_baseline_fidelity_audit.md) verified that SmartAD
+Eq. 3 instead averages each assistant turn's mean NLL. The additive
+`--statistic turn_mean` implements that statistic. New v2 score receipts retain
+per-turn sums/counts and both statistics; see the
+[fidelity variant commands](alfworld_baseline_fidelity_fixes.md) for offline
+recomputation and the limitations of old trajectory-only receipts.
 
 The initial student uses the same local snapshot, tokenizer, shared
 `pi1.encode_teacher_turn`, scoring backend, precision and fresh base-equivalent
@@ -45,20 +45,18 @@ tasks. The two-candidate task still makes a real argmin choice; only the
 one-candidate task says “single candidate, no choice.” Both are flagged below
 the requested 3; zero-candidate tasks are explicit exclusions with retained costs.
 
-## SAD curriculum and the unresolved source limitation
+## SAD curriculum variants
 
-The local `envs/baseline_repos` contains Kang's `agent-distillation`, not SAD's
-implementation or paper. The local SAD references contain no curriculum metric,
-pacing equation, thresholds, or stages. The available passage in
-[the local method notes](2026-09-15-user-direction-unified-method-and-theory-zh.txt)
-at line 232 is “对 reasoning/action 分别对齐教师分布，并结合课程机制”
-(align reasoning/action separately and combine with a curriculum).
-This is a **local summary, not a quotation from the SAD paper**. The recorded
-paper reference is https://arxiv.org/html/2505.13820v5 (not fetched).
-An exact paper passage cannot be supplied under the no-network constraint from
-the files available here. This remains a source-verification gap.
+The fidelity audit verified SAD's trajectory complexity formula (v1 Eq. 7,
+v5 Eq. 13): reasoning length, action length, and teacher entropy. The new
+`--sad-curriculum trajectory_cost` uses authored reason/action token lengths
+(final actions included), with `--sad-alpha 1 --sad-beta 1` by default. Teacher
+entropy is unavailable from the black-box teacher and explicitly omitted.
+It sorts complete trajectories by cost, preserves turn order within each,
+and uses seeded trajectory ties in each exhaustive pass. Native boundary tokens
+remain supervised but are excluded from the authored-length complexity score.
 
-The implemented fallback is explicit and executable: in **each complete pass**,
+The unchanged default `--sad-curriculum turn_count` is an explicit proxy: in **each complete pass**,
 order rows by increasing number of teacher turns in their verified trajectory.
 Draw a seeded row permutation first; stable sorting preserves that random order
 among equal-length trajectories. Every row is seen once per pass. Thus short
@@ -67,20 +65,18 @@ teacher-forced context is retained even when turn rows are reordered. The
 frozen schedule contains every pass order, every batch, and each row's difficulty.
 The run and endpoint manifests contain the curriculum description and deviation.
 
-**This schedule is an unverified short-to-long hard-label adaptation, not a
-verified reproduction of SAD's paper curriculum.** The paper passage is stored
-as `null` rather than fabricated. Rejected alternatives are recorded: plain
-shuffle has no curriculum; growing subsets/repeating easy examples changes row
-exposure; initial-student NLL introduces an extra scoring assumption; reason-only
-then action-only stages change the required two-group objective. Verification
-or replacement of this fallback requires the actual curriculum passage.
+The legacy schedule's frozen metadata retains its historical source-verification
+notes for reproducibility. Those notes predate the audit. Neither variant claims
+an exact original pacing recipe; both retain the matched 3/10 exhaustive passes.
 
 ## Training protocol and deviations
 
 `K32PaperTrainer` subclasses `PaperTrainer` and uses its parameter/device setup.
-It imports the shared encoder and calls existing `span_ce` without modifying
-it: SmartAD reason/action/final weights 1/1.5/2; SAD means over reason and
-action+final, averaged across present groups. Appended special-token IDs are
+It imports the shared encoder and calls `span_ce`: SmartAD reason/action/final
+weights 1/1.5/2; SAD defaults to the equal-token hard-label `sad_sum`, with
+`sad_mean` available as a mean-of-groups ablation. SmartAD retains token-count
+normalization by default; `--smartad-variant weight_norm` selects `smartad_wsum`
+and divides by the sum of weights across each optimizer update. Appended special-token IDs are
 only classified; label construction stays exclusively with pi1. Thus the
 `alf-eval-vllm` boundary fix (native token 106) flows through automatically.
 
@@ -90,10 +86,13 @@ weight decay .01, gradient clip 1, LoRA rank 16/alpha 32/dropout 0, constant LR,
 no warmup. Complete turns are accumulated to at least 512 supervised tokens
 per update; batches flush exactly at 3 and 10 passes. There is one continuous
 10-pass run per seed (0 and 1), with both endpoints saved. Each row's existing
-span loss is weighted by its supervised-token count within the update, matching
+span loss is weighted by its supervised-token count within the update by default, matching
 pi1's reduction across rows. This differs from the old paper trainer's row-macro
 reduction and preconditioned optimizer, as required by the matched pi1 protocol.
 No teacher logits, feature alignment, or additional auxiliary objectives are added.
+For `weight_norm`, rows instead contribute in proportion to their weight sums,
+so the entire update equals `sum(w * NLL) / sum(w)`. This is explicitly an
+update-wide matched-protocol adaptation, not a mean of per-trajectory losses.
 
 CPU validation with the actual local Gemma tokenizer and boundary-fixed encoder
 read all 424 D0 turns without truncation: 9,649 supervised tokens (5,869 reason,

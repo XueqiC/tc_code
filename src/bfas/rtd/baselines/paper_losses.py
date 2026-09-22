@@ -140,8 +140,10 @@ def span_ce(token_logprobs, kinds, method):
             if selected.any():
                 groups.append(-values[selected].mean())
         return torch.stack(groups).mean()
-    weights = values.new_tensor([SMARTAD_WEIGHTS[k] if method == "smartad"
+    weights = values.new_tensor([SMARTAD_WEIGHTS[k] if method in {"smartad", "smartad_wsum"}
                                 else float(k != "observation") for k in kinds])
+    if method == "smartad_wsum":
+        return -(values[mask] * weights[mask]).sum() / weights.sum()
     # Divide by generated length, preserving the declared absolute segment weights.
     return -(values * weights).sum() / mask.sum()
 

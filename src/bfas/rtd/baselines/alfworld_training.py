@@ -11,7 +11,7 @@ from ..persistence import atomic_json, digest, tree_hash
 from ..source_scoring import require_device
 from .alfworld_curriculum import exposure_schedule
 from .alfworld_selection import exclusive_json
-from .paper_losses import span_ce, token_kinds
+from .paper_losses import SMARTAD_WEIGHTS, span_ce, token_kinds
 from .paper_progress import progress
 from .paper_train import PaperTrainer
 
@@ -42,10 +42,13 @@ def encoder_identity():
                     Path(inspect.getfile(encode_teacher_turn)).read_bytes()).hexdigest())
 
 
-def training_hyperparameters(config, seed, method, *, sad_variant=None):
+def training_hyperparameters(config, seed, method, *, sad_variant=None, smartad_variant=None,
+                             sad_curriculum='turn_count', alpha=1., beta=1.):
     from .pi1 import plain_ce_hyperparameters
     if sad_variant is not None and (method != 'sad' or sad_variant not in {'sad_sum', 'sad_mean'}):
         raise ValueError('sad_variant requires method sad and must be sad_sum or sad_mean')
+    if smartad_variant is not None and (method != 'smartad' or smartad_variant not in {'token_norm', 'weight_norm'}):
+        raise ValueError('smartad_variant requires method smartad and token_norm or weight_norm')
     hp = plain_ce_hyperparameters(config, seed)
     hp.update(method=method, loss=f'span_ce({method if method != "ce" else "sft"})',
         loss_normalization='shared per-row span loss, weighted by supervised row tokens per update',
@@ -60,15 +63,31 @@ def training_hyperparameters(config, seed, method, *, sad_variant=None):
                 if variant == 'sad_sum' else
                 'mean of present reason and action/final group means; '
                 'rows weighted by generated tokens / total generated tokens per update'))
+        hp.update(sad_curriculum=sad_curriculum)
+        if sad_curriculum == 'trajectory_cost':
+            hp.update(curriculum_alpha=alpha, curriculum_beta=beta, curriculum_gamma=0.,
+                      curriculum_entropy='unavailable for black-box teacher')
+    if method == 'smartad':
+        variant = smartad_variant or 'token_norm'
+        hp.update(smartad_variant=variant)
+        if variant == 'weight_norm':
+            hp.update(loss='span_ce(smartad_wsum)', loss_variant='smartad_wsum',
+                      loss_normalization='sum(weight * NLL) / sum(weights) across the optimizer update; '
+                      'row gradients weighted by row weight sum / update weight sum',
+                      reduction_unit='optimizer update (matched-protocol adaptation, not per-trajectory mean)')
     return hp
 
 
-def prepare_training(output, rows, config, seed, method, identity, costs, *, sad_variant=None):
+def prepare_training(output, rows, config, seed, method, identity, costs, *, sad_variant=None,
+                     smartad_variant=None, sad_curriculum='turn_count', trajectory_scores=None,
+                     alpha=1., beta=1.):
     output = Path(output)
     if output.is_symlink() or output.exists():
         raise FileExistsError(f'refusing existing output directory: {output}')
-    plan = exposure_schedule(rows, costs, config, seed, method)
-    hp = training_hyperparameters(config, seed, method, sad_variant=sad_variant)
+    plan = exposure_schedule(rows, costs, config, seed, method, sad_curriculum=sad_curriculum,
+                             trajectory_scores=trajectory_scores, alpha=alpha, beta=beta)
+    hp = training_hyperparameters(config, seed, method, sad_variant=sad_variant,
+        smartad_variant=smartad_variant, sad_curriculum=sad_curriculum, alpha=alpha, beta=beta)
     values = [asdict(r) for r in rows]
     identity = dict(identity, method=method, seed=seed, config=config, hyperparameters=hp,
         rows_hash=digest(values), exposure_schedule_hash=digest(plan))
@@ -80,6 +99,9 @@ def prepare_training(output, rows, config, seed, method, identity, costs, *, sad
         supervised_token_count=0, optimizer_step_count=0)
     if method == 'sad':
         manifest['sad_variant'] = hp['sad_variant']
+        manifest['sad_curriculum'] = sad_curriculum
+    if method == 'smartad':
+        manifest['smartad_variant'] = hp['smartad_variant']
     output.mkdir(parents=True, exist_ok=False)
     exclusive_json(output/'training_rows.json', values)
     exclusive_json(output/'exposure_schedule.json', plan)
@@ -99,6 +121,7 @@ class K32PaperTrainer(PaperTrainer):
         super().__init__(backend, rows, config, method, directory, journal, manifest=manifest)
         self.hp, self.plan = manifest['hyperparameters'], plan
         self.loss_method = (self.hp['sad_variant'] if method == 'sad' else
+                            'smartad_wsum' if method == 'smartad' and self.hp.get('smartad_variant') == 'weight_norm' else
                             'sft' if method in {'ce', 'kang'} else method)
         if (digest([asdict(r) for r in rows]) != manifest['identity']['rows_hash']
                 or digest(plan) != manifest['identity']['exposure_schedule_hash']):
@@ -123,6 +146,8 @@ class K32PaperTrainer(PaperTrainer):
         costs = [sum(k != 'observation' for k in self.encode(r)[2]) for r in self.rows]
         if costs != self.plan['costs']:
             raise ValueError('encoded supervision differs from frozen schedule')
+        reduction_weights = ([sum(SMARTAD_WEIGHTS[k] for k in self.encode(r)[2]) for r in self.rows]
+                             if self.loss_method == 'smartad_wsum' else costs)
         hp = self.hp
         optimizer = torch.optim.AdamW(list(self.parameters.values()), lr=hp['learning_rate'],
             betas=tuple(hp['adam_betas']), eps=hp['adam_epsilon'], weight_decay=hp['weight_decay'],
@@ -132,12 +157,13 @@ class K32PaperTrainer(PaperTrainer):
             before, started = self.scored_tokens, time.monotonic()
             gradient = {n: torch.zeros_like(p) for n, p in self.parameters.items()}
             total = 0.
+            denominator = sum(reduction_weights[i] for i in batch['indices'])
             with self.journal.measure('student_step', step=step):
                 for index in batch['indices']:
                     values, kinds = self.logprobs(self.rows[index])
                     loss = span_ce(values, kinds, self.loss_method)
                     g = gradients(loss, self.parameters)
-                    weight = costs[index]/batch['supervised_tokens']
+                    weight = reduction_weights[index]/denominator
                     for n in gradient:
                         gradient[n].add_(g[n], alpha=weight)
                     total += float(loss.detach())*weight

@@ -461,6 +461,12 @@ def attempt_material(row, calls, limits, method, prefix_memory):
     return result
 
 
+def kang_first_attempt_ids(payloads):
+    """Usable attempt zero only; a later first success is never a first draw."""
+    return sorted(qid for qid, payload in payloads.items()
+                  if payload['status'] == 'usable' and payload['provenance']['attempt_index'] == 0)
+
+
 def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper,
                 budget=None, method='plain', candidates_per_task=1, prefix_memory=None):
     """Rebuild solely from paid ledger rows; verification makes no teacher calls."""
@@ -540,11 +546,19 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper,
                          phase_costs={phase: purchase_cost([c for c in calls.values()
                              if c['task_id'] == tid and c.get('phase', 'trajectory') == phase], budget.limits)
                              for phase in ('cot', 'trajectory')})
+        export_metadata = {}
+        if method == 'kang-ftp':
+            ids = kang_first_attempt_ids(payloads)
+            export_metadata = dict(adaptation_label='prompt-continuation FTP adaptation',
+                first_attempt_package_ids=ids,
+                first_attempt_rule='usable attempt_index == 0; exclude failed first attempts, never substitute retries',
+                cost_policy='retain full collection ledger costs, including planning, retries and failures')
+            write_json(ledger.parent / 'first_attempt_package_ids.json', ids)
         write_json(ledger.parent / 'candidate_sets.json', dict(
             method=method, bank_manifest_sha256=bank.file_hash(out / 'sealed/manifest.json'),
             ledger_sha256=ledger_hash, usage_sha256=bank.file_hash(budget.path) if budget.path.exists() else None,
             distinctness='exact teacher payload (full ReAct targets and executed commands)',
-            tasks=candidate_sets))
+            tasks=candidate_sets, **export_metadata))
     return sum(p['status'] == 'usable' for p in payloads.values())
 
 

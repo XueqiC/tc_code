@@ -230,9 +230,14 @@ update and retain complete selected trajectories. The loss is weighted token
 CE divided by generated token count: reason 1, action 1.5, final decision 2.
 Plain ALFWorld commands are actions and the last verified episode command is
 the terminal decision. BFCL tool calls are actions; non-tool final prose is the
-final decision. Selection scores/IDs are saved. This follows the selection and
-segment weighting of [SmartAD](https://aclanthology.org/2026.findings-acl.1349/),
-with the requested fixed weights and benchmark-specific terminal-action label.
+final decision. Selection scores/IDs are saved. These are the legacy token-wide
+selection and token-count loss reductions. The fidelity audit verified that
+[SmartAD](https://aclanthology.org/2026.findings-acl.1349/) instead uses a mean
+of turn means (Eq. 3) and a weight-sum denominator (Eq. 5). The additive K32
+`--statistic turn_mean` and `--smartad-variant weight_norm` registrations are
+described in [the fidelity implementation notes](alfworld_baseline_fidelity_fixes.md).
+The legacy `paper_data.select_smartad` route remains token-wide and is excluded
+from these new fidelity registrations.
 
 **SAD.** Compute separate mean CE on REASON and ACT spans, then average the
 present span groups; final decisions join ACT. Recognize `[REASON]`/`[ACT]`,
@@ -260,6 +265,10 @@ This replaces the original teacher-generated CoT first-thought procedure with
 offline extraction, as required by the no-new-teacher-call constraint. At
 inference, the student produces the thought itself; no teacher-derived prefix
 is supplied for evaluation tasks. [Original paper](https://arxiv.org/abs/2505.17612).
+This paragraph describes the legacy retrospective-summary route. The current
+K32 Kang bank uses teacher-first planning and prompt continuation, then pi1 CE
+on complete authored turns; see its explicit
+[adaptation label](alfworld_baseline_fidelity_fixes.md#kang-adaptation-label).
 
 On ALFWorld and BFCL, Kang has an additional full evaluation with **n=3, temperature=.7** and stable
 per-task/per-step seeds. Vote by execution result, tie-breaking by first sample.

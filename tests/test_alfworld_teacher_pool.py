@@ -980,6 +980,11 @@ def test_kang_ftp_http_order_prefix_and_cost(source, tmp_path, monkeypatch, azur
     groups = json.loads(Path(summary['candidate_sets']).read_text())['tasks']
     candidate = groups[tid]['attempts'][0]
     assert candidate['first_thought_prefix'] == prefix and candidate['purchase_cost']['tokens'] == 360
+    export = json.loads(Path(summary['candidate_sets']).read_text())
+    assert export['adaptation_label'] == 'prompt-continuation FTP adaptation'
+    assert export['first_attempt_package_ids'] == [candidate['query_id']]
+    ids_path = Path(summary['candidate_sets']).parent / 'first_attempt_package_ids.json'
+    assert json.loads(ids_path.read_text()) == export['first_attempt_package_ids']
     sealed = json.loads((out / 'sealed' / f"{candidate['query_id']}.json").read_text())
     assert sealed['collection']['prefix_cot_call_id'] == record['call_id']
     assert sealed['teacher_react_turns'][0].startswith(prefix)

@@ -70,10 +70,17 @@ def parser():
         if command == 'select':
             q.add_argument('--candidate-sets', type=Path)
             q.add_argument('--resume', action='store_true')
+            q.add_argument('--statistic', choices=('token_mean', 'turn_mean'), default='token_mean')
         if command == 'train':
             q.add_argument('--method', choices=('smartad', 'sad'), required=True)
             q.add_argument('--sad-variant', choices=('sad_sum', 'sad_mean'),
                            help='SAD loss: paper token sum (default: sad_sum) or group-mean ablation')
+            q.add_argument('--smartad-variant', choices=('token_norm', 'weight_norm'),
+                           help='SmartAD denominator: token count (default) or sum of weights')
+            q.add_argument('--sad-curriculum', choices=('turn_count', 'trajectory_cost'),
+                           help='SAD ordering: turn_count (default) or authored span token cost')
+            q.add_argument('--sad-alpha', type=float, default=1.)
+            q.add_argument('--sad-beta', type=float, default=1.)
             q.add_argument('--seed', type=int, choices=(0, 1, 2), required=True)
             q.add_argument('--selection', type=Path)
         if command == 'cost':
@@ -111,6 +118,15 @@ def main(argv=None):
     if args.command == 'train':
         if args.sad_variant is not None and args.method != 'sad':
             raise ValueError('--sad-variant requires --method sad')
+        if args.smartad_variant is not None and args.method != 'smartad':
+            raise ValueError('--smartad-variant requires --method smartad')
+        if (args.sad_curriculum is not None or args.sad_alpha != 1. or args.sad_beta != 1.) and args.method != 'sad':
+            raise ValueError('--sad-curriculum/--sad-alpha/--sad-beta require --method sad')
+        import math
+        if any(not math.isfinite(v) or v < 0 for v in (args.sad_alpha, args.sad_beta)):
+            raise ValueError('SAD alpha/beta must be finite and nonnegative')
+        if (args.sad_alpha != 1. or args.sad_beta != 1.) and args.sad_curriculum != 'trajectory_cost':
+            raise ValueError('--sad-alpha/--sad-beta require --sad-curriculum trajectory_cost')
         if args.method == 'smartad' and (args.selection is None or not args.selection.is_file()
                                          or args.bank is not None or args.collection is not None):
             raise ValueError('SmartAD training requires ONLY a frozen --selection artifact')
@@ -122,7 +138,7 @@ def main(argv=None):
     os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = '' if args.command == 'cost' else args.gpu_uuid
     from .alfworld_cost import collection_cost
-    from .alfworld_selection import exclusive_json, load_candidates, read_selection, select_candidates, SELECTION_RULE
+    from .alfworld_selection import exclusive_json, load_candidates, read_selection, select_candidates
     from ..persistence import ComputeJournal, digest, file_hash, tree_hash
     if args.command == 'cost':
         if args.bank is None:
@@ -153,7 +169,7 @@ def main(argv=None):
     pi1 = use_pi1_root(args.pi1_root)
     from tools.alf_pi1_train import select_device, verify_cuda_device
     from .alfworld_training import (K32PaperTrainer, encoded_spans, encoder_identity, prepare_training)
-    from .alfworld_curriculum import SAD_CURRICULUM
+    from .alfworld_curriculum import SAD_CURRICULUM, TRAJECTORY_COST_CURRICULUM, trajectory_costs
     from .paper_seeds import seed_training
     from ..benchmarks.alfworld_support import FrozenRenderer
     from ..benchmarks.alfworld_identity import tokenizer_identity
@@ -184,7 +200,7 @@ def main(argv=None):
         if args.method == 'smartad':
             rows, selection = read_selection(args.selection, student)
             cost, bank_identity = selection['teacher_data_cost'], selection['identity']['bank']
-            deviations = [SELECTION_RULE['deviation']]
+            deviations = [selection['rule']['deviation']]
             artifact_ref = dict(path=str(args.selection.resolve()), sha256=file_hash(args.selection),
                                 artifact_hash=selection['artifact_hash'])
         else:
@@ -192,14 +208,19 @@ def main(argv=None):
                 raise ValueError('SAD bank must be the pi1 registered plain D0 bank')
             cost = collection_cost(args.bank, method='sad', collection=args.collection)
             rows, bank_identity = pi1.load_bank(args.bank, config, renderer)
-            deviations, artifact_ref = [SAD_CURRICULUM['deviation']], None
+            curriculum = (TRAJECTORY_COST_CURRICULUM if args.sad_curriculum == 'trajectory_cost'
+                          else SAD_CURRICULUM)
+            deviations, artifact_ref = [curriculum['deviation']], None
         costs = [sum(k != 'observation' for k in encoded_spans(tokenizer, r,
                  config['max_context_tokens'])[1]) for r in rows]
         identity = dict(student=student, bank=bank_identity, source_hashes=sources, device=selected,
             teacher_data_cost=cost, selection=artifact_ref, deviations=deviations,
             config_sha256=file_hash(args.config), new_teacher_calls=0)
         manifest, plan = prepare_training(args.output, rows, config, seed, args.method, identity, costs,
-                                          sad_variant=args.sad_variant)
+            sad_variant=args.sad_variant, smartad_variant=args.smartad_variant,
+            sad_curriculum=args.sad_curriculum or 'turn_count', alpha=args.sad_alpha, beta=args.sad_beta,
+            trajectory_scores=(trajectory_costs(rows, tokenizer, alpha=args.sad_alpha, beta=args.sad_beta)
+                               if args.sad_curriculum == 'trajectory_cost' else None))
 
     backend = None
     def get_backend():
@@ -231,7 +252,8 @@ def main(argv=None):
                     truncated=True, return_details=True)
                 mask = values.new_tensor([k != 'observation' for k in kinds], dtype=torch.bool)
                 return float(-values[mask].double().sum()), int(mask.sum())
-        artifact = select_candidates(candidates, task_ids, score, args.output, identity, cost, resume=args.resume)
+        artifact = select_candidates(candidates, task_ids, score, args.output, identity, cost,
+                                     resume=args.resume, statistic=args.statistic)
         print(json.dumps(dict(output=str(args.output/'selection.json'),
             selected_tasks=sum(t['chosen_candidate_id'] is not None for t in artifact['tasks']),
             candidate_counts=[t['candidate_count'] for t in artifact['tasks']])))
