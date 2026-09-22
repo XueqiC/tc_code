@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### π1(CE s0 10 遍)在 32 个 support 任务上的 rollouts:21 成 / 11 败 → REPAIR s0 采集开始(2026-09-22 16:22 CDT)
+- `data/alfworld_k32_repair_ce/seed-0/rollouts/`:32 任务记录(commands/observations/success/steps,identity 含 harness 身份)。11 个失败局 = REPAIR 请求数上限。
+- REPAIR s0 采集链(pid 2096294)自动开始:Azure P1,上限 1.5M token / $6;完成后并集银行 + preflight。ADD-DEMO 等 REPAIR 实际花费出来后按同额度采(attempt 3–5,T=0.7,同扫描过滤)。
+- GPU4 链继续 seed1/2 rollouts → B s0 → C s0。mike:5 跑 / 9 排。用户 16:18:"先以 RAI 和 mike 为主,LONI 随时试试可能有临时 credit" → LONI 余额探测每 30 分钟(boz8yznlp)。
+
 ### rai 平台表:同一批 CE checkpoint 在 rai 读 74/74,LONI 读 80/77 → 跨平台位移(2026-09-22 16:05 CDT)
 | rai 平台 | wins | vs rai base 84 | 不一致 | p |
 |---|---|---|---|---|
