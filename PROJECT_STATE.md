@@ -561,6 +561,15 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### Codex#17 忠实性修法落地;忠实基线在 mike 排队(2026-09-22 14:15 CDT)
+- **alf-baseline-audit `4e1d3b91`**(worktree tc-alignment-audit3):`select --statistic {token_mean,turn_mean}`(默认不变;turn_mean = 逐回合均值再平均,
+  论文口径;`tools/alf_smartad_recompute.py` 可离线重算但现有 scores 只存轨迹总量 → 需重打分)、`train --method smartad --smartad-variant weight_norm`
+  (除权重和)、`--sad-curriculum trajectory_cost --sad-alpha/--sad-beta`(轨迹代价课程)、`tools/alf_mask_inventory.py`(**X2 清点:D0 与 SmartAD n3
+  被误掩的教师 token 均为 0,不需重跑**)、Kang 导出记录首次尝试 id。153 测试(我复跑 74)通过。文档 `docs/alfworld_baseline_fidelity_fixes.md`。
+- **mike 提交(树 `/work/xueqic/hq/tc-alf-faithful`)**:SmartAD turn_mean 选例 860731(gpu4,3h)→ afterok:SmartAD weight_norm s0/1/2 860732/34/36;
+  SAD trajectory_cost sad_sum s0/1/2 860733/35/37。mike 队列现 12 个作业,预计陆续 14:37–20:10+ 起。
+- 需重跑清单(审计):SmartAD(重选例 + weight_norm 重训)、SAD(课程重训);Kang 只标注适配(原生 prefill API 不可用),可选首次尝试子集。
+
 ### mike 上线:A100-PCIe-40GB,四格 B/C/D 的 seed 1/2 已提交(2026-09-22 14:05 CDT)
 - 探测:mike gpu/gpu4 节点 = **NVIDIA A100-PCIe-40GB**(sm_80,驱动 590.44),16 核/任务,502 GB;rai 训练峰值 reserved **27.7 GB**(compute.jsonl)
   → 40 GB 够。venv 装好(uv,python 3.12,**torch 2.13.0+cu130**、peft 0.20.0、transformers 5.14.1);模型快照、baselines 树、taskeq 树、全部银行已同步到
