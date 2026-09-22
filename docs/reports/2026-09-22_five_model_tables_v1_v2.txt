@@ -60,3 +60,16 @@ v2kangs1p3  66/140    -9.29    37     25     12      0.047 |   99.9%    0.0%    
 v2sads0p3   68/140    -7.86    35     23     12     0.0895 |   99.8%    0.0%    8.3%   73      72   SAD paper-literal sum + curriculum, D0 bank
 v2sads1p3   69/140    -7.14    30     20     10     0.0987 |   99.8%    0.0%    7.6%   72      71
 (reference: plain CE 3-pass, fixed labels: 68 / 68)
+
+##### I. baselines, 10-pass endpoint, v2 stop config, vs v2 base (added 07:25 CDT)
+cell          wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2kangs0p10  79/140    +0.00    24     12     12          1 |  100.0%    0.0%    5.1%   63      61   Kang FTP bank (223 steps, 117,490 tok)
+v2kangs1p10  74/140    -3.57    27     16     11      0.442 |  100.0%    0.0%    6.1%   66      66   (222 steps)
+v2sads0p10   76/140    -2.14    29     16     13      0.711 |  100.0%    0.0%    5.9%   64      64   SAD paper-literal sum + curriculum, D0 bank
+v2sads1p10   81/140    +1.43    30     14     16      0.856 |  100.0%    0.0%    6.2%   59      59
+two-seed means: Kang 76.5/140 = 54.64% (-1.79)   SAD-sum 78.5/140 = 56.07% (-0.36)   plain CE fixed labels 78.5/140 = 56.07% (-0.36)   base 56.43%
+##### J. baselines vs plain CE (fixed labels), same seed, 10-pass, paired
+v2kangs0p10  79/140    -0.71    13      7      6          1     (vs v2fixs0p10 80)
+v2sads0p10   76/140    -2.86    14      9      5      0.424     (vs v2fixs0p10 80)
+v2kangs1p10  74/140    -2.14    17     10      7      0.629     (vs v2fixs1p10 77)
+v2sads1p10   81/140    +2.86    10      3      7      0.344     (vs v2fixs1p10 77)
