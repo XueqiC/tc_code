@@ -88,6 +88,8 @@ def demo_payload(demo: Demo) -> dict[str, Any]:
     if isinstance(demo.raw, Mapping) and "teacher_commands" in demo.raw:
         # ALFWorld keeps executed commands separate from full generated targets.
         payload["teacher_commands"] = _json_safe(demo.raw["teacher_commands"])
+        if "student_prefix_commands" in demo.raw:
+            payload["student_prefix_commands"] = _json_safe(demo.raw["student_prefix_commands"])
     return payload
 
 
@@ -116,6 +118,8 @@ def _demo_from_payload(task_id: str, value: Any, record: Mapping[str, Any]) -> D
             "teacher": str(record["teacher"]),
             "ledger_timestamp": str(record["timestamp"]),
             **({"teacher_commands": value["teacher_commands"]} if "teacher_commands" in value else {}),
+            **({"student_prefix_commands": value["student_prefix_commands"]}
+               if "student_prefix_commands" in value else {}),
             **({"prompt_version": record["prompt_version"]} if "prompt_version" in record else {}),
         },
     )

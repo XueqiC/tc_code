@@ -191,6 +191,13 @@ def validate_support(manifest):
                      selected_task_id=min(tids), fold=parent_fold(h)):
             raise ValueError("trials must share their deterministic parent fold")
     training = sorted(t for tids in expected.values() for t in tids)
+    if manifest.get("training_selection") == "usable_packages":
+        selected = manifest["training_task_ids"]
+        if selected != sorted(set(selected)) or not set(selected) <= set(training):
+            raise ValueError("derived training tasks must be within frozen support")
+        training = selected
+    elif "training_selection" in manifest:
+        raise ValueError("unknown training selection")
     if training != manifest["training_task_ids"]:
         raise ValueError("protected task in training support")
     for f in (0, 1):
@@ -447,7 +454,14 @@ def teacher_payload_fields(row):
     if (not isinstance(commands, list) or len(commands) != len(targets) or not targets or
             not all(isinstance(text, str) and text for text in commands + targets)):
         raise ValueError("teacher commands/full turns must be aligned non-empty text lists")
-    return dict(commands=commands, teacher_react_turns=targets, payload_kind="teacher_react_turns")
+    fields = dict(commands=commands, teacher_react_turns=targets, payload_kind="teacher_react_turns")
+    if "student_prefix_commands" in demo:
+        prefix = demo["student_prefix_commands"]
+        if (not isinstance(prefix, list) or
+                any(not isinstance(c, str) or not c.strip() for c in prefix)):
+            raise ValueError("student prefix commands must be a text list")
+        fields["student_prefix_commands"] = prefix
+    return fields
 
 
 def verify_package(payload, request, stepper, renderer, *, support=None):
@@ -458,14 +472,16 @@ def verify_package(payload, request, stepper, renderer, *, support=None):
     result = None
     reason = None
     error_type = None
+    prefix = payload.get("student_prefix_commands", [])
+    prefix_steps = len(prefix)
     def capture(req, history):
         prompt = renderer(req, history)
         state = FullState.create(req, history, prompt, parent_hash(req["task_id"]))
-        validate_full_state(state, expected_world_hash=req["world_hash"])
+        validate_full_state(state, expected_world_hash=req["world_hash"], student_prefix_steps=prefix_steps)
         states.append(asdict(state))
-        index = (len(history) - 1) // 2
+        index = (len(history) - 1) // 2 - prefix_steps
         turns = payload["historical_response"]["demo"]["turns"]
-        if index < len(turns):
+        if 0 <= index < len(turns):
             expected = turns[index].get("context")
             actual = prompt_messages(req, history, react=False)
             if expected != actual:
@@ -481,6 +497,8 @@ def verify_package(payload, request, stepper, renderer, *, support=None):
             fields = teacher_payload_fields(payload["historical_response"])
             if any(payload.get(key) != value for key, value in fields.items()):
                 raise ValueError("teacher payload differs from archived demonstration")
+            if prefix != fields.get("student_prefix_commands", []):
+                raise ValueError("student prefix differs from archived demonstration")
         if payload["provenance"]["task_id"] != request["task_id"]:
             raise ValueError("package/reset task mismatch")
         if payload.get("exclusion_reasons"):
@@ -491,7 +509,8 @@ def verify_package(payload, request, stepper, renderer, *, support=None):
                 raise ValueError("outside frozen training support")
             if request != support._manifest["tasks"][tid]["request"]:
                 raise ValueError("package/reset differs from frozen support")
-        result = replay_commands(request, payload["commands"], stepper, capture)
+        result = replay_commands(request, prefix + payload["commands"], stepper, capture,
+                                 student_prefix_steps=prefix_steps)
         if result.won is not payload["success"] or not result.done or not result.won:
             raise ValueError("recorded success not reproduced")
     except (ValueError, KeyError, OSError, RuntimeError) as exc:
@@ -500,7 +519,8 @@ def verify_package(payload, request, stepper, renderer, *, support=None):
         stepper.close()
     output.update(status="usable" if reason is None else "unavailable", unavailable_reason=reason,
                   request_state_hash=canonical_hash(request),
-                  behaviors=[asdict(b) for b in result.behaviors] if result is not None and reason is None else [])
+                  behaviors=[asdict(b) for b in result.behaviors[prefix_steps:]]
+                  if result is not None and reason is None else [])
     output["provenance"].update(state_validation="C26-B real state replay" if isinstance(stepper, RealStepper)
                                 else "C26-B injected stepper", original_request_state_hash=payload["request_state_hash"])
     output["verification"] = dict(
@@ -624,6 +644,8 @@ def audit_verified_bank(directory, *, expected_manifest_sha256=None):
         teacher_fields = teacher_payload_fields(row)
         if any(p.get(key) != value for key, value in teacher_fields.items()):
             raise ValueError("teacher payload differs from archived demonstration")
+        if p.get("student_prefix_commands", []) != teacher_fields.get("student_prefix_commands", []):
+            raise ValueError("student prefix differs from archived demonstration")
         if (bank.query_id(prov["ledger_sha256"], row, prov["line"]) != q or prov["task_id"] != tid
                 or p["cost"] != row.get("tokens_spent") or p["success"] is not row["verified"]):
             raise ValueError("historical cost/outcome mismatch")
@@ -644,25 +666,28 @@ def audit_verified_bank(directory, *, expected_manifest_sha256=None):
                 raise ValueError("protected/dependent usable package")
             verification = p["verification"]
             states = [FullState(**s) for s in verification["states"]]
-            commands = teacher_fields["commands"]
-            if (p["commands"] != commands or len(states) != len(commands) + 1 or
-                    len(p["behaviors"]) != len(commands) or verification["won"] is not True or
+            prefix = teacher_fields.get("student_prefix_commands", [])
+            offset = len(prefix)
+            commands = prefix + teacher_fields["commands"]
+            if (len(states) != len(commands) + 1 or
+                    len(p["behaviors"]) != len(teacher_fields["commands"]) or verification["won"] is not True or
                     verification["done"] is not True or verification["success_reproduced"] is not True):
                 raise ValueError("successful complete command replay required")
             if asdict(states[0]) != resets[tid]:
                 raise ValueError("public/sealed reset mismatch")
             for i, state in enumerate(states):
-                validate_full_state(state, expected_world_hash=request["world_hash"])
+                validate_full_state(state, expected_world_hash=request["world_hash"], student_prefix_steps=offset)
                 history = json.loads(state.history_json)
                 if json.loads(state.task_json) != request or len(history) != 2 * i + 1:
                     raise ValueError("full state/reset/history mismatch")
                 if i and history[:-2] != json.loads(states[i - 1].history_json):
                     raise ValueError("out-of-order history between archived states")
                 if i < len(commands):
-                    if (p["behaviors"][i] != dict(state=asdict(state), text=commands[i]) or
-                            json.loads(states[i + 1].history_json)[-2]["content"] != commands[i]):
+                    if json.loads(states[i + 1].history_json)[-2]["content"] != commands[i]:
                         raise ValueError("teacher command/full state mismatch")
-                    if prompt_messages(request, history, react=False) != row["demo"]["turns"][i]["context"]:
+                    if i >= offset and p["behaviors"][i - offset] != dict(state=asdict(state), text=commands[i]):
+                        raise ValueError("teacher command/full state mismatch")
+                    if i >= offset and prompt_messages(request, history, react=False) != row["demo"]["turns"][i - offset]["context"]:
                         raise ValueError("archived context divergence")
             if canonical_hash(dict(states=[asdict(s) for s in states], commands=commands, done=True, won=True)) != verification["transcript_hash"]:
                 raise ValueError("replay transcript integrity mismatch")
@@ -672,6 +697,9 @@ def audit_verified_bank(directory, *, expected_manifest_sha256=None):
         payloads[q] = p
     if set(payloads) != set(integrity) or set(payloads) != set(requests):
         raise ValueError("request inventory mismatch")
+    if support.get("training_selection") == "usable_packages" and support["training_task_ids"] != sorted({
+            p["provenance"]["task_id"] for p in payloads.values() if p["status"] == "usable"}):
+        raise ValueError("training selection differs from usable packages")
     summary = json.loads((directory / "sealed/audit.json").read_text())
     if verification_summary(records, payloads, support, historical_summary=summary["historical_inventory"]) != summary:
         raise ValueError("verification summary mismatch")

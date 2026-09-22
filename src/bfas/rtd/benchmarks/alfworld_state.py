@@ -91,7 +91,7 @@ def _observed(o):
                 content=o.observation, admissible=list(o.admissible), done=o.done)
 
 
-def validate_full_state(state, *, expected_world_hash):
+def validate_full_state(state, *, expected_world_hash, student_prefix_steps=0):
     state.validate()
     request = validate_request(json.loads(state.task_json))
     if request["world_hash"] != expected_world_hash:
@@ -114,7 +114,8 @@ def validate_full_state(state, *, expected_world_hash):
                 raise ValueError("invalid observation/admissible record")
             if row["done"] and i != len(history) - 1:
                 raise ValueError("history continues after done")
-        elif not row["content"].strip() or row["content"] not in history[i - 1]["admissible"]:
+        elif not row["content"].strip() or (index > student_prefix_steps and
+                row["content"] not in history[i - 1]["admissible"]):
             raise ValueError("history action was not admissible")
     if (len(history) - 1) // 2 > request["max_episode_steps"]:
         raise ValueError("history exceeds configured horizon")
@@ -131,7 +132,8 @@ class ReplayResult:
 
 
 def replay_commands(request: dict, commands, stepper: Stepper,
-                    renderer: Callable[[dict, list[dict]], str]) -> ReplayResult:
+                    renderer: Callable[[dict, list[dict]], str], *,
+                    student_prefix_steps=0, allow_empty=False) -> ReplayResult:
     """Pure orchestration for an injected functional stepper; never starts an env.
 
     Store untruncated observations and all ordered admissible/action records.
@@ -141,7 +143,9 @@ def replay_commands(request: dict, commands, stepper: Stepper,
     """
     request = json.loads(json.dumps(validate_request(request)))
     commands = tuple(commands)
-    if (not commands or len(commands) > request["max_episode_steps"] or
+    if (type(student_prefix_steps) is not int or not 0 <= student_prefix_steps <= len(commands)):
+        raise ValueError("student prefix must be within the replayed commands")
+    if ((not commands and not allow_empty) or len(commands) > request["max_episode_steps"] or
             any(not isinstance(c, str) or not c.strip() for c in commands)):
         raise ValueError("complete command sequence within configured horizon required")
     cursor, observation = stepper.reset(json.loads(json.dumps(request)))
@@ -155,14 +159,15 @@ def replay_commands(request: dict, commands, stepper: Stepper,
         # Copy at the boundary so even a renderer cannot mutate the archive.
         prompt = renderer(json.loads(json.dumps(request)), json.loads(json.dumps(history)))
         state = FullState.create(request, history, prompt, parent_hash(request["task_id"]))
-        validate_full_state(state, expected_world_hash=request["world_hash"])
+        validate_full_state(state, expected_world_hash=request["world_hash"],
+                            student_prefix_steps=student_prefix_steps)
         states.append(state)
         if i == len(commands):
             break
         command = commands[i]
         if observation.done:
             raise ValueError("command sequence continues after terminal state")
-        if command not in observation.admissible:
+        if i >= student_prefix_steps and command not in observation.admissible:
             raise ValueError("archived command is not admissible in reconstructed state")
         behaviors.append(Behavior(state, command))
         history.append(dict(role="assistant", index=i + 1, content=command))
@@ -188,4 +193,8 @@ def reconstruct_package(payload, request, stepper, renderer, *, owned_ids, inner
     if payload["status"] == "unavailable" or payload["payload_kind"] not in (
             "extracted_teacher_commands", "teacher_react_turns"):
         raise ValueError("payload unavailable")
-    return replay_commands(request, payload["commands"], stepper, renderer)
+    prefix = payload.get("student_prefix_commands", [])
+    result = replay_commands(request, prefix + payload["commands"], stepper, renderer,
+                             student_prefix_steps=len(prefix))
+    return ReplayResult(result.behaviors[len(prefix):], result.states, result.transcript_hash,
+                        result.done, result.won)

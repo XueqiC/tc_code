@@ -31,6 +31,25 @@ BANK_FIELDS = frozenset({"bank", "sealed_manifest_sha256", "support_size",
                          "demonstrations", "supervised_turns", "bank_supervised_tokens"})
 
 
+def sweep_statistics(commands):
+    """Only teacher suffix commands count; the strict cutoff is greater than 1/2."""
+    matches = sum(re.match(SWEEP_PATTERN, command) is not None for command in commands)
+    return dict(sweep_commands=matches, commands=len(commands),
+                sweep_share=matches / len(commands) if commands else 0.0,
+                sweep_filtered=2 * matches > len(commands))
+
+
+def training_support(support, payloads):
+    """Preserve all frozen parents, restrict the derived bank's training inventory."""
+    from copy import deepcopy
+    from bfas.rtd.benchmarks.alfworld_support import validate_support
+    result = deepcopy(support)
+    tids = sorted({p["provenance"]["task_id"] for p in payloads.values() if p["status"] == "usable"})
+    result.update(training_selection="usable_packages", training_task_ids=tids,
+                  fold_task_counts={str(f): sum(result["tasks"][t]["fold"] == f for t in tids) for f in (0, 1)})
+    return validate_support(_signed(result))
+
+
 def read_json(path):
     return json.loads(Path(path).read_text())
 
@@ -95,6 +114,8 @@ def materialize_subset(source, output, package_ids, *, selection_rule=None,
     ids.sort()
     payloads = {qid: packages[qid] for qid in ids}
     support = _signed(read_json(source / "public/support.json"))
+    if support.get("training_selection") == "usable_packages":
+        support = training_support(support, payloads)
     records = [bank.public_record(qid, support["tasks"][p["provenance"]["task_id"]]["request"])
                for qid, p in payloads.items()]
     historical = read_json(source / "sealed/audit.json")["historical_inventory"]
@@ -148,6 +169,8 @@ def register_config(output, config_path, *, template=None, model_path=None):
     template = Path(template or ROOT / "configs/rtd/pi1_alfworld_k32_kang.yaml")
     config = load_config(template)
     output = Path(output).resolve()
+    if config_path.resolve().is_relative_to(output):
+        raise ValueError('registration must be outside the frozen bank')
     audit = audit_verified_bank(output)
     summary = read_json(output / "sealed/audit.json")
     config.update(bank=str(output.relative_to(ROOT)) if output.is_relative_to(ROOT) else str(output),
