@@ -561,6 +561,16 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### LONI 把在跑的也杀了;全部转 rai(2026-09-22 13:05 CDT)
+- 13:01 系统 CANCELLED 全部在跑作业:**SmartAD seed2 1041379(148/206 步,无 pass-10;基线训练器无 --resume)**、all87 s0 1041507(168/636)、
+  all87 s1 1041517(163/636;pass-3 在 191 步,未到)。LONI 队列空,余额 ≈ 0。
+- **rai 两条链(le50 训完即接,pid 见 logs/rai_chain_gpu{1,4}.log)**:
+  - GPU4 `tools/rai_chain_gpu4_evals.sh`:合并 le50 p10 ×2 → 服务端评测 **rai_base → rai_le50s0p10 → rai_le50s1p10 → rai_highs0p10 → rai_highs1p10 → rai_base_rep**
+    (脚本 `tc-alignment-vllm/tools/alf_eval_served_rai.sh`,vLLM 0.27.1,14 客户端,FlashInfer 关;标注 rai 平台)。约 6 × 0.5 h。
+  - GPU1 `tools/rai_chain_gpu1_smartad_s2.sh`:SmartAD 选例(rai 树身份,~1h15)→ SmartAD seed2 从头训(206 步 ≈ 5.1 h)→ ~20:00 出 adapter,再评。
+- all87:pass-3 需 191 步 ≈ 4.8 h/seed,排在 GPU4 评测链之后(~16:30 起),视时间与用户意见。
+- LONI 的选例/训练结果目录保留(pass-3 已评)。
+
 ### LONI 额度撞墙:余额 219 SU,新作业即时取消(2026-09-22 12:22 CDT)
 - 高扫描 10 遍链 1042399–1042402 **提交即 CANCELLED**(余额 219.25 SU;10:59 还有 1,672)。余额行为符合 **64 SU/GPU·h 计费 + 按申请时长预扣**
   (11:05 的"约 20/GPU·h"猜测撤回)。在跑:smartad-s2(5.5h 限)、all87 s0/s1(时限压到 5:30,pass-3 约在 5:05 到)。
