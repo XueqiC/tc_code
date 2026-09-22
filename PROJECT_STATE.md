@@ -561,6 +561,17 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 用户解除教师预算限制;REPAIR-CE 管线开工(2026-09-22 13:30 CDT)
+- 用户 13:16:"教师预算你随便用""三个 API,全部用完了跟我说" → **采购封锁解除**;进展报告文档已发(`docs/reports/2026-09-22_progress_report_0921_0922_ZH.md`)。
+- 我发出的口径(15 分钟无反对即执行):π1 = 纯 CE 10 遍三 seed;REPAIR 从学生真实失败状态由教师接管到 episode 末,完整有效后缀,失败调用计费,
+  **采购侧过滤扫描占比 > 0.5 的后缀**(付费、记录、标 unusable);ADD-DEMO 同 32 任务同等新增 token 上限;D0 + 新材料按监督 token 1:1;
+  3/10 遍三 seed;评测 rai 平台;Azure P1→P2→P3,每臂每轮上限先 1.5M。
+- **Codex#14**(alf-baselines):`tools/alf_pi1_support_rollouts.py`(served π1 在 32 个 support 任务上的 rollout,记录命令/观测/成功)、
+  `tools/alf_repair_collect.py`(接管规则:只对失败局;k = 首个重复命令或 'Nothing happens' 的步,否则 steps/2;学生前缀 replay 到真实状态,
+  教师续到结束;验证 = 前缀+后缀回放成功;前缀只作 masked 上下文)、`tools/alf_bank_union.py`(D0+REPAIR 1:1 监督 token 冻结并集银行)、
+  ADD-DEMO 采集命令与导出侧 `--sweep-filter`、CPU 测试。
+- GPU 安排:π1 rollouts(~10 分钟)插在 GPU4 评测链之后、all87 之前;采集为 CPU + API;训练接 GPU。
+
 ### rai 第三条链:all87 seed0 只训到 3 遍(2026-09-22 13:10 CDT)
 - `tools/rai_chain_gpu4_all87.sh`(pid 2008356,logs/rai_chain_gpu4_all87.log):等 GPU4 评测链退出 → preflight → 训 all87 seed0
   (GPU4,636 步总,**pass-3 = 191 步保存后停掉自己的训练进程**,10 遍要 16 h 不做)→ 合并 → `rai_all87s0p3` 评测。约 16:40 起,~22:00 出。
