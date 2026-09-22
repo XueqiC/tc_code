@@ -147,3 +147,10 @@ per type: cool 7/6 (-2/-3; sweep share 75-76%, takes 10/9 of 25), clean 15/16 (+
 token-matched contrast: low-sweep 10-pass 75/75 (cool -2/-3) vs high-sweep 3-pass 68/66 (cool -7/-7, sweep 87%).
 -> the cool collapse and most of the dip are carried by the high-sweep demos (content); the low half at matched dose sits within repeat noise of base
    and drifts only mildly (79/79 -> 75/75, sweep share 72 -> 75%), i.e. a smaller dose component on top.
+
+##### R. seed 2, 10-pass endpoint, v2 stop config, vs v2 base (added 11:52 CDT)
+cell         wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2fixs2p10  77/140    -1.43    26     14     12      0.845 |  100.0%    0.0%    7.0%   63      63   plain CE fixed labels, seed 2 (185 steps)
+v2kangs2p10 80/140    +0.71    29     14     15          1 |  100.0%    0.0%    5.5%   60      60   Kang FTP, seed 2 (222 steps)
+per type: CE s2 clean +2, cool -3; Kang s2 clean +5 (b0/c5, p=0.06), cool -4
+three-seed means so far: plain CE 80/77/77 = 78.0 (55.71%);  Kang 79/74/80 = 77.7 (55.48%);  base 79/84/80 = 81.0 (57.86%)
