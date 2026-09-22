@@ -86,3 +86,12 @@ pick_two_obj_and_place         24  15   | 15  | 12  | 15    | 14    | 13   | 13 
 Support K=32 by type: look 3 / pick&place 7 / clean 6 / cool 5 / heat 4 / two 7 (stratified). Verified demos: D0 30 (clean 5, two 6, rest full),
 Kang 28 (pick&place 6, clean 4, two 6), SmartAD 30 (cool 4, two 6). Coverage does not explain the cool drop: all 5 cool demos are in D0.
 Cells share the same 140 tasks, so "6/6" is consistency across seeds/methods, not six independent samples.
+
+##### L. behaviour behind the per-type split (added 08:05 CDT): systematic cabinet/drawer sweep, and the "clean" sub-skill
+cool (n=25): base finds the object (any take) in 13/25 episodes, mean first take at step 17.6, sweep share 65.9%;
+  trained 10-pass cells find it in 5-8/25, first take at step 6-9 when found, sweep share 82.9-89.3%; 3-pass CE 4/25, sweep 87.4%.
+  Failure mode (all inspected cases): "go to cabinet k / open cabinet k" for every k, then drawers, until the 40-step horizon; the object sat on a countertop.
+clean (n=27): base fails by placing without cleaning and then looping look/take/move; trained cells insert "clean X with sinkbasin 1" and finish in fewer steps (28.4 -> 23.6-25.1).
+Sweep share rises in every type after training (+10-20 pp; look 10.5 -> 2.7-14.2 is the exception).
+Teacher demos (D0, 30 verified): sweep share look 60 / pick&place 30 / clean 46 / cool 46 / heat 13 / two 58 %; 4 of 5 cool demos go straight to countertop/diningtable
+  (first take at step 2-4); one (Plate-Cabinet-7) is a 33-step cabinet sweep. The student amplifies the enumeration pattern beyond its frequency in the demos.
