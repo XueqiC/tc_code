@@ -154,3 +154,6 @@ v2fixs2p10  77/140    -1.43    26     14     12      0.845 |  100.0%    0.0%    
 v2kangs2p10 80/140    +0.71    29     14     15          1 |  100.0%    0.0%    5.5%   60      60   Kang FTP, seed 2 (222 steps)
 per type: CE s2 clean +2, cool -3; Kang s2 clean +5 (b0/c5, p=0.06), cool -4
 three-seed means so far: plain CE 80/77/77 = 78.0 (55.71%);  Kang 79/74/80 = 77.7 (55.48%);  base 79/84/80 = 81.0 (57.86%)
+v2sads2p10    76/140    -2.14    27     15     12      0.701 |  100.0%    0.0%    5.6%   64      64   SAD-sum, seed 2 (184 steps); clean +3, cool -4
+v2smartads2p3 67/140    -8.57    32     22     10     0.0501 |   99.8%    0.0%    8.2%   73      73   SmartAD, seed 2, 3-pass
+three-seed means: SAD-sum 76/81/76 = 77.7 (55.48%)
