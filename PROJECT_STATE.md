@@ -561,6 +561,21 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 修复落地 v2(2026-09-22 01:20 CDT,分支 alf-eval-vllm `8ec4d680`)
+- **复审**:我自己 AST 投影比对,SCOPES 内**只有 `HFBackend`/`VLLMBackend` 变化**;版本 `alfworld-evaluation-scoring-c26d-v2`;185 测试通过(我跑)。
+- **停止契约**:两后端停止集 = tokenizer eos + `generation_config.eos_token_id` = **[1,106,50]**,在第一个命中处停;
+  decode 去掉终止 id;`truncated` = 未以原生停止 id 结束。**解析器未动**;fallback 原因由解析器就地记录(Part C)。
+- **labels**:`encode_teacher_turn` 追加 `<turn|>`(从 tokenizer special 取 id,非字面量)到 target/labels。
+  **preflight(我亲自跑)**:真实样本末尾 label 解码 `": go to diningtable 1<turn|>"`,id 106 在 labels、未 mask;
+  监督 token **9,649 = 9,225 + 424(每遍都加)**,终点 **28,947 / 96,490**——我此前写的 28,099/92,674 **错**(424 只加了一遍)。
+- **四行小批检查(GPU1,退出码 0)**:loss 1.91 有限;`boundary_token_id 106`;每行 1 个边界位置参与 loss。
+  **观察**:base 对该位置 `<turn|>` 的 NLL 仅 **1e-6 ~ 3e-4**——base 本就几乎必然预测该 token(与 97.7% 发射率一致),
+  **预示 labels 修复的行为增量可能远小于停止修复**(待测,不作结论)。
+- **流程错误(已纠正)**:首次 `--check-step` 因缺 `--seed/--output` 报错,但我接了 `| tail`,退出码被吞,`&&` 照样起了重训;
+  发现后在第 1 步停掉、删除输出、**改为直接捕获退出码**、检查通过后才重新起。**教训:条件启动前不要用管道包住被检查的命令。**
+- **在跑**:LONI v2 重评 5 作业 **1041308–1041312**(v2base / v2s0p3 / v2s0p10 / v2s1p3 / v2s1p10,全 RUNNING);
+  rai 重训 seed0→GPU1 pid 1358932、seed1→GPU4 pid 1358933,输出 `results/pi1_k32_v2/`,184 步/seed。
+
 ### 用户裁定(2026-09-22 00:55 CDT)——本轮执行口径
 1. **教师预算按项目累计,新增采购额度为零。** 累计 5,225,837;对 4M 超 1,225,837,对 5M 超 225,837;
    5M **不能追溯为每轮重置**。已有数据冻结留用;SmartAD 与一切教师调用**继续停止**。
