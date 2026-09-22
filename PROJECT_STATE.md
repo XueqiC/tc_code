@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 三个 Codex 并行 + LSU 探测(2026-09-22 13:36 CDT)
+- **Codex#14** REPAIR/ADD-DEMO 管线(tc-alignment-baselines,pid 2022954,监视 bjv0cn7vl);**Codex#15** 任务等权 + token 端点
+  (tc-alignment-taskeq,pid 2046957,监视 bvue3olsj);**Codex#16** 基线忠实性只读审计(新 worktree tc-alignment-audit3,分支 alf-baseline-audit,
+  pid 2050575,监视 broupji1v;产出 docs/alfworld_baseline_fidelity_audit.md + docs/patches/)。
+- LSU:每 5 分钟探一次 mike/smic 的免密登录(监视 bzc3f16xi),通了就报 allocation/GPU 分区/环境。已把公钥与安装命令发给用户。
+- rai 公钥指纹标识 `xc25-claude-sn4622122543`(公钥非秘密)。
+
 ### 用户新指令:直接验证候选方法 + 复现原版基线(2026-09-22 13:32 CDT)
 **要点**:① 普通 CE 作稳定参照,不再要求先超过 base;② 本轮只推进两个方法因素:**蒸馏目标的监督权重分配(任务等权 CE)** 与
 **教师数据是否来自学生实际访问的状态(REPAIR vs ADD-DEMO)**;③ 四格:A = D0 普通 CE(已有 3 seed)、B = D0 任务等权 CE、
