@@ -226,3 +226,10 @@ CUDA_VISIBLE_DEVICES='' .venv/bin/python -m pytest -q \
 
 No real teacher purchase, served rollout, ALFWorld replay or training is part
 of the implementation validation run.
+
+Validation (2026-09-22, `CUDA_VISIBLE_DEVICES=''`):
+`256 passed, 2 deselected in 227.64s (0:03:47)`.
+The two deselected tests require real ALFWorld; synthetic REPAIR and union
+registration and CPU preflights are included in the passing tests. A read-only
+D0 audit also confirmed 32 support tasks, 32 matching portable reset states and
+30 usable packages.
