@@ -561,6 +561,19 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 第三个 seed 全线开跑;Kang/SAD 3 遍格已送评(2026-09-22 06:30 CDT)
+- **Codex#12(alf-baselines `dadd3f33`)**:两个 CLI 的 `--seed` 允许 2;seed 0/1 计划哈希不变;每 seed 顺序来自
+  `np.random.default_rng(seed)`(pi1 `exposure_plan` / 基线 `exposure_schedule`);35 个测试通过(我跑)。
+  seed 2 的步数因数据顺序不同可差 1(CE seed2 185 步 vs 184;监督 token 同为 96,490)。
+- **rai(baselines 树,含 v2 修复)**:CE seed2 → GPU1 pid 1646304(`results/pi1_k32_v2/seed-2`,185 步);
+  Kang seed2 → GPU4 pid 1646305(`tc-alignment-baselines/results/kang_v2/seed-2`,222 步)。preflight 均 exit 0、边界 id 106 在 labels。
+  约 1.5 分/步 → 约 11:00 CDT 出 10 遍。
+- **LONI 新树 `/ddnB/work/xueqic/hq/tc-alf-baselines-s2`**(rsync 自 rai 树,.venv 软链到原树;不改运行中作业的树):
+  **SAD-sum seed2 1041374、SmartAD seed2 1041375**(RUNNING;SmartAD 复用原树冻结的 `selection.json`,选例与 seed 无关)。
+- **Kang/SAD 3 遍格 merge+eval 已提交**:v2kangs0p3 1041366/67,v2kangs1p3 1041368/69,v2sads0p3 1041370/71,
+  v2sads1p3 1041372/73;chain 脚本 `tc-alf-vllm/slurm/chain_merge_eval.sh <adapter> <merged> <tag>`。
+- 主表口径:每个方法两个曝光终点都评(与 π1 同规则:两 seed seen 均值选终点),三 seed 齐后再更新。
+
 ### 10 遍 labels 修复格提交评测;各方法真实数据成本收据 v2(2026-09-22 06:20 CDT)
 - rai 两 seed 的 labels 修复重训(`results/pi1_k32_v2/seed-{0,1}/pass-10`,184/184 步,末 loss 0.286 / 0.317)完成,
   adapter 已同步 LONI,**merge 1041362/1041364 → eval 1041363/1041365(EVAL_TAG v2fixs{0,1}p10,afterok)**;
