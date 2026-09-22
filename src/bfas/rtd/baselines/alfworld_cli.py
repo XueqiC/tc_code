@@ -72,6 +72,8 @@ def parser():
             q.add_argument('--resume', action='store_true')
         if command == 'train':
             q.add_argument('--method', choices=('smartad', 'sad'), required=True)
+            q.add_argument('--sad-variant', choices=('sad_sum', 'sad_mean'),
+                           help='SAD loss: paper token sum (default: sad_sum) or group-mean ablation')
             q.add_argument('--seed', type=int, choices=(0, 1), required=True)
             q.add_argument('--selection', type=Path)
         if command == 'cost':
@@ -107,6 +109,8 @@ def main(argv=None):
         if not sets.is_file():
             raise ValueError('selection requires the frozen candidate_sets.json export')
     if args.command == 'train':
+        if args.sad_variant is not None and args.method != 'sad':
+            raise ValueError('--sad-variant requires --method sad')
         if args.method == 'smartad' and (args.selection is None or not args.selection.is_file()
                                          or args.bank is not None or args.collection is not None):
             raise ValueError('SmartAD training requires ONLY a frozen --selection artifact')
@@ -193,7 +197,8 @@ def main(argv=None):
         identity = dict(student=student, bank=bank_identity, source_hashes=sources, device=selected,
             teacher_data_cost=cost, selection=artifact_ref, deviations=deviations,
             config_sha256=file_hash(args.config), new_teacher_calls=0)
-        manifest, plan = prepare_training(args.output, rows, config, seed, args.method, identity, costs)
+        manifest, plan = prepare_training(args.output, rows, config, seed, args.method, identity, costs,
+                                          sad_variant=args.sad_variant)
 
     backend = None
     def get_backend():

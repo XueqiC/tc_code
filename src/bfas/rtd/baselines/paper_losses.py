@@ -124,6 +124,13 @@ def span_ce(token_logprobs, kinds, method):
     mask = values.new_tensor([k != "observation" for k in kinds], dtype=torch.bool)
     if not mask.any():
         raise ValueError("row has no generated supervision")
+    if method == "sad_sum":
+        # Appendix D.3: the disjoint reason and action/final masks have weight 1.
+        # Divide their token sum by this row's generated-token count, as below.
+        # This common, parameter-independent factor preserves equal token weights.
+        return -values[mask].sum() / mask.sum()
+    if method == "sad_mean":
+        method = "sad"  # Named ablation; retain the legacy branch verbatim.
     if method == "sad":
         # [REASON] and [ACT] are span labels, not added deployment pseudo-tags.
         # Final decisions belong to ACT in this two-head text-only adaptation.

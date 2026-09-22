@@ -8,7 +8,7 @@ SAD_CURRICULUM = dict(
     name='short_to_long_trajectory_each_pass',
     difficulty='number of teacher turns in the verified trajectory',
     ordering='ascending trajectory length; seeded permutation breaks equal-length row ties',
-    weighting='unchanged span_ce(method="sad"); token-weighted row reduction per update',
+    weighting='chosen SAD span loss (hyperparameters.sad_variant); token-weighted row reduction per update',
     source='docs/2026-09-15-user-direction-unified-method-and-theory-zh.txt:232',
     local_passage='对 reasoning/action 分别对齐教师分布，并结合课程机制',
     paper_passage=None,

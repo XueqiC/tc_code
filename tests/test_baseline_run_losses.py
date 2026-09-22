@@ -97,12 +97,43 @@ def test_segment_weighted_ce_and_masked_gradient():
     assert torch.allclose(logp.grad, torch.tensor([-1/3, -.5, -2/3, 0.]))
 
 
-def test_sad_balances_spans_instead_of_tokens_and_omits_missing_group():
+@pytest.mark.parametrize("method", ["sad", "sad_mean"])
+def test_sad_balances_spans_instead_of_tokens_and_omits_missing_group(method):
     logp = torch.tensor([-2., -4., -10., -900.])
-    assert span_ce(logp, ["reason", "reason", "action", "observation"], "sad") == 6.5
-    assert span_ce(logp[:2], ["action", "final"], "sad") == 3
+    assert span_ce(logp, ["reason", "reason", "action", "observation"], method) == 6.5
+    assert span_ce(logp[:2], ["action", "final"], method) == 3
     with pytest.raises(ValueError):
-        span_ce(logp, ["observation"]*4, "sad")
+        span_ce(logp, ["observation"]*4, method)
+
+
+def test_sad_sum_is_generated_token_ce_and_mean_ablation_has_different_weights():
+    # Three reasoning tokens versus two action/final tokens, with different NLLs.
+    kinds = ["reason", "reason", "reason", "action", "final", "observation"]
+    logp = torch.tensor([-2., -4., -6., -10., -14., -900.], requires_grad=True)
+    total = span_ce(logp, kinds, "sad_sum")
+    mean = span_ce(logp, kinds, "sad_mean")
+    torch.testing.assert_close(total, -logp[:5].sum()/5)
+    torch.testing.assert_close(total, span_ce(logp, kinds, "sft"))
+    assert total.item() == pytest.approx(36/5)
+    assert mean.item() == pytest.approx((12/3 + 24/2)/2)
+    assert total.item() != pytest.approx(mean.item())
+    torch.testing.assert_close(mean, span_ce(logp, kinds, "sad"))
+    torch.testing.assert_close(torch.autograd.grad(total, logp)[0],
+                               torch.tensor([-.2, -.2, -.2, -.2, -.2, 0.]))
+    torch.testing.assert_close(torch.autograd.grad(mean, logp)[0],
+                               torch.tensor([-1/6, -1/6, -1/6, -.25, -.25, 0.]))
+    changed = logp.detach().clone()
+    changed[-1] = -1e6
+    for method in ("sad_sum", "sad_mean"):
+        torch.testing.assert_close(span_ce(changed, kinds, method), span_ce(logp, kinds, method))
+
+
+@pytest.mark.parametrize("kinds", [["reason", "reason"], ["action", "final"]])
+def test_sad_sum_single_group_and_no_generated_tokens(kinds):
+    logp = torch.tensor([-2., -4., -900.])
+    assert span_ce(logp, kinds + ["observation"], "sad_sum") == 3
+    with pytest.raises(ValueError, match="no generated supervision"):
+        span_ce(logp, ["observation"]*3, "sad_sum")
 
 
 @pytest.mark.parametrize("benchmark", ["bfcl", "alfworld"])

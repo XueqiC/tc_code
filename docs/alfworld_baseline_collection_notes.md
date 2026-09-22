@@ -1,7 +1,7 @@
 # ALFWorld SmartAD / Kang FTP collection
 
-Collection only. No NLL selection, loss change, student training, or evaluation
-change is implemented here. No live purchase was made during development.
+Collection protocol, with the offline SAD objective documented below. No live
+purchase or student training was performed for the SAD objective change.
 
 ## Purchase commands
 
@@ -161,16 +161,71 @@ listed in `alfworld_identity.SCOPES` was edited.
 
 - **Curriculum exists** (Eq. 7 + Algorithm 1 line 3): trajectories are sorted easiest -> hardest by
   `C(tau) = alpha*len(reasoning) + beta*len(actions) + gamma*entropy(pi_T(tau))`. No weighting, only ordering.
-- **Implemented**: short-to-long ordering on the two length terms with alpha = beta.
+- **Implemented curriculum adaptation**: the existing trainer orders short-to-long by the number
+  of teacher turns in each verified trajectory, with seeded tie-breaking on each complete pass.
+  This turn-count proxy is preserved for both loss variants; it does not compute Eq. 7's two
+  reasoning/action length terms separately.
   **Deviation**: the `gamma*entropy(pi_T)` term needs the teacher's token distribution, which a
-  black-box text-only teacher (gpt-5.6-luna) does not expose; it is dropped and must be declared.
+  black-box text-only teacher (gpt-5.6-luna) does not expose; the gamma entropy term is dropped.
 - **Hard-label branch** (Appendix D.3): `L = lambda_cot * sum_t m_r(t)*CE + lambda_act * sum_t m_a(t)*CE`
   with lambda_r = lambda_a = 1 - a masked token-SUM. Since every generated token carries exactly one
   mask and the weights are equal, this is plain token-level CE over generated tokens.
-  **Deviation**: our `span_ce("sad")` normalises as mean-of-group-means (reason group and action group
-  weighted equally regardless of length). The paper-literal hard-label SAD is therefore "plain CE +
-  curriculum"; the mean-of-means form is a different objective and should be reported as such, or the
-  sum form adopted as the default with mean-of-means kept as an ablation.
+- **Main row: paper-literal sum form + curriculum**. `span_ce("sad_sum")` uses that equal-weight
+  sum, divided by `N_i`, the number of non-observation generated tokens in the encoded teacher row
+  (including the native boundary token supplied by the shared encoder). This is the same generated-
+  length normalizer used by the other token-weighted span methods. `1/N_i` is a common constant
+  for all tokens in a fixed row, independent of model parameters; it preserves the paper's equal
+  token weights while keeping loss magnitudes comparable. The trainer weights each row by
+  `N_i / sum_j N_j`, so an update is exactly the paper token sum over that update divided by its
+  total generated-token count, a single parameter-independent constant for that update. SAD's
+  hard-label distinction from plain CE is the curriculum, not this loss.
+- **Ablation: mean-of-groups**. `span_ce("sad_mean")` aliases the unchanged legacy
+  `span_ce("sad")`: average NLL within reasoning and within action/final, then average the present
+  groups equally regardless of length. An absent group is omitted. Both variants give observation
+  tokens zero loss weight and zero gradient. Final decisions belong to the action group.
+- **Trainer default and provenance**. `tools/alf_baseline.py train --method sad` defaults to
+  `sad_sum`; `--sad-variant sad_mean` selects the ablation. The prepared, trained and endpoint
+  manifests record `sad_variant` and `hyperparameters.sad_variant`, plus the loss and its
+  normalization. Hyperparameters are included in the hashed training identity. Both variants
+  use the same curriculum and exposure schedule.
+
+Exact train commands from this worktree (for later GPU training; neither was run for this change).
+Set `GPU_UUID` to the full UUID of the allocated GPU. These commands use the already-merged local
+pi1 encoder/config, the existing local model snapshot and the frozen D0 bank:
+
+```bash
+cd /home/xueqi/hq/projects/tc-alignment-baselines
+MODEL=/home/xueqi/.cache/huggingface/hub/models--google--gemma-4-12B-it/snapshots/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7
+D0=/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0
+
+.venv/bin/python tools/alf_baseline.py train --method sad --sad-variant sad_sum --seed 0 \
+  --config configs/rtd/pi1_alfworld_k32.yaml --model-path "$MODEL" --gpu-uuid "${GPU_UUID:?set allocated GPU UUID}" \
+  --bank "$D0" --output results/alfworld_k32_sad_sum/seed-0
+
+.venv/bin/python tools/alf_baseline.py train --method sad --sad-variant sad_mean --seed 0 \
+  --config configs/rtd/pi1_alfworld_k32.yaml --model-path "$MODEL" --gpu-uuid "${GPU_UUID:?set allocated GPU UUID}" \
+  --bank "$D0" --output results/alfworld_k32_sad_mean/seed-0
+```
+
+For the second registered seed, change `--seed 0` to `--seed 1` and the output suffix to `seed-1`.
+Omitting `--sad-variant sad_sum` in the first command gives the same main objective.
+
+CPU validation command from the same worktree:
+
+```bash
+CUDA_VISIBLE_DEVICES="" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_DATASETS_OFFLINE=1 \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:tests .venv/bin/python -B -m pytest \
+  -q -p no:cacheprovider tests/test_baseline_run_losses.py tests/test_alf_baseline_mechanisms.py \
+  tests/test_baseline_run_training.py tests/test_alf_pi1_train.py \
+  tests/test_alfworld_boundary_identity.py tests/test_rtd_alfworld_identity.py
+```
+
+Result: **136 passed, 1 skipped, 1 warning in 56.64s**. The unequal-span fixture checks token-CE
+equivalence, different ablation weights and zero observation gradients; CPU optimizer oracles
+check both variants and the default, including manifest provenance at preparation, training and
+both endpoints. `git diff --check` passed. The legacy `span_ce("sad")` branch is verbatim unchanged;
+`pi1.py` and all eight SCOPES files are byte-identical to HEAD, and all 46 scoped symbols have
+matching scoring projections. No network or GPU was used.
 
 ## SmartAD bank as exported (from the paused ledger; no further purchase)
 

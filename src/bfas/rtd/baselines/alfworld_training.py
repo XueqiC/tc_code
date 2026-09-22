@@ -42,22 +42,33 @@ def encoder_identity():
                     Path(inspect.getfile(encode_teacher_turn)).read_bytes()).hexdigest())
 
 
-def training_hyperparameters(config, seed, method):
+def training_hyperparameters(config, seed, method, *, sad_variant=None):
     from .pi1 import plain_ce_hyperparameters
+    if sad_variant is not None and (method != 'sad' or sad_variant not in {'sad_sum', 'sad_mean'}):
+        raise ValueError('sad_variant requires method sad and must be sad_sum or sad_mean')
     hp = plain_ce_hyperparameters(config, seed)
     hp.update(method=method, loss=f'span_ce({method if method != "ce" else "sft"})',
         loss_normalization='shared per-row span loss, weighted by supervised row tokens per update',
         target='pi1.encode_teacher_turn (including its native boundary contract)',
         observations_masked=True)
+    if method == 'sad':
+        variant = 'sad_sum' if sad_variant is None else sad_variant
+        hp.update(sad_variant=variant, loss=f'span_ce({variant})',
+            loss_normalization=(
+                'equal-weight reason + action/final token sum / generated tokens per row; '
+                'rows weighted by generated tokens / total generated tokens per update'
+                if variant == 'sad_sum' else
+                'mean of present reason and action/final group means; '
+                'rows weighted by generated tokens / total generated tokens per update'))
     return hp
 
 
-def prepare_training(output, rows, config, seed, method, identity, costs):
+def prepare_training(output, rows, config, seed, method, identity, costs, *, sad_variant=None):
     output = Path(output)
     if output.is_symlink() or output.exists():
         raise FileExistsError(f'refusing existing output directory: {output}')
     plan = exposure_schedule(rows, costs, config, seed, method)
-    hp = training_hyperparameters(config, seed, method)
+    hp = training_hyperparameters(config, seed, method, sad_variant=sad_variant)
     values = [asdict(r) for r in rows]
     identity = dict(identity, method=method, seed=seed, config=config, hyperparameters=hp,
         rows_hash=digest(values), exposure_schedule_hash=digest(plan))
@@ -67,6 +78,8 @@ def prepare_training(output, rows, config, seed, method, identity, costs):
         deviations=identity.get('deviations', []), bank=identity['bank'],
         status='prepared', exposure_passes=[3, 10], endpoints=[],
         supervised_token_count=0, optimizer_step_count=0)
+    if method == 'sad':
+        manifest['sad_variant'] = hp['sad_variant']
     output.mkdir(parents=True, exist_ok=False)
     exclusive_json(output/'training_rows.json', values)
     exclusive_json(output/'exposure_schedule.json', plan)
@@ -79,11 +92,14 @@ class K32PaperTrainer(PaperTrainer):
 
     The legacy train() does online-in-loop selection and fixed preconditioning;
     this path consumes frozen rows and implements the pi1 AdamW recipe. It calls
-    the existing span_ce unchanged. No generation or development evaluation.
+    span_ce with the loss variant recorded in the manifest. No generation or
+    development evaluation.
     """
     def __init__(self, backend, rows, config, method, directory, journal, *, manifest, plan):
         super().__init__(backend, rows, config, method, directory, journal, manifest=manifest)
         self.hp, self.plan = manifest['hyperparameters'], plan
+        self.loss_method = (self.hp['sad_variant'] if method == 'sad' else
+                            'sft' if method in {'ce', 'kang'} else method)
         if (digest([asdict(r) for r in rows]) != manifest['identity']['rows_hash']
                 or digest(plan) != manifest['identity']['exposure_schedule_hash']):
             raise ValueError('training inputs differ from manifest')
@@ -119,7 +135,7 @@ class K32PaperTrainer(PaperTrainer):
             with self.journal.measure('student_step', step=step):
                 for index in batch['indices']:
                     values, kinds = self.logprobs(self.rows[index])
-                    loss = span_ce(values, kinds, 'sft' if self.method in {'ce', 'kang'} else self.method)
+                    loss = span_ce(values, kinds, self.loss_method)
                     g = gradients(loss, self.parameters)
                     weight = costs[index]/batch['supervised_tokens']
                     for n in gradient:

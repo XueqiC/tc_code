@@ -12,7 +12,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
 
-from bfas.rtd.baselines.alfworld_cli import main, safe_output, use_pi1_root
+from bfas.rtd.baselines.alfworld_cli import main, parser, safe_output, use_pi1_root
 from bfas.rtd.baselines.alfworld_cost import collection_cost
 from bfas.rtd.baselines.alfworld_curriculum import exposure_schedule
 from bfas.rtd.baselines.alfworld_selection import read_selection, select_candidates
@@ -242,17 +242,27 @@ def config(pi1):
                 training_seed=0, training_device='cpu', supervised_tokens_per_update=10000)
 
 
-@pytest.mark.parametrize('method', ['smartad', 'sad'])
-def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(tmp_path, pi1, method, monkeypatch):
+@pytest.mark.parametrize('method,variant,loss_method', [
+    ('smartad', None, 'smartad'), ('sad', None, 'sad_sum'),
+    ('sad', 'sad_sum', 'sad_sum'), ('sad', 'sad_mean', 'sad_mean'),
+])
+def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(
+        tmp_path, pi1, method, variant, loss_method, monkeypatch):
     cfg = config(pi1)
     b = Backend()
     b.tokenizer = BoundaryTokenizer()
-    rows = [row('long', index=i, target='think\nACTION: look') for i in range(2)] + [row('short', target='ACTION: go')]
+    rows = [row('long', index=i, target='think\nOBSERVATION: a room\nACTION: look')
+            for i in range(2)] + [row('short', target='ACTION: go')]
     costs = [sum(k != 'observation' for k in encoded_spans(b.tokenizer, r, 32768)[1]) for r in rows]
     bank, _ = ledger_bank(tmp_path, method)
     cost = collection_cost(bank, method=method)
     identity = dict(bank=dict(path=str(bank)), teacher_data_cost=cost)
-    manifest, plan = prepare_training(tmp_path/'run', rows, cfg, 0, method, identity, costs)
+    manifest, plan = prepare_training(tmp_path/'run', rows, cfg, 0, method, identity, costs,
+                                      sad_variant=variant)
+    prepared = json.loads((tmp_path/'run/manifest.json').read_text())
+    assert prepared['hyperparameters']['loss'] == f'span_ce({loss_method})'
+    if method == 'sad':
+        assert prepared['sad_variant'] == prepared['hyperparameters']['sad_variant'] == loss_method
     t = K32PaperTrainer(b, rows, cfg, method, tmp_path/'run',
         ComputeJournal(tmp_path/'run/compute.jsonl', cuda=False), manifest=manifest, plan=plan)
     monkeypatch.setattr(t, 'base_nll', lambda r: pytest.fail('training must not reselect'))
@@ -265,7 +275,16 @@ def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(tm
         loss = 0
         for i in batch['indices']:
             encoded, kinds = encoded_spans(b.tokenizer, rows[i], 32768)
-            loss += span_ce(expected.log_softmax(0)[list(encoded['target_ids'])], kinds, method)*costs[i]/batch['supervised_tokens']
+            nll = -expected.log_softmax(0)[list(encoded['target_ids'])]
+            if loss_method == 'sad_sum':
+                # Independent paper sum / update token count, across unequal-length rows.
+                row_loss = nll[[k != 'observation' for k in kinds]].sum()/costs[i]
+            elif loss_method == 'sad_mean':
+                groups = [nll[[k in group for k in kinds]] for group in ({'reason'}, {'action', 'final'})]
+                row_loss = torch.stack([g.mean() for g in groups if g.numel()]).mean()
+            else:
+                row_loss = span_ce(-nll, kinds, loss_method)
+            loss += row_loss*costs[i]/batch['supervised_tokens']
         opt.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_([expected], hp['gradient_clip'])
@@ -274,14 +293,51 @@ def test_actual_training_uses_shared_encoder_loss_optimizer_schedule_and_cost(tm
     assert torch.allclose(b.model.lora_logits, expected, rtol=1e-5, atol=1e-9)
     assert result['supervised_tokens'] == 10*sum(costs)
     assert result['endpoints'] == [3, 10] and b.samples == 0
+    trained = json.loads((tmp_path/'run/manifest.json').read_text())
+    assert trained['status'] == 'trained'
+    assert trained['hyperparameters'] == prepared['hyperparameters']
+    if method == 'sad':
+        assert trained['sad_variant'] == loss_method
     for endpoint in (3, 10):
         m = json.loads((tmp_path/f'run/pass-{endpoint}/manifest.json').read_text())
         assert m['teacher_data_cost'] == cost
         assert m['supervised_token_count'] == endpoint*sum(costs)
         assert m['hyperparameters']['optimizer'] == 'AdamW'
         assert m['curriculum'] == plan['curriculum']
+        if method == 'sad':
+            assert m['sad_variant'] == m['hyperparameters']['sad_variant'] == loss_method
+            assert m['hyperparameters']['loss'] == f'span_ce({loss_method})'
     with pytest.raises(FileExistsError):
         prepare_training(tmp_path/'run', rows, cfg, 0, method, identity, costs)
+
+
+def test_sad_variants_keep_curriculum_but_bind_distinct_manifest_identities(tmp_path, pi1):
+    cfg = config(pi1)
+    rows = [row('long', index=i) for i in range(2)] + [row('short')]
+    identity = dict(bank={}, teacher_data_cost={})
+    a, plan_a = prepare_training(tmp_path/'sum', rows, cfg, 0, 'sad', identity, [5, 5, 3])
+    b, plan_b = prepare_training(tmp_path/'mean', rows, cfg, 0, 'sad', identity, [5, 5, 3],
+                                  sad_variant='sad_mean')
+    assert plan_a == plan_b == exposure_schedule(rows, [5, 5, 3], cfg, 0, 'sad')
+    assert a['identity_hash'] != b['identity_hash']
+    assert a['identity']['hyperparameters']['sad_variant'] == 'sad_sum'
+    assert b['identity']['hyperparameters']['sad_variant'] == 'sad_mean'
+
+
+@pytest.mark.parametrize('variant', [None, 'sad_sum', 'sad_mean'])
+def test_cli_accepts_sad_loss_variant(variant):
+    argv = ['train', '--method', 'sad', '--seed', '0', '--bank', 'bank', '--output', 'run',
+            '--config', 'config', '--model-path', 'model', '--gpu-uuid', 'unused']
+    if variant is not None:
+        argv += ['--sad-variant', variant]
+    assert parser().parse_args(argv).sad_variant == variant
+
+
+def test_cli_rejects_sad_variant_for_smartad_before_gpu(tmp_path):
+    with pytest.raises(ValueError, match='--sad-variant requires --method sad'):
+        main(['train', '--method', 'smartad', '--sad-variant', 'sad_mean', '--seed', '0',
+              '--output', str(tmp_path/'run'), '--config', 'missing', '--model-path', 'missing',
+              '--gpu-uuid', 'unused'])
 
 
 def test_encoder_import_tracks_owner_boundary_fix(pi1, monkeypatch):
