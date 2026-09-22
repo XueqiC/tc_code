@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### rai 第三条链:all87 seed0 只训到 3 遍(2026-09-22 13:10 CDT)
+- `tools/rai_chain_gpu4_all87.sh`(pid 2008356,logs/rai_chain_gpu4_all87.log):等 GPU4 评测链退出 → preflight → 训 all87 seed0
+  (GPU4,636 步总,**pass-3 = 191 步保存后停掉自己的训练进程**,10 遍要 16 h 不做)→ 合并 → `rai_all87s0p3` 评测。约 16:40 起,~22:00 出。
+- nohup 链在 Claude 重启后仍活;重启只需重挂监视(bbej8k68q GPU4 评测三格、b73qnwod2 GPU1 选例、b1cflrjhu le50)。
+
 ### LONI 把在跑的也杀了;全部转 rai(2026-09-22 13:05 CDT)
 - 13:01 系统 CANCELLED 全部在跑作业:**SmartAD seed2 1041379(148/206 步,无 pass-10;基线训练器无 --resume)**、all87 s0 1041507(168/636)、
   all87 s1 1041517(163/636;pass-3 在 191 步,未到)。LONI 队列空,余额 ≈ 0。
