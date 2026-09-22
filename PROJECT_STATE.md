@@ -561,6 +561,15 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### rai 选例复现 32/32;GPU1 被同事占用;mike 9 跑 + 坏节点重提(2026-09-22 16:47 CDT)
+- rai 重跑的 SmartAD 选例与 LONI **32/32 任务选择一致**(可重复,可写论文)。
+- 16:08 同事 wangshu 在 GPU1 起了 71 GB 进程(不动它);SmartAD s2 加载 OOM(exit 1),GPU1 链 #2 已停。处置:
+  **D s0 → mike 861069、B s1 → mike 861070**;rai `rai_chain_gpu1_when_free.sh`(pid 2407411)等 GPU1 空出 ≥85 GB 再训 SmartAD s2。
+- 我又犯了 `pkill -f` 自匹配(exit 144,杀了自己的 shell);已用 `[a]` 括号模式。
+- mike:9 个在跑(B s2 已 1h05,步数正常;C s1/s2、D s1/s2、le50tok s0/s1、SmartAD 选例、SAD s2),SmartAD wn ×3 等选例;
+  **sadtc s0/s1 在某节点 1 分钟后 CUDA "peer GPU memory over nvlink or hardware error" 失败** → 排除该节点重提。
+- ADD-DEMO 采集链(pid 2389588,Azure P1,同 1.5M 上限)已与 REPAIR s0 并行开跑。
+
 ### π1(CE s0 10 遍)在 32 个 support 任务上的 rollouts:21 成 / 11 败 → REPAIR s0 采集开始(2026-09-22 16:22 CDT)
 - `data/alfworld_k32_repair_ce/seed-0/rollouts/`:32 任务记录(commands/observations/success/steps,identity 含 harness 身份)。11 个失败局 = REPAIR 请求数上限。
 - REPAIR s0 采集链(pid 2096294)自动开始:Azure P1,上限 1.5M token / $6;完成后并集银行 + preflight。ADD-DEMO 等 REPAIR 实际花费出来后按同额度采(attempt 3–5,T=0.7,同扫描过滤)。
