@@ -561,6 +561,29 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 第一张表:停止修复后的五模型配对(2026-09-22 01:43 CDT,LONI,同平台同配置同 140 题)
+文件 `results/reports/2026-09-22_five_model_tables_v1_v2.txt`。**v2 base 重测 = 79/140 = 56.43%**(v1 为 85,差 −4.29,p=0.21)。
+
+**同 checkpoint,旧停止→原生停止(推理缺陷损失,逐题配对)**:3遍 s0 **+12.14**(p 0.0015)、3遍 s1 **+12.14**(p 0.0023)、
+10遍 s0 **+7.86**(p 0.0074)、10遍 s1 +4.29(p 0.26)。**只修执行接口收回大部分下降。**
+
+**v2 下对新 base 的起点门**:3遍 s0 67 (−8.57, p .065) / s1 72 (−5.00, p .34);10遍 s0 **79 (0.00, p 1)** / s1 77 (−1.43, p .86)。
+**10遍两 seed 均值 55.71%,低于 base 0.71 pp,无 seed 崩溃**——统计上与 base 无差,但按"不低于"字面未过;3遍均值 49.64%(−6.79)。
+**这是旧 labels 的 checkpoint;labels 修复后的四格重训中。**
+
+**行为诊断(v2)**:原生结束率 98–100%(v1 1–28%);重复 ACTION **0.0%**(v1 97–100%);
+**解析 fallback(解析器记录)base 8.5%(`candidate_not_admissible` 266、`no_action_marker` 32),3遍 8.0%,10遍 5.0–5.5%**。
+**撤回**:"训练模型误解析 15.2% vs base 2.3%"是失控续写的假象;真实 fallback 训练模型低于 base,主因 `candidate_not_admissible`(策略层面,非格式)。
+
+**LONI 作业(01:40–02:00 CDT)**:五个 v2 重评完成。基线三条初次提交**全部失败**且原因各异,均已处理:
+- Kang 1041318/19:`/work` 是 `/ddnB/work` 的软链,训练器的 `__file__` 解析到 `/ddnB` 而 root 传的是 `/work` → 子路径检查失败。
+  **用 `readlink -f` 的规范路径重提 1041323/24(RUNNING)**。
+- SAD 1041321/22:成本核算读 D0 银行的 `.collection/identity.json`,我没同步 → 补同步后重提 1041326/27。
+- SmartAD 选例 1041320:`actual cost unavailable: unresolved request reservation`——暂停采集时一条在途请求(call 2587,
+  SaltShaker-Cabinet-3 attempt 3,预留 2,789+2,048)从未收到回复;`recover_attempts` 不处理它。
+  改用池自己的 `cancel()/finish()`("保留不确定账单")关闭,**不手改账本**;关闭后重导出、重提。
+- 我的检查漏洞:按 (task, attempt) 匹配"预留有无对应上报"会漏掉同一 attempt 内其他 call 已上报的情形;应按 call id 匹配。
+
 ### 基线训练开跑(2026-09-22 01:50 CDT,分支 alf-baselines,LONI 独立树 `/work/xueqic/hq/tc-alf-baselines`)
 - **Kang FTP**:pi1 配置钉死 `method` 与全部配方键,只允许银行描述字段不同 → 新注册
   `configs/rtd/pi1_alfworld_k32_kang.yaml`:**28 个可用包 / 412 回合 / 11,337 authored + 412 边界 = 11,749 监督 token**
