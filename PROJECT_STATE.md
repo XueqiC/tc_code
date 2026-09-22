@@ -561,6 +561,15 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### LSU HPC(mike / smic)接通(2026-09-22 13:45 CDT)
+- 用户在 Mac 上装了 rai 公钥,`ssh xueqic@mike.hpc.lsu.edu` / `smic.hpc.lsu.edu` 免密可用。**共用 allocation `hpc_depedlab02`:11,236 SU 余,2026-10-01 到期**;
+  计费同 LONI:`TRESBillingWeights GRES/gpu=64`(mike)/ 36(smic),MaxTime 3 天。`/work/xueqic` 两机共享(/ddnA,与 LONI 的 /ddnB 不同)。
+- mike:gpu / gpu4 分区各 4 节点 × 4 GPU,64 核 514 GB,**当前全部 mixed/allocated**(探测作业 860712/13 预计 14:37 / 14:50 起);
+  smic:gpu / gpu2 各 4 节点 × 2 GPU、36 核 384 GB,**idle**(型号待探测:若是 V100 无 bf16,只能考虑 fp16 评测)。
+- 已启动到 mike `/work/xueqic/hq/`:模型快照 rsync(23 GB,pid 2069830)、baselines 树(pid 2070609)、全部银行(pid 2070610);
+  venv 用 uv(python 3.12,rai 的 freeze,torch cu128)在 login 节点构建(`venv_build.log`)。mike 上已有 uv、python3.11/3.12、cuda 模块。
+- 用户 13:38:"这两个额度充足,接下来都可以用"。
+
 ### 三个 Codex 并行 + LSU 探测(2026-09-22 13:36 CDT)
 - **Codex#14** REPAIR/ADD-DEMO 管线(tc-alignment-baselines,pid 2022954,监视 bjv0cn7vl);**Codex#15** 任务等权 + token 端点
   (tc-alignment-taskeq,pid 2046957,监视 bvue3olsj);**Codex#16** 基线忠实性只读审计(新 worktree tc-alignment-audit3,分支 alf-baseline-audit,
