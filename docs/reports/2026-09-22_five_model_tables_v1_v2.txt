@@ -138,3 +138,12 @@ per type: low-sweep  cool -1/-1 (8/25; sweep share 72-73%), clean +2/+3, two -2/
           high-sweep cool -7/-7 (2/25; sweep share 87%),   clean +2/0,  two -4/-5, heat -4/-3, pick&place +1/+1
 -> the 3-pass dip and the cool collapse travel with the high-sweep half; the low-sweep half is at base overall and keeps the clean gain.
    Caveat: at 3 passes the low half is also 2.9x less dose (7.5k vs 21.5k tokens); the token-matched contrast is low-sweep 10-pass (24.9k, 49 steps) vs high-sweep 3-pass, pending.
+
+##### Q2. low-sweep half at 10 passes (24,900 tok, 49 steps) = token-matched to high-sweep 3-pass (21,477 tok) (added 10:59 CDT)
+cell         wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail
+v2lows0p10  75/140    -2.86    34     19     15      0.608 |   99.9%    0.0%    8.1%   65      65
+v2lows1p10  75/140    -2.86    24     14     10      0.541 |   99.9%    0.0%   10.6%   65      65
+per type: cool 7/6 (-2/-3; sweep share 75-76%, takes 10/9 of 25), clean 15/16 (+1/+2), heat 4/3 (-2/-3), two 13/15, pick&place 29/29 (+2/+2), look 7/6
+token-matched contrast: low-sweep 10-pass 75/75 (cool -2/-3) vs high-sweep 3-pass 68/66 (cool -7/-7, sweep 87%).
+-> the cool collapse and most of the dip are carried by the high-sweep demos (content); the low half at matched dose sits within repeat noise of base
+   and drifts only mildly (79/79 -> 75/75, sweep share 72 -> 75%), i.e. a smaller dose component on top.
