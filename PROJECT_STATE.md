@@ -561,6 +561,24 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### Codex#14/#15/#16 落地,四格与 REPAIR 开跑(2026-09-22 14:05 CDT)
+- **Codex#15 → alf-taskeq `58975764`**:`pi1_ce_taskeq`(每次更新内各任务等权,w_t=(N/n_tasks)/T_t,总权重=token 均值;等长时与 CE 逐位相同)、
+  `exposure_tokens: [28947, 96490]`(D0 上与 3/10 遍同步);配置 B `pi1_alfworld_k32_taskeq.yaml`、C `..._all87_tok.yaml`、D `..._all87_taskeq.yaml`;
+  220 测试通过(我复跑 56)。**评测 harness SCOPES 投影三棵树一致**(a2d91fef…)。
+- **Codex#14 → alf-baselines `610e8e8e`**:`tools/alf_pi1_support_rollouts.py`、`alf_repair_collect.py`(接管规则:失败局;k=首个重复命令或
+  'Nothing happens',否则 steps//2;前缀 masked;扫描占比 > 0.5 标 unusable 但计费)、`alf_bank_union.py`(1:1 监督 token,±5%);
+  state/support/ledger 的扩展向后兼容(前缀字段默认空);256 测试通过(我复跑 31)。
+- **Codex#16 审计** `tc-alignment-audit3/docs/alfworld_baseline_fidelity_audit.md`:High 级偏离——SmartAD 选例统计(token 均值 vs 论文的
+  逐回合均值再平均)与损失归一(除 token 数 vs 除权重和)、SAD 课程(按回合数排行 vs 轨迹代价课程)与硬标签 vs v5 完整目标、
+  Kang 用提示指令代替原生 prefill(API 不支持,只能标注适配)、X1 部署上下文只含最近 8 步命令/观测(训练与部署一致,是协议约束,须显式声明)、
+  X2 观测标记掩码可能误掩教师文本(待清点)。**Codex#17 已派**:选例统计 turn_mean(离线重算)、smartad 权重和归一、X2 清点工具、SAD 轨迹代价课程、Kang 首次尝试子集。
+- **rai 链**:le50 训完(85 步)→ GPU4 评测链跑(rai_base → le50 ×2 → highsweep ×2 → base rep);GPU1 SmartAD 选例中。
+  **all87 单独链已停(pid 2008356,未开训)**,由四格 C(token 端点)取代。新链:
+  GPU4 #2 `rai_chain_gpu4_rollouts_BC.sh`(pid 2092719):评测链后 → π1 三 seed support rollouts(served CE 10 遍)→ **B s0 → C s0**;
+  GPU1 #2 `rai_chain_gpu1_after_smartad.sh`(pid 2096295):SmartAD s2 后 → **D s0 → B s1**;
+  REPAIR s0 `rai_chain_repair_collect_s0.sh`(pid 2096294,CPU/API,Azure P1 luna,上限 1.5M token / $6):rollouts 后采集 → 并集银行 → preflight。
+- CE 10 遍三 seed 的合并模型(π1)在 rai 本地重建(merged_v2/seed{0,1,2}_pass10)。mike:模型/树/银行同步中,venv 重装中(cu128)。
+
 ### LSU HPC(mike / smic)接通(2026-09-22 13:45 CDT)
 - 用户在 Mac 上装了 rai 公钥,`ssh xueqic@mike.hpc.lsu.edu` / `smic.hpc.lsu.edu` 免密可用。**共用 allocation `hpc_depedlab02`:11,236 SU 余,2026-10-01 到期**;
   计费同 LONI:`TRESBillingWeights GRES/gpu=64`(mike)/ 36(smic),MaxTime 3 天。`/work/xueqic` 两机共享(/ddnA,与 LONI 的 /ddnB 不同)。
