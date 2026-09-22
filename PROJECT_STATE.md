@@ -561,6 +561,16 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### rai 空出后上"过滤高扫描 demo 的 D0 全银行 CE"(2026-09-22 11:17 CDT)
+- rai CE/Kang seed2 训完(185 / 222 步),adapter 已同步 LONI,merge+eval v2fixs2p10 1042252/53、v2kangs2p10 1042254/55(监视 bjqfl204l);
+  eval 模板时限改为 40 分钟(减少 SU 预扣)。
+- **新银行 `alfworld_k32_d0_sweep_le50`**(用 Codex#13 的子银行工具,零采购):保留扫描占比 ≤ 0.5 的 **22 条 demo**(去掉 8 条:
+  e1e9…7/13、94ed…10/18、3b41…23/38、f911…24/37、2cda…18/27、2abc…17/23、1523…25/33、609d…15/19),216 回合 / **4,413 token/遍**;
+  配置 `configs/rtd/pi1_alfworld_k32_d0_sweep_le50.yaml`(alf-baselines 提交),preflight 两 seed exit 0、边界 106 在 labels。
+- **rai 训练:seed0 GPU1 pid 1919302、seed1 GPU4 pid 1919303,85 步(10 遍 = 44,130 token),~13:25 CDT 完**。
+  预注册读法(报告 §9 1b):两 seed 均值高于 base 三次均值 ≥ 3 pp 且 cool 不再 −15 → 选材料本身是可发表机制;否则低扫描材料量不够。
+- 工具小坑:`--package-ids` 长 JSON 字符串会被当成文件名(File name too long),改传文件路径;首次失败的半成品目录移到 `_trash/`。
+
 ### LONI SU 计费口径存疑(2026-09-22 11:05 CDT)
 `TRESBillingWeights=GRES/gpu=64`,但 `balance` 的下降(06:15 3,515 → 08:45 2,006 → 10:59 1,672)远小于"64 SU × 已完成 GPU 小时"
 (仅 08:45–10:59 就完成约 17 GPU·h = 1,088 SU,余额只降 335)。可能 balance 已扣预留、或 SU 单位不是 64/GPU·h(接近 20/GPU·h)。
