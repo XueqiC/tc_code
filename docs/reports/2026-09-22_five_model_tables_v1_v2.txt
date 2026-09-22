@@ -127,3 +127,14 @@ SAD-sum            76     81   78.5 = 56.07%   -0.36     -1.79              681,
 Kang FTP           79     74   76.5 = 54.64%   -1.79     -3.21              794,301                  28 packages, 223/222 steps
 3-pass endpoint (two seeds): CE 68/68, SmartAD 67/70, SAD 68/69, Kang 68/66 -> all -6 to -9 pp.
 No cell differs from base beyond the single-model repeat noise (17-20 task flips, +-3.6 pp).
+
+##### Q. D0 split by sweep share, 3-pass endpoint, v2 stop config, vs v2 base (added 10:30 CDT)
+cell         wins     diff  disc b-only c-only  McNemar p | native% repACT% fallbk% caps capfail   bank / dose
+v2lows0p3   79/140    +0.00    20     10     10          1 |   96.8%    0.0%   10.6%   63      61   low-sweep 15 demos, 2,490 tok/pass -> 7,470 tok, 15 steps
+v2lows1p3   79/140    +0.00    26     13     13          1 |   97.8%    0.0%   11.0%   62      61
+v2highs0p3  68/140    -7.86    39     25     14      0.108 |   99.9%    0.0%    8.0%   72      72   high-sweep 15 demos, 7,159 tok/pass -> 21,477 tok, 42 steps
+v2highs1p3  66/140    -9.29    39     26     13     0.0533 |   99.8%    0.0%    7.9%   75      74
+per type: low-sweep  cool -1/-1 (8/25; sweep share 72-73%), clean +2/+3, two -2/-3, heat 0/-2, pick&place +2/+3
+          high-sweep cool -7/-7 (2/25; sweep share 87%),   clean +2/0,  two -4/-5, heat -4/-3, pick&place +1/+1
+-> the 3-pass dip and the cool collapse travel with the high-sweep half; the low-sweep half is at base overall and keeps the clean gain.
+   Caveat: at 3 passes the low half is also 2.9x less dose (7.5k vs 21.5k tokens); the token-matched contrast is low-sweep 10-pass (24.9k, 49 steps) vs high-sweep 3-pass, pending.
