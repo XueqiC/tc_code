@@ -183,8 +183,12 @@ rai_le50s1p10   72/140   -8.57  disc 26 (b19/c7) p=0.029
 takeover rule fired: repeated_command in 11/11 (k = 3..39, remaining horizon 1..37); teacher (luna, T=0) continued from the replayed student state
 verified suffixes: 2/11 (clean Tomato-DiningTable k=3, 6 teacher cmds; heat Plate-Fridge k=15, 11 cmds); 9/11 not verified (teacher did not finish within the horizon)
 sweep share of the teacher suffix > 0.5 in 6/11 requests (all among the unverified ones) -> the filter removed nothing that had verified
-cost: 496 calls, 1,408,383 tokens (cap 1.5M; stop_reason complete). usable bank: 2 demos / 17 turns / 442 tokens; D0+REPAIR 1:1 union = 884 tokens (degenerate).
--> at this cap REPAIR yields ~1/8 of one D0 demo's material per 700k tokens; the teacher rescues stalled student states rarely (2/11).
+cost (CORRECTED 18:10 CDT; the first figure summed every ledger line incl. reservations): 248 requests, 212,804 settled tokens, 0 unresolved (cap 1.5M not reached; stop_reason complete).
+   usable bank: 2 demos / 17 turns / 442 tokens; D0+REPAIR 1:1 union = 884 tokens (degenerate).
+-> ~19k tokens per takeover attempt; the teacher rescues stalled student states rarely (2/11); material yield, not budget, is the limiter.
+##### U2. ADD-DEMO material (added 18:10 CDT): 32 support tasks, attempts 3-5, T=0.7, one extra verified ReAct demo per task target
+824 requests (806 reported, 18 unresolved reservations = 78,677-token upper bound), settled 639,611 tokens; 53 verified/failed rows: 23 verified, 30 failed attempts;
+sweep filter removed 3 -> usable 20 demos / 249 turns / 6,450 supervised tokens (D0 for comparison: 30 / 424 / 9,649).
 
 ##### V. mike platform reference (vLLM 0.27.1, A100-PCIe-40GB, 14 clients) — added 17:35 CDT
 mike_base   78/140 = 55.71%   (25 min per campaign; repeat queued as mike_base_rep)
