@@ -561,6 +561,20 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 基线训练开跑(2026-09-22 01:50 CDT,分支 alf-baselines,LONI 独立树 `/work/xueqic/hq/tc-alf-baselines`)
+- **Kang FTP**:pi1 配置钉死 `method` 与全部配方键,只允许银行描述字段不同 → 新注册
+  `configs/rtd/pi1_alfworld_k32_kang.yaml`:**28 个可用包 / 412 回合 / 11,337 authored + 412 边界 = 11,749 监督 token**
+  (按 `load_bank` 自己的计数规则),preflight 通过(末尾 label `<turn|>`)。**LONI 作业 1041318 / 1041319(seed 0/1)。**
+- **SmartAD**:选例作业 1041315 因缺 `candidate_sets.json` 失败——该文件由 `export_pool(method='smartad')` 写出,
+  我此前按默认 `method='plain'` 导出所以没有。已用付费账本重建(零采购),重提选例作业。
+  **如实标注**:每任务最多 3 条有效候选,28/32 达到 3 条、1 个 2 条、1 个 1 条、**2 个 0 条 → 训练用 30 任务**。
+- **SAD**:对照论文(arXiv 2505.13820 Eq.7 / App.D.3):**课程 = 按 C(τ)=α·len(reason)+β·len(action)+γ·entropy(π_T) 由易到难排序**;
+  γ 项需教师分布,黑盒文本教师无法提供 → **弃用并声明**。**硬标签形式是 mask 求和 CE(λ_r=λ_a=1)= 纯 CE + 课程**;
+  我们的 `span_ce("sad")` 是组均值 → **主行改为论文原版求和形式(Codex#10 进行中),组均值降为消融**。
+- **流程错误(两次,已纠)**:① 一条 `set -e` 链在 Python 失败后未中止,向 LONI 提交了两个引用不存在配置的 Kang 作业
+  (1041316/1041317),已 scancel;此后每步显式 `|| exit 1`。② Kang 首次注册把 `method` 改名,被 `load_config` 拒绝。
+- **LONI v2 重评**:4/5 已完成,`v2base` 收尾中;v2 明显快于 v1(回复停在 `<turn|>`,不再跑满 256 token)。
+
 ### 修复落地 v2(2026-09-22 01:20 CDT,分支 alf-eval-vllm `8ec4d680`)
 - **复审**:我自己 AST 投影比对,SCOPES 内**只有 `HFBackend`/`VLLMBackend` 变化**;版本 `alfworld-evaluation-scoring-c26d-v2`;185 测试通过(我跑)。
 - **停止契约**:两后端停止集 = tokenizer eos + `generation_config.eos_token_id` = **[1,106,50]**,在第一个命中处停;
