@@ -73,3 +73,16 @@ v2kangs0p10  79/140    -0.71    13      7      6          1     (vs v2fixs0p10 8
 v2sads0p10   76/140    -2.86    14      9      5      0.424     (vs v2fixs0p10 80)
 v2kangs1p10  74/140    -2.14    17     10      7      0.629     (vs v2fixs1p10 77)
 v2sads1p10   81/140    +2.86    10      3      7      0.344     (vs v2fixs1p10 77)
+
+##### K. per task type, v2 base vs the six 10-pass cells (CE-fixed s0/s1, Kang s0/s1, SAD s0/s1), added 07:50 CDT
+type                            n  base | CE0 | CE1 | Kang0 | Kang1 | SAD0 | SAD1   (wins; paired b=base-only c=cell-only)
+look_at_obj_in_light           13   8   |  9  |  7  |  8    |  9    |  8   |  7     mean delta  +0.0 pp
+pick_and_place_simple          35  27   | 28  | 29  | 29    | 27    | 28   | 29     mean delta  +3.8 pp
+pick_clean_then_place_in_recep 27  14   | 16  | 17  | 17    | 17    | 17   | 18     mean delta +11.1 pp (6/6 cells up; best cell b0/c3 p=0.25)
+pick_cool_then_place_in_recep  25   9   |  6  |  6  |  5    |  3    |  4   |  6     mean delta -16.0 pp (6/6 cells down; best cell b7/c1 p=0.07)
+pick_heat_then_place_in_recep  16   6   |  6  |  6  |  5    |  4    |  6   |  8     mean delta  -1.0 pp
+pick_two_obj_and_place         24  15   | 15  | 12  | 15    | 14    | 13   | 13     mean delta  -5.6 pp
+3-pass cells (same six methods/seeds): look +10.3, pick&place +1.0, clean +7.4, cool -29.3 (6/6 down), heat -25.0 (6/6 down), two -14.6 (6/6 down)
+Support K=32 by type: look 3 / pick&place 7 / clean 6 / cool 5 / heat 4 / two 7 (stratified). Verified demos: D0 30 (clean 5, two 6, rest full),
+Kang 28 (pick&place 6, clean 4, two 6), SmartAD 30 (cool 4, two 6). Coverage does not explain the cool drop: all 5 cool demos are in D0.
+Cells share the same 140 tasks, so "6/6" is consistency across seeds/methods, not six independent samples.
