@@ -561,6 +561,14 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 上线:A100-PCIe-40GB,四格 B/C/D 的 seed 1/2 已提交(2026-09-22 14:05 CDT)
+- 探测:mike gpu/gpu4 节点 = **NVIDIA A100-PCIe-40GB**(sm_80,驱动 590.44),16 核/任务,502 GB;rai 训练峰值 reserved **27.7 GB**(compute.jsonl)
+  → 40 GB 够。venv 装好(uv,python 3.12,**torch 2.13.0+cu130**、peft 0.20.0、transformers 5.14.1);模型快照、baselines 树、taskeq 树、全部银行已同步到
+  `/work/xueqic/hq/`;slurm 模板 `/work/xueqic/hq/slurm/train_gpu.slurm`(-A hpc_depedlab02,TRAIN_CMD + R)。
+- **提交(TRAIN_CMD = preflight && train,taskeq 树)**:B s2 860724(gpu,预计 14:37 起)、C s1 860725(gpu4,18:08)、C s2 860726(gpu,18:19)、
+  D s1 860727(gpu4,18:51)、D s2 860728(gpu,20:10)。监视 bt184ibo5(首个开跑后 10 分钟检查 preflight/步数)。余额 11,236 SU。
+- 四格分工:A 已有(CE 三 seed);B s0/C s0 rai GPU4 链;D s0/B s1 rai GPU1 链;其余 mike。评测:rai 服务端(与 LONI v2 同配置);mike 评测环境待建。
+
 ### Codex#14/#15/#16 落地,四格与 REPAIR 开跑(2026-09-22 13:55 CDT)
 - **Codex#15 → alf-taskeq `58975764`**:`pi1_ce_taskeq`(每次更新内各任务等权,w_t=(N/n_tasks)/T_t,总权重=token 均值;等长时与 CE 逐位相同)、
   `exposure_tokens: [28947, 96490]`(D0 上与 3/10 遍同步);配置 B `pi1_alfworld_k32_taskeq.yaml`、C `..._all87_tok.yaml`、D `..._all87_taskeq.yaml`;
