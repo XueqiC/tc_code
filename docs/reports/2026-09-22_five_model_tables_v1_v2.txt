@@ -420,3 +420,6 @@ mike_ALT1s1t96490  87/140   all87 1-alternative-per-task, seed 1 (rai GPU2-train
 ##### Z. hpg platform (B200, vLLM 0.27.1 + transformers 5.14.1, 14 clients, same 140 valid_seen) — added 09:39 CDT
 hpg_base           83/140   base smoke (job 43092260, 14:53 wall on one B200)  [LONI 79/84/80, mike 78/82/84, rai 84/81]
 batch 1 submitted 09:40 CDT (jobs 43093595-43093618): base_rep, base_rep2, A s0-2, ALT1 s0-2, SMORIG s0-2, SADORIG s0-2, KANG s0-2, C s0-2, D s0-2, CEMIKE s0 (mike's A adapter, identity check vs pi1_k32_v2)
+hpg_base_rep 82 | hpg_base_rep2 78  -> hpg base three runs 83/82/78 = 81.0 (spread 5; LONI 81.0, mike 81.3, rai 82.5)  (09:55 CDT)
+hpg_A_s0 80 | hpg_A_s1 76   plain CE (D0, pi1_k32_v2 pass-10) on hpg  [mike 79/76, rai 74/74, LONI 80/77]
+rai_all87_1alts0t96490  83/140   REPEAT of ALT1 s0 on rai (GPU1 chain #9, same adapter as rai_ALT1s0t96490 = 88 on GPU4)  -> same-checkpoint repeat spread 5 tasks on rai, like base's (09:55 CDT)
