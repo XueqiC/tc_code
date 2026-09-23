@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike:24 个评测作业在坏节点 mike183 上失败(vLLM 起不来),模板排除该节点后由循环重提(2026-09-23 03:35 CDT)
+- 对账发现 27 个 run 目录无结果;sacct:全部 FAILED 的 ev-* 作业都在 **mike183**(白天 SAD 训练在它上面报 nvlink 硬件错的那台;评测时好时坏)。
+  含 A s0/s1/s2 高端点、B s1/s2 高端点、D s1 高端点、SADTC s1/s2 pass-10、LE50 s0 两端点、多数低端点。
+- 处置:`eval_adapter.slurm` / `eval_gpu.slurm` 加 `--exclude=mike183`;从 `eval_submitted.txt` 删掉 24 个失败 tag、删空 run 目录 → 循环自动重提(~10 分钟一轮)。
+  预计 24 格 × 25 分钟,4–6 张卡并行 ≈ 2 h → **完整四格与忠实基线约 05:30–06:00 CDT 出齐**;报告随后发。
+- 已完成的 mike 高端点:C 86/78/83、D 85/–/85、B s0 75、SMWN 88/89/82、SADTC s0 85、SMORIG s2 84、ADDALL 75/83/80、ADD1 –/76/76、REPALL 72/83/–、LE50 s1 77。
+
 ### rai GPU4 交叉评测链 #4 全灭:同事 9.3 GB 占卡 → vLLM 0.92 利用率启动失败;加 env 覆盖后重跑(2026-09-23 02:30 CDT)
 - C s0 训完(183 步,02:01)。链 #4 六格全部 "vLLM exited before readiness":`Free memory 85.33/94.97 GiB < desired 0.92 (87.37 GiB)`——GPU4 上同事的 server.py 占 9.3 GB。
   23:13 GPU1 的 rai_ces2p10 首次失败同因。
