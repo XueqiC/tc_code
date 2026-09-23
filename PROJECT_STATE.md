@@ -1485,6 +1485,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - rai_ALT1MINs0t96490 = **77**(rai base 84/81;A s0 74;ALT1 s0 88/83;PER2 s0 89/84)。同一 87 池、同规模、同配方、同端点,只是每任务换成 id 最小的另一条 → 读数回到 D0 纯 CE 的水平。
 - 含义:**每任务选哪条轨迹在同池内能摆动 ~10 题**;修正版 SmartAD 的逐回合 NLL 选例(88/89/82)是真实机制(它稳定选到好的);ALT1 的 max-id 规则碰巧得到一组好轨迹,1min 的 min-id 得到一组差的。
   方法的核心 = **选材统计量**。下一步(零 GPU):用 SmartAD 选例已算好的 87 条逐回合 NLL,比较 ALT1 池 vs 1min 池 vs SmartAD 选中集的 NLL 分布,看 NLL 是否预测材料质量;再看扫描占比/长度。
+- 1min s0 的选材分析(零 GPU):ALT1 选中集 token-NLL 1.94 vs 1min 1.91 vs SmartAD 原版 1.78 → 学生 NLL 不预测材料好坏;15 个命令序列不同的任务上 1min 更长、更多 go/look/重访,但逐任务不干净。
+- **11:18 CDT 完整文档已发 Discord**(`docs/reports/2026-09-22_full_report_ZH.md` 007be4cb + 数字表);附录待:1min s1/s2、mike/hpg 剩余格、hpg 全表。
 - 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 mike(862163)与 hpg(43099122)。hpg:C 85/84/83 = 84.0,D s0/s1 85/84。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
