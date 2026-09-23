@@ -1460,7 +1460,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 ### 08:49 CDT — hpg 恢复,搭 B200 统一重评;用户指令:尽量并行、hpg 上不跑任何中国模型
 - **hpg**:08:36 CDT 起密钥直登(无 Duo、无 master socket);部门队列 13 作业/6 跑,hpg-b200 无空闲整机(mixed)。我的作业 0。
 - **合规**:hf-cache 里的 `models--Qwen--Qwen3.5-4B` 先移 `_trash/`,用户要求后已 **rm -rf**(含 .locks);hf-cache 只剩 google/gemma-4-12B-it、gemma-4-E4B-it、MiniLM。
-  剩余 "qwen" 字样:pip wheel `qwen-agent`(库)与 `tc-alignment/data/pool_v0/qwen3.5_397b`(76 KB 旧教师池文本)——已告知用户,待其决定。**hpg 上只跑 google/gemma-4-12B-it + 我们的 LoRA。**
+  用户随后要求"所有跟 Qwen 有关的都转移":已归档到 rai `tc-alignment/_trash/hpg_qwen_relocated/`(`hpg_qwen_pool_v0_qwen3.5_397b.tgz`、`hpg_bfcl_qwen_results.tgz` = 4 个 BFCL Qwen3.5-4B-FC 结果目录 75 MB)并从 hpg 删除;qwen-agent wheel、vLLM qwen modelinfo 缓存已删。
+  剩余只有第三方库/benchmark 代码里的 Qwen 处理器与素材(不可删)和旧 yaml 里的模型名(git 内,未执行);`scaling-down-law/scripts/run_qwen*.sh` 属 sdl 项目,已告知用户经中控处理。**hpg 上只跑 google/gemma-4-12B-it + 我们的 LoRA。**
 - **统一重评树** `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment-vllm/`:代码从 rai tc-alignment-vllm rsync(tools/src/configs/scripts);`.venv` → `tc-alignment/.venv`(py3.12,torch 2.11 cu128,peft 0.20,tf 5.14.1);
   `envs/vllm-serve` → `tc-alignment/envs/vllm-serve`(**vllm 0.27.1**,torch 2.13 cu130,与 rai/mike 同版本);`envs/alfworld` → `tc-alignment/envs/alfworld`(py3.12 + data/json_2.1.1)。
   模板 `slurm/eval_b200.slurm`(1×B200,14 cpu,120 GB,1.5 h;`--export=ALL,ADAPTER=<lora dir>,EVAL_TAG=hpg_<TAG>`;ADAPTER 空 = base;合并用 `.venv`;跑完删合并模型)+ `slurm/eval_body.sh`(mike 同款)。
