@@ -302,3 +302,167 @@ assumption in its synthetic export test. New tests include audited synthetic
 banks with changed world bytes or admissible actions, identity-only unions in
 both mixing modes, unchanged loaded rows and source bytes, and rejection of a
 renderer whose output depends on the environment hash.
+
+## Targeted ADD-DEMO (Codex#20)
+
+Choose task **types** from the student's support failures, then buy only tasks
+of those types within the frozen support. The default selection is:
+
+| Task-type prefix | K=32 tasks |
+| --- | ---: |
+| `pick_cool_then_place_in_recep` | 5 |
+| `pick_heat_then_place_in_recep` | 4 |
+| `pick_two_obj_and_place` | 7 |
+| Total | 16 |
+
+`configs/alfworld_k32_targeted_tasks.json` contains that sorted 16-ID list.
+The selector reads historical support, including tasks without a usable D0
+demo. It matches the complete type before the first hyphen; a partial prefix
+or unknown type is rejected. To generate a new list (the output must not exist):
+
+```bash
+PY="$PWD/.venv/bin/python"
+D0=/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0
+CUDA_VISIBLE_DEVICES='' "$PY" tools/alf_targeted_tasks.py \
+  --support "$D0/public/support.json" \
+  --task-types pick_cool_then_place_in_recep pick_heat_then_place_in_recep pick_two_obj_and_place \
+  --output "$PWD/data/alfworld_k32_targeted_tasks.json"
+```
+
+The default `--task-types` is the list shown above, and the default `--support`
+is the D0 path shown above. The tool prints counts per type and writes only a
+JSON list; it never contacts the teacher or runs a student.
+
+The collector's `--only-tasks FILE` accepts unique support task IDs, rejects
+unknown IDs before any purchase or collection write, and freezes the sorted
+selection in `identity.json`. Changing that selection when resuming is rejected.
+An empty list buys nothing. Tasks outside the list never enter the acquisition
+queue; ledger and request-journal validation also rejects outside tasks.
+`summary.json` and `candidate_sets.json` count only selected tasks, so unselected
+tasks do not inflate candidate shortfalls.
+
+The exported `public/support.json` and reset states retain **all 32 historical
+tasks**, parent groups, folds and world identities. Its signed
+`training_selection: usable_packages` inventory includes only selected tasks
+with usable purchased packages. Failed or sweep-filtered purchases retain their
+paid ledger/package evidence. This supports the existing D0 union's
+`code-identity-only difference` rule without changing that rule.
+
+Run this **dry-run** from the baselines worktree. It audits D0 and prints the
+selection, attempt indices, temperatures, candidate/attempt ceilings and budget
+caps, with no collection/bank writes, teacher calls, environment startup or GPU:
+
+```bash
+PY="$PWD/.venv/bin/python"
+D0=/home/xueqi/hq/projects/tc-alignment/data/rtd/v1_alfworld_k32_d0
+TASKS="$PWD/configs/alfworld_k32_targeted_tasks.json"
+TARGETED="$PWD/data/alfworld_k32_add_targeted"
+CUDA_VISIBLE_DEVICES='' BFAS_TEACHER=gpt-5.6-luna "$PY" tools/alfworld_teacher_pool.py \
+  --source "$D0" --out "$TARGETED" --only-tasks "$TASKS" --dry-run \
+  --method smartad --candidates-per-task 2 --attempt-start 6 --attempts-per-task 4 \
+  --temperature 0.7 --sweep-filter --workers 1 --rate-limit-retries 8 \
+  --max-tokens 2000000 --max-usd 10 \
+  --usd-per-mtok-in 0.20 --usd-per-mtok-out 1.20 --usd-per-mtok-cached 0.01
+```
+
+Expected plan: 16 selected / 32 historical tasks, at most 32 verified demos
+and 64 trajectory attempts, indices **6–9**, temperature **0.7** throughout.
+D0 used 0–2 and the earlier ADD-DEMO used 3–5. `--method smartad` enables the
+existing multiple-candidate collector; exported targets remain full ReAct
+demonstrations for `pi1_ce`. It stops at two collection-verified demos per task.
+CPU replay and the export-time sweep filter can reduce the usable count;
+filtered demos are charged and are not automatically replaced. Budget caps
+also apply. The quoted prices reproduce D0's accounting, not current pricing.
+
+**Purchase recipe for the user to run later; not part of the dry-run.** These
+guards refuse an existing bank or collection (including dangling symlinks).
+Run in a shell with `set -e` so refusal also prevents the subsequent union:
+
+```bash
+set -e
+for path in "$TARGETED" "$TARGETED.collection"; do
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    echo "Refusing existing targeted collection: $path" >&2
+    exit 1
+  fi
+done
+CUDA_VISIBLE_DEVICES='' BFAS_TEACHER=gpt-5.6-luna "$PY" tools/alfworld_teacher_pool.py \
+  --source "$D0" --out "$TARGETED" --only-tasks "$TASKS" \
+  --method smartad --candidates-per-task 2 --attempt-start 6 --attempts-per-task 4 \
+  --temperature 0.7 --sweep-filter --workers 1 --rate-limit-retries 8 \
+  --max-tokens 2000000 --max-usd 10 \
+  --usd-per-mtok-in 0.20 --usd-per-mtok-out 1.20 --usd-per-mtok-cached 0.01
+
+TOKENIZER=/home/xueqi/.cache/huggingface/hub/models--google--gemma-4-12B-it/snapshots/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7
+UNION="$PWD/data/alfworld_k32_d0_plus_targeted"
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  "$PY" tools/alf_bank_union.py \
+  --left "$D0" --right "$TARGETED" --output "$UNION" --mixing all \
+  --config "$UNION.registration.yaml" --model-path "$TOKENIZER"
+```
+
+The union and registration also refuse existing outputs. Keep D0 on the left
+to inherit its exact registered support identity. The intermediate registration
+records the actual union manifest, demonstration/turn counts and supervised
+tokens; these cannot be known until collection finishes.
+
+**Token-endpoint config template instructions only.** The token-endpoint
+trainer/configs live in `../tc-alignment-taskeq`, not this baselines tree.
+After the union above, run the following to create
+`../tc-alignment-taskeq/configs/rtd/pi1_alfworld_k32_d0_plus_targeted_tok.yaml`.
+It uses the existing token-endpoint template, actual union bank fields, an
+absolute bank path valid in that tree, seeds 0/1/2, and fixed
+`exposure_tokens: [28947, 96490]`. It refuses an existing config. No training
+command is included, and no config in the taskeq tree is written by this change.
+
+```bash
+TASKEQ="$(realpath ../tc-alignment-taskeq)"
+CUDA_VISIBLE_DEVICES='' PYTHONDONTWRITEBYTECODE=1 "$PY" - \
+  "$TASKEQ" "$UNION" "$UNION.registration.yaml" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+tree, bank, registration = map(Path, sys.argv[1:])
+template = tree / 'configs/rtd/pi1_alfworld_k32_d0_plus_add_all_tok.yaml'
+output = tree / 'configs/rtd/pi1_alfworld_k32_d0_plus_targeted_tok.yaml'
+config = yaml.safe_load(template.read_text())
+measured = yaml.safe_load(registration.read_text())
+for key in ('sealed_manifest_sha256', 'support_size', 'demonstrations',
+            'supervised_turns', 'bank_supervised_tokens'):
+    config[key] = measured[key]
+config['bank'] = str(bank.resolve())
+config.pop('exposure_passes', None)
+config.update(exposure_tokens=[28947, 96490], training_seeds=[0, 1, 2])
+with output.open('x') as stream:
+    stream.write('# Targeted ADD-DEMO union; matched supervised-token endpoints.\n')
+    yaml.safe_dump(config, stream, sort_keys=False)
+sys.path.insert(0, str(tree / 'src'))
+from bfas.rtd.baselines.pi1 import load_config
+load_config(output)
+print(output)
+PY
+```
+
+Validation (2026-09-23): the real D0 dry-run selected 16/32 tasks with
+`teacher_calls: 0` and left no targeted bank or collection directory. A read-only
+comparison of all 32 D0 requests/resets against the current collector's derived
+support passed the union's `code-identity-only difference` rule. The synthetic
+tests prohibit network, real environment startup and CUDA access, and exercise
+restricted purchases with one/three workers, rejection of outside IDs, frozen
+resume selection, failed/empty selections, all four attempt indices, read-only
+dry-run, exact type selection, and audited D0 union with unchanged training rows.
+
+```bash
+CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+HF_DATASETS_OFFLINE=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q \
+  tests/test_alf_targeted_tasks.py tests/test_alfworld_teacher_pool.py \
+  tests/test_alf_bank_union.py tests/test_alf_repair_pipeline.py \
+  tests/test_rtd_alfworld_support.py tests/test_rtd_alfworld_state.py \
+  tests/test_alf_bank_subset.py -m 'not integration'
+```
+
+`198 passed, 1 deselected in 112.11s (0:01:52)`
+
+The deselected test requires real ALFWorld. No real teacher calls, training,
+GPU use, or writes under `results/` or `artifacts/` were performed.
