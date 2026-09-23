@@ -255,7 +255,21 @@ base 三次都赢 70 题、都输 47 题、摇摆 23 题。所有训练格都在
 ### 5.4.5 五个模型三 seed 在同一平台(原版协议基线从 LONI 拉回,mike 与 rai 各评一遍)
 LONI 训练的原版 SmartAD s0/s1、SAD(sad_sum)s0/s1/s2、Kang s0/s1 的 pass-10 adapter 已拉回 rai(`tc-alignment-baselines/results/{smartad_v2,sad_sum_v2,kang_v2}/seed-*/pass-10/lora`),
 连同 rai 训练的 Kang s2,推到 mike(作业 861843–861850)并排入 rai GPU4 链 #7;这样每个方法都有三 seed × 两平台的同配置读数。
-__ORIGTABLE__
+| mike 三 seed(pass-10 / 96,490 token 端点;base 78/82/84 = 81.3) | seed 0 | seed 1 | seed 2 | 均值 | vs base |
+|---|---|---|---|---|---|
+| base | 78 | 82 | 84 | 81.3 | — |
+| 纯 CE(A,D0 30 条,10 遍) | 79 | 76 | 78 | 77.7 | −3.7 |
+| SmartAD 原版(token 均值选例,除 token 数) | 82 | 82 | 84 | 82.7 | +1.3 |
+| **SmartAD 忠实版**(逐回合均值选例,除权重和) | **88** | **89** | 82 | **86.3** | **+5.0** |
+| SAD 原版(sad_sum) | 71 | 85 | 79 | 78.3 | −3.0 |
+| SAD 忠实版(轨迹代价课程) | 85 | 78 | 75 | 79.3 | −2.0 |
+| Kang FTP(标注适配) | 88 | 73 | 82 | 81.0 | −0.3 |
+| C:纯 CE,87 条示范 | 86 | 78 | 83 | 82.3 | +1.0 |
+| D:任务等权 CE,87 条 | 85 | 79 | 85 | 83.0 | +1.7 |
+
+rai 平台(base 84/81 = 82.5)同 adapter:SmartAD 原版 84/80/80 = 81.3;SAD 原版 74/79/75 = 76.0;Kang s0 81(s1/s2 评测中);纯 CE 74/74/77 = 75.0;C 82.3;D 81.0;忠实 SmartAD s0 83。
+**读法**(09-23 05:39 CDT):只有修正后的 SmartAD 在 mike 上超出 base 的散布(+5.0;rai 上 s0 只有 83,待其余 seed);其余全部落在 base ±4 之内,而每个方法自身的 seed 散布是 7–15 题(Kang 88/73/82),
+大于绝大多数方法间差距。这张表回答了用户"原版 baseline 复现到位"的要求:同一评测配置、同一 base、三 seed,原版协议与修正协议分列。
 
 ### 5.4.4 跨平台位移(必须写进论文的评测事实)
 同一批 checkpoint:纯 CE 10 遍在 LONI 读 80/77、rai 74/74/77、mike 79/76/78;base 在三平台 79–84。训练后模型对推理平台(vLLM 版本 / GPU)比 base 更敏感;

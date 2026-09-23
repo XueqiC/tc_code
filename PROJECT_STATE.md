@@ -1423,6 +1423,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   规则判定:B>A 不成立(同 seed −4/+1/+3 = 0)、D>C 不成立(+0.7)→ **task-equal 不被支持**;C>A 成立(+4.7)→ **材料被支持**;C/D 比 base 高 1–1.7(在 base 三次 6 题的散布内)。
 - **rai(base 82.5)**:A 75.0 / B 80.0 / C 82.3 / D 81.0 → 同一因子结构:材料 +7.3;task-equal 只在 D0 上 +5、在 87 条上 −1.3。
 - 结论(两平台一致):**唯一被支持的方法因子是材料(每任务多条已验证教师轨迹)**;目标加权无普适增益;C/D 只回到 base。
+- **Kang 在 mike 88/73/82 = 81.0**(−0.3;seed 散布 15 题);rai KANG s0 81。→ **mike 五模型三种子表出齐(tables §T9,报告 §5.4.5)**:只有忠实 SmartAD(86.3)超出 base 散布。
 - **原版 SAD 在 mike 71/85/79 = 78.3**(−3.0;忠实版 79.3;rai 原版 76.0)→ SAD 在所有平台 ≤ base,种子散布 14 题。
 - **原版 SmartAD 在 mike 82/82/84 = 82.7**(+1.3 vs base)→ 忠实修法值 +3.7(86.3);rai 上原版 84/80/80 = 81.3。**原版 SAD 在 rai 74/79/75 = 76.0**(−6.5)。
 - 端点同步循环改走 mike(`tools/rai_sync_endpoints_via_mike.sh`,原子推送 lora.partial→lora,每 15 分钟;旧 smic 循环 3003390 已杀);1alt s0 的 96,490 端点已手推到 mike(05:24 CDT),mike 循环会评 ALT1 s0 高端点。GPU4 链 #8(`rai_chain_gpu4_material_endpoints.sh`,等链 #7)在 rai 评 1alt/2per s0/s1 端点。
