@@ -335,3 +335,7 @@ rai_SMWNs0p10  83/140  -0.71  disc 27 (b14/c13)  p=1.000 | fallback 4.1% caps 57
 rai_LE50s1t96490 80/140  -2.86  disc 30 (b17/c13)  p=0.585 | fallback 5.9% caps 60
 -> on rai every trained cell is <= base 84 (p >= 0.05); the closest are C s0 84 (22 disc 11/11) and B s2 85 (29 disc 14/15). Faithful SmartAD s0 = 83 here vs 88 on mike.
 rai_ADDALLs1t96490 86/140   (D0 + all 20 ADD-DEMO demos, seed 1; mike read 83; rai base 84/81)  -> +2 vs first base run, highest rai cell so far; ADDALL s1 is the only cell >= base on both platforms (03:58 CDT)
+mike_Ds1t96490     79/140  all87 task-equal (D), seed 1, 96,490-token endpoint (04:04 CDT)  -> D three seeds on mike 85/79/85 = 83.0 (rai 83/78/82 = 81.0); D-C same seed on mike -1/+1/+2 = +0.7 (rai -1.3) -> task-equal adds ~0 on all87 on both platforms
+mike_Cs0t28947     72/140  all87 plain CE, seed 0, 28,947-token low endpoint (04:04 CDT)
+mike_Ds0t28947     64/140  all87 task-equal, seed 0, 28,947-token low endpoint (04:04 CDT)
+mike_Ds1t28947     64/140  all87 task-equal, seed 1, 28,947-token low endpoint (04:04 CDT)  -> low endpoints (< 1 pass of the 87 bank) sit 10-20 below base on every arm, as with D0's 3-pass dip

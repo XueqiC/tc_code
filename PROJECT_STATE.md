@@ -1400,6 +1400,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   正在拉回 rai `tc-alignment-baselines/results/<name>/seed-k/pass-10/lora`(`tools/pull_orig_adapters_from_loni.sh`,日志 `logs/pull_orig_adapters.log`);
   拉回后 ① 推到 mike 手提 8 格评测(SMORIG s0/s1、SADORIG s0/s1/s2、KANG s0/s1/s2,排在现队列之后),② rai GPU4 在链 #6 退出后评同 8 格(链 #7)。
   目的:用户要求"所有方法同一评测配置"——五个模型三种子在 mike 与 rai 两平台各有完整表。
+- mike D s1 = 79 → **D 三种子 mike 85/79/85 = 83.0**(rai 81.0);D−C 同 seed mike +0.7 / rai −1.3 → task-equal 在 87 条上两平台都≈0。低端点 C s0 72、D s0/s1 64/64。
 - rai_ADDALLs1t96490 = 86(mike 83)→ ADD-DEMO ALL s1 是唯一在两平台都 ≥ base 的格;链 #6 结束(03:58 CDT),链 #7 开始评原版基线 8 格。
 - 训练进度:GPU1 all87_1alt s0 step 120/184(≈60 s/步,预计 04:40 CDT 完,随后 2per s0 ≈ 07:45,再 rai 评两端点);GPU3 le50 s2 预计 05:00 CDT 完。
 
