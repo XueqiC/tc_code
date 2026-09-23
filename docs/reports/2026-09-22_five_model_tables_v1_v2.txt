@@ -271,3 +271,5 @@ mike_LE50s1t96490   77   |  8 | 13 | 12
 mike_ADDALLs0t96490 75   |  6 | 10 |  9
 -> every trained cell wins 5-10 tasks base never wins and loses 6-13 tasks base always wins; the net is ~0, the totals differ mainly through the 23 flaky tasks.
 mike_ADD1s1t96490  76/140  D0+ADD-DEMO 1:1 (37 demos, 12.9k tok/pass), seed 1, 96,490-token endpoint (01:28 CDT)  [mike base 78/82/84]
+mike_ADD1s2t96490  76/140  D0+ADD 1:1, seed 2, 96,490-token endpoint (01:43 CDT)
+mike_ADDALLs1t96490 83/140  D0+all ADD (50 demos), seed 1, 96,490-token endpoint (01:43 CDT)  [ADDALL s0 75; mike base 78/82/84]
