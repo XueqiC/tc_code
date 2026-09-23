@@ -202,7 +202,13 @@ __ADDREPAIR__
 
 ### 5.4.3 忠实版基线(Codex#16 审计后的修法)
 X2 掩码清点:D0 与 SmartAD n3 被误掩的教师 token 均为 0(无需重跑)。重跑:SmartAD(选例 turn_mean + 损失除权重和)、SAD(轨迹代价课程);Kang 只能标注适配(API 无原生 prefill)。
-__FAITHFUL__
+| 忠实版基线(mike,10 遍 / pass-10) | seed 0 | seed 1 | seed 2 | 均值 | vs mike base 81.3 |
+|---|---|---|---|---|---|
+| SmartAD(turn_mean 选例 + 除权重和) | **88** | **89** | 82 | **86.3 (61.7%)** | **+5.0 pp** |
+| SAD(轨迹代价课程,sad_sum) | 85 | __SADTC1__ | __SADTC2__ | __SADTC_MEAN__ | |
+| SmartAD 原版(token 均值选例,除 token 数) | (LONI 82) | (LONI 82) | 84 | 跨平台,待统一 | |
+配对(vs base78):SmartAD 忠实版 s0 +7.14(p=0.087)、s1 +7.86(p=0.071)、s2 +2.86;类型上 clean +3~+5、two +2~+9、**cool 不掉(8/8)**;
+base 必赢题只丢 6–10、必输题赢 10–11——这是今晚最强的臂,而且是一个基线:方法要赢的门槛是 86 而不是 81。
 
 ### 5.4.3b base 的"必赢 / 必输 / 摇摆"分解(mike,base 三次 78/82/84)
 base 三次都赢 70 题、都输 47 题、摇摆 23 题。所有训练格都在 47 个必输题上赢 5–10 题(D s2 10、忠实 SAD s0 9、SmartAD 原版 s2 9、B s0 8),
