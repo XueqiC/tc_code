@@ -314,3 +314,23 @@ mike_Bs1t96490     77/140  D0 task-equal (B), seed 1, 96,490-token endpoint (03:
 mike_Bs2t96490     81/140  D0 task-equal (B), seed 2, 96,490-token endpoint (03:48 CDT)  -> B three seeds on mike 75/77/81 = 77.7 (rai 77/78/85 = 80.0)
 mike_PER2s2t28947  66/140  all87 2-per-task (55 demos), seed 2 (mike-trained), 28,947-token endpoint (03:48 CDT)
 mike_REPALLs2t96490 80/140  D0 + all usable REPAIR suffixes (seed 2: 5 suffixes), 96,490-token endpoint (03:48 CDT)  -> REPALL three seeds on mike 72/83/80 = 78.3 vs ADDALL 75/83/80 = 79.3 (equal-budget ADD-DEMO >= REPAIR; both at/below base)
+paired vs mike base78 (diag_mike): B s1 -0.71 (21 disc 11/10, p=1.0; cool 5/8) | B s2 +2.14 (27 disc 12/15, p=0.70; cool 8/8) | REPALL s2 +1.43 (28 disc 13/15, p=0.85; clean 17/15, cool 6/8) | PER2 s2 low -8.57 (30 disc 21/9, p=0.043; cool 0/8, heat 3/8)
+stable sets (always 70 / never 47 / flaky 23): B s1 4/9/12 | B s2 6/10/15 | REPALL s2 9/10/11  (wins never-won / losses always-won / wins flaky)
+
+##### T7. rai platform, all 96,490-token / pass-10 cells paired vs first rai base run 84 (diag; added 03:55 CDT; fallback = parser fallback rate, caps = step-cap-outs)
+rai_ces0p10    74/140  -7.14  disc 22 (b16/c6)  p=0.052 | fallback 6.2% caps 66
+rai_ces1p10    74/140  -7.14  disc 22 (b16/c6)  p=0.052 | fallback 7.0% caps 66
+rai_ces2p10    77/140  -5.00  disc 21 (b14/c7)  p=0.189 | fallback 6.7% caps 63
+rai_Bs0t96490  77/140  -5.00  disc 27 (b17/c10)  p=0.248 | fallback 4.0% caps 63
+rai_Bs1t96490  78/140  -4.29  disc 28 (b17/c11)  p=0.345 | fallback 3.0% caps 62
+rai_Bs2t96490  85/140  +0.71  disc 29 (b14/c15)  p=1.000 | fallback 4.3% caps 55
+rai_Cs0t96490  84/140  +0.00  disc 22 (b11/c11)  p=1.000 | fallback 7.1% caps 56
+rai_Cs1t96490  80/140  -2.86  disc 26 (b15/c11)  p=0.557 | fallback 4.7% caps 60
+rai_Cs2t96490  83/140  -0.71  disc 19 (b10/c9)  p=1.000 | fallback 5.3% caps 57
+rai_Ds0t96490  83/140  -0.71  disc 25 (b13/c12)  p=1.000 | fallback 4.0% caps 57
+rai_Ds1t96490  78/140  -4.29  disc 28 (b17/c11)  p=0.345 | fallback 3.1% caps 62
+rai_Ds2t96490  82/140  -1.43  disc 28 (b15/c13)  p=0.851 | fallback 3.2% caps 58
+rai_SADTCs0p10 82/140  -1.43  disc 22 (b12/c10)  p=0.832 | fallback 6.2% caps 58
+rai_SMWNs0p10  83/140  -0.71  disc 27 (b14/c13)  p=1.000 | fallback 4.1% caps 57
+rai_LE50s1t96490 80/140  -2.86  disc 30 (b17/c13)  p=0.585 | fallback 5.9% caps 60
+-> on rai every trained cell is <= base 84 (p >= 0.05); the closest are C s0 84 (22 disc 11/11) and B s2 85 (29 disc 14/15). Faithful SmartAD s0 = 83 here vs 88 on mike.
