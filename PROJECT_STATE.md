@@ -5196,9 +5196,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - **mike 后台**:`/ddnA/work/xueqic/hq/eval_when_ready.sh`(每 10 分钟扫 taskeq/faithful 结果树的 tokens-*/pass-* adapter 并提交评测;已提交列表
   `eval_submitted.txt`;结果在 `tc-alf-vllm/runs/mike_<tag>-<job>/finalise.log` 的 "successes")。**mike 登录常被 "logins exceed limit" 拒绝 → 用 smic 读共享盘**:
   `ssh xueqic@smic.hpc.lsu.edu 'cd /ddnA/work/xueqic/hq && python3 diag_mike.py mike_base <tags…>'`(逐题配对 + 按类型)。
-- **重启后要重挂的监视(会话级)**:① 每 15 分钟经 smic 轮询新完成的 mike 评测(见本会话 `mike_eval_reported.txt` 去重逻辑);② rai 链的 run 标签完成检查
+- **重启后要重挂的监视(会话级)**:① 每 15 分钟**经 mike 本机**(smic 已登录超限)轮询新完成的 mike 评测(去重文件 scratchpad `mike_eval_reported.txt`;09-23 03:50 起);② rai 链的 run 标签完成检查
   (`tc-alignment-vllm/runs/<tag>-*/finalise.log`);③ LONI 余额每 30 分钟(`ssh loni balance`,>300 SU 即可再提作业);④ mike 登录重试(加 SMORIG 到评测循环)。
-- **未评的**:原版 SmartAD seed2(rai 训,adapter 在 mike `tc-alf-faithful/results/smartad_orig_v2/seed-2/pass-*`,循环里没有 SMORIG,需手提
-  `sbatch --export=ALL,ADAPTER=…,EVAL_TAG=mike_SMORIGs2p10 /ddnA/work/xueqic/hq/slurm/eval_adapter.slurm`)。
+- **手提评测(循环不管)**:原版基线 8 格已提 mike 861843–861850(SMORIG s0/s1、SADORIG s0/1/2、KANG s0/1/2;adapter 在 `/ddnA/work/xueqic/hq/tc-alf-orig/results/`);
+  rai 侧同 8 格由 GPU4 链 #7 `rai_chain_gpu4_orig_baselines.sh`(等链 #6 内层 3371417 退出)完成。评测结果标签 mike_/rai_<TAG>p10。
 - **口径**:成本只用 alfworld_cost 口径;时间只从 date 读;pkill -f 不得自匹配(杀与启分两次 ssh);rai 评完即删 merged_v2 里的合并模型(盘 99%)。
 - **报告**:`docs/reports/2026-09-22_full_report_ZH.md`(草稿,待四格/ADD/REPAIR/忠实基线数)与 `docs/reports/2026-09-22_five_model_tables_v1_v2.txt`(所有数)。

@@ -250,6 +250,11 @@ base 三次都赢 70 题、都输 47 题、摇摆 23 题。所有训练格都在
 同时在 70 个必赢题上输 6–13 题;**净收益 ≈ 0,总分差异主要由 23 个摇摆题决定**。方法若要可分辨地高于 base,必须在保住必赢题的前提下拿下必输题——
 这与类型分解一致(clean 涨、cool 跌),也说明单靠更多材料只是把"丢失"换成了"新得"。
 
+### 5.4.5 五个模型三 seed 在同一平台(原版协议基线从 LONI 拉回,mike 与 rai 各评一遍)
+LONI 训练的原版 SmartAD s0/s1、SAD(sad_sum)s0/s1/s2、Kang s0/s1 的 pass-10 adapter 已拉回 rai(`tc-alignment-baselines/results/{smartad_v2,sad_sum_v2,kang_v2}/seed-*/pass-10/lora`),
+连同 rai 训练的 Kang s2,推到 mike(作业 861843–861850)并排入 rai GPU4 链 #7;这样每个方法都有三 seed × 两平台的同配置读数。
+__ORIGTABLE__
+
 ### 5.4.4 跨平台位移(必须写进论文的评测事实)
 同一批 checkpoint:纯 CE 10 遍在 LONI 读 80/77、rai 74/74/77、mike __A_MIKE__;base 在三平台 79–84。训练后模型对推理平台(vLLM 版本 / GPU)比 base 更敏感;
 所有主比较只在同一平台内做,最终主表待 hpg(B200,一个 vLLM 版本)统一重评。
