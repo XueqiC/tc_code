@@ -443,3 +443,8 @@ hpg_C_s0 85   all87 plain CE (C), seed 0, hpg  [mike 86, rai 84]
 -> reads like plain CE on D0 (74-77), NOT like ALT1 (83-88): "any trajectory from the pool" is FALSE. Which single trajectory per task is used swings the result by ~10 tasks within the same pool.
 -> SmartAD-faithful's turn-mean NLL selection (88/89/82) therefore IS a real selection mechanism (it found good ones); ALT1's max-id pick happened to be a good bank; 1min's min-id pick a poor one. Selection statistic = the method's core. 1min s1 (GPU2) / s2 (GPU1) and mike/hpg readings follow.
 hpg_C_s1 84 | hpg_C_s2 83 -> C on hpg 85/84/83 = 84.0 | hpg_D_s0 85 | hpg_D_s1 84  (11:13 CDT)
+identity-control analysis (11:20 CDT; token-mean student NLL from results/smartad_selection_rai/scores mapped by (task, attempt)):
+  ALT1 picks mean NLL 1.942 (within-task rank: 7x1st, 17x2nd, 6x3rd) | 1min picks 1.911 (15x1st, 5x2nd, 10x3rd) | SmartAD-orig 1.778 (all 1st by construction) | all 87: 1.912
+  -> ALT1 (86.7) is NOT the low-NLL pick (lower than 1min on only 12/30 tasks); NLL-based selection (SmartAD orig 82.7) sits between -> the student's NLL does not predict which trajectory is good material
+  fingerprint on the 15 tasks whose command sequences differ: commands 19.9 vs 21.9, "go to" 10.0 vs 11.3, look/examine 0.7 vs 1.4, repeated (revisit) commands 4.1 vs 6.3, thought length 94 vs 95 chars -> 1min's picks wander more (revisits), but the difference is not clean task by task (ALT1 shorter on 10/15, fewer revisits on 9/15)
+  -> selection matters (10-task swing within one pool) but no simple statistic tested tonight (NLL, sweep share, length, revisits, thought share) cleanly separates the good bank from the poor one; 1min s1/s2 (training seeds) pending
