@@ -202,3 +202,4 @@ training sets (deviation from the pre-registered 1:1 token mixing, which would s
 ##### V2. mike results so far (added 19:22 CDT)
 mike_base_rep      82/140  (first run 78; mike repeat spread 4 tasks)
 mike_Cs1t28947     68/140  all87 plain CE, seed 1, 28,947-token endpoint (the low-dose dip, as everywhere)
+mike_Ds2t28947     64/140  all87 task-equal CE, seed 2, 28,947-token endpoint (19:31 CDT)
