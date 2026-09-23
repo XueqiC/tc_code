@@ -430,3 +430,4 @@ rai_all87_2pers0t96490  84/140   REPEAT of PER2 s0 on rai (GPU1 chain #9; GPU4 c
 hpg_ALT1_s2 88  -> ALT1 three seeds on hpg 85/85/88 = 86.0 (A 78.0: +8.0; base 81.0: +5.0)  (10:26 CDT)
 hpg_SMORIG_s0 82 | hpg_SMORIG_s1 80 | hpg_SMORIG_s2 81  -> original SmartAD on hpg 82/80/81 = 81.0 (= base; ALT1 +5.0 over it)
 rai_PER2s1t96490   80/140   all87 2-per-task, seed 1 (rai GPU3-trained, A100 shared with 1min s0), 96,490-token endpoint, rai platform (10:28 CDT)  [rai A s1 74; base 84/81]  -> PER2 on rai s0 89/84, s1 80; mike s2 86
+rai_ALT1s2t96490   86/140   all87 1-alternative-per-task, seed 2 (mike-trained), 96,490-token endpoint, rai platform (10:33 CDT)  [rai A s2 77; base 84/81]  -> ALT1 three seeds on rai 88/87/86 = 87.0 (A 75.0: +12.0; repeat of s0 read 83); mike 86.7; hpg 86.0
