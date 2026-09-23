@@ -1444,7 +1444,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **身份对照臂(06:05 CDT 加)**:`alfworld_k32_all87_1min`(每任务取 87 池里 id **最小**的一条;与 ALT1 在 29/30 任务上不同;30 条 / 486 回合 / 12,039 token/遍,sha d7fb007b…;
   配置 baselines `configs/rtd/pi1_alfworld_k32_all87_1min.yaml`(a0a14cae)+ taskeq `_1min_tok.yaml`(d41cedfb))。GPU3 链 v3(`rai_chain_gpu3_material_v3.sh`,pid 3683667)等 le50 s2 后先训 1min s0,再 2per s1;
   链 #8(重启,pid 3683759)在 rai 评 ALT1MIN s0。读法:1min s0 ≈ 86 → "池里任取 1 条/任务"成立,SmartAD 选例无贡献;≈ 78 → 具体轨迹重要,选例有意义。
-- 待定:ALT1 s1(GPU2 训练中,≈09:00 CDT)、rai 上 ALT1 s0(链 #8);若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
+- **rai 交叉核对:ALT1 s0 = 88**(rai A s0 74,base 84/81)→ 身份效应跨平台复现(+14),rai 全夜最高格。
+- 待定:ALT1 s1(GPU2 训练中,≈09:00 CDT)、1min s0(GPU3)、PER2 s0(GPU1);若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
