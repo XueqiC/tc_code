@@ -5345,3 +5345,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **hpg 现共 32 个作业**:cv 24 + 最终 8(RND1/2/3 × 2、nll1 × 2)。
 - 15:58 CDT **还缺的一步(下一步要接)**:8 个最终训练产出 adapter 后要跑 **140 局 valid_seen 正式评测**才有最终成绩;
   这一步 hpg 评测树能跑(`tc-alignment-vllm/slurm/submit_all.sh` 按 `adapters/<TAG>/lora` 批量提交)。另 **1min s2**(rai 已训完)也待评。
+- 16:00 CDT **最终成绩的评测链已接好(全部自动触发,无需轮询)。**
+  **8 个依赖评测**(hpg 评测树 `tc-alignment-vllm/slurm/eval_b200.slurm`,140 局 valid_seen):
+  hpg_RND1_s0/s1 = 43123104/05、hpg_RND2_s0/s1 = 43123106/07、hpg_RND3_s0/s1 = 43123108/09、hpg_NLL1_s0/s1 = 43123110/11,
+  每个 `--dependency=afterok:<对应训练>`、`--kill-on-invalid-dep=yes`(训练失败则评测自动取消,不会悬挂)。
+  ADAPTER = `tc-alf-taskeq/results/all87_<c>/seed-<s>/tokens-96490/lora`;已写入 `slurm/submitted.txt` 防重复提交。
+  **1min s2**(rai 训完)权重已 rsync 到 `tc-alignment-vllm/adapters/ALT1MIN_s2`、哈希核对一致,评测 **43123236**。
+  结果位置:`tc-alignment-vllm/runs/hpg_<TAG>-<job>/finalise.log` 的 `"successes"`。
+- 16:00 CDT **第一天四个问题的覆盖**:① 随机集波动 ✅(rnd1/2/3 最终);② cv 分 vs 最终成绩 ✅(6 候选集);
+  ③ vs NLL ✅(nll1,配方已对齐);④ **新候选池复验 ❌ 未开始**——需要新采购,等前三问有信号再决定是否花钱。
+- 16:00 CDT **hpg 共 41 个作业**:cv 训练 24、最终训练 8、依赖评测 8、1min s2 评测 1。全部 PD,部门账户预计 ~18:24 CDT 起。
