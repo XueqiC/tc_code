@@ -5404,3 +5404,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   组账户 yd24f.fsu 内存 496/500G 满,不可用;部门账户卡在 Priority(物理节点被全校占着),不是我们的 QOS 上限。
 - 16:29 CDT MIX1 s0 评测在 rai GPU4 跑(16:27 起,链 #8)。**新观察器 bn4kg1l9k**(`scratchpad/watch_events.sh`,事件去重 `seen.txt`):
   流水线作业失败 / 新 cv 分 / rai 第二平台评测完成 / MIX1 结果 / hpg 评测完成,任一出现即唤醒。
+- 16:31 CDT **判读工具齐备**(都在 tc-alignment-baselines,均已提交):
+  `bash tools/cv_collect_finals.sh > data/cv_score/finals.txt`(hpg finalise + rai 标记 + rai 训练的 ALT1/ALT1MIN)→
+  `python3 tools/cv_fold_score.py --folds artifacts/cv4_folds.json --runs data/cv_score --sets 1alt 1min nll1 rnd1 rnd2 rnd3 --json data/cv_score/cv.json` →
+  `python3 tools/cv_verdict.py --cv data/cv_score/cv.json --finals data/cv_score/finals.txt --bank-tokens artifacts/cv_bank_tokens_full.txt [--platform hpg|rai|both] [--train-platform hpg|rai|mixed]`。
+  **补充统计已预先登记**(方法文档 §3.1 / §4.2,均在任何 cv 分之前):留出平均步数、四折排序一致性(Kendall W)、"选更短银行"零成本对手。
+  **剂量隐患**:cv 模型每条示范 9.3–14.1 遍,最终模型 7.8–9.0 遍(同一 96,490 终点、银行小 1/4);本轮不改,判读时考虑。
