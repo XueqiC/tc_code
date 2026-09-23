@@ -255,3 +255,4 @@ D task-equal (all87)   s0 83  s1 --  s2 82   mean 82.5   (+7.5 vs A on s0/s2; D 
 -> material (30 -> 87 demos): +6..+8; objective (task-equal): +5 on D0, ~+1 on all87 (saturating near base). All cells <= base 84 on rai. Per-seed spread up to 8 tasks.
 mike_ADDALLs0t96490 75/140  D0 + all 20 ADD-DEMO demos (50 demos, 16.1k tok/pass), seed 0, 96,490-token endpoint (00:55 CDT)  [mike base 78/82]
 mike_SMORIGs2p3    71/140  SmartAD original protocol, seed 2 (rai selection), pass-3 (01:11 CDT)
+mike_SMORIGs2p10   84/140  SmartAD original protocol, seed 2 (rai selection = LONI selection), pass-10 (01:26 CDT)  [mike base 78/82; SmartAD s0/s1 read 82/82 on LONI]
