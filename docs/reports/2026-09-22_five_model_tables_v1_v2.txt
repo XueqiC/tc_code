@@ -193,3 +193,9 @@ sweep filter removed 3 -> usable 20 demos / 249 turns / 6,450 supervised tokens 
 ##### V. mike platform reference (vLLM 0.27.1, A100-PCIe-40GB, 14 clients) — added 17:35 CDT
 mike_base   78/140 = 55.71%   (25 min per campaign; repeat queued as mike_base_rep)
 platform bases so far: LONI 79/84/80 (vLLM 0.29.0, A100-80GB) | rai 84/81 (0.27.1, Blackwell) | mike 78 (0.27.1, A100-40GB)
+##### U3. REPAIR seeds 1/2 (Azure P2; P1 exhausted) — added 19:15 CDT
+seed 1 (pi1 = CE s1 10-pass): 32 rollouts -> 10 failed; 10 takeovers, 3 verified (1 sweep-filtered) -> usable 2 demos / 24 turns / 697 tok; 260 calls, 227,813 settled tokens
+seed 2 (pi1 = CE s2 10-pass): 32 rollouts -> 13 failed; 13 takeovers, 9 verified (4 sweep-filtered) -> usable 5 demos / 83 turns / 2,285 tok; 300 calls, 254,584 settled tokens
+three seeds: 34 takeovers, 14 verified (41%), 9 usable after the sweep filter; ~695k settled tokens total.
+training sets (deviation from the pre-registered 1:1 token mixing, which would shrink D0 to 442-2,285 tokens): D0 + ALL usable REPAIR suffixes per seed
+  = 10,091 / 10,346 / 11,934 tokens (32 / 32 / 35 demos); ADD-DEMO arm = D0 + all 20 ADD demos = 16,099 tokens (and 1:1 = 12,900). Token endpoints [28,947 / 96,490] for all arms.
