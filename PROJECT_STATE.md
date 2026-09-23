@@ -5363,3 +5363,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   规则 = 对每个任务(排序后)用 `random.Random(seed)` 在**已验证**候选里均匀取一条,seed 4/5;
   与既有集合重叠 6–14/30,和既有随机集彼此的重叠(10–16)同一量级 → 是独立的随机抽取。**未建银行、未提交。**
   注:rnd1/2/3 当初是内联算的显式包列表,没有留生成脚本,故 rnd4/5 的 seed 规则是新写明的,不是复现旧 seed。
+- 16:18 CDT **调度器加固并重启**:原先的"adapter_config.json 存在即拉"会和 hpg 上仍在写大权重文件的训练撞车;
+  改为**必须等该作业日志打出 `TRAIN_DONE results/cv_<c>_f<k>/seed-0`**(train_b200.slurm 在训练脚本返回后才打)且权重文件存在才拉;
+  另把 run 目录的 mkdir 挪到 `.launched` 标记之前(原先 `sleep 2; touch` 若目录未建会静默失败 → 下一轮重复启动)。baselines 9edf355b。
+  **新 pid 348158,`CV_GPUS="1 3"`**(GPU3 链 v4 已退出;**GPU0 留给同学**——同学的 train.py 已结束,GPU0 现空)。
+  bash 在循环开始前就解析完整个 `while` 体,所以改文件不影响旧进程,必须重启;重启时无在途打分,安全。
+- 16:18 CDT **MIX1 s0 训完**(16:10,184/184,`results/all87_mix1_v2/seed-0/tokens-96490/lora`),链 #8(pid 4150908,每 10 分钟轮询)会在 GPU4 自动评。
+  MIX1 s1 在 GPU2 113/184,约 17:30–18:00 训完,链 v3 接着在 GPU2 自评。
+- 16:18 CDT hpg:**1min s2 评测 43123236 于 16:07 起跑**(c1006a-s5);其余 40 个 PD(Priority)。
+  观察器 **b8lqa1xz1**:首个 cv-/fin- 训练**打出 `preflight ok`**、1min s2 评测结束、或任何流水线作业失败时唤醒。
