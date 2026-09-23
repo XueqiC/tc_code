@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### B s0 训完并送 mike;SmartAD s2(原版)训完;GPU1 空出转评测(2026-09-22 22:10 CDT)
+- rai B s0(D0 任务等权)184 步完成,两端点已推到 mike(同步循环修好:先 mkdir 再 rsync,经 smic);GPU4 链转 C s0。
+- rai SmartAD seed2(原版协议,rai 选例)206 步 / 107,800 token 完成(22:04);pass-3 已推 mike `smartad_orig_v2`,pass-10 下轮推;
+  mike 循环未含 SMORIG(登录被拒),先在 rai GPU1 评 `rai_smartads2p10` 与 `rai_Bs0t96490`(链 pid 3027617,监视 biyj6vj8z)。
+- mike 低端点参照:A s1 t28947 = 72(B s1 同端点 73)。
+
 ### mike 登录被持续拒绝;改经 smic 读共享盘,评测循环在 mike 上自跑(2026-09-22 21:10 CDT)
 - 20:30–21:05 mike 连续拒绝登录("logins exceed limit",与后台进程数或残留会话有关,外部无法清理);**smic 共享同一 /ddnA/work**,
   可读全部结果与端点;mike 上的 `eval_when_ready.sh` 仍在自动提交(20:38 D s2 高端点、20:56 D s0 高端点、ADD1 s0 低端点)。SMORIG 未能加入循环
