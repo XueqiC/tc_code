@@ -412,3 +412,4 @@ rai paired (diag_rai, vs first rai base 84): ALT1 s0 88 +2.86 (26 disc 11/15, p=
 mike_TARGs0t96490  84/140  D0 + coverage-targeted union (49 demos: D0 30 + 19 cool/heat/two), seed 0, 96,490-token endpoint (08:04 CDT)  [mike base 81.3; A s0 79]  -> +5 vs A same seed
 mike_PER2s0t28947 68 | mike_PER2s1t28947 71   2-per-task low endpoints (08:04 CDT)
 paired vs mike base78 (diag_mike): TARG s0 +4.29 (26 disc 10/16, p=0.33; clean 18/15, two 15/11, cool 7/8, heat 7/8; never-won 9 / always-won -7 / flaky 12) | vs A s0 (79): two +2, clean +1, cool +1, heat +1 -> the targeted types move by +1 each, the gain is spread, not concentrated in cool/heat
+mike_TARGs1t96490  78/140 | mike_TARGs2t96490 84/140   D0 + coverage-targeted union (49 demos), 96,490-token endpoint (08:21 CDT)  -> TARG three seeds on mike 84/78/84 = 82.0 (A 77.7: +4.3; base 81.3: +0.7; C 82.3; ALT1 86/87)
