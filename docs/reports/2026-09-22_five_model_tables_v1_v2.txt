@@ -379,3 +379,5 @@ Kang FTP (adapted)            88 / 73 / 82   mean 81.0   (-0.3; seed spread 15 t
 -> only the corrected SmartAD is above base beyond the base spread; the seed spread of every method (7-15 tasks) exceeds most between-method gaps.
 mike_KANGs0p10 88 | mike_KANGs1p10 73 | mike_KANGs2p10 82  (05:39 CDT)
 rai_KANGs0p10     81/140   Kang FTP (LONI-trained), seed 0, pass-10, rai platform (05:39 CDT)  [rai base 84/81]
+paired vs mike base78 (diag_mike), pass-10: Kang s0 +7.14 (26 disc 8/18, p=0.076; clean 20/15, two 15/11; never-won 11 / always-won -6) | Kang s1 -3.57 (p=0.47; cool 4/8, heat 3/8) | Kang s2 +2.86 | SmartAD orig s0 +2.86 (p=0.57) | s1 +2.86 (p=0.52; clean 19/15) | SAD orig s0 -5.00 (p=0.23; cool 4/8 heat 4/8) | s1 +5.00 (p=0.25; heat 10/8) | s2 +0.71 | SAD faithful s1 0.00 | s2 -2.14
+-> every original/faithful baseline cell has p >= 0.076; the only p < 0.1 cells tonight are Kang s0 (+7.14, 0.076), faithful SmartAD s0/s1 (+7.14/+7.86, 0.087/0.071)
