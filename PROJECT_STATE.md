@@ -1439,6 +1439,9 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   D0 = 09-21 采集的 attempt 0;1alt = 09-22 SmartAD n3 采集的 attempt 1/2;同教师同 prompt 版本;11/29 任务命令序列相同但 thought 文本 0/11 相同。
 - 类型:ALT1 赢在 two(+5~+7)与 clean(+3~+4),cool 持平,**heat 丢 4/8**(两 seed 都是);赢必输题 11(所有臂最多)。
 - 这与忠实 SmartAD(从同一 87 池按逐回合 NLL 选 1 条/任务)86.3 同水平 → **SmartAD 的"选例"本身可能没贡献,贡献来自"从这个池里任取 1 条/任务"**;原版 SmartAD(token 均值选例)82.7 介于两者之间。
+- **身份对照臂(06:05 CDT 加)**:`alfworld_k32_all87_1min`(每任务取 87 池里 id **最小**的一条;与 ALT1 在 29/30 任务上不同;30 条 / 486 回合 / 12,039 token/遍,sha d7fb007b…;
+  配置 baselines `configs/rtd/pi1_alfworld_k32_all87_1min.yaml`(a0a14cae)+ taskeq `_1min_tok.yaml`(d41cedfb))。GPU3 链 v3(`rai_chain_gpu3_material_v3.sh`,pid 3683667)等 le50 s2 后先训 1min s0,再 2per s1;
+  链 #8(重启,pid 3683759)在 rai 评 ALT1MIN s0。读法:1min s0 ≈ 86 → "池里任取 1 条/任务"成立,SmartAD 选例无贡献;≈ 78 → 具体轨迹重要,选例有意义。
 - 待定:ALT1 s1(GPU2 训练中,≈09:00 CDT)、rai 上 ALT1 s0(链 #8);若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
