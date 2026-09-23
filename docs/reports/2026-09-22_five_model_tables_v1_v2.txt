@@ -212,3 +212,11 @@ mike_Cs1t96490     78/140  all87 plain CE (C), seed 1, 96,490-token endpoint (22
 mike_Cs2t96490     83/140  all87 plain CE (C), seed 2, 96,490-token endpoint (22:37 CDT)
 mike_Ds0t96490     85/140  all87 task-equal CE (D), seed 0, 96,490-token endpoint (22:37 CDT)
 mike_Ds2t96490     85/140  all87 task-equal CE (D), seed 2, 96,490-token endpoint (22:37 CDT)  [mike base 78 / 82]
+
+##### W. mike high endpoints, paired (added 22:40 CDT; mike base 78, base_rep 82; per type cell/base78)
+cell               wins   vs78    disc(b/c)   p    | vs82   disc(b/c)  p    | look pp clean cool heat two (vs base 78: 9 27 15 8 8 11)
+mike_Cs1t96490     78    +0.00  24(12/12) 1.00 | -2.86  24(14/10) 0.54 |  8  30  18  6  4 12
+mike_Cs2t96490     83    +3.57  21( 8/13) 0.38 | +0.71  23(11/12) 1.00 | 10  28  17  5 10 13
+mike_Ds0t96490     85    +5.00  27(10/17) 0.25 | +2.14  25(11/14) 0.69 |  8  28  18  7  9 15
+mike_Ds2t96490     85    +5.00  29(11/18) 0.27 | +2.14  29(13/16) 0.71 |  7  29  19  7  6 17
+D vs C, seed 2, paired: +1.43 (24 disc 11/13, p=0.84).  Note: on the all87 bank at 96,490 tokens (2.9 passes) the cool collapse is absent (cool 5-7 vs 8) and pick_two gains (+2..+6).
