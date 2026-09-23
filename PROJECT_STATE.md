@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### hpg 主连接建了但远端不给 shell;疑似需要 GatorLink 密码(2026-09-23 00:05 CDT)
+- 用户 `ssh -fN -M hpg`:第一次因我的探测脚本抢建的假 socket 报 "ControlSocket already exists, disabling multiplexing";清掉后第二次建起 socket,
+  但经主连接跑任何命令(含 /bin/true)都即时 exit 1("Received exit status from master 1"),即主连接未真正认证。用户说从未设过 Duo →
+  keyboard-interactive 更可能是维护后新增的**密码**步骤。已请用户在 rai 上交互 `ssh hpg` 看提示,并建议在 tmux 里 `ssh -M -S ~/.ssh/cm-hpg hpg` 保持登录。
+- 探测改为只复用不新建(`-o ControlMaster=no`,btq0jo0e7)。
+
 ### hpg 恢复但加了 Duo:公钥被接受后仍要求 keyboard-interactive(2026-09-22 23:58 CDT)
 - 隧道 localhost:2222 在,主机应答(OpenSSH 9.9,host key 匹配),`Server accepts key` 后仍 `Permission denied (keyboard-interactive)` → 维护后强制二次验证。
 - 处置:`~/.ssh/config` 的 `Host hpg` 加 `ControlMaster auto / ControlPath ~/.ssh/cm-hpg / ControlPersist yes`;请用户在 rai 上 `ssh -fN -M hpg` 过一次 Duo,
