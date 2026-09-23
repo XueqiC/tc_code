@@ -227,3 +227,8 @@ mike_ADDALLs0t28947 68/140  D0+all ADD-DEMO (ADD arm), seed 0, 28,947-token endp
 mike_SADTCs0p10    85/140  SAD trajectory-cost curriculum (faithful), seed 0, pass-10 (22:53 CDT)  [mike base 78 / 82]
 mike_SADTCs0p10 paired: vs base78 +5.00 (27 disc 10/17, p=0.25) | vs base82 +2.14 (25 disc 11/14, p=0.69) | per type clean 17/15 cool 7/8 heat 7/8 two 15/11  (same level as D s0; A high endpoints on mike still pending -> platform-level shift not yet separable from method effects)
 mike_LE50s1t96490  77/140  filtered D0 (sweep<=0.5), token-matched (96,490), seed 1 (23:09 CDT)  [mike base 78 / 82] -> at base; the filter alone gives no gain at matched updates
+##### T3. rai platform cross-check of mike-trained cells (added 23:20 CDT; rai base 84 / rep 81; rai plain-CE refs s0/s1 = 74 / 74)
+rai_Ds0t96490     83/140   (all87 task-equal, seed 0)  -> +9 over the rai plain-CE references, at base
+rai_Ds2t96490     82/140   (all87 task-equal, seed 2)  -> +8 over the rai plain-CE references
+(rai_Cs2t96490 and rai_ces2p10: first attempt failed at vLLM engine start; rerunning)
+-> the D-vs-plain-CE gap replicates across platforms: mike D 85/85 vs C 78/83 (A pending); rai D 83/82 vs A 74/74.
