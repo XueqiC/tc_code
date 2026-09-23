@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### 定向采购开跑(方法框架的"按缺口追加"步)(2026-09-23 00:30 CDT)
+- Codex#20(alf-baselines `6b172c34`):采集器 `--only-tasks/--dry-run`;`configs/alfworld_k32_targeted_tasks.json` = cool 5 + heat 4 + two 7 = 16 任务;198 测试过。
+- 链 `tools/rai_chain_targeted_acq.sh`(P2,luna,attempt 6–9,T=0.7,每任务最多 2 条验证 demo,扫描过滤,上限 2M token/$10):采集 → D0+定向 并集(all)→
+  taskeq 树 token 端点配置 `pi1_alfworld_k32_d0_plus_targeted_tok.yaml` → preflight → 同步 mike → 提交 d0targeted_v2 s0/1/2 → 评测循环加 TARG(需重启循环)。
+
 ### mike 登录恢复:SMORIG 评测已提交,材料量臂 seed2 与第三次 base 重复投入(2026-09-23 00:24 CDT)
 - 00:19 mike 接受登录。评测循环重启两次,现含 13 个结果目录规格(B/C/D/LE50/ADD1/ADDALL/REPALL/A/ALT1/PER2/SADTC/SMWN/SMORIG);
   已提交 `mike_SMORIGs2p3` 861673、`mike_SMORIGs2p10` 861674(原版 SmartAD seed2 → 主表三 seed 同平台)。
