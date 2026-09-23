@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### rai GPU 实况与新排程(2026-09-23 00:10 CDT)
+- 用户说 GPU2/GPU4 空:实际 GPU2(Ada 49G)被同事占满(100%),GPU0 也被占;GPU4 = 我们的 C s0 训练(28.9 GB)+ 同事 uid 65532 的 server.py(9.3 GB);
+  GPU1 = 我们的交叉评测链 #8;**GPU3(A100 80G)空** → 上 le50tok s2 训练(pid 3206637,185 步,25.7 GB),训完由同步循环推 mike 自动评。
+- GPU4 链 #4(pid 见 logs/rai_chain_gpu4_xplat2.log):C s0 训完后在 rai 评 C s0、D s1、SADTC s0 p10、LE50 s1 t96490(评完即删合并模型)。
+
 ### hpg:认证通过但服务端立即关会话(shell 与 sftp 都被拒)(2026-09-23 00:08 CDT)
 - 用户交互 `ssh hpg`:有 "Last login … from 172.16.80.4" + MOTD,随后 "Shared connection to localhost closed";经主连接 `/bin/true` 立即 exit 1;
   **sftp 子系统也 "Connection closed"** → hpg 服务端在认证后拒绝开任何会话(账号状态/政策重签/HOME 配额,或隧道指向的 login 节点异常)。
