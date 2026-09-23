@@ -245,3 +245,4 @@ SmartAD original s2 80.  -> on rai the gain follows the all87 material (C ~ D ~ 
 mike_REPALLs0t28947 68/140  D0+all REPAIR (REPAIR arm), seed 0, 28,947-token endpoint (23:55 CDT)
 mike_SMWNs0p3      68/140  SmartAD weight_norm + turn_mean selection (faithful), seed 0, pass-3 (23:55 CDT)
 mike_SMWNs2p3      71/140  SmartAD weight_norm (faithful), seed 2, pass-3 (23:55 CDT)
+rai_Bs1t96490     78/140   (D0 task-equal, seed 1; rai A refs 74/74/77 -> +4 vs A s1)  (00:04 CDT)
