@@ -298,3 +298,14 @@ mike_Cs0t96490     86/140  all87 plain CE (C), seed 0 (rai-trained, synced), 96,
 mike_ALT1s0t28947  71/140  all87 1-alternative-per-task (30 demos), seed 0 (rai GPU1-trained), 28,947-token endpoint (03:02 CDT)
 mike_REPALLs1t96490 83/140  D0 + all usable REPAIR suffixes (seed 1: 2 suffixes, 10.3k tok/pass), 96,490-token endpoint (03:02 CDT)  -> REPALL s0/s1 72/83
 mike_ALT1s2t28947  67/140  all87 1-alternative-per-task (30 demos), seed 2 (mike-trained), 28,947-token endpoint (03:18 CDT)
+
+##### T6. rai platform four-cell COMPLETE, 96,490-token endpoint (added 03:37 CDT; rai base 84 / rep 81, mean 82.5; GPU4 chain #6 with vLLM util 0.80)
+rai_Cs0t96490     84/140   (all87 plain CE, seed 0)      -> C three seeds on rai 84/80/83 = 82.3
+rai_Ds1t96490     78/140   (all87 task-equal, seed 1)    -> D three seeds on rai 83/78/82 = 81.0
+A plain CE (D0)        s0 74  s1 74  s2 77   mean 75.0
+B task-equal (D0)      s0 77  s1 78  s2 85   mean 80.0   (+5.0 vs A)
+C plain CE (all87)     s0 84  s1 80  s2 83   mean 82.3   (+7.3 vs A)
+D task-equal (all87)   s0 83  s1 78  s2 82   mean 81.0   (+6.0 vs A; D-C same seed: -1 / -2 / -1 -> task-equal adds nothing on all87)
+-> rai verdict by the user's rules: B>A yes (+5.0), D>C no (-1.3) -> task-equal NOT supported as a general factor; C>A yes (+7.3) -> material supported; C/D reach base (82.5), not above.
+rai_SADTCs0p10    82/140   (SAD trajectory-cost curriculum, faithful, seed 0, pass-10; mike read 85)  -> at rai base
+rai_LE50s1t96490  80/140   (filtered D0 sweep<=0.5, token-matched 96,490, seed 1; mike read 77; rai le50 s1 10-pass = 72)  -> at base; filter alone still no gain

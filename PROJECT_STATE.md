@@ -1386,6 +1386,22 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 **target 被换成裸命令**;`export_pool` 再写成 `commands=[t['target']…]` + `payload_kind='extracted_teacher_commands'`,
 完整回复只留在**不导出**的 `responses` 里。→ **"换个 ReAct 提示重采"不够,会再产出一份裸动作银行。**
 
+
+### 03:44 CDT — rai 四格三种子出齐(GPU4 链 #6);材料臂 s1 训练拆到 GPU2/GPU3;原版基线 adapter 从 LONI 拉回
+- **rai 平台四格完整(96,490 token 端点;rai base 84/81,均 82.5)**:A 74/74/77=75.0;B 77/78/85=80.0;C 84/80/83=82.3;D 83/78/82=81.0。
+  按用户判定规则:B>A(+5.0)成立但 D>C 不成立(同种子 −1/−2/−1)→ task-equal **不是**普适因子;C>A(+7.3)→ 材料成立;C/D 到 base 未超。
+  附:rai_SADTCs0p10 82(mike 85);rai_LE50s1t96490 80(mike 77)。全部记入 tables §T6。
+- **mike 队列(03:38 CDT)**:9 运行 / 22 排队,受 QOSMaxNodePerUserLimit(4 节点)限制;运行中含 B s1/s2 高端点、REPALL s2、PER2 s2、targeted s0/1/2 训练、1alt/2per s2 训练。
+  被 mike183 拖垮的 24 格已由循环重提(861809–861836)。
+- **材料臂 seed 1 拆分**:原 GPU3 链(等 le50 s2 后串行训 1alt s1→2per s1)已杀(外层 3227666 与内层 3227670 都确认退出);
+  改为 **GPU2 链**(RTX 6000 Ada,用户今晚授权)现在训 `all87_1alt_v2/seed-1`(pid 3476089,日志 `logs/rai_chain_gpu2_material_s1_1alt.log`,训练日志 taskeq `logs/all87_1alt_s1.log`),
+  **GPU3 链 v2**(pid 3476088)等 le50 s2(3206637,step 118/185)退出后只训 `all87_2per_v2/seed-1`。端点由同步循环推到 mike 评(ALT1/PER2 spec)。
+- **原版基线统一平台**:LONI 上有 smartad_v2 s0/s1、sad_sum_v2 s0/s1/s2、kang_v2 s0/s1 的 pass-10 adapter(各 281 MB),
+  正在拉回 rai `tc-alignment-baselines/results/<name>/seed-k/pass-10/lora`(`tools/pull_orig_adapters_from_loni.sh`,日志 `logs/pull_orig_adapters.log`);
+  拉回后 ① 推到 mike 手提 8 格评测(SMORIG s0/s1、SADORIG s0/s1/s2、KANG s0/s1/s2,排在现队列之后),② rai GPU4 在链 #6 退出后评同 8 格(链 #7)。
+  目的:用户要求"所有方法同一评测配置"——五个模型三种子在 mike 与 rai 两平台各有完整表。
+- 训练进度:GPU1 all87_1alt s0 step 120/184(≈60 s/步,预计 04:40 CDT 完,随后 2per s0 ≈ 07:45,再 rai 评两端点);GPU3 le50 s2 预计 05:00 CDT 完。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
@@ -5164,7 +5180,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 
 ## ⟳ RESTART CHECKLIST (rewritten 2026-09-22 23:25 CDT — supersedes the 09-21 block)
 **读完这块就能接手。** 主线 = 用户 09-22 13:32 指令:四格(A/B/C/D)+ ADD-DEMO/REPAIR + 忠实基线,评测统一在 mike 平台(hpg 恢复后再统一重评)。
-- **rai 后台链(nohup,重启 Claude 不受影响;看 logs/rai_chain_*.log)**:GPU4 链 #2 `tc-alignment-baselines/tools/rai_chain_gpu4_rollouts_BC.sh`
+- **rai 后台链(nohup,重启 Claude 不受影响;看 logs/rai_chain_*.log;09-23 03:45 CDT 现役:GPU1 链 #9 `rai_chain_gpu1_material.sh`(1alt/2per s0 训+rai 评)、GPU4 链 #6 `rai_chain_gpu4_xplat4.sh`(交叉核对)、GPU2 链 `rai_chain_gpu2_material_s1_1alt.sh`、GPU3 链 v2 `rai_chain_gpu3_material_s1_2per.sh`、LONI 拉取 `pull_orig_adapters_from_loni.sh`)**。旧记录:GPU4 链 #2 `tc-alignment-baselines/tools/rai_chain_gpu4_rollouts_BC.sh`
   (C s0 训练 → 结束);GPU4 链 #3 `rai_chain_gpu4_xplat.sh`(等 #2 退出后评 B s1/s2、C s1 于 rai);GPU1 链 #6/#7(`rai_chain_gpu1_xplat2/3.sh`:A s2、C s2 评测);
   端点同步循环 `rai_sync_endpoints_to_mike.sh`(经 smic 推 taskeq/faithful 端点到 /ddnA)。
 - **mike 后台**:`/ddnA/work/xueqic/hq/eval_when_ready.sh`(每 10 分钟扫 taskeq/faithful 结果树的 tokens-*/pass-* adapter 并提交评测;已提交列表
