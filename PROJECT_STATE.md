@@ -1487,7 +1487,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   方法的核心 = **选材统计量**。下一步(零 GPU):用 SmartAD 选例已算好的 87 条逐回合 NLL,比较 ALT1 池 vs 1min 池 vs SmartAD 选中集的 NLL 分布,看 NLL 是否预测材料质量;再看扫描占比/长度。
 - 1min s0 的选材分析(零 GPU):ALT1 选中集 token-NLL 1.94 vs 1min 1.91 vs SmartAD 原版 1.78 → 学生 NLL 不预测材料好坏;15 个命令序列不同的任务上 1min 更长、更多 go/look/重访,但逐任务不干净。
 - **11:18 CDT 完整文档已发 Discord**(`docs/reports/2026-09-22_full_report_ZH.md` 007be4cb + 数字表);附录待:1min s1/s2、mike/hpg 剩余格、hpg 全表。
-- 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 mike(862163)与 hpg(43099122)。hpg:C 85/84/83 = 84.0,D s0/s1 85/84。
+- 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 mike(862163)与 hpg(43099122)。hpg:C 85/84/83 = 84.0,D 85/84/81 = 83.3,ADD1 s0 77,CEMIKE s0 79(mike 的 A adapter 与 rai 的一致)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
