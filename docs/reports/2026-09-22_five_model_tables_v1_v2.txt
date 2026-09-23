@@ -297,3 +297,4 @@ mike_REPALLs0t96490 72/140  D0 + all usable REPAIR suffixes (seed 0: 2 suffixes,
 mike_Cs0t96490     86/140  all87 plain CE (C), seed 0 (rai-trained, synced), 96,490-token endpoint (02:47 CDT)  -> C three seeds on mike 86/78/83 = 82.3
 mike_ALT1s0t28947  71/140  all87 1-alternative-per-task (30 demos), seed 0 (rai GPU1-trained), 28,947-token endpoint (03:02 CDT)
 mike_REPALLs1t96490 83/140  D0 + all usable REPAIR suffixes (seed 1: 2 suffixes, 10.3k tok/pass), 96,490-token endpoint (03:02 CDT)  -> REPALL s0/s1 72/83
+mike_ALT1s2t28947  67/140  all87 1-alternative-per-task (30 demos), seed 2 (mike-trained), 28,947-token endpoint (03:18 CDT)
