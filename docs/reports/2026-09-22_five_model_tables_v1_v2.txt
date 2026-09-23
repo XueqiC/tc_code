@@ -413,3 +413,4 @@ mike_TARGs0t96490  84/140  D0 + coverage-targeted union (49 demos: D0 30 + 19 co
 mike_PER2s0t28947 68 | mike_PER2s1t28947 71   2-per-task low endpoints (08:04 CDT)
 paired vs mike base78 (diag_mike): TARG s0 +4.29 (26 disc 10/16, p=0.33; clean 18/15, two 15/11, cool 7/8, heat 7/8; never-won 9 / always-won -7 / flaky 12) | vs A s0 (79): two +2, clean +1, cool +1, heat +1 -> the targeted types move by +1 each, the gain is spread, not concentrated in cool/heat
 mike_TARGs1t96490  78/140 | mike_TARGs2t96490 84/140   D0 + coverage-targeted union (49 demos), 96,490-token endpoint (08:21 CDT)  -> TARG three seeds on mike 84/78/84 = 82.0 (A 77.7: +4.3; base 81.3: +0.7; C 82.3; ALT1 86/87)
+paired vs mike base78 (diag_mike): TARG s1 0.00 (24 disc 12/12; cool 6/8, heat 8/8, two 13/11) | TARG s2 +4.29 (22 disc 8/14, p=0.29; cool 7/8, heat 8/8, two 14/11) -> heat reaches 8/8 on s1/s2 (A 6/8), cool stays 6-7, two +2..+4; stable sets s1 8/9/9, s2 7/6/13
