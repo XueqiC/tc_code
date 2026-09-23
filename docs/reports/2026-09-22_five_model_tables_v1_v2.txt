@@ -292,3 +292,5 @@ mike_SMWNs2p10     82/140  SmartAD faithful, seed 2, pass-10 (02:15 CDT)  -> fai
 ##### U4. coverage-targeted acquisition (cool/heat/two, 16 tasks; Azure P2; attempts 6-9, T=0.7, <=2 per task) — added 02:22 CDT
 41 attempts, 26 verified (63%), 7 sweep-filtered -> 19 usable (heat 7 / cool 6 / two 6); 1,050 calls, 864,978 settled tokens.
 D0 + targeted union (all): 49 demos / 680 turns / 15,138 tokens per pass; token endpoints [28,947 / 96,490]; mike jobs 861755-57 (tags mike_TARGs*).
+mike_LE50s2t28947  68/140  filtered D0 token-matched, seed 2 (rai GPU3-trained), 28,947-token endpoint (02:31 CDT)
+mike_REPALLs0t96490 72/140  D0 + all usable REPAIR suffixes (seed 0: 2 suffixes, 10.1k tok/pass), 96,490-token endpoint (02:31 CDT)  [mike base 78/82/84]
