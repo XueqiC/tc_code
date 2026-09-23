@@ -5287,3 +5287,26 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   rai 侧同 8 格由 GPU4 链 #7 `rai_chain_gpu4_orig_baselines.sh`(等链 #6 内层 3371417 退出)完成。评测结果标签 mike_/rai_<TAG>p10。
 - **口径**:成本只用 alfworld_cost 口径;时间只从 date 读;pkill -f 不得自匹配(杀与启分两次 ssh);rai 评完即删 merged_v2 里的合并模型(盘 99%)。
 - **报告**:`docs/reports/2026-09-22_full_report_ZH.md`(草稿,待四格/ADD/REPAIR/忠实基线数)与 `docs/reports/2026-09-22_five_model_tables_v1_v2.txt`(所有数)。
+
+- 2026-09-23 15:43 CDT **会话重启后恢复;方法线(跨任务学习收益选材)实际启动。**
+  **发现**:用户 13:25 的最高优先级指令("今天之内给一个完整可行的主方法")之后,上一个会话挂了、**没回复、也没提交任何 cv 训练**——
+  20 份 cv 配置 + 20 个 cv 银行已同步到 hpg,但 hpg 今天只有评测作业。RND1/2/3 的最终训练也从未起。**真正起点 = 15:30。**
+  **hpg 训练环境已核**:`/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/.venv`(torch 2.11.0+cu128、transformers 5.14.1、peft 0.20.0),
+  模型快照在 `tools/hf-cache`,脚本 `tc-alf-taskeq/slurm/train_b200.slurm`(先 preflight 再训)。
+  **队列实况**:部门账户资源有空(88/128 CPU、604/1000G、14/24 GPU)但我的作业按 priority 排,**预计 18:24 CDT 才起**;
+  组账户**内存被组员的 CPU 作业占满**(~496/500G),放不下 12B 训练;burst QOS **gpu=0**,不能跑训练。
+
+- 2026-09-23 15:43 CDT **RUNNING JOBS(hpg 部门账户,全部 PD 排队中)**:
+  - **cv 训练 20 个**(5 候选集 × 4 折,seed 0,输出 `tc-alf-taskeq/results/cv_<cand>_f<k>/seed-0`):
+    冒烟 `cv-1alt-f0` = **43121909**;其余 19 个 = **43122226–43122244**(rnd1 f0-3、rnd2 f0-3、rnd3 f0-3、1alt f1-3、1min f0-3)。
+  - **验证用最终训练 6 个**(RND1/2/3 × seed 0/1,输出 `results/all87_<rnd>/seed-<s>`)= **43122245–43122250**。
+  - 已取消:组账户冗余冒烟 43121973。
+  **折定义**:`tc-alignment-baselines/artifacts/cv4_folds.json`(32 任务按类型分层、seed 4242,每折 8 题;sets = rnd1/rnd2/rnd3/1alt/1min)。
+
+- 2026-09-23 15:43 CDT **打分链(rai,已知可用路线)**:`tc-alignment-baselines/tools/score_support_rai.sh <adapter> <run_dir> <gpu>`
+  = 合并 LoRA → 单卡起 vLLM → `alf_pi1_support_rollouts.py --source D0` 在 32 个支持任务上贪心 rollout → **删合并模型**(盘 99%)。
+  **源必须是 D0**(`tc-alignment/data/rtd/v1_alfworld_k32_d0`):只有它的 reset_requests 覆盖全部 32 题;cv 银行只有 22、全量银行只有 30,工具会拒绝。
+  **冒烟在跑**:ALT1 s0(已知 86–87)于 rai GPU1,输出 `tc-alignment-baselines/data/cv_score/smoke_ALT1_s0`,日志 `logs/score_smoke_ALT1_s0.log`。
+  **为何打分放 rai 不放 hpg**:hpg 上没有 D0,评测 venv 里查不到 alfworld 包,要走通需多个未验证步骤——正是用户警告的"设定出错浪费时间"。
+
+- 2026-09-23 15:43 CDT **1min seed 2 已在 rai 训完**(`tc-alignment-taskeq/results/all87_1min_v2/seed-2/tokens-96490`),**待评测**。
