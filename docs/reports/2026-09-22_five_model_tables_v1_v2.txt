@@ -424,3 +424,5 @@ hpg_base_rep 82 | hpg_base_rep2 78  -> hpg base three runs 83/82/78 = 81.0 (spre
 hpg_A_s0 80 | hpg_A_s1 76   plain CE (D0, pi1_k32_v2 pass-10) on hpg  [mike 79/76, rai 74/74, LONI 80/77]
 rai_all87_1alts0t96490  83/140   REPEAT of ALT1 s0 on rai (GPU1 chain #9, same adapter as rai_ALT1s0t96490 = 88 on GPU4)  -> same-checkpoint repeat spread 5 tasks on rai, like base's (09:55 CDT)
 rai_PER2s0t96490   89/140   all87 2-per-task (59 demos), seed 0 (rai GPU1-trained), 96,490-token endpoint, rai platform (10:02 CDT)  [rai base 84/81; A s0 74; ALT1 s0 88/83]  -> highest rai cell; 2-per-task s0 rai 89 vs mike s2 86
+hpg_A_s2 78  -> plain CE three seeds on hpg 80/76/78 = 78.0 (base 81.0: -3.0)  (10:10 CDT)
+hpg_ALT1_s0 85 | hpg_ALT1_s1 85   ALT1 on hpg (A s0/s1 80/76: +5/+9; base 81.0: +4)  -> the identity effect holds on a third platform
