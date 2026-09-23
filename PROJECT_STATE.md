@@ -1491,7 +1491,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **诊断臂 MIX1(11:43 CDT)**:ALT1 选中集,只把 4 个 heat 任务换成 1min 的那条(`alfworld_k32_all87_mix1`,30 条 / 456 回合 / 11,309 token,配置 ff0b79ba / taskeq 821f12a7);
   GPU3 链 v4(`rai_chain_gpu3_mix1.sh`,pid 4150788)训 seed 0;链 #8(重启 4150908)在 rai 评 MIX1s0。读法:≥ 88 → 轨迹质量可按类型拆解;≈ ALT1 → heat 那 4 条无关;**是诊断不是方法(用了评测类型信息)**。
 - **12:03 CDT 用户"把实验文档都更新"**:notes/exp_log.md 追加 59 行(第二轮全部臂/采集/基线,三平台指标与 artifact 路径,28e3369b);报告 §0/§5.4.8 的 hpg 列按已落 34 格刷新(954a5c5c);
-  main 与四个分支(alf-baselines / alf-taskeq / alf-eval-vllm / alf-baseline-audit)已 push 到 github.com/XueqiC/tc_code。hpg 新落:B 83/80/86 = 83.0,ADDALL 77/79/80 = 78.7,LE50 75/76/73 = 74.7(低于 A)。
+  main 与四个分支(alf-baselines / alf-taskeq / alf-eval-vllm / alf-baseline-audit)已 push 到 github.com/XueqiC/tc_code。hpg 新落:B 83/80/86 = 83.0,ADDALL 77/79/80 = 78.7,LE50 75/76/73 = 74.7(低于 A),PER2 s2 80,REPALL s1/s2 78/82。
 - 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 hpg(43099122)、MIX1 s0(≈15:30)。hpg:C 85/84/83 = 84.0,D 85/84/81 = 83.3,ADD1 77/76/79 = 77.3,ADDALL s0/s1 77/79,CEMIKE s0 79(mike 的 A adapter 与 rai 的一致)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
