@@ -427,3 +427,5 @@ rai_PER2s0t96490   89/140   all87 2-per-task (59 demos), seed 0 (rai GPU1-traine
 hpg_A_s2 78  -> plain CE three seeds on hpg 80/76/78 = 78.0 (base 81.0: -3.0)  (10:10 CDT)
 hpg_ALT1_s0 85 | hpg_ALT1_s1 85   ALT1 on hpg (A s0/s1 80/76: +5/+9; base 81.0: +4)  -> the identity effect holds on a third platform
 rai_all87_2pers0t96490  84/140   REPEAT of PER2 s0 on rai (GPU1 chain #9; GPU4 chain #8 read 89)  -> same-checkpoint repeats on rai: ALT1 s0 88/83, PER2 s0 89/84 (both pairs differ by 5, GPU4 runs higher; treat as repeat noise, report both) (10:13 CDT)
+hpg_ALT1_s2 88  -> ALT1 three seeds on hpg 85/85/88 = 86.0 (A 78.0: +8.0; base 81.0: +5.0)  (10:26 CDT)
+hpg_SMORIG_s0 82 | hpg_SMORIG_s1 80 | hpg_SMORIG_s2 81  -> original SmartAD on hpg 82/80/81 = 81.0 (= base; ALT1 +5.0 over it)
