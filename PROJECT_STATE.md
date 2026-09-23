@@ -1492,7 +1492,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   GPU3 链 v4(`rai_chain_gpu3_mix1.sh`,pid 4150788)训 seed 0;链 #8(重启 4150908)在 rai 评 MIX1s0。读法:≥ 88 → 轨迹质量可按类型拆解;≈ ALT1 → heat 那 4 条无关;**是诊断不是方法(用了评测类型信息)**。
 - **12:03 CDT 用户"把实验文档都更新"**:notes/exp_log.md 追加 59 行(第二轮全部臂/采集/基线,三平台指标与 artifact 路径,28e3369b);报告 §0/§5.4.8 的 hpg 列按已落 34 格刷新(954a5c5c);
   main 与四个分支(alf-baselines / alf-taskeq / alf-eval-vllm / alf-baseline-audit)已 push 到 github.com/XueqiC/tc_code。hpg 新落:B 83/80/86 = 83.0,ADDALL 77/79/80 = 78.7,LE50 75/76/73 = 74.7(低于 A),PER2 s2 80,REPALL 77/78/82 = 79.0,忠实 SAD 82/79/75 = 78.7,**忠实 SmartAD s0 = 81**(mike 88、rai 83 → 修正版的 +5 只在 mike 上出现;ALT1 三平台都成立)。
-- **09-23 13:05 CDT:rai ALT1MIN s1 = 85**(s0 77)。同银行两训练 seed 差 8 → 11:13 的"选例是真实机制"下早了;1min rai 均值 81.0 介于 A 75.0 与 ALT1 87.0 之间;等 s2(GPU1 97/183,≈14:00)与 mike/hpg s1/s2。忠实 SmartAD hpg s0 81(mike 88)→ 其 +5 只在 mike。
+- **09-23 13:05 CDT:rai ALT1MIN s1 = 85**(s0 77)。同银行两训练 seed 差 8 → 11:13 的"选例是真实机制"下早了;1min rai 均值 81.0 介于 A 75.0 与 ALT1 87.0 之间;等 s2(GPU1 97/183,≈14:00)与 mike/hpg s1/s2。忠实 SmartAD hpg s0/s1 81/88(mike 88/89)→ 不是 mike 特有,是 seed 散布;等 s2。
 - 待定:1min s2、1min s1/s2 在 mike/hpg(dispatch 脚本 bewmcqwcp 自动推送提交)、MIX1 s0(GPU3 56/184,≈15:30)。hpg:C 85/84/83 = 84.0,D 85/84/81 = 83.3,ADD1 77/76/79 = 77.3,ADDALL s0/s1 77/79,CEMIKE s0 79(mike 的 A adapter 与 rai 的一致)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
