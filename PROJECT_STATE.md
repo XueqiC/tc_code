@@ -561,6 +561,11 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### REPAIR 三臂投 mike;alf-taskeq 合并 alf-baselines;mike 首批评测(2026-09-22 19:22 CDT)
+- taskeq 树缺 Codex#14 的前缀回放 → REPAIR 银行 preflight 报 "successful complete command replay required";**`git merge alf-baselines` → `f5d4cffc`**,85 测试过,三个 REPAIR-all token 配置 preflight 过;树已同步 mike。
+- **mike 提交 d0repall_v2 s0/1/2 = 861342/43/44**;评测循环加 `REPALL` 并重启(分两次 ssh)。mike:15 跑 / 16 排。
+- **mike 评测**:`mike_base_rep` **82**(首轮 78,重复差 4 题);`mike_Cs1t28947` 68(all87 CE seed1 低剂量端点,与各处 3 遍坑一致)。表 §V2。
+
 ### REPAIR s1/s2(P2)采完:3 seed 共 34 次接管 14 次验证,9 条可用;训练集改用 D0+全部后缀(2026-09-22 19:15 CDT)
 - s1:10 接管 / 3 验证(1 被扫描过滤)→ 2 demo / 697 token,227,813 token;s2:13 / 9 验证(4 过滤)→ **5 demo / 2,285 token**,254,584 token。
   三 seed:验证率 41%,可用 9 条,结算 ≈ 695k。教师救回率随 seed 差异很大(2/11、3/10、9/13)。

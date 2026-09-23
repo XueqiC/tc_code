@@ -199,3 +199,6 @@ seed 2 (pi1 = CE s2 10-pass): 32 rollouts -> 13 failed; 13 takeovers, 9 verified
 three seeds: 34 takeovers, 14 verified (41%), 9 usable after the sweep filter; ~695k settled tokens total.
 training sets (deviation from the pre-registered 1:1 token mixing, which would shrink D0 to 442-2,285 tokens): D0 + ALL usable REPAIR suffixes per seed
   = 10,091 / 10,346 / 11,934 tokens (32 / 32 / 35 demos); ADD-DEMO arm = D0 + all 20 ADD demos = 16,099 tokens (and 1:1 = 12,900). Token endpoints [28,947 / 96,490] for all arms.
+##### V2. mike results so far (added 19:22 CDT)
+mike_base_rep      82/140  (first run 78; mike repeat spread 4 tasks)
+mike_Cs1t28947     68/140  all87 plain CE, seed 1, 28,947-token endpoint (the low-dose dip, as everywhere)
