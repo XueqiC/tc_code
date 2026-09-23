@@ -5336,3 +5336,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **汇总**:`python3 tools/cv_fold_score.py --folds artifacts/cv4_folds.json --runs data/cv_score`
   (需给 nll1 加 `--sets`,冻结的 cv4_folds.json 的 sets 里没有 nll1——**不改冻结文件**)。
 - 15:55 CDT **扩卡时机**:MIX1 seed0(GPU3)约 16:00–16:30 训完、seed1(GPU2)约 18:00;链退出后再加 GPU 到调度器(重启调度器是幂等的)。
+- 15:58 CDT **⚠ 更正一个我自己的错误假设**:先前写"nll1 最终成绩 = 修正版 SmartAD(88/83/81),无需再训"——**错**。
+  修正版 SmartAD(`alf_k32_SMWN_s*`)与 nll1 三处不同:① 选例用 **turn-mean** NLL(nll1 = token-mean,取自 `smartad_selection_rai/selection.json`,statistic=`trajectory_supervised_token_mean_nll`);
+  ② 用 SmartAD **加权损失**(nll1 = 纯 CE);③ 基线配方 **10 遍**(nll1 = 96,490 token 终点)。其分数不能借用。
+  **已补**:nll1 全量银行 `tc-alignment-taskeq/artifacts/alfworld_k32_all87_nll1`(30 条),配置 `pi1_alfworld_k32_all87_nll1_tok.yaml`,
+  **与 rnd 最终训练配方逐字段一致**(只差注释与银行字段),hpg 上 manifest 哈希核对无误;**nll1 最终训练 43123079(s0)、43123080(s1)**。
+  **核对**:ALT1 / 1min 的最终成绩与 cv 模型**同一配方**(纯 CE、token 终点 28,947/96,490),可直接对照,无此问题。
+  **hpg 现共 32 个作业**:cv 24 + 最终 8(RND1/2/3 × 2、nll1 × 2)。
+- 15:58 CDT **还缺的一步(下一步要接)**:8 个最终训练产出 adapter 后要跑 **140 局 valid_seen 正式评测**才有最终成绩;
+  这一步 hpg 评测树能跑(`tc-alignment-vllm/slurm/submit_all.sh` 按 `adapters/<TAG>/lora` 批量提交)。另 **1min s2**(rai 已训完)也待评。
