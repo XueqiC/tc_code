@@ -432,3 +432,4 @@ hpg_SMORIG_s0 82 | hpg_SMORIG_s1 80 | hpg_SMORIG_s2 81  -> original SmartAD on h
 rai_PER2s1t96490   80/140   all87 2-per-task, seed 1 (rai GPU3-trained, A100 shared with 1min s0), 96,490-token endpoint, rai platform (10:28 CDT)  [rai A s1 74; base 84/81]  -> PER2 on rai s0 89/84, s1 80; mike s2 86
 rai_ALT1s2t96490   86/140   all87 1-alternative-per-task, seed 2 (mike-trained), 96,490-token endpoint, rai platform (10:33 CDT)  [rai A s2 77; base 84/81]  -> ALT1 three seeds on rai 88/87/86 = 87.0 (A 75.0: +12.0; repeat of s0 read 83); mike 86.7; hpg 86.0
 mike_PER2s0t96490  83/140   all87 2-per-task, seed 0 (rai GPU1-trained), 96,490-token endpoint, mike (10:40 CDT)  [mike A s0 79; base 81.3; rai read 89/84]  -> PER2 on mike s0/s2 83/86 (s1 pending)
+hpg_SADORIG_s0 69 | hpg_SADORIG_s1 82 | hpg_SADORIG_s2 76  -> original SAD on hpg 69/82/76 = 75.7 (base 81.0: -5.3; mike 78.3, rai 76.0)  (10:42 CDT)
