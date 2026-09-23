@@ -1425,6 +1425,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - 结论(两平台一致):**唯一被支持的方法因子是材料(每任务多条已验证教师轨迹)**;目标加权无普适增益;C/D 只回到 base。
 - **原版 SAD 在 mike 71/85/79 = 78.3**(−3.0;忠实版 79.3;rai 原版 76.0)→ SAD 在所有平台 ≤ base,种子散布 14 题。
 - **原版 SmartAD 在 mike 82/82/84 = 82.7**(+1.3 vs base)→ 忠实修法值 +3.7(86.3);rai 上原版 84/80/80 = 81.3。**原版 SAD 在 rai 74/79/75 = 76.0**(−6.5)。
+- 端点同步循环改走 mike(`tools/rai_sync_endpoints_via_mike.sh`,原子推送 lora.partial→lora,每 15 分钟;旧 smic 循环 3003390 已杀);1alt s0 的 96,490 端点已手推到 mike(05:24 CDT),mike 循环会评 ALT1 s0 高端点。GPU4 链 #8(`rai_chain_gpu4_material_endpoints.sh`,等链 #7)在 rai 评 1alt/2per s0/s1 端点。
 - GPU1 1alt s0 训完(05:11 CDT,tokens-28947/96490 都在),链 #9 接着训 2per s0(≈4–5 h);链 #8(GPU4,等链 #7)将把 rai 上出现的材料臂端点逐个评掉。
 - **忠实 SAD 三种子(mike)85/78/75 = 79.3(−2.0 vs base)**;忠实 SmartAD 86.3 仍是最强臂。pass-3:SADTC s0/s2 69/69、SMWN s1 67。
 - rai 链 #7:SADORIG s0/s1 = 74/79(LONI 77/–);低端点 A s0 68、REPALL s2 65。GPU1 1alt s0 step 170/184。
