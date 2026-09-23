@@ -1,0 +1,44 @@
+# Matched pi1 recipe; supervised-token endpoints, seeds 0/1/2.
+method: pi1_ce
+benchmark: alfworld
+student: google/gemma-4-12B-it
+bank: artifacts/alfworld_k32_all87_1alt
+sealed_manifest_sha256: 546d725e652f61aae72c3143bae0df16104563089d1a4c816b83ec57aba93636
+support_size: 32
+demonstrations: 30
+supervised_turns: 455
+bank_supervised_tokens: 11285
+training_seeds:
+- 0
+- 1
+- 2
+exposure_tokens:
+- 28947
+- 96490
+exposure_relative_tolerance: 0.0
+optimizer: AdamW
+learning_rate: 1.0e-05
+adam_betas:
+- 0.9
+- 0.999
+adam_epsilon: 1.0e-08
+weight_decay: 0.01
+gradient_clip: 1.0
+supervised_tokens_per_update: 512
+lora_rank: 16
+lora_alpha: 32
+lora_target_modules:
+- q_proj
+- k_proj
+- v_proj
+- o_proj
+- gate_proj
+- up_proj
+- down_proj
+lora_dropout: 0.0
+max_context_tokens: 32768
+score_position_chunk_size: 32
+cpu_threads: 4
+memory_peak_budget_gb: 68
+memory_reserve_gb: 2
+model_local_files_only: true
