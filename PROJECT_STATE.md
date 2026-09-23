@@ -1417,6 +1417,14 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - smic 登录超限("logins exceed limit",三个重复的同步循环 + 探测会话所致):已杀两个重复循环(保留 3003390);mike 轮询改走 mike 本机(bqbk1628g 系列)。
 - 原版基线 adapter 推 mike:首次 rsync 因目标父目录不存在失败,已改 mkdir 后重推(`logs/push_orig_adapters_to_mike.log`);rai 链 #7(pid 3488082)等链 #6 内层退出后评 8 格。
 
+
+### 04:51 CDT — mike 四格三种子出齐(A 高端点落地)→ 两平台判定一致
+- **mike(base 81.3)**:A 79/76/78 = 77.7;B 75/77/81 = 77.7;C 86/78/83 = 82.3;D 85/79/85 = 83.0。
+  规则判定:B>A 不成立(同 seed −4/+1/+3 = 0)、D>C 不成立(+0.7)→ **task-equal 不被支持**;C>A 成立(+4.7)→ **材料被支持**;C/D 比 base 高 1–1.7(在 base 三次 6 题的散布内)。
+- **rai(base 82.5)**:A 75.0 / B 80.0 / C 82.3 / D 81.0 → 同一因子结构:材料 +7.3;task-equal 只在 D0 上 +5、在 87 条上 −1.3。
+- 结论(两平台一致):**唯一被支持的方法因子是材料(每任务多条已验证教师轨迹)**;目标加权无普适增益;C/D 只回到 base。
+- rai 链 #7:SADORIG s0 = 74(LONI 77);低端点 A s0 68、REPALL s2 65。GPU1 1alt s0 step 170/184。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.

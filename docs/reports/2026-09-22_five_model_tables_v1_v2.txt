@@ -347,3 +347,13 @@ mike_ADD1s0t96490  76/140  D0 + ADD-DEMO 1:1 (37 demos), seed 0, 96,490-token en
 low endpoints (28,947 tok) on mike: ADD1 s1 62, ADDALL s1 63, ADDALL s2 61, REPALL s1 69 (04:35 CDT)
 rai_SMORIGs0p10   84/140   SmartAD ORIGINAL protocol (LONI-trained), seed 0, pass-10, rai platform (04:35 CDT)  [rai base 84/81]
 rai_SMORIGs1p10   80/140   SmartAD ORIGINAL protocol (LONI-trained), seed 1, pass-10, rai platform  -> original SmartAD on rai 84/80/80 = 81.3 (LONI 82/82/-; mike s2 84); faithful SmartAD rai s0 = 83
+
+##### T8. mike platform four-cell COMPLETE, 96,490-token endpoint (added 04:51 CDT; mike base 78/82/84 = 81.3)
+A plain CE (D0)        s0 79  s1 76  s2 78   mean 77.7
+B task-equal (D0)      s0 75  s1 77  s2 81   mean 77.7   (B-A same seed -4/+1/+3 = 0.0)
+C plain CE (all87)     s0 86  s1 78  s2 83   mean 82.3   (C-A same seed +7/+2/+5 = +4.7)
+D task-equal (all87)   s0 85  s1 79  s2 85   mean 83.0   (D-C same seed -1/+1/+2 = +0.7)
+-> mike verdict by the user's rules: B>A no (0.0), D>C no (+0.7) -> task-equal NOT supported; C>A yes (+4.7) -> material supported; C/D at base +1.0/+1.7 (within the 6-task base spread).
+-> two platforms agree on the factor structure: material +4.7 (mike) / +7.3 (rai); task-equal 0 (mike) / +5 only on D0 (rai), 0 on all87 on both.
+mike_As0t28947     68/140  A low endpoint, seed 0 | mike_REPALLs2t28947 65/140  REPAIR ALL low endpoint, seed 2 (04:51 CDT)
+rai_SADORIGs0p10   74/140   SAD ORIGINAL (sad_sum, LONI-trained), seed 0, pass-10, rai platform (04:51 CDT)  [rai base 84/81; LONI read 77]
