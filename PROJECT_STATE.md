@@ -1454,6 +1454,19 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **rai ALT1 s1 = 87**(A s1 74)→ ALT1 rai 88/87、mike 86/87:四格全同向 +7~+14。hpg 于 08:36 CDT 恢复(密钥直登,无 Duo);开始搭 B200 统一重评。
 - 待定:ALT1 s1(mike)、ALT1 s2(rai)、1min s0/s1、PER2 s0/s1;若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
+
+### 08:49 CDT — hpg 恢复,搭 B200 统一重评;用户指令:尽量并行、hpg 上不跑任何中国模型
+- **hpg**:08:36 CDT 起密钥直登(无 Duo、无 master socket);部门队列 13 作业/6 跑,hpg-b200 无空闲整机(mixed)。我的作业 0。
+- **合规**:hf-cache 里的 `models--Qwen--Qwen3.5-4B` 先移 `_trash/`,用户要求后已 **rm -rf**(含 .locks);hf-cache 只剩 google/gemma-4-12B-it、gemma-4-E4B-it、MiniLM。
+  剩余 "qwen" 字样:pip wheel `qwen-agent`(库)与 `tc-alignment/data/pool_v0/qwen3.5_397b`(76 KB 旧教师池文本)——已告知用户,待其决定。**hpg 上只跑 google/gemma-4-12B-it + 我们的 LoRA。**
+- **统一重评树** `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment-vllm/`:代码从 rai tc-alignment-vllm rsync(tools/src/configs/scripts);`.venv` → `tc-alignment/.venv`(py3.12,torch 2.11 cu128,peft 0.20,tf 5.14.1);
+  `envs/vllm-serve` → `tc-alignment/envs/vllm-serve`(**vllm 0.27.1**,torch 2.13 cu130,与 rai/mike 同版本);`envs/alfworld` → `tc-alignment/envs/alfworld`(py3.12 + data/json_2.1.1)。
+  模板 `slurm/eval_b200.slurm`(1×B200,14 cpu,120 GB,1.5 h;`--export=ALL,ADAPTER=<lora dir>,EVAL_TAG=hpg_<TAG>`;ADAPTER 空 = base;合并用 `.venv`;跑完删合并模型)+ `slurm/eval_body.sh`(mike 同款)。
+  基础模型 snapshot 经隧道 rsync 到 `tools/hf-cache/hub/models--google--gemma-4-12B-it`(≈19 MB/s,≈09:10 CDT 完);adapter 汇总在 rai `tc-alignment-vllm/adapters_hpg/<TAG>/lora`(rai 17 + adapters_mike 11 + 从 mike 拉 20,含 CEMIKE_s0 用于核对 mike 的 A 是否与 rai 的 pi1_k32_v2 同一 adapter)→ 推到 hpg `adapters/`。
+- 后台:`scratchpad/hpg_smoke_submit.sh`(等两个 rsync 完 → 提交 `hpg_base` 冒烟);监视 b7uyvfbv4(冒烟结果)、b0508ubyc(adapter 推送)。冒烟通过后按标签循环提交 ≈45 格(每格 ≈20 min,B200 可并行数取决于队列)。
+- 用户 08:40 问"是否已比 base 和 baseline 好":答"比 base 是(两平台四格同向 +4~+7),比修正版 SmartAD 还没有(追平 86.5 vs 86.3),1min 是分岔口"。
+- 用户 08:38:最后两个任务(1min s0/s1)跑完后要一份完整文档(做了什么/怎么做/具体结果);我答 ≈12:30 CDT 发主文档,≈14:00 补 1min s1 附录,hpg 表另发附录。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
