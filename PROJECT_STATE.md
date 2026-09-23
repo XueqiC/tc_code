@@ -1480,6 +1480,13 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - 用户 08:40 问"是否已比 base 和 baseline 好":答"比 base 是(两平台四格同向 +4~+7),比修正版 SmartAD 还没有(追平 86.5 vs 86.3),1min 是分岔口"。
 - 用户 08:38:最后两个任务(1min s0/s1)跑完后要一份完整文档(做了什么/怎么做/具体结果);我答 ≈12:30 CDT 发主文档,≈14:00 补 1min s1 附录,hpg 表另发附录。
 
+
+### 11:13 CDT — 裁定臂 1min s0 = 77(rai):"池里任取一条"不成立,选例是真机制
+- rai_ALT1MINs0t96490 = **77**(rai base 84/81;A s0 74;ALT1 s0 88/83;PER2 s0 89/84)。同一 87 池、同规模、同配方、同端点,只是每任务换成 id 最小的另一条 → 读数回到 D0 纯 CE 的水平。
+- 含义:**每任务选哪条轨迹在同池内能摆动 ~10 题**;修正版 SmartAD 的逐回合 NLL 选例(88/89/82)是真实机制(它稳定选到好的);ALT1 的 max-id 规则碰巧得到一组好轨迹,1min 的 min-id 得到一组差的。
+  方法的核心 = **选材统计量**。下一步(零 GPU):用 SmartAD 选例已算好的 87 条逐回合 NLL,比较 ALT1 池 vs 1min 池 vs SmartAD 选中集的 NLL 分布,看 NLL 是否预测材料质量;再看扫描占比/长度。
+- 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 mike(862163)与 hpg(43099122)。hpg:C 85/84/83 = 84.0,D s0/s1 85/84。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.

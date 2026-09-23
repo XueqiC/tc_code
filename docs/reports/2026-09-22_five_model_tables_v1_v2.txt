@@ -437,3 +437,9 @@ rai_PER2s2t96490   83/140   all87 2-per-task, seed 2 (mike-trained), 96,490-toke
 mike_PER2s1t96490  82/140   all87 2-per-task, seed 1 (rai GPU3-trained), 96,490-token endpoint, mike (10:55 CDT)  -> PER2 three seeds on mike 83/82/86 = 83.7 (A 77.7: +6.0; ALT1 86.7: -3.0; base 81.3: +2.3); rai 89(84)/80/83
 hpg_KANG_s0 78 | hpg_KANG_s1 74 | hpg_KANG_s2 85  -> Kang on hpg 78/74/85 = 79.0 (base 81.0: -2.0; mike 81.0, rai 76.7)  (10:57 CDT)
 hpg_C_s0 85   all87 plain CE (C), seed 0, hpg  [mike 86, rai 84]
+
+##### AA. IDENTITY CONTROL: rai_ALT1MINs0t96490 = 77/140 (added 11:13 CDT; rai base 84/81; A s0 74; ALT1 s0 88/83; PER2 s0 89/84)
+1min = per task the LOWEST-id all87 candidate (differs from ALT1 on 29/30 tasks; 30 demos / 486 turns / 12,039 tok per pass; same recipe, same 96,490-token endpoint, training seed 0).
+-> reads like plain CE on D0 (74-77), NOT like ALT1 (83-88): "any trajectory from the pool" is FALSE. Which single trajectory per task is used swings the result by ~10 tasks within the same pool.
+-> SmartAD-faithful's turn-mean NLL selection (88/89/82) therefore IS a real selection mechanism (it found good ones); ALT1's max-id pick happened to be a good bank; 1min's min-id pick a poor one. Selection statistic = the method's core. 1min s1 (GPU2) / s2 (GPU1) and mike/hpg readings follow.
+hpg_C_s1 84 | hpg_C_s2 83 -> C on hpg 85/84/83 = 84.0 | hpg_D_s0 85 | hpg_D_s1 84  (11:13 CDT)
