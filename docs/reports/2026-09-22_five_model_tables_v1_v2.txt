@@ -451,3 +451,4 @@ identity-control analysis (11:20 CDT; token-mean student NLL from results/smarta
 hpg_D_s2 81  -> D on hpg 85/84/81 = 83.3 (C 84.0; base 81.0)  (11:29 CDT)
 hpg_ADD1_s0 77   D0 + ADD 1:1, seed 0, hpg  [mike 76]
 hpg_CEMIKE_s0 79   mike's own A adapter (ce_v2 s0) on hpg vs rai's pi1_k32_v2 s0 on hpg 80 -> the two A trainings agree within noise
+mike_ALT1MINs0t96490  78/140   min-id one-alternative bank, seed 0, mike (11:41 CDT)  [mike A s0 79; ALT1 s0 86; base 81.3; rai read 77]  -> the identity control reads like plain CE on both platforms: selection matters (confirmed cross-platform)
