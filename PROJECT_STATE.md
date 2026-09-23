@@ -1488,7 +1488,9 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - 1min s0 的选材分析(零 GPU):ALT1 选中集 token-NLL 1.94 vs 1min 1.91 vs SmartAD 原版 1.78 → 学生 NLL 不预测材料好坏;15 个命令序列不同的任务上 1min 更长、更多 go/look/重访,但逐任务不干净。
 - **11:18 CDT 完整文档已发 Discord**(`docs/reports/2026-09-22_full_report_ZH.md` 007be4cb + 数字表);附录待:1min s1/s2、mike/hpg 剩余格、hpg 全表。
 - **mike ALT1MIN s0 = 78**(A s0 79,ALT1 86)→ 与 rai 的 77 一致:裁定跨平台成立。
-- 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 hpg(43099122)。hpg:C 85/84/83 = 84.0,D 85/84/81 = 83.3,ADD1 s0 77,CEMIKE s0 79(mike 的 A adapter 与 rai 的一致)。
+- **诊断臂 MIX1(11:43 CDT)**:ALT1 选中集,只把 4 个 heat 任务换成 1min 的那条(`alfworld_k32_all87_mix1`,30 条 / 456 回合 / 11,309 token,配置 ff0b79ba / taskeq 821f12a7);
+  GPU3 链 v4(`rai_chain_gpu3_mix1.sh`,pid 4150788)训 seed 0;链 #8(重启 4150908)在 rai 评 MIX1s0。读法:≥ 88 → 轨迹质量可按类型拆解;≈ ALT1 → heat 那 4 条无关;**是诊断不是方法(用了评测类型信息)**。
+- 待定:1min s1(GPU2,≈13:20)、s2(GPU1,≈14:00)、1min s0 在 hpg(43099122)、MIX1 s0(≈15:30)。hpg:C 85/84/83 = 84.0,D 85/84/81 = 83.3,ADD1 s0 77,CEMIKE s0 79(mike 的 A adapter 与 rai 的一致)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
