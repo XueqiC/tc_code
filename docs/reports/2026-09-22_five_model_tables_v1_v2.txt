@@ -223,3 +223,5 @@ D vs C, seed 2, paired: +1.43 (24 disc 11/13, p=0.84).  Note: on the all87 bank 
 ##### T2. rai platform additions (added 22:42 CDT; rai base 84 / rep 81; rai CE refs 74 / 74)
 rai_smartads2p10  80/140  -2.86 vs base (22 disc 13/9, p=0.52) | clean 21/16, heat 3/8 | SmartAD original protocol, seed 2 (rai selection = LONI selection 32/32)
 rai_Bs0t96490     77/140  -5.00 vs base (27 disc 17/10, p=0.25) | vs rai CE refs 74/74: +3 | D0 task-equal, seed 0, 96,490 tokens
+mike_ADDALLs0t28947 68/140  D0+all ADD-DEMO (ADD arm), seed 0, 28,947-token endpoint (22:53 CDT)
+mike_SADTCs0p10    85/140  SAD trajectory-cost curriculum (faithful), seed 0, pass-10 (22:53 CDT)  [mike base 78 / 82]
