@@ -5058,3 +5058,18 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 跨组比较率时,先确认统计量不受组规模影响(EM 极差的百分比会放大小类别)。
 - 时间一律现取 `TZ=America/Chicago date`(rai 本地是 EDT,快一小时);状态 footer 必须现跑 `ops/status_line.sh`。
 - >100 步的格不得用 slurm 默认 6 小时上限;训练不存中间 checkpoint,超时全丢。
+
+## ⟳ RESTART CHECKLIST (rewritten 2026-09-22 23:25 CDT — supersedes the 09-21 block)
+**读完这块就能接手。** 主线 = 用户 09-22 13:32 指令:四格(A/B/C/D)+ ADD-DEMO/REPAIR + 忠实基线,评测统一在 mike 平台(hpg 恢复后再统一重评)。
+- **rai 后台链(nohup,重启 Claude 不受影响;看 logs/rai_chain_*.log)**:GPU4 链 #2 `tc-alignment-baselines/tools/rai_chain_gpu4_rollouts_BC.sh`
+  (C s0 训练 → 结束);GPU4 链 #3 `rai_chain_gpu4_xplat.sh`(等 #2 退出后评 B s1/s2、C s1 于 rai);GPU1 链 #6/#7(`rai_chain_gpu1_xplat2/3.sh`:A s2、C s2 评测);
+  端点同步循环 `rai_sync_endpoints_to_mike.sh`(经 smic 推 taskeq/faithful 端点到 /ddnA)。
+- **mike 后台**:`/ddnA/work/xueqic/hq/eval_when_ready.sh`(每 10 分钟扫 taskeq/faithful 结果树的 tokens-*/pass-* adapter 并提交评测;已提交列表
+  `eval_submitted.txt`;结果在 `tc-alf-vllm/runs/mike_<tag>-<job>/finalise.log` 的 "successes")。**mike 登录常被 "logins exceed limit" 拒绝 → 用 smic 读共享盘**:
+  `ssh xueqic@smic.hpc.lsu.edu 'cd /ddnA/work/xueqic/hq && python3 diag_mike.py mike_base <tags…>'`(逐题配对 + 按类型)。
+- **重启后要重挂的监视(会话级)**:① 每 15 分钟经 smic 轮询新完成的 mike 评测(见本会话 `mike_eval_reported.txt` 去重逻辑);② rai 链的 run 标签完成检查
+  (`tc-alignment-vllm/runs/<tag>-*/finalise.log`);③ LONI 余额每 30 分钟(`ssh loni balance`,>300 SU 即可再提作业);④ mike 登录重试(加 SMORIG 到评测循环)。
+- **未评的**:原版 SmartAD seed2(rai 训,adapter 在 mike `tc-alf-faithful/results/smartad_orig_v2/seed-2/pass-*`,循环里没有 SMORIG,需手提
+  `sbatch --export=ALL,ADAPTER=…,EVAL_TAG=mike_SMORIGs2p10 /ddnA/work/xueqic/hq/slurm/eval_adapter.slurm`)。
+- **口径**:成本只用 alfworld_cost 口径;时间只从 date 读;pkill -f 不得自匹配(杀与启分两次 ssh);rai 评完即删 merged_v2 里的合并模型(盘 99%)。
+- **报告**:`docs/reports/2026-09-22_full_report_ZH.md`(草稿,待四格/ADD/REPAIR/忠实基线数)与 `docs/reports/2026-09-22_five_model_tables_v1_v2.txt`(所有数)。
