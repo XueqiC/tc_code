@@ -459,3 +459,4 @@ hpg cells as of 09-23 12:02 CDT: ADD1_s0 77; ADD1_s1 76; ADD1_s2 79; ADDALL_s0 7
 hpg_B_s0 83 | hpg_B_s1 80 | hpg_B_s2 86  -> B on hpg 83/80/86 = 83.0 (A 78.0; base 81.0) | hpg_ADDALL_s2 80 -> ADD ALL on hpg 77/79/80 = 78.7  (12:03 CDT)
 hpg_LE50_s0 75 | hpg_LE50_s1 76 | hpg_LE50_s2 73  -> filtered D0 (sweep<=0.5, token-matched) on hpg 75/76/73 = 74.7 (A 78.0; mike 75.7): the filter is below plain D0 on both platforms  (12:19 CDT)
 hpg_PER2_s2 80 (2-per-task, mike-trained; mike 86, rai 83) | hpg_REPALL_s1 78 | hpg_REPALL_s2 82 (REPAIR ALL on hpg s1/s2; mike 83/80)  (12:35 CDT)
+hpg_REPALL_s0 77  -> REPAIR ALL on hpg 77/78/82 = 79.0 (A 78.0; ADD ALL 78.7; mike 78.3)  (12:35 CDT)
