@@ -395,3 +395,14 @@ paired vs mike base78 (diag_mike): ALT1 s0 +5.71 (32 disc 12/20, p=0.22; clean 1
 stable sets: ALT1 s0 11/10/15, ALT1 s2 11/7/13, PER2 s2 7/5/14 (wins never-won / losses always-won / wins flaky) -> ALT1 wins 11 never-won tasks (most of any arm) and its gain sits in two (+5..+7) and clean (+3..+4); it LOSES heat (4/8 on both seeds) where A keeps 6/8
 thought check: thought-bearing turns D0 60% vs all87/1alt/2per 67% (thought length 56 vs 64 chars) -> the D0-vs-pool difference is not "action-only vs thoughts"; D0 = attempt-0 of the 09-21 collection, 1alt = attempt 1/2 of the 09-22 SmartAD n3 collection, same teacher/prompt version; 11/29 tasks share the command sequence but 0/11 share the thoughts
 mike_ALT1s1t28947  76/140  all87 1-alternative-per-task, seed 1 (rai GPU2-trained), 28,947-token low endpoint (06:02 CDT; ALT1 low s0/s1/s2 71/76/67)
+
+##### T11. FIVE MODELS x THREE SEEDS ON THE rai PLATFORM (Blackwell RTX PRO 6000, vLLM 0.27.1 util 0.80, 14 clients; rai base 84/81 = 82.5) — added 06:17 CDT (chain #7 done)
+base                          84 / 81        mean 82.5
+plain CE (A, D0, 10 passes)   74 / 74 / 77   mean 75.0   (-7.5)
+SmartAD original              84 / 80 / 80   mean 81.3   (-1.2)   [faithful s0 83]
+SAD original (sad_sum)        74 / 79 / 75   mean 76.0   (-6.5)   [faithful s0 82]
+Kang FTP (adapted)            81 / 70 / 79   mean 76.7   (-5.8)
+C plain CE, 87 demos          84 / 80 / 83   mean 82.3   (-0.2)
+D task-equal, 87 demos        83 / 78 / 82   mean 81.0   (-1.5)
+-> on rai no method reaches base; ordering SmartAD orig ~ C > D > SAD ~ Kang ~ CE agrees with mike (SmartAD > C/D > Kang > SAD > CE) except Kang (mike 81.0, rai 76.7)
+rai_KANGs2p10      79/140   Kang FTP, seed 2 (rai-trained), pass-10, rai platform (06:17 CDT)

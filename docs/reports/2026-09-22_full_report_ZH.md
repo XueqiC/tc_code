@@ -267,7 +267,7 @@ LONI 训练的原版 SmartAD s0/s1、SAD(sad_sum)s0/s1/s2、Kang s0/s1 的 pass-
 | C:纯 CE,87 条示范 | 86 | 78 | 83 | 82.3 | +1.0 |
 | D:任务等权 CE,87 条 | 85 | 79 | 85 | 83.0 | +1.7 |
 
-rai 平台(base 84/81 = 82.5)同 adapter:SmartAD 原版 84/80/80 = 81.3;SAD 原版 74/79/75 = 76.0;Kang s0 81(s1/s2 评测中);纯 CE 74/74/77 = 75.0;C 82.3;D 81.0;忠实 SmartAD s0 83。
+rai 平台(base 84/81 = 82.5)同 adapter 三 seed:纯 CE 74/74/77 = 75.0;SmartAD 原版 84/80/80 = 81.3(忠实 s0 83);SAD 原版 74/79/75 = 76.0(忠实 s0 82);Kang 81/70/79 = 76.7;C 82.3;D 81.0。rai 上没有方法到 base;排序 SmartAD ≈ C > D > SAD ≈ Kang ≈ CE,与 mike 一致(除 Kang:mike 81.0 / rai 76.7)。
 **读法**(09-23 05:39 CDT):只有修正后的 SmartAD 在 mike 上超出 base 的散布(+5.0;rai 上 s0 只有 83,待其余 seed);其余全部落在 base ±4 之内,而每个方法自身的 seed 散布是 7–15 题(Kang 88/73/82),
 大于绝大多数方法间差距。这张表回答了用户"原版 baseline 复现到位"的要求:同一评测配置、同一 base、三 seed,原版协议与修正协议分列。
 
