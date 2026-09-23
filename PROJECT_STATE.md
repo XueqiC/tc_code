@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 登录数超限;停掉多余监视器;SMORIG 加入评测循环(2026-09-22 20:30 CDT)
+- mike 报 "Your logins exceed limit":罪魁是 13:20 卡在 Duo 的 sshpass/ssh-copy-id 会话(7 小时)一直占着一个登录,已杀;
+  同时停掉三个 5–10 分钟轮询的作业监视器(bd9u50is6/by109n3sp/bgg4c5x0f),只留评测结果轮询(15 分钟)、端点同步(10 分钟)、REPAIR 臂监视(15 分钟)。
+- 评测循环加 `smartad_orig_v2:SMORIG`(rai 训的原版 SmartAD seed2 同步到 mike 后自动评)。
+- 20:20 状态:rai B s0 136/184;SmartAD s2 GPU1 训中(17:08 起);mike 16 训 / 6 排 / 19 评测已提交(含 A 六个参照);余额 10,885 SU。
+- 用户 20:20 问完整结果时间:四格+过滤银行+SAD-tc ~00:30,ADD ~02:30,REPAIR/SmartAD-wn ~04:00;01:00 先发候选目标结论,~04:00 完整报告。
+
 ### REPAIR 三臂投 mike;alf-taskeq 合并 alf-baselines;mike 首批评测(2026-09-22 19:22 CDT)
 - taskeq 树缺 Codex#14 的前缀回放 → REPAIR 银行 preflight 报 "successful complete command replay required";**`git merge alf-baselines` → `f5d4cffc`**,85 测试过,三个 REPAIR-all token 配置 preflight 过;树已同步 mike。
 - **mike 提交 d0repall_v2 s0/1/2 = 861342/43/44**;评测循环加 `REPALL` 并重启(分两次 ssh)。mike:15 跑 / 16 排。
