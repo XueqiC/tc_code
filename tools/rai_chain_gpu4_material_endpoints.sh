@@ -8,7 +8,7 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID VLLM_GPU_MEMORY_UTILIZATION=0.80
 while ps -p 3488082 >/dev/null 2>&1; do sleep 120; done
 for i in $(seq 1 54); do
   left=0
-  for spec in ALT1s0:all87_1alt_v2/seed-0 ALT1s1:all87_1alt_v2/seed-1 PER2s0:all87_2per_v2/seed-0 PER2s1:all87_2per_v2/seed-1 ALT1MINs0:all87_1min_v2/seed-0 ALT1MINs1:all87_1min_v2/seed-1; do
+  for spec in ALT1s0:all87_1alt_v2/seed-0 ALT1s1:all87_1alt_v2/seed-1 PER2s0:all87_2per_v2/seed-0 PER2s1:all87_2per_v2/seed-1 ALT1MINs0:all87_1min_v2/seed-0 ALT1MINs1:all87_1min_v2/seed-1 MIX1s0:all87_mix1_v2/seed-0; do
     tag=${spec%%:*}; rel=${spec#*:}; a=$T/results/$rel/tokens-96490/lora
     ls -d $V/runs/rai_${tag}t96490-* >/dev/null 2>&1 && continue
     [ -f $a/adapter_model.safetensors ] || { left=1; continue; }
