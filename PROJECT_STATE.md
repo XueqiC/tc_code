@@ -561,6 +561,13 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### rai GPU4 交叉评测链 #4 全灭:同事 9.3 GB 占卡 → vLLM 0.92 利用率启动失败;加 env 覆盖后重跑(2026-09-23 02:30 CDT)
+- C s0 训完(183 步,02:01)。链 #4 六格全部 "vLLM exited before readiness":`Free memory 85.33/94.97 GiB < desired 0.92 (87.37 GiB)`——GPU4 上同事的 server.py 占 9.3 GB。
+  23:13 GPU1 的 rai_ces2p10 首次失败同因。
+- **改动(我直接做的 3 行,非 Codex)**:`tc-alignment-vllm/tools/alf_vllm_server.py` 读 `VLLM_GPU_MEMORY_UTILIZATION` 时追加 `--gpu-memory-utilization`,默认行为不变(`45c488e5`)。
+  链 #5 杀掉;**链 #6(pid 3371415,util 0.80)**:C s0、D s1、SADTC s0、LE50 s1、SMWN s0、ADDALL s1 在 rai 评(监视 b11mhhpf9)。
+- 注意:util 0.80 只改 KV 缓存上限,不改解码;rai 交叉格标注此设置。
+
 ### 定向采购完成:16 任务 41 次尝试 26 条验证,结算 864,978 token;D0+定向 臂三 seed 投 mike(2026-09-23 02:20 CDT)
 - P2,luna,attempt 6–9,T=0.7,每任务最多 2 条:41 次尝试,**26 验证(63%),扫描过滤去掉 7 → 可用 19 条(heat 7 / cool 6 / two 6)**;1,050 次调用,结算 864,978 token。
   并集 D0+定向(all)= **49 demo / 680 回合 / 15,138 token**;
