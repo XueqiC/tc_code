@@ -5310,3 +5310,17 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **为何打分放 rai 不放 hpg**:hpg 上没有 D0,评测 venv 里查不到 alfworld 包,要走通需多个未验证步骤——正是用户警告的"设定出错浪费时间"。
 
 - 2026-09-23 15:43 CDT **1min seed 2 已在 rai 训完**(`tc-alignment-taskeq/results/all87_1min_v2/seed-2/tokens-96490`),**待评测**。
+- 15:51 CDT **⚠ 抓到并修掉一个会让 20 个 cv 训练全部白排队的配置错误。**
+  20 份 cv 配置写 `training_seeds: [0]`,但按 token 终点注册的配方(`pi1_taskeq.registered_recipe`)**要求恰好 [0,1,2]**,
+  否则 preflight 报 `pre-registered pi1 recipe differs: training_seeds`。rai 实测:20 个 cv **全部被拒**,6 个最终训练通过。
+  **修法(无需重提)**:`training_seeds` 只是声明的注册集合,实际训哪个 seed 由 `--seed` 决定、训练不变;排队作业**启动时才读配置**。
+  已在 rai 与 hpg 两边把 20 份改成 [0,1,2];核对 hpg 的 `pi1.py`/`pi1_taskeq.py`/`alf_pi1_train.py` 与 rai **逐字节相同**、修后配置也相同 → rai 通过即 hpg 通过。
+  **若等冒烟格 18:24 起来才发现,20 个作业会在排了约三小时后同时失败。**
+- 15:51 CDT **补上用户设计里缺的 NLL 候选集(nll1)**:原先 cv 只有 rnd1/2/3、1alt、1min,没有"1 个 NLL 选择组合"。
+  nll1 = 修正版 SmartAD 的选中集(`tc-alignment-baselines/results/smartad_selection_rai/selection.json` 的 `chosen_candidate_id` → `package_id`),
+  30/32 任务有选择(2 题无已验证候选,与其他集相同)。按 `cv4_folds.json` 建 4 个折银行,折规模 22/24/22/22 **与 1alt 各折完全一致**;
+  源 = `tc-alignment-baselines/artifacts/alfworld_k32_smartad_all87`(与其他 cv 银行同源)。
+  首次构建因模板里的 `training_seeds: [0]` 失败,残缺目录已移入 `tc-alignment-taskeq/_trash/`;修模板后重建成功,4 个配置 load_config 均通过。
+  银行已同步 hpg 并按 sealed manifest 哈希核对无误,**NLL 4 折训练 = 43122595–43122598**。
+  **nll1 的最终成绩无需再训**:它就是修正版 SmartAD(mike 88 / rai 83 / hpg 81)。**待核**:修正版 SmartAD 的训练集是否与本 nll1 逐包相同。
+  **现在 hpg 共 30 个作业**:cv 24 个(6 候选集 × 4 折)+ 最终 6 个(RND1/2/3 × 2 seed)。
