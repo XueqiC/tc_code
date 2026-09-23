@@ -462,3 +462,5 @@ hpg_PER2_s2 80 (2-per-task, mike-trained; mike 86, rai 83) | hpg_REPALL_s1 78 | 
 hpg_REPALL_s0 77  -> REPAIR ALL on hpg 77/78/82 = 79.0 (A 78.0; ADD ALL 78.7; mike 78.3)  (12:35 CDT)
 hpg_SADTC_s0 82 | hpg_SADTC_s1 79 | hpg_SADTC_s2 75  -> faithful SAD on hpg 82/79/75 = 78.7 (mike 79.3)  (12:51 CDT)
 hpg_SMWN_s0 81   faithful SmartAD (turn_mean + weight_norm) seed 0 on hpg = 81 (mike 88, rai 83) -> the corrected SmartAD's +5 is mike-specific; on hpg/rai it sits at base, while ALT1 holds on all three platforms
+rai_ALT1MINs1t96490   85/140   min-id one-alternative bank, TRAINING SEED 1 (rai GPU2), 96,490-token endpoint, rai (13:05 CDT)  [s0 read 77 on rai / 78 on mike; ALT1 rai 88/87/86; A rai 74/74/77]
+-> the identity control is NOT uniformly poor: seed 0 77, seed 1 85 (training-seed spread 8, as B's 77/78/85). The 11:13 reading "selection matters, 1min reads like plain CE" was premature; verdict waits for seed 2 (GPU1, ~14:00) and the mike/hpg readings of s1/s2. Current: 1min rai mean 81.0 (2 seeds) vs ALT1 87.0 (3 seeds) vs A 75.0.
