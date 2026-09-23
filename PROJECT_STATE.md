@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### hpg:认证通过但服务端立即关会话(shell 与 sftp 都被拒)(2026-09-23 00:08 CDT)
+- 用户交互 `ssh hpg`:有 "Last login … from 172.16.80.4" + MOTD,随后 "Shared connection to localhost closed";经主连接 `/bin/true` 立即 exit 1;
+  **sftp 子系统也 "Connection closed"** → hpg 服务端在认证后拒绝开任何会话(账号状态/政策重签/HOME 配额,或隧道指向的 login 节点异常)。
+- 已请用户从 Mac 直连 `ssh xc25.fsu@hpg.rc.ufl.edu` 区分"节点"还是"账号";账号问题需 UFRC/OnDemand。**hpg 暂不可用,主表统一重评暂按 mike。**
+- 主连接 socket(用户的)仍在,探测 btq0jo0e7 只复用不新建。
+
 ### hpg 主连接建了但远端不给 shell;疑似需要 GatorLink 密码(2026-09-23 00:05 CDT)
 - 用户 `ssh -fN -M hpg`:第一次因我的探测脚本抢建的假 socket 报 "ControlSocket already exists, disabling multiplexing";清掉后第二次建起 socket,
   但经主连接跑任何命令(含 /bin/true)都即时 exit 1("Received exit status from master 1"),即主连接未真正认证。用户说从未设过 Duo →
