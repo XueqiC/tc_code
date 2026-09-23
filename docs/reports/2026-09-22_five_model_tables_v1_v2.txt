@@ -460,3 +460,5 @@ hpg_B_s0 83 | hpg_B_s1 80 | hpg_B_s2 86  -> B on hpg 83/80/86 = 83.0 (A 78.0; ba
 hpg_LE50_s0 75 | hpg_LE50_s1 76 | hpg_LE50_s2 73  -> filtered D0 (sweep<=0.5, token-matched) on hpg 75/76/73 = 74.7 (A 78.0; mike 75.7): the filter is below plain D0 on both platforms  (12:19 CDT)
 hpg_PER2_s2 80 (2-per-task, mike-trained; mike 86, rai 83) | hpg_REPALL_s1 78 | hpg_REPALL_s2 82 (REPAIR ALL on hpg s1/s2; mike 83/80)  (12:35 CDT)
 hpg_REPALL_s0 77  -> REPAIR ALL on hpg 77/78/82 = 79.0 (A 78.0; ADD ALL 78.7; mike 78.3)  (12:35 CDT)
+hpg_SADTC_s0 82 | hpg_SADTC_s1 79 | hpg_SADTC_s2 75  -> faithful SAD on hpg 82/79/75 = 78.7 (mike 79.3)  (12:51 CDT)
+hpg_SMWN_s0 81   faithful SmartAD (turn_mean + weight_norm) seed 0 on hpg = 81 (mike 88, rai 83) -> the corrected SmartAD's +5 is mike-specific; on hpg/rai it sits at base, while ALT1 holds on all three platforms
