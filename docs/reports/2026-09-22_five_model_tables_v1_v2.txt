@@ -339,3 +339,4 @@ mike_Ds1t96490     79/140  all87 task-equal (D), seed 1, 96,490-token endpoint (
 mike_Cs0t28947     72/140  all87 plain CE, seed 0, 28,947-token low endpoint (04:04 CDT)
 mike_Ds0t28947     64/140  all87 task-equal, seed 0, 28,947-token low endpoint (04:04 CDT)
 mike_Ds1t28947     64/140  all87 task-equal, seed 1, 28,947-token low endpoint (04:04 CDT)  -> low endpoints (< 1 pass of the 87 bank) sit 10-20 below base on every arm, as with D0's 3-pass dip
+paired vs mike base78 (diag_mike): D s1 +0.71 (27 disc 13/14, p=1.0; clean 16/15, cool 7/8, two 13/11; never-won 5 / always-won -10 / flaky 14) | low endpoints: C s0 -4.29 (p=0.38; cool 2/8, heat 3/8), D s0 -10.00 (p=0.016; cool 2/8, heat 1/8), D s1 -10.00 (p=0.020; cool 3/8, heat 3/8) -> the early-dose dip is a cool/heat collapse, clean is intact
