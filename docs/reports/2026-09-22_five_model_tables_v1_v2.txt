@@ -209,3 +209,6 @@ mike_SADTCs1p3     66/140  SAD trajectory-cost curriculum (faithful), seed 1, pa
 mike_As1t28947     72/140  plain CE reference (A), seed 1, 28,947-token endpoint (22:06 CDT)  [B s1 same endpoint: 73]
 mike_As2t28947     64/140  plain CE reference (A), seed 2, 28,947-token endpoint (22:21 CDT)
 mike_Cs1t96490     78/140  all87 plain CE (C), seed 1, 96,490-token endpoint (22:21 CDT)  [mike base 78 / 82]
+mike_Cs2t96490     83/140  all87 plain CE (C), seed 2, 96,490-token endpoint (22:37 CDT)
+mike_Ds0t96490     85/140  all87 task-equal CE (D), seed 0, 96,490-token endpoint (22:37 CDT)
+mike_Ds2t96490     85/140  all87 task-equal CE (D), seed 2, 96,490-token endpoint (22:37 CDT)  [mike base 78 / 82]
