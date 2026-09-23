@@ -246,3 +246,10 @@ mike_REPALLs0t28947 68/140  D0+all REPAIR (REPAIR arm), seed 0, 28,947-token end
 mike_SMWNs0p3      68/140  SmartAD weight_norm + turn_mean selection (faithful), seed 0, pass-3 (23:55 CDT)
 mike_SMWNs2p3      71/140  SmartAD weight_norm (faithful), seed 2, pass-3 (23:55 CDT)
 rai_Bs1t96490     78/140   (D0 task-equal, seed 1; rai A refs 74/74/77 -> +4 vs A s1)  (00:04 CDT)
+
+##### T5. rai platform four-cell, 96,490-token endpoint (added 00:40 CDT; rai base 84 / rep 81; paired vs first base run 84)
+A plain CE (D0)        s0 74  s1 74  s2 77   mean 75.0
+B task-equal (D0)      s0 77  s1 78  s2 85   mean 80.0   (+5.0 vs A; B s2 85 = +0.71 vs base, 29 disc 14/15)
+C plain CE (all87)     s0 --  s1 80  s2 83   mean 81.5   (+6.5 vs A on s1/s2)
+D task-equal (all87)   s0 83  s1 --  s2 82   mean 82.5   (+7.5 vs A on s0/s2; D vs C same seed: s2 -1)
+-> material (30 -> 87 demos): +6..+8; objective (task-equal): +5 on D0, ~+1 on all87 (saturating near base). All cells <= base 84 on rai. Per-seed spread up to 8 tasks.
