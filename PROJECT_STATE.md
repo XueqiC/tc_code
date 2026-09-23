@@ -5385,3 +5385,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 16:21 CDT **ETA 更正**:`squeue --start` 是 hpg 本地 **EDT**。cv-1alt-f0 预计 18:27 EDT = **17:27 CDT**,其余 ~18:30 CDT 起。先前写的"~18:24 CDT"是误把 EDT 当 CDT。
 - 16:21 CDT **判读脚本就绪**:`tc-alignment-baselines/tools/cv_verdict.py --cv <cv_fold_score --json 输出> --finals <"hpg_TAG_sK N" 行>`;
   用合成数据核对:n=6 时 ρ=0.829 → p=0.029、ρ=0.771 → p=0.051,与 §4.1 表一致。hpg 现共 **49 个**流水线作业(pipeline_ids.txt 已补)。
+- 16:26 CDT **1min s2 在 hpg 上评 = 72/140**(43123236,rai 训练的 adapter,sha 7bcd1aa1 与 rai 逐字节一致);**同一权重 rai = 83**。
+  配对:rai-only 12、hpg-only 1(McNemar 精确 p≈0.003),12 局在 hpg 上**全部是 40 步 cap-out**;62/140 局命令序列完全相同,分叉多在第 10 回合以后。
+  此前 5 个在两平台都评过的检查点合计 rai 423 vs hpg 422 → **没有整体平台偏置**,但**脆弱的检查点单靠数值差异就能差 11 局**。
+  **对方法判读的含义**:单平台的 140 局成绩除 seed 噪声外还带"检查点×平台"噪声 → 判读加一个次要读数 = hpg 与 rai 的均值。
+- 16:26 CDT **rai 第二平台评测调度器**:`tc-alignment-baselines/tools/final_eval_dispatch_rai.sh`,**pid 367571**,日志 `logs/final_eval_dispatch_rai.log`。
+  hpg 训完(日志出现 TRAIN_DONE results/all87_<c>/seed-<s>)→ 拉 adapter → CPU 合并 → `alf_eval_served_rai.sh` 140 局 → 删合并;**一次只评一个**(盘 169G 空)。
+  GPU:`FE_GPUS="2 4"`,GPU2 等链 v3(pid 74323)退出、GPU4 等链 #8(pid 4150908)退出后才用;GPU1/3 归 cv 打分调度器,GPU0 留同学。
+  标签 `rai_{RND1..3,NLL1,ALT1HT,ALT1MINHT}_s{0,1}`,标记 `data/final_eval/<tag>/.done`(内容 = 成功数)。
+  `cv_verdict.py --platform both` = 每个 seed 取 hpg 与 rai 的均值(已用合成数据测过)。
