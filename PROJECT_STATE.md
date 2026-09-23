@@ -561,6 +561,14 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### mike 首批高端点:D(87 条示范 + 任务等权)85 / 85,高于 mike base;rai 平台 SmartAD s2 = 80、B s0 = 77(2026-09-22 22:42 CDT)
+- **mike(同平台,base 78 / 82)**:C s1 78、C s2 83;**D s0 85、D s2 85**(对 base78 +5.0,p≈0.25;对 base82 +2.1;D vs C 同 seed +1.4,p=0.84)。
+  按类型 D:clean 18–19/15、two 15–17/11、**cool 7/8(没有 cool 崩塌)**、heat 6–9/8。87 条银行在同 token(2.9 遍)下更少重复每条 demo,可能因此少放大扫描习惯。
+  待 A(纯 CE)与 B 的高端点齐后再给四格判断;单格都不显著(不一致题 21–29)。
+- **rai 平台**(base 84/81,CE 参照 74/74):SmartAD s2 p10 = **80**(clean 21/16);B s0 t96490 = **77**(比 rai CE 参照高 3)。
+  同一 checkpoint 在 rai 比 mike 读低约 5 题的位移仍在——比较只在平台内做。
+- GPU1 又空出:拉 mike 训好的 D s0/s2、C s2 与 A s2 到 rai 评(rai 平台复核"D > A/C"是否跨平台成立)。表 §T2/§W。
+
 ### B s0 训完并送 mike;SmartAD s2(原版)训完;GPU1 空出转评测(2026-09-22 22:10 CDT)
 - rai B s0(D0 任务等权)184 步完成,两端点已推到 mike(同步循环修好:先 mkdir 再 rsync,经 smic);GPU4 链转 C s0。
 - rai SmartAD seed2(原版协议,rai 选例)206 步 / 107,800 token 完成(22:04);pass-3 已推 mike `smartad_orig_v2`,pass-10 下轮推;

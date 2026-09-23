@@ -220,3 +220,6 @@ mike_Cs2t96490     83    +3.57  21( 8/13) 0.38 | +0.71  23(11/12) 1.00 | 10  28 
 mike_Ds0t96490     85    +5.00  27(10/17) 0.25 | +2.14  25(11/14) 0.69 |  8  28  18  7  9 15
 mike_Ds2t96490     85    +5.00  29(11/18) 0.27 | +2.14  29(13/16) 0.71 |  7  29  19  7  6 17
 D vs C, seed 2, paired: +1.43 (24 disc 11/13, p=0.84).  Note: on the all87 bank at 96,490 tokens (2.9 passes) the cool collapse is absent (cool 5-7 vs 8) and pick_two gains (+2..+6).
+##### T2. rai platform additions (added 22:42 CDT; rai base 84 / rep 81; rai CE refs 74 / 74)
+rai_smartads2p10  80/140  -2.86 vs base (22 disc 13/9, p=0.52) | clean 21/16, heat 3/8 | SmartAD original protocol, seed 2 (rai selection = LONI selection 32/32)
+rai_Bs0t96490     77/140  -5.00 vs base (27 disc 17/10, p=0.25) | vs rai CE refs 74/74: +3 | D0 task-equal, seed 0, 96,490 tokens
