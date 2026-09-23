@@ -275,3 +275,6 @@ mike_ADD1s2t96490  76/140  D0+ADD 1:1, seed 2, 96,490-token endpoint (01:43 CDT)
 mike_ADDALLs1t96490 83/140  D0+all ADD (50 demos), seed 1, 96,490-token endpoint (01:43 CDT)  [ADDALL s0 75; mike base 78/82/84]
 mike_ADDALLs2t96490 80/140  D0+all ADD (50 demos), seed 2, 96,490-token endpoint (01:59 CDT)  -> ADDALL three seeds 75/83/80 = 79.3
 mike_SMWNs0p10     88/140  SmartAD faithful (turn-mean selection + weight-norm loss), seed 0, pass-10 (01:59 CDT)  [mike base 78/82/84 mean 81.3]
+##### Y. faithful SmartAD s0 pass-10 on mike (added 02:02 CDT)
+mike_SMWNs0p10  88/140 | vs base78 +7.14 (28 disc 9/19, p=0.087) | vs base84 +2.86 (28 disc 12/16, p=0.57) | clean 20/15, two 16/11, cool 8/8, heat 5/8
+  never-won wins 10/47, always-won losses 6/70 (fewest of any cell), flaky wins 14/23.  One seed; s1/s2 pending.
