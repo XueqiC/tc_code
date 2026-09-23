@@ -1451,7 +1451,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **GPU2 链 v2**(`rai_chain_gpu2_material_v2.sh`):1alt s1(step 181/183)结束后训 **1min s1**(身份对照第二 seed);链 #8 加 ALT1MINs1。
 - ETA:1alt s1 ≈08:15 → mike/rai 评 ≈09:00;2per s0(GPU1 119/184)≈10:20;2per s1 ≈11:30;1min s0 ≈12:00;1min s1 ≈13:30 CDT。
 - **TARG 三种子 mike 84/78/84 = 82.0**(A +4.3,base +0.7,与 C 同水平,低于 ALT1)→ 定向采购不比"换轨迹"更有效。1alt s1 训完(08:07 CDT),链 #8 正在 rai 评 ALT1 s1;GPU2 链 v2 转训 1min s1。
-- 待定:ALT1 s1(mike/rai)、1min s0/s1、PER2 s0/s1;若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
+- **rai ALT1 s1 = 87**(A s1 74)→ ALT1 rai 88/87、mike 86/87:四格全同向 +7~+14。hpg 于 08:36 CDT 恢复(密钥直登,无 Duo);开始搭 B200 统一重评。
+- 待定:ALT1 s1(mike)、ALT1 s2(rai)、1min s0/s1、PER2 s0/s1;若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
