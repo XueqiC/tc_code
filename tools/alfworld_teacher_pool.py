@@ -25,7 +25,7 @@ import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'src'))
+sys.path[:0] = [str(ROOT / 'src'), str(ROOT)]
 
 import appworld_teacher
 from bfas.adapter import Demo, TeacherEpisode, Turn
@@ -462,10 +462,12 @@ def attempt_material(row, calls, limits, method, prefix_memory):
 
 
 def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper,
-                budget=None, method='plain', candidates_per_task=1, prefix_memory=None):
+                budget=None, method='plain', candidates_per_task=1, prefix_memory=None,
+                sweep_filter=False, material_metadata=None, usable_only=False, new_output=False):
     """Rebuild solely from paid ledger rows; verification makes no teacher calls."""
     payloads, records, resets = {}, [], {}
     calls = budget.calls if budget is not None else {}
+    from tools.alf_bank_subset import sweep_statistics, training_support
     candidate_sets = {tid: dict(attempts=[], verified_candidates=0, distinct_verified_candidates=0,
                                distinct_verified_command_trajectories=0)
                       for tid in support['historical_task_ids']}
@@ -500,34 +502,60 @@ def export_pool(source, out, ledger, support, *, stepper_factory=real_stepper,
         )
         if budget is not None:
             payload['collection'] = attempt_material(row, calls, budget.limits, method, prefix_memory)
+        if material_metadata is not None:
+            payload['repair'] = deepcopy(material_metadata[tid])
         if candidate:
             payload = verify_package(payload, request, stepper_factory(request), render, support=ALFWorldSupport(support))
             if payload['status'] == 'usable':
                 resets[tid] = payload['verification']['states'][0]
+        if sweep_filter:
+            stats = sweep_statistics(payload.get('repair', {}).get('teacher_commands', commands))
+            payload['sweep'] = stats
+            if stats['sweep_filtered']:
+                payload.update(status='unavailable', unavailable_reason='sweep_filtered', behaviors=[])
+        if usable_only or sweep_filter:
+            archive_dir = ledger.parent / 'packages'
+            archive_dir.mkdir(exist_ok=True)
+            write_json(archive_dir / f'{q}.json', payload)
         payloads[q] = payload
         records.append(bank.public_record(q, request))
         if budget is not None:
             candidate_sets[tid]['attempts'].append(dict(query_id=q, status=payload['status'],
-                collection_verified=row['verified'], **payload['collection']))
+                collection_verified=row['verified'], unavailable_reason=payload['unavailable_reason'],
+                **({'sweep': payload['sweep']} if sweep_filter else {}), **payload['collection']))
+    if usable_only:
+        payloads = {q: p for q, p in payloads.items() if p['status'] == 'usable'}
+        records = [r for r in records if r.spec.query_id in payloads]
+        support = training_support(support, payloads)
     archive = bank.Archive(records, payloads, {}, [], dict(source_files=[dict(path=str(ledger), sha256=ledger_hash)]))
     out = Path(out)
+    if new_output and (out.exists() or out.is_symlink()):
+        raise FileExistsError(out)
     with tempfile.TemporaryDirectory(prefix=f'.{out.name}-', dir=out.parent) as temporary:
         target = Path(temporary) / 'pool'
         seal_verified_bank(target, archive, support, payloads, resets)
         audit_verified_bank(target)
-        previous = out.with_name(out.name + '.previous')
-        if previous.exists():
-            shutil.rmtree(previous)
-        if out.exists():
-            out.rename(previous)
-        try:
-            target.rename(out)
-        except BaseException:
+        if new_output:
+            out.mkdir(exist_ok=False)
+            try:
+                target.replace(out)
+            except BaseException:
+                out.rmdir()
+                raise
+        else:
+            previous = out.with_name(out.name + '.previous')
             if previous.exists():
-                previous.rename(out)
-            raise
-        if previous.exists():
-            shutil.rmtree(previous)
+                shutil.rmtree(previous)
+            if out.exists():
+                out.rename(previous)
+            try:
+                target.rename(out)
+            except BaseException:
+                if previous.exists():
+                    previous.rename(out)
+                raise
+            if previous.exists():
+                shutil.rmtree(previous)
     if budget is not None:
         for tid, group in candidate_sets.items():
             candidates = [a for a in group['attempts'] if a['status'] == 'usable']
@@ -565,13 +593,17 @@ def recover_attempts(ledger, budget, teacher):
             if (task_id, attempt_index) in seen:
                 continue
             usage = budget.usage(task_id, attempt_index)
+            call = next(c for c in budget.calls.values()
+                        if (c['task_id'], c['attempt_index']) == (task_id, attempt_index))
             append_episode(ledger, task_id=task_id, teacher=teacher, attempt_index=attempt_index,
-                           temperature=0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE,
+                           temperature=call.get('sampling', {}).get('requested_temperature',
+                               0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE),
                            verified=False, tokens_spent=usage['completion_tokens'], usage=usage)
 
 
 def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, stepper_factory,
-                 rate_limit_retries, candidates_per_task=1, attempts_per_task=ATTEMPTS, prefix_memory=None):
+                 rate_limit_retries, candidates_per_task=1, attempts_per_task=ATTEMPTS, prefix_memory=None,
+                 attempt_start=0, temperature=None):
     # The collection lock excludes other collectors, including the old sequential
     # command. Queue ownership excludes duplicate tasks within this collector.
     # Only accounting holds the ledger lock; each worker owns its adapter/stepper.
@@ -596,8 +628,8 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
     for task_id in support['historical_task_ids']:
         previous = [r for r in rows if r['task_id'] == task_id]
         verified = sum(r['verified'] for r in previous)
-        first_attempt = max((r['attempt_index'] for r in previous), default=-1) + 1
-        if (first_attempt < attempts_per_task and verified < candidates_per_task
+        first_attempt = max((r['attempt_index'] for r in previous), default=attempt_start - 1) + 1
+        if (first_attempt < attempt_start + attempts_per_task and verified < candidates_per_task
                 and not (prefix_memory is not None and prefix_memory.missing_paid_response(task_id, budget.calls))):
             tasks.put((task_id, first_attempt, verified))
 
@@ -611,10 +643,11 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
                 except Empty:
                     return
                 try:
-                    for attempt_index in range(first_attempt, attempts_per_task):
+                    for attempt_index in range(first_attempt, attempt_start + attempts_per_task):
                         pace()
-                        temperature = 0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE
-                        episode = adapter.teacher_episode(task_id, attempt_index, temperature)
+                        sampled_temperature = temperature if temperature is not None else (
+                            0.0 if attempt_index == 0 else SAMPLING_TEMPERATURE)
+                        episode = adapter.teacher_episode(task_id, attempt_index, sampled_temperature)
                         if (not isinstance(episode, TeacherEpisode) or episode.task_id != task_id
                                 or bool(episode.verified) != (episode.demo is not None)):
                             raise ValueError('invalid teacher episode')
@@ -623,7 +656,7 @@ def acquire_pool(ledger, support, budget, teacher, *, workers, adapter_factory, 
                         usage = budget.usage(task_id, attempt_index)
                         with _purchase_lock(ledger):
                             append_episode(ledger, task_id=task_id, teacher=teacher,
-                                           attempt_index=attempt_index, temperature=temperature,
+                                           attempt_index=attempt_index, temperature=sampled_temperature,
                                            verified=episode.verified, demo=episode.demo,
                                            tokens_spent=usage['completion_tokens'], usage=usage)
                         verified += episode.verified
@@ -669,8 +702,14 @@ def collection_options(method, candidates_per_task, attempts_per_task):
 
 def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper, adapter_factory=PoolAdapter,
             rate_limit_retries=appworld_teacher.RATE_LIMIT_RETRIES, method='plain',
-            candidates_per_task=1, attempts_per_task=None):
+            candidates_per_task=1, attempts_per_task=None, attempt_start=0, temperature=None,
+            sweep_filter=False):
     attempts_per_task = collection_options(method, candidates_per_task, attempts_per_task)
+    import math
+    if type(attempt_start) is not int or attempt_start < 0:
+        raise ValueError('attempt_start must be a non-negative integer')
+    if temperature is not None and (not math.isfinite(temperature) or temperature < 0):
+        raise ValueError('temperature must be finite and non-negative')
     if type(workers) is not int or workers < 1:
         raise ValueError('workers must be a positive integer')
     if type(rate_limit_retries) is not int or rate_limit_retries < 0:
@@ -689,6 +728,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
                         support_manifest=support['manifest_hash'], teacher=teacher, service_tier='flex',
                         attempts=attempts_per_task, method=method, candidates_per_task=candidates_per_task,
                         prices=[str(limits.usd_in), str(limits.usd_out), str(limits.usd_cached)])
+        if attempt_start or temperature is not None or sweep_filter:
+            identity.update(attempt_start=attempt_start, temperature=temperature, sweep_filter=sweep_filter)
         identity_path = directory / 'identity.json'
         if identity_path.exists():
             if json.loads(identity_path.read_text()) != identity:
@@ -704,13 +745,15 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
         seen = set()
         for row in rows:
             key = row['task_id'], row['attempt_index']
-            if (key in seen or key[0] not in support['historical_task_ids'] or not 0 <= key[1] < attempts_per_task
+            if (key in seen or key[0] not in support['historical_task_ids']
+                    or not attempt_start <= key[1] < attempt_start + attempts_per_task
                     or row['teacher'] != teacher):
                 raise ValueError('ledger contains duplicate/outside task attempts or a different teacher')
             seen.add(key)
         budget = Budget(directory / 'usage.jsonl', limits)
         for call in budget.calls.values():
-            if call['task_id'] not in support['historical_task_ids'] or not 0 <= call['attempt_index'] < attempts_per_task:
+            if (call['task_id'] not in support['historical_task_ids'] or
+                    not attempt_start <= call['attempt_index'] < attempt_start + attempts_per_task):
                 raise ValueError('request accounting contains an outside task attempt')
         prefix_memory = PrefixMemory(directory) if method == 'kang-ftp' else None
         if prefix_memory is not None:
@@ -731,7 +774,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
             acquire_pool(ledger, support, budget, teacher, workers=workers,
                          adapter_factory=adapter_factory, stepper_factory=stepper_factory,
                          rate_limit_retries=rate_limit_retries, candidates_per_task=candidates_per_task,
-                         attempts_per_task=attempts_per_task, prefix_memory=prefix_memory)
+                         attempts_per_task=attempts_per_task, prefix_memory=prefix_memory,
+                         attempt_start=attempt_start, temperature=temperature)
         except AcquisitionStopped as exc:
             reason = str(exc)
         except KeyboardInterrupt:
@@ -740,7 +784,8 @@ def collect(source, out, *, limits=None, workers=1, stepper_factory=real_stepper
             recover_attempts(ledger, budget, teacher)
             with _purchase_lock(ledger):
                 verified = export_pool(source, out, ledger, support, stepper_factory=stepper_factory,
-                    budget=budget, method=method, candidates_per_task=candidates_per_task, prefix_memory=prefix_memory)
+                    budget=budget, method=method, candidates_per_task=candidates_per_task,
+                    prefix_memory=prefix_memory, sweep_filter=sweep_filter)
         usage = budget.usage()
         groups = json.loads((directory / 'candidate_sets.json').read_text())['tasks']
         per_task = {tid: {k: v for k, v in group.items() if k != 'attempts'} for tid, group in groups.items()}
@@ -784,6 +829,9 @@ def main(argv=None):
                         help='SmartAD verified trajectory target; duplicates are retained (default: 1)')
     parser.add_argument('--attempts-per-task', type=int,
                         help='total trajectory attempt cap per task (default: 3 * candidates-per-task)')
+    parser.add_argument('--attempt-start', type=int, default=0, help='first attempt index in this new collection')
+    parser.add_argument('--temperature', type=float, help='explicit temperature for every trajectory attempt')
+    parser.add_argument('--sweep-filter', action='store_true', help='mark sweep share > 0.5 unusable at export')
     parser.add_argument('--workers', type=int, default=1,
                         help='concurrent episodes, each with its own environment process (default: 1)')
     parser.add_argument('--rate-limit-retries', type=int, default=appworld_teacher.RATE_LIMIT_RETRIES,
@@ -805,7 +853,8 @@ def main(argv=None):
         parser.error(str(exc))
     collect(args.source, args.out, limits=limits, workers=args.workers,
             rate_limit_retries=args.rate_limit_retries, method=args.method,
-            candidates_per_task=args.candidates_per_task, attempts_per_task=args.attempts_per_task)
+            candidates_per_task=args.candidates_per_task, attempts_per_task=args.attempts_per_task,
+            attempt_start=args.attempt_start, temperature=args.temperature, sweep_filter=args.sweep_filter)
 
 
 if __name__ == '__main__':
