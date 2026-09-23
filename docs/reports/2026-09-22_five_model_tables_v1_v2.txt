@@ -235,3 +235,10 @@ rai_Ds2t96490     82/140   (all87 task-equal, seed 2)  -> +8 over the rai plain-
 mike_ADD1s2t28947  68/140  D0+ADD 1:1 (ADD arm), seed 2, 28,947-token endpoint (23:24 CDT)
 mike_Bs0t28947     69/140  D0 task-equal (B), seed 0, 28,947-token endpoint (23:24 CDT)
 mike_Bs0t96490     75/140  D0 task-equal (B), seed 0, 96,490-token endpoint (23:24 CDT)  [mike base 78 / 82; rai read 77 vs rai CE 74/74]
+
+##### T4. rai platform four-cell so far (added 23:50 CDT; rai base 84 / rep 81)
+A plain CE (D0)        s0 74  s1 74  s2 77   mean 75.0
+B task-equal (D0)      s0 77                  (+3 vs A s0)
+C plain CE (all87)     s2 83                  (+6 vs A s2)
+D task-equal (all87)   s0 83  s2 82           (+9 / +5 vs A same seed);  D vs C (s2): -1
+SmartAD original s2 80.  -> on rai the gain follows the all87 material (C ~ D ~ base), not the task-equal objective (B ~ A+3, D ~ C).
