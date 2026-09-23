@@ -5253,6 +5253,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `ssh xueqic@smic.hpc.lsu.edu 'cd /ddnA/work/xueqic/hq && python3 diag_mike.py mike_base <tags…>'`(逐题配对 + 按类型)。
 - **重启后要重挂的监视(会话级)**:① 每 15 分钟**经 mike 本机**(smic 已登录超限)轮询新完成的 mike 评测(去重文件 scratchpad `mike_eval_reported.txt`;09-23 03:50 起);② rai 链的 run 标签完成检查
   (`tc-alignment-vllm/runs/<tag>-*/finalise.log`);③ LONI 余额每 30 分钟(`ssh loni balance`,>300 SU 即可再提作业);④ mike 登录重试(加 SMORIG 到评测循环)。
+- **hpg B200 统一重评(09-23 起)**:树 `/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment-vllm`;`slurm/submit_all.sh [max] [qos]` 按 `adapters/<TAG>/lora` 批量提交(去重 `slurm/submitted.txt`);结果 `runs/hpg_<TAG>-<job>/finalise.log`;
+  只跑 google/gemma-4-12B-it + 我们的 LoRA(用户 09-23 指令:hpg 上不跑任何中国模型)。重启后重挂 hpg 结果轮询(同 mike 轮询逻辑,去重文件 scratchpad `hpg_eval_reported.txt`)。
 - **手提评测(循环不管)**:原版基线 8 格已提 mike 861843–861850(SMORIG s0/s1、SADORIG s0/1/2、KANG s0/1/2;adapter 在 `/ddnA/work/xueqic/hq/tc-alf-orig/results/`);
   rai 侧同 8 格由 GPU4 链 #7 `rai_chain_gpu4_orig_baselines.sh`(等链 #6 内层 3371417 退出)完成。评测结果标签 mike_/rai_<TAG>p10。
 - **口径**:成本只用 alfworld_cost 口径;时间只从 date 读;pkill -f 不得自匹配(杀与启分两次 ssh);rai 评完即删 merged_v2 里的合并模型(盘 99%)。
