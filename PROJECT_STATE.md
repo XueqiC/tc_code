@@ -5410,3 +5410,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   `python3 tools/cv_verdict.py --cv data/cv_score/cv.json --finals data/cv_score/finals.txt --bank-tokens artifacts/cv_bank_tokens_full.txt [--platform hpg|rai|both] [--train-platform hpg|rai|mixed]`。
   **补充统计已预先登记**(方法文档 §3.1 / §4.2,均在任何 cv 分之前):留出平均步数、四折排序一致性(Kendall W)、"选更短银行"零成本对手。
   **剂量隐患**:cv 模型每条示范 9.3–14.1 遍,最终模型 7.8–9.0 遍(同一 96,490 终点、银行小 1/4);本轮不改,判读时考虑。
+- 16:38 CDT **MIX1 s0(诊断臂)= 86/140(rai)**。ALT1 rai 88/87/86 = 87.0,1min rai 77/85/83。
+  分类型:heat 6/16(ALT1 5/5/5、1min 6/7/6)——换进 1min 的 4 条 heat 轨迹,heat 升到 1min 的水平(+1 局,16 局里是噪声量级);
+  但 cool 8(ALT1 9–10)、look 9 略降,**总分无净增益**;与 ALT1s0 配对 7 vs 9(p=0.80)。
+  **按预先写好的读法 = "≈ ALT1 → heat 那 4 条无关"**:轨迹质量没有表现出可按类型拆分、可拼接的结构。MIX1 s1(GPU2)待出。**是诊断,不是方法**(用了评测类型信息)。
