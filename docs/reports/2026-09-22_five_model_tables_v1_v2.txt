@@ -270,3 +270,4 @@ mike_SMORIGs2p10    84   |  9 |  8 | 13
 mike_LE50s1t96490   77   |  8 | 13 | 12
 mike_ADDALLs0t96490 75   |  6 | 10 |  9
 -> every trained cell wins 5-10 tasks base never wins and loses 6-13 tasks base always wins; the net is ~0, the totals differ mainly through the 23 flaky tasks.
+mike_ADD1s1t96490  76/140  D0+ADD-DEMO 1:1 (37 demos, 12.9k tok/pass), seed 1, 96,490-token endpoint (01:28 CDT)  [mike base 78/82/84]
