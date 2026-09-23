@@ -5394,3 +5394,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   GPU:`FE_GPUS="2 4"`,GPU2 等链 v3(pid 74323)退出、GPU4 等链 #8(pid 4150908)退出后才用;GPU1/3 归 cv 打分调度器,GPU0 留同学。
   标签 `rai_{RND1..3,NLL1,ALT1HT,ALT1MINHT}_s{0,1}`,标记 `data/final_eval/<tag>/.done`(内容 = 成功数)。
   `cv_verdict.py --platform both` = 每个 seed 取 hpg 与 rai 的均值(已用合成数据测过)。
+- 16:29 CDT **✅ hpg 首个训练 cv-1alt-f0(43121909)16:19 CDT 起跑,GPU 节点上 preflight ok**,训练 **~65 s/step**(rai 约 88)→ 184 步 ≈ 3.3 h,**离 5 h walltime 余 ~1.6 h**。
+  前几步 loss 1.61/1.76/2.01,与 rai 同配方的开局相当。预计 ~19:40 CDT 训完 → 调度器拉回 → rai GPU1/3 打分。
+  **全部 32 个训练配置的 preflight 在 hpg 登录节点通过**(24 cv + 8 最终含 seed 1,bzj0rdu9e:ok=32 bad=0);相关银行都不是软链接。
+  **瓶颈说明**:rai 上训练进程单核 CPU 100%、GPU 利用率 ~17%(A100 / Ada / RTX PRO Blackwell 都是 ~88 s/step)→ 是逐行 forward+autograd 的 CPU/launch 开销;
+  hpg 是 Intel Emerald Rapids(rai 是 EPYC 7763)。py-spy 因 ptrace_scope=1 无法附加(不用 sudo)。
+- 16:29 CDT **排队估计(squeue --start,按满 5 h walltime 算,偏保守)**:cv rnd/1alt/1min 17:27–19:36 CDT 起;fin-rnd 20:10–22:20 CDT 起;
+  cv-nll1 22:23–22:47 CDT 起;fin-nll1 / fin-1alt/1min(HT)~23:40–23:57 CDT 起 → **完整判读最迟约 03:30 CDT**;实际多半更早(我们的作业只跑 ~3.3 h)。
+  组账户 yd24f.fsu 内存 496/500G 满,不可用;部门账户卡在 Priority(物理节点被全校占着),不是我们的 QOS 上限。
+- 16:29 CDT MIX1 s0 评测在 rai GPU4 跑(16:27 起,链 #8)。**新观察器 bn4kg1l9k**(`scratchpad/watch_events.sh`,事件去重 `seen.txt`):
+  流水线作业失败 / 新 cv 分 / rai 第二平台评测完成 / MIX1 结果 / hpg 评测完成,任一出现即唤醒。
