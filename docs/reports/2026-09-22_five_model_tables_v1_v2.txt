@@ -382,3 +382,11 @@ rai_KANGs0p10     81/140   Kang FTP (LONI-trained), seed 0, pass-10, rai platfor
 paired vs mike base78 (diag_mike), pass-10: Kang s0 +7.14 (26 disc 8/18, p=0.076; clean 20/15, two 15/11; never-won 11 / always-won -6) | Kang s1 -3.57 (p=0.47; cool 4/8, heat 3/8) | Kang s2 +2.86 | SmartAD orig s0 +2.86 (p=0.57) | s1 +2.86 (p=0.52; clean 19/15) | SAD orig s0 -5.00 (p=0.23; cool 4/8 heat 4/8) | s1 +5.00 (p=0.25; heat 10/8) | s2 +0.71 | SAD faithful s1 0.00 | s2 -2.14
 -> every original/faithful baseline cell has p >= 0.076; the only p < 0.1 cells tonight are Kang s0 (+7.14, 0.076), faithful SmartAD s0/s1 (+7.14/+7.86, 0.087/0.071)
 mike_TARGs0t28947 69 | mike_TARGs1t28947 67   D0 + coverage-targeted union (49 demos), 28,947-token low endpoints (05:40 CDT); high endpoints follow when the d0targeted trainings finish
+
+##### T10. material-split arms, 96,490-token endpoint, mike (added 05:56 CDT; mike base 81.3; A = D0 plain CE 79/76/78 = 77.7; C = all87 86/78/83 = 82.3)
+mike_ALT1s0t96490  86/140   all87 1-alternative-per-task (30 demos = D0's size, but a different trajectory per task), seed 0 (rai GPU1-trained)
+mike_ALT1s2t96490  87/140   same, seed 2 (mike-trained)   -> ALT1 s0/s2 86/87 vs A s0/s2 79/78: +7/+9 with the SAME demo count and update count
+mike_PER2s2t96490  86/140   all87 2-per-task (55 demos), seed 2  -> PER2 s2 86 vs C s2 83 / A s2 78
+mike_TARGs2t28947  71/140   D0 + targeted union, seed 2, low endpoint
+-> reading: "87 > 30" is not (only) more material; a different single trajectory per task already gives the whole gain -> trajectory IDENTITY (which trajectory per task) is the lever, D0's specific trajectories are the poor set
+rai_KANGs1p10      70/140   Kang FTP (LONI-trained), seed 1, pass-10, rai platform (05:56 CDT)  -> Kang on rai s0/s1 81/70
