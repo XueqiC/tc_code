@@ -5324,3 +5324,15 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   银行已同步 hpg 并按 sealed manifest 哈希核对无误,**NLL 4 折训练 = 43122595–43122598**。
   **nll1 的最终成绩无需再训**:它就是修正版 SmartAD(mike 88 / rai 83 / hpg 81)。**待核**:修正版 SmartAD 的训练集是否与本 nll1 逐包相同。
   **现在 hpg 共 30 个作业**:cv 24 个(6 候选集 × 4 折)+ 最终 6 个(RND1/2/3 × 2 seed)。
+- 15:55 CDT **打分链冒烟通过**:ALT1 s0 全量模型在自身 32 个支持任务上 23/31(一格仍在跑),分折 7/8、5/7、5/8、6/8。
+  这是**样本内上限**(该模型训练时见过全部 32 题);cv 模型在留出折上的分数应低于此。单模型耗时约 15 分钟(合并 2 + 起服务 4 + 顺序 rollout ~9)。
+- 15:55 CDT **打分放 rai,不放 hpg(定案)**:hpg 评测 venv 里 `import alfworld` 直接 ModuleNotFoundError,hpg 跑 ALFWorld 的路径不明,
+  逆向它正是用户警告的"设定出错浪费时间";rai 的链已实测可用。
+- 15:55 CDT **RUNNING(rai,nohup,重启 Claude 不受影响)**:打分调度器 **pid 323307** = `tc-alignment-baselines/tools/cv_score_dispatch.sh`,
+  `CV_GPUS="1"`(先只用 GPU1;GPU2/3/4 的链还有后续步骤,等链退出再扩,避免在两步之间抢卡)。日志 `logs/cv_score_dispatch.log`(只记事件)。
+  逻辑:每 5 分钟查 hpg 上 `results/cv_<c>_f<k>/seed-0/tokens-96490/lora`,**先拉到临时目录、完整后再原子移入**(防半截权重),
+  在空闲 GPU 上跑 `score_support_rai.sh`;标记 `.launched/.scored/.failed`,失败只报一次、**不静默重试**。
+  **顺序**:1alt、1min、nll1(最终成绩已知)优先 → 最早拿到"cv 分能否预测最终成绩"的对照;再 rnd1/2/3。
+  **汇总**:`python3 tools/cv_fold_score.py --folds artifacts/cv4_folds.json --runs data/cv_score`
+  (需给 nll1 加 `--sets`,冻结的 cv4_folds.json 的 sets 里没有 nll1——**不改冻结文件**)。
+- 15:55 CDT **扩卡时机**:MIX1 seed0(GPU3)约 16:00–16:30 训完、seed1(GPU2)约 18:00;链退出后再加 GPU 到调度器(重启调度器是幂等的)。
