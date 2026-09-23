@@ -343,3 +343,7 @@ paired vs mike base78 (diag_mike): D s1 +0.71 (27 disc 13/14, p=1.0; clean 16/15
 mike_LE50s0t96490  76/140  filtered D0 (sweep<=0.5) token-matched, seed 0, 96,490-token endpoint (04:19 CDT)  -> LE50 high on mike s0/s1 76/77 (rai s1 80): filter alone stays at or below base
 mike_LE50s0t28947  66/140  filtered D0 token-matched, seed 0, 28,947-token low endpoint (04:19 CDT)
 mike_ADD1s0t28947  69/140  D0 + ADD 1:1, seed 0, 28,947-token low endpoint (04:19 CDT)
+mike_ADD1s0t96490  76/140  D0 + ADD-DEMO 1:1 (37 demos), seed 0, 96,490-token endpoint (04:35 CDT)  -> ADD 1:1 three seeds on mike 76/76/76 = 76.0 (ADD ALL 79.3; REPAIR ALL 78.3)
+low endpoints (28,947 tok) on mike: ADD1 s1 62, ADDALL s1 63, ADDALL s2 61, REPALL s1 69 (04:35 CDT)
+rai_SMORIGs0p10   84/140   SmartAD ORIGINAL protocol (LONI-trained), seed 0, pass-10, rai platform (04:35 CDT)  [rai base 84/81]
+rai_SMORIGs1p10   80/140   SmartAD ORIGINAL protocol (LONI-trained), seed 1, pass-10, rai platform  -> original SmartAD on rai 84/80/80 = 81.3 (LONI 82/82/-; mike s2 84); faithful SmartAD rai s0 = 83

@@ -1400,6 +1400,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   正在拉回 rai `tc-alignment-baselines/results/<name>/seed-k/pass-10/lora`(`tools/pull_orig_adapters_from_loni.sh`,日志 `logs/pull_orig_adapters.log`);
   拉回后 ① 推到 mike 手提 8 格评测(SMORIG s0/s1、SADORIG s0/s1/s2、KANG s0/s1/s2,排在现队列之后),② rai GPU4 在链 #6 退出后评同 8 格(链 #7)。
   目的:用户要求"所有方法同一评测配置"——五个模型三种子在 mike 与 rai 两平台各有完整表。
+- mike ADD1 s0 高端点 76 → ADD 1:1 三种子 76/76/76 = 76.0(ADD ALL 79.3、REPAIR ALL 78.3);低端点 ADD1 s1 62、ADDALL s1/s2 63/61、REPALL s1 69。
+- rai 链 #7:原版 SmartAD s0/s1 在 rai 读 84/80(rai 三种子 84/80/80 = 81.3,at base);忠实版 s0 在 rai 83。
 - mike LE50 s0 高端点 76(LE50 高端点 s0/s1 76/77,过滤本身不增益);低端点 ADD1 s0 69、LE50 s0 66。
 - mike D s1 = 79 → **D 三种子 mike 85/79/85 = 83.0**(rai 81.0);D−C 同 seed mike +0.7 / rai −1.3 → task-equal 在 87 条上两平台都≈0。低端点 C s0 72、D s0/s1 64/64。
 - rai_ADDALLs1t96490 = 86(mike 83)→ ADD-DEMO ALL s1 是唯一在两平台都 ≥ base 的格;链 #6 结束(03:58 CDT),链 #7 开始评原版基线 8 格。
