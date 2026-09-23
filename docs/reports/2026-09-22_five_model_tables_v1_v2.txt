@@ -426,3 +426,4 @@ rai_all87_1alts0t96490  83/140   REPEAT of ALT1 s0 on rai (GPU1 chain #9, same a
 rai_PER2s0t96490   89/140   all87 2-per-task (59 demos), seed 0 (rai GPU1-trained), 96,490-token endpoint, rai platform (10:02 CDT)  [rai base 84/81; A s0 74; ALT1 s0 88/83]  -> highest rai cell; 2-per-task s0 rai 89 vs mike s2 86
 hpg_A_s2 78  -> plain CE three seeds on hpg 80/76/78 = 78.0 (base 81.0: -3.0)  (10:10 CDT)
 hpg_ALT1_s0 85 | hpg_ALT1_s1 85   ALT1 on hpg (A s0/s1 80/76: +5/+9; base 81.0: +4)  -> the identity effect holds on a third platform
+rai_all87_2pers0t96490  84/140   REPEAT of PER2 s0 on rai (GPU1 chain #9; GPU4 chain #8 read 89)  -> same-checkpoint repeats on rai: ALT1 s0 88/83, PER2 s0 89/84 (both pairs differ by 5, GPU4 runs higher; treat as repeat noise, report both) (10:13 CDT)

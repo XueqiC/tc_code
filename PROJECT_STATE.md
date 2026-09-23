@@ -1456,7 +1456,7 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **用户 08:50 定标尺:baseline = 原版应用(不是修正版),只要明显好于原版即可** → ALT1 已明显高于原版 SmartAD 82.7 / Kang 81.0 / SAD 78.3(mike)与 81.3 / 76.7 / 76.0(rai)。修正版 SmartAD 降为分析/消融项。
 - hpg 首批结果(09:55 CDT):base 83/82/78 = 81.0;A s0/s1 80/76(mike 79/76,rai 74/74)。rai 上 ALT1 s0 的**重复测量** 83(GPU1 链 #9)vs 88(GPU4 链 #8):同 checkpoint 同平台重复散布 5 题。2per s0 训完(09:37),链 #8 / 链 #9 将在 rai 评它。
 - **hpg**:A 80/76/78 = 78.0(base 81.0);**ALT1 s0/s1 = 85/85**(+5/+9 vs 同 seed A)→ 身份效应在第三个平台成立。
-- **rai PER2 s0 = 89**(rai 全夜最高;A s0 74)。
+- **rai PER2 s0 = 89**(链 #8,GPU4)/ **84**(链 #9,GPU1 重复):同 checkpoint 重复差 5;ALT1 s0 也是 88/83。GPU1 链 #9 结束(10:09 CDT),GPU1 空出 → 链 #10:评 ALT1 s2、PER2 s2(mike 训)于 rai,再训 1min s2,再评。
 - 待定:ALT1 s2(rai)、1min s0/s1、PER2 s0(mike)/s1;若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
 
