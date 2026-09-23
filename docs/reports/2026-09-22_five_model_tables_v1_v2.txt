@@ -207,3 +207,5 @@ mike_Bs1t28947     73/140  D0 task-equal CE, seed 1, 28,947-token endpoint (19:4
 mike_LE50s1t28947  70/140  filtered D0 (sweep<=0.5) plain CE, seed 1, 28,947-token endpoint (19:47 CDT)
 mike_SADTCs1p3     66/140  SAD trajectory-cost curriculum (faithful), seed 1, pass-3 (20:04 CDT)
 mike_As1t28947     72/140  plain CE reference (A), seed 1, 28,947-token endpoint (22:06 CDT)  [B s1 same endpoint: 73]
+mike_As2t28947     64/140  plain CE reference (A), seed 2, 28,947-token endpoint (22:21 CDT)
+mike_Cs1t96490     78/140  all87 plain CE (C), seed 1, 96,490-token endpoint (22:21 CDT)  [mike base 78 / 82]
