@@ -457,3 +457,4 @@ hpg_ADD1_s1 76 | hpg_ADD1_s2 79  -> ADD 1:1 on hpg 77/76/79 = 77.3 (mike 76.0)  
 hpg_ADDALL_s0 77 | hpg_ADDALL_s1 79   ADD ALL on hpg s0/s1 (mike 75/83)
 hpg cells as of 09-23 12:02 CDT: ADD1_s0 77; ADD1_s1 76; ADD1_s2 79; ADDALL_s0 77; ADDALL_s1 79; ADDALL_s2 80; ALT1_s0 85; ALT1_s1 85; ALT1_s2 88; A_s0 80; A_s1 76; A_s2 78; B_s0 83; CEMIKE_s0 79; C_s0 85; C_s1 84; C_s2 83; D_s0 85; D_s1 84; D_s2 81; KANG_s0 78; KANG_s1 74; KANG_s2 85; SADORIG_s0 69; SADORIG_s1 82; SADORIG_s2 76; SMORIG_s0 82; SMORIG_s1 80; SMORIG_s2 81; base 83; base_rep 82; base_rep2 78
 hpg_B_s0 83 | hpg_B_s1 80 | hpg_B_s2 86  -> B on hpg 83/80/86 = 83.0 (A 78.0; base 81.0) | hpg_ADDALL_s2 80 -> ADD ALL on hpg 77/79/80 = 78.7  (12:03 CDT)
+hpg_LE50_s0 75 | hpg_LE50_s1 76 | hpg_LE50_s2 73  -> filtered D0 (sweep<=0.5, token-matched) on hpg 75/76/73 = 74.7 (A 78.0; mike 75.7): the filter is below plain D0 on both platforms  (12:19 CDT)
