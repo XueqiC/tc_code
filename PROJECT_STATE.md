@@ -1423,7 +1423,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   规则判定:B>A 不成立(同 seed −4/+1/+3 = 0)、D>C 不成立(+0.7)→ **task-equal 不被支持**;C>A 成立(+4.7)→ **材料被支持**;C/D 比 base 高 1–1.7(在 base 三次 6 题的散布内)。
 - **rai(base 82.5)**:A 75.0 / B 80.0 / C 82.3 / D 81.0 → 同一因子结构:材料 +7.3;task-equal 只在 D0 上 +5、在 87 条上 −1.3。
 - 结论(两平台一致):**唯一被支持的方法因子是材料(每任务多条已验证教师轨迹)**;目标加权无普适增益;C/D 只回到 base。
-- rai 链 #7:SADORIG s0 = 74(LONI 77);低端点 A s0 68、REPALL s2 65。GPU1 1alt s0 step 170/184。
+- **忠实 SAD 三种子(mike)85/78/75 = 79.3(−2.0 vs base)**;忠实 SmartAD 86.3 仍是最强臂。pass-3:SADTC s0/s2 69/69、SMWN s1 67。
+- rai 链 #7:SADORIG s0/s1 = 74/79(LONI 77/–);低端点 A s0 68、REPALL s2 65。GPU1 1alt s0 step 170/184。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.

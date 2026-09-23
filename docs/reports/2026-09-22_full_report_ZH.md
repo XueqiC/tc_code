@@ -242,8 +242,8 @@ X2 掩码清点:D0 与 SmartAD n3 被误掩的教师 token 均为 0(无需重跑
 | 忠实版基线(mike,10 遍 / pass-10) | seed 0 | seed 1 | seed 2 | 均值 | vs mike base 81.3 |
 |---|---|---|---|---|---|
 | SmartAD(turn_mean 选例 + 除权重和) | **88** | **89** | 82 | **86.3 (61.7%)** | **+5.0 pp** |
-| SAD(轨迹代价课程,sad_sum) | 85 | __SADTC1__ | __SADTC2__ | __SADTC_MEAN__ | |
-| SmartAD 原版(token 均值选例,除 token 数) | (LONI 82) | (LONI 82) | 84 | 跨平台,待统一 | |
+| SAD(轨迹代价课程,sad_sum) | 85 | 78 | 75 | 79.3 (56.7%) | −2.0 pp |
+| SmartAD 原版(token 均值选例,除 token 数) | (LONI 82;rai 84) | (LONI 82;rai 80) | 84(rai 80) | mike 三 seed 见 §5.4.5 | |
 配对(vs base78):SmartAD 忠实版 s0 +7.14(p=0.087)、s1 +7.86(p=0.071)、s2 +2.86;类型上 clean +3~+5、two +2~+9、**cool 不掉(8/8)**;
 base 必赢题只丢 6–10、必输题赢 10–11——这是今晚最强的臂,而且是一个基线:方法要赢的门槛是 86 而不是 81。
 
