@@ -561,6 +561,12 @@ BFCL 生成器设计草案(待用户确认 a/b 两点):
 **SmartAD 为什么贵**:要每任务 **3–4 条已验证的正确轨迹**(N=4 按 12 次尝试 = 每任务 85.2k token,D0 的 4 倍)。
 采集侧必须**记录尝试数与去重后的候选数**——"要了 4 条只拿到 1 条不同的"本身就是要写进论文的结果,不能藏。
 
+### hpg 恢复但加了 Duo:公钥被接受后仍要求 keyboard-interactive(2026-09-22 23:58 CDT)
+- 隧道 localhost:2222 在,主机应答(OpenSSH 9.9,host key 匹配),`Server accepts key` 后仍 `Permission denied (keyboard-interactive)` → 维护后强制二次验证。
+- 处置:`~/.ssh/config` 的 `Host hpg` 加 `ControlMaster auto / ControlPath ~/.ssh/cm-hpg / ControlPersist yes`;请用户在 rai 上 `ssh -fN -M hpg` 过一次 Duo,
+  之后所有 `ssh hpg` 复用该主连接。监视 bea4smsd2 每 5 分钟探测,通了即探环境(/blue 树、venv、vLLM、模型快照)。
+- 计划:hpg 通后用 B200(一个 vLLM 版本)统一重评主表(base ×3、A/B/C/D、ADD/REPAIR、忠实基线、SmartAD 原版三 seed)。
+
 ### rai 同平台四格(部分):增益随 87 条材料走,不随任务等权走(2026-09-22 23:50 CDT)
 - rai(base 84/81):**A 74/74/77(均 75.0)**;B s0 77;**C s2 83;D s0/s2 83/82**;SmartAD 原版 s2 80。
   → C ≈ D ≈ base,比 A 高 6–9 题;B 只比 A 高 3;D vs C 同 seed −1。**按用户决策规则倾向"C 优于 A 而 B 无改善 → 收益主要来自材料"**;
