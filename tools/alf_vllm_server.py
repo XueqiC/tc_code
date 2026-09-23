@@ -93,6 +93,9 @@ def launch(args):
         "--dtype", "bfloat16", "--tensor-parallel-size", "1",
         "--max-model-len", str(args.max_context_tokens), "--generation-config", "vllm",
         "--no-enable-log-requests"]
+    # Optional headroom when another process holds part of the card (rai shared GPUs); default behaviour unchanged.
+    if os.environ.get("VLLM_GPU_MEMORY_UTILIZATION"):
+        command += ["--gpu-memory-utilization", os.environ["VLLM_GPU_MEMORY_UTILIZATION"]]
     def stopped(signum, frame):
         raise KeyboardInterrupt
     previous = {sig: signal.signal(sig, stopped) for sig in (signal.SIGINT, signal.SIGTERM)}
