@@ -1431,6 +1431,16 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
 - **忠实 SAD 三种子(mike)85/78/75 = 79.3(−2.0 vs base)**;忠实 SmartAD 86.3 仍是最强臂。pass-3:SADTC s0/s2 69/69、SMWN s1 67。
 - rai 链 #7:SADORIG s0/s1 = 74/79(LONI 77/–);低端点 A s0 68、REPALL s2 65。GPU1 1alt s0 step 170/184。
 
+
+### 06:01 CDT — 材料拆分臂:轨迹"身份"而非数量(mike;待 s1 与 rai 交叉核对)
+- **ALT1(每任务 1 条、与 D0 同样 30 条、但取 87 池里 id 最大的另一条轨迹)s0/s2 = 86/87**;A(D0)同 seed 79/78 → **+7/+9,示范数与更新数完全相同**;PER2 s2(2 条/任务,59 条)86;C(87 条)86/83。
+  → "87 条比 30 条好"不是数量:同样 30 条换一批轨迹就拿到全部增益;固定预算下 1 条/任务(≈8.5 遍)≥ 2 条/任务 ≥ 3 条/任务(C 82.3,每条只 2.9 遍)。
+- 它**不是**扫描占比/长度(D0 0.297 vs 1alt 0.318;12/29 任务统计完全相同),也**不是**"有无 THOUGHT"(D0 60% 回合带 thought,池 67%)。
+  D0 = 09-21 采集的 attempt 0;1alt = 09-22 SmartAD n3 采集的 attempt 1/2;同教师同 prompt 版本;11/29 任务命令序列相同但 thought 文本 0/11 相同。
+- 类型:ALT1 赢在 two(+5~+7)与 clean(+3~+4),cool 持平,**heat 丢 4/8**(两 seed 都是);赢必输题 11(所有臂最多)。
+- 这与忠实 SmartAD(从同一 87 池按逐回合 NLL 选 1 条/任务)86.3 同水平 → **SmartAD 的"选例"本身可能没贡献,贡献来自"从这个池里任取 1 条/任务"**;原版 SmartAD(token 均值选例)82.7 介于两者之间。
+- 待定:ALT1 s1(GPU2 训练中,≈09:00 CDT)、rai 上 ALT1 s0(链 #8);若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
