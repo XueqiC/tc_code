@@ -309,3 +309,8 @@ D task-equal (all87)   s0 83  s1 78  s2 82   mean 81.0   (+6.0 vs A; D-C same se
 -> rai verdict by the user's rules: B>A yes (+5.0), D>C no (-1.3) -> task-equal NOT supported as a general factor; C>A yes (+7.3) -> material supported; C/D reach base (82.5), not above.
 rai_SADTCs0p10    82/140   (SAD trajectory-cost curriculum, faithful, seed 0, pass-10; mike read 85)  -> at rai base
 rai_LE50s1t96490  80/140   (filtered D0 sweep<=0.5, token-matched 96,490, seed 1; mike read 77; rai le50 s1 10-pass = 72)  -> at base; filter alone still no gain
+rai_SMWNs0p10     83/140   (SmartAD faithful turn_mean+weight_norm, seed 0, pass-10; mike read 88)  -> at rai base 84/81; the mike +5 does not reproduce on rai (03:47 CDT)
+mike_Bs1t96490     77/140  D0 task-equal (B), seed 1, 96,490-token endpoint (03:48 CDT)  [mike base 78/82/84 = 81.3]
+mike_Bs2t96490     81/140  D0 task-equal (B), seed 2, 96,490-token endpoint (03:48 CDT)  -> B three seeds on mike 75/77/81 = 77.7 (rai 77/78/85 = 80.0)
+mike_PER2s2t28947  66/140  all87 2-per-task (55 demos), seed 2 (mike-trained), 28,947-token endpoint (03:48 CDT)
+mike_REPALLs2t96490 80/140  D0 + all usable REPAIR suffixes (seed 2: 5 suffixes), 96,490-token endpoint (03:48 CDT)  -> REPALL three seeds on mike 72/83/80 = 78.3 vs ADDALL 75/83/80 = 79.3 (equal-budget ADD-DEMO >= REPAIR; both at/below base)

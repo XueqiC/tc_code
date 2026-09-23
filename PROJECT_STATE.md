@@ -1402,6 +1402,16 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   目的:用户要求"所有方法同一评测配置"——五个模型三种子在 mike 与 rai 两平台各有完整表。
 - 训练进度:GPU1 all87_1alt s0 step 120/184(≈60 s/步,预计 04:40 CDT 完,随后 2per s0 ≈ 07:45,再 rai 评两端点);GPU3 le50 s2 预计 05:00 CDT 完。
 
+
+### 03:48 CDT — mike 新结果 + 一次误杀事故
+- mike:B s1 77、B s2 81 → **B 三种子 75/77/81 = 77.7**(mike base 81.3;rai 上 B = 80.0);REPALL s2 80 → **REPALL 72/83/80 = 78.3** vs ADDALL 75/83/80 = 79.3
+  → 等预算下 ADD-DEMO ≥ REPAIR,两者都不高于 base;PER2 s2 低端点 66。rai_SMWNs0p10 = 83(mike 读 88)→ 忠实 SmartAD 的 +5 在 rai 平台不复现。
+- **事故**:清理挂死的 smic ssh 时用 `pgrep -f "smic\.hpc"` 匹配到了命令文本里提到 smic 的**外层包装 shell**(GPU4 链 #6 的外层 3371415、mike 轮询、同步循环外层),
+  把它们杀了;内层脚本(3371417)幸存,但链 #7 因等待的 pid 消失而提前启动,已在合并阶段截停、删除半成品、改为等 3371417 后重启。
+  规则追加:**按模式找 pid 后必须逐个看 pstree 再杀**,包装 shell 的命令文本会包含任何提到的主机名。
+- smic 登录超限("logins exceed limit",三个重复的同步循环 + 探测会话所致):已杀两个重复循环(保留 3003390);mike 轮询改走 mike 本机(bqbk1628g 系列)。
+- 原版基线 adapter 推 mike:首次 rsync 因目标父目录不存在失败,已改 mkdir 后重推(`logs/push_orig_adapters_to_mike.log`);rai 链 #7(pid 3488082)等链 #6 内层退出后评 8 格。
+
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
 2. Awaiting the user's decisions after the night report: (a) KL-anchor test (rerun SFT/FIXSEG on r7_s200_ball without the 0.5·KL anchor, same batch as SmartAD); (b) feedback redesign then MECH/PERM; (c) move the mechanism line to ALFWorld; (d) seed 1 for arms and baselines.
