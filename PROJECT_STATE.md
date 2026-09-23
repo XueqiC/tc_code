@@ -1467,7 +1467,8 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   模板 `slurm/eval_b200.slurm`(1×B200,14 cpu,120 GB,1.5 h;`--export=ALL,ADAPTER=<lora dir>,EVAL_TAG=hpg_<TAG>`;ADAPTER 空 = base;合并用 `.venv`;跑完删合并模型)+ `slurm/eval_body.sh`(mike 同款)。
   基础模型 snapshot 经隧道 rsync 到 `tools/hf-cache/hub/models--google--gemma-4-12B-it`(≈19 MB/s,≈09:10 CDT 完);adapter 汇总在 rai `tc-alignment-vllm/adapters_hpg/<TAG>/lora`(rai 17 + adapters_mike 11 + 从 mike 拉 20,含 CEMIKE_s0 用于核对 mike 的 A 是否与 rai 的 pi1_k32_v2 同一 adapter)→ 推到 hpg `adapters/`。
 - 隧道在传输中断过一次(base 14/23 GB、adapter 20/47);带重试的续传脚本 09:07–09:13 CDT 传完(SNAPSHOT_OK,47 adapter)。首个冒烟 43091813 **失败**:hpg 的 vllm-serve venv 装的是 transformers 5.15.1,
-  vLLM 0.27.1 取 gemma-4 的 `head_dim` 触发 `AmbiguousGlobalPerLayerAttributeError`;已用 uv 把该 venv 的 transformers 钉回 **5.14.1**(与 rai/mike 一致),重提冒烟(监视 bxiyhoujq)。冒烟通过后按标签循环提交 ≈45 格(每格 ≈20 min,B200 可并行数取决于队列)。
+  vLLM 0.27.1 取 gemma-4 的 `head_dim` 触发 `AmbiguousGlobalPerLayerAttributeError`;已用 uv 把该 venv 的 transformers 钉回 **5.14.1**(与 rai/mike 一致)。**重提冒烟 43092260 通过:hpg_base = 83/140,14:53 分钟/格(B200)。**
+  09:40 CDT 提交第一批 24 格(43093595–43093618:base_rep×2、A/ALT1/SMORIG/SADORIG/KANG/C/D 各三 seed、CEMIKE s0);第二批 23 格(SMWN/SADTC/B/LE50/ADD1/ADDALL/REPALL/TARG/PER2 s2)待第一批消化后提交。hpg 结果轮询 bgy3w64vu(去重 scratchpad `hpg_eval_reported.txt`)。冒烟通过后按标签循环提交 ≈45 格(每格 ≈20 min,B200 可并行数取决于队列)。
 - 用户 08:40 问"是否已比 base 和 baseline 好":答"比 base 是(两平台四格同向 +4~+7),比修正版 SmartAD 还没有(追平 86.5 vs 86.3),1min 是分岔口"。
 - 用户 08:38:最后两个任务(1min s0/s1)跑完后要一份完整文档(做了什么/怎么做/具体结果);我答 ≈12:30 CDT 发主文档,≈14:00 补 1min s1 附录,hpg 表另发附录。
 
