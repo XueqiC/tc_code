@@ -242,3 +242,6 @@ B task-equal (D0)      s0 77                  (+3 vs A s0)
 C plain CE (all87)     s2 83                  (+6 vs A s2)
 D task-equal (all87)   s0 83  s2 82           (+9 / +5 vs A same seed);  D vs C (s2): -1
 SmartAD original s2 80.  -> on rai the gain follows the all87 material (C ~ D ~ base), not the task-equal objective (B ~ A+3, D ~ C).
+mike_REPALLs0t28947 68/140  D0+all REPAIR (REPAIR arm), seed 0, 28,947-token endpoint (23:55 CDT)
+mike_SMWNs0p3      68/140  SmartAD weight_norm + turn_mean selection (faithful), seed 0, pass-3 (23:55 CDT)
+mike_SMWNs2p3      71/140  SmartAD weight_norm (faithful), seed 2, pass-3 (23:55 CDT)
