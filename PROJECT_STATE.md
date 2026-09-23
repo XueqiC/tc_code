@@ -5372,3 +5372,16 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   MIX1 s1 在 GPU2 113/184,约 17:30–18:00 训完,链 v3 接着在 GPU2 自评。
 - 16:11 CDT hpg:**1min s2 评测 43123236 于 16:07 起跑**(c1006a-s5);其余 40 个 PD(Priority)。
   观察器 **b8lqa1xz1**:首个 cv-/fin- 训练**打出 `preflight ok`**、1min s2 评测结束、或任何流水线作业失败时唤醒。
+- 16:21 CDT **⚠ hpg 上从未跑过训练作业**(sacct 自 09-22 起只有 alf-eval,~15 分钟一个)。32 个训练会是 `tc-alignment/.venv`(torch 2.11+cu128 / tf 5.14.1 / peft 0.20)在 hpg 上的**首次训练**。
+  preflight 只用 CPU+tokenizer → **在 hpg 登录节点上用作业同一命令跑**(不给 --output,免得建出结果目录让真作业报"已存在"):
+  抽样 6 个(cv_1alt_f0 / cv_rnd1_f2 / cv_nll1_f1 / cv_1min_f3 / all87_rnd1 / all87_nll1)全过,token 终点 [28947, 96490]、银行 token 与 rai 一致;
+  其余 26 个在后台跑(bzj0rdu9e,日志 `tc-alf-taskeq/logs/loginnode_preflight/`)。**GPU 端**(B200 上的实际训练速度 vs 5h walltime)要等第一个作业起来才知道。
+- 16:21 CDT **修一个坑**:hpg 上 `artifacts/alfworld_k32_all87_1alt` 是指向 `../../tc-alignment-baselines/...` 的**悬空软链接**(hpg 没有该树);
+  已移入 `tc-alf-taskeq/_trash/`,换成 `rsync -L` 的实体拷贝,树哈希 fe4422d5be50e805 与 rai 一致,preflight 通过。
+- 16:21 CDT **训练平台对照(新提交)**:1alt / 1min 的最终模型原在 rai 训(torch 2.13/cu130),rnd / nll1 / 全部 cv 在 hpg B200 训(torch 2.11/cu128)→ 平台偏移会污染相关。
+  补提 hpg 训练:**fin-1alt-s0 43125268 → 评测 hpg_ALT1HT_s0 43125269;fin-1alt-s1 43125271 → 43125272;fin-1min-s0 43125274 → hpg_ALT1MINHT_s0 43125276;fin-1min-s1 43125277 → 43125279**
+  (`OUT=results/all87_<c>/seed-<s>`,afterok + kill-on-invalid-dep,已记入 submitted.txt)。
+  **主分析只用 hpg 训练的最终成绩**(`cv_verdict.py --train-platform hpg`,默认);rai 训练的作旁证 = 直接测出训练平台偏移。方法文档 §3.1 已记修订(仍在任何 cv 分之前)。
+- 16:21 CDT **ETA 更正**:`squeue --start` 是 hpg 本地 **EDT**。cv-1alt-f0 预计 18:27 EDT = **17:27 CDT**,其余 ~18:30 CDT 起。先前写的"~18:24 CDT"是误把 EDT 当 CDT。
+- 16:21 CDT **判读脚本就绪**:`tc-alignment-baselines/tools/cv_verdict.py --cv <cv_fold_score --json 输出> --finals <"hpg_TAG_sK N" 行>`;
+  用合成数据核对:n=6 时 ρ=0.829 → p=0.029、ρ=0.771 → p=0.051,与 §4.1 表一致。hpg 现共 **49 个**流水线作业(pipeline_ids.txt 已补)。
