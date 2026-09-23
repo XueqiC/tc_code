@@ -1445,7 +1445,12 @@ GPU3(**A100 80G**)= `c2745427…` **都会被拒**。**一个 campaign 不许跨
   配置 baselines `configs/rtd/pi1_alfworld_k32_all87_1min.yaml`(a0a14cae)+ taskeq `_1min_tok.yaml`(d41cedfb))。GPU3 链 v3(`rai_chain_gpu3_material_v3.sh`,pid 3683667)等 le50 s2 后先训 1min s0,再 2per s1;
   链 #8(重启,pid 3683759)在 rai 评 ALT1MIN s0。读法:1min s0 ≈ 86 → "池里任取 1 条/任务"成立,SmartAD 选例无贡献;≈ 78 → 具体轨迹重要,选例有意义。
 - **rai 交叉核对:ALT1 s0 = 88**(rai A s0 74,base 84/81)→ 身份效应跨平台复现(+14),rai 全夜最高格。
-- 待定:ALT1 s1(GPU2 训练中,≈09:00 CDT)、1min s0(GPU3)、PER2 s0(GPU1);若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
+- mike TARG s0 高端点 84(A s0 79,+5;定向采购臂第一个高端点)。
+- **GPU3 实况(08:05 CDT)**:链 v2 在被杀前已启动 2per s1 训练(pid 3637571,孤儿,step 103/184),与链 v3 的 1min s0(pid 3684261,step 83/184)共用 A100;
+  为避免链 v3 结束后重复训 2per s1,已杀链 v3 的 bash(3683667),两个训练进程继续跑;端点由同步循环推 mike / 链 #8 在 rai 评。
+- **GPU2 链 v2**(`rai_chain_gpu2_material_v2.sh`):1alt s1(step 181/183)结束后训 **1min s1**(身份对照第二 seed);链 #8 加 ALT1MINs1。
+- ETA:1alt s1 ≈08:15 → mike/rai 评 ≈09:00;2per s0(GPU1 119/184)≈10:20;2per s1 ≈11:30;1min s0 ≈12:00;1min s1 ≈13:30 CDT。
+- 待定:ALT1 s1、1min s0/s1、PER2 s0/s1、TARG s1/s2 高端点;若 s1 与 rai 同向,材料身份就是今晚最强的方法因子,需要解释"哪些轨迹好"(18 个命令序列不同的任务 + thought 文本差异)。
 
 ## ⟳ RESTART CHECKLIST (2026-09-15 08:35 CDT)
 1. No jobs running (LONI queue empty; rai has none of ours). No monitors needed.
