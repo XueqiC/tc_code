@@ -5545,3 +5545,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **部署到独立 hpg 树 `tc-alignment-hqk32-tvd`**(主 K=32 评测排队中、用旧树;新代码改了共享评测文件,不在它们底下替换)。登录节点 preflight:4 个折 + 全量剂量全过。
   作业 43169315–43169343:4 个折训练(SFT、排除折 f、seed 0,存 1/3/5/10 遍)→ 16 个支持题打分(每折 8 题,EM 求和)+ 4 个 base 打分;
   全量 SFT seed 0 存 1/3/5/10 遍(43169339)+ 4 个 dev-500 评测 = HotpotQA 测试端剂量曲线。
+- 02:28 CDT **HotpotQA K=8/16 曲线已提交**(主 hqk32 树):{sft,smartad,sad} × K{8,16} × seed{0,1} = 12 训练 + 12 个 dev-500 评测(43169387–43169410)。
+  收集器 `tools/collect_hotpotqa.sh`(两棵 hpg 树的 dev metrics.json 与支持折 summary.json)。
