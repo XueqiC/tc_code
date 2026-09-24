@@ -5512,3 +5512,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   hpg 上 `alfworld_k32_smartad_all87` 也是悬空软链接 → 已移入 _trash、换实体拷贝(树哈希 c96f7fa8 一致)。
   作业:**cv-pool-f0..3 = 43167575–78**;**fin-pool-s0/s1 = 43167579 / 43167581**(评测 hpg_POOLHT_s0/s1 = 43167580 / 43167582,4 核)。
   打分:新调度器副本 `cv_score_dispatch_ep2.sh`(CV_ORDER 可配)两个实例(pool 96,490 与 pool 28,947 低优先级);`cv_verdict` 认 POOL / C 标签。论文候选族已改为 7 个(tc-paper 已推)。
+- 01:56 CDT **K 曲线 SmartAD 补上**:Codex #4 的窄修把路径按 "tc-alignment-baselines" 切,hpg 树名是 tc-alf-kcurve → 仍失败;我改成按 src/|tools/ 锚定,
+  又查出**唯一剩下的差异是库版本**(选例在 rai torch 2.13 上打分,hpg 是 2.11+cu128)→ 比较时 versions 也忽略(选例是冻结数据;训练 manifest 自记版本),哈希照比。
+  baselines f9438ef9 + 58286d4b(测试含"不同树名 + 不同 torch 通过、改哈希仍失败",45 过)。hpg preflight 过 → **k{8,16}-smartad-s{0,1} = 43167923/25/27/29**(评测 24/26/28/30)。
+  ⚠ f9438ef9 那次我没等测试结果就提交了(旧参数用例失败),随即修测试、58286d4b 起改为测试通过才提交。
+  hpg 计算节点**能上网**(net-test 作业:Wikipedia HTTP 302,0.74 s)→ HotpotQA 评测可在 hpg 跑。
