@@ -5441,3 +5441,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 20:01 CDT 目前 cv 分:1alt f0 8/8,rnd1 f0 7/8(单折不解读);rnd1 f1 在 GPU1 打。
 - 20:01 CDT **用户问"打败 baseline 了吗"**,已答:判读未出;hpg 3 seed:原版 SmartAD 81.0 / Kang 79.0 / SAD 75.7 / base 81.0,
   ALT1 材料 86.0(+5 局,统计上未分开),但 ALT1 是任意 id 挑法、不是方法选出的;1min 78.7;全 87 条 CE 84.0。
+- 21:37 CDT **⚠ hpg ControlMaster 断了**(`ssh -O check hpg`:socket 不存在;新连接 "Permission denied (keyboard-interactive)" = 需要 Duo)。
+  19:56 后调度器就没再拉到东西(其 ssh 静默失败)。按规则不循环重试:**已停 cv 打分调度器(565416)、第二平台评测调度器(620593)、观察器 b9ixeiu5x**;
+  rai 的 RT 训练链(618764/618765,不碰 hpg)照跑,rnd1/rnd2 69/184 步。已请用户在 rai 上 `ssh -fN -M hpg` 批 Duo。
+  **恢复后**:`cd tc-alignment-baselines && CV_GPUS="1 3" nohup bash tools/cv_score_dispatch.sh >> logs/cv_score_dispatch.log 2>&1 &`;
+  `FE_BLOCK="2:618765 4:618764" nohup bash tools/final_eval_dispatch_rai.sh >> logs/final_eval_dispatch_rai.log 2>&1 &`;重挂 scratchpad/watch_events.sh。
+  cv 分 3/24 折:1alt f0 8/8,rnd1 f0 7/8、f1 3/8。
