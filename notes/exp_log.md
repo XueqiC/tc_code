@@ -1051,3 +1051,4 @@ LO finals complete | 6 one-per-task selections at 28,947 tok, hpg-trained/evalua
 POOLHT s0/s1 | full pool 87 demos, 96,490 tok, hpg-trained | hpg | 85/83 (C 85/84/83) | runs/hpg_POOLHT_s*
 HQ SAD K32 | SAD 10 passes dev-500 | hpg | 0.416/0.404/0.416 = 41.2±0.7 | hqk32/results/hotpotqa_k32_eval/sad_k32_s*
 POOLHTLO s0/s1 | full pool 28,947 tok (0.87 passes) | hpg | 73/70 = 71.5 | runs/hpg_POOLHTLO_s*
+HQ SMARTAD-orig K32 | SmartAD 3 fresh candidates/question, NLL select, 10 passes | hpg | 0.420/0.420/0.424 = 42.1±0.2 | hqk32/results/hotpotqa_k32_eval/smartado_k32_s*
