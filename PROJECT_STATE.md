@@ -5666,3 +5666,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   封银行:smartad 51 包、kang 18 包;hpg 主树 artifacts/ 哈希一致;hpg 预检过(kang K32 62 行 10 遍 35,920 token 66 步;smartad 175 候选行待 NLL 选择)。
   **提交**(hqk32 主树,scripts/hotpotqa_k32_train_bank_hpg.slurm):SmartAD/Kang 原版 K32 s0–2、K16/K8 s0–1(Nice 300)+ dev-500 评测 = 43199061–88。
 - 10:32 CDT **HotpotQA SFT K32 s1 10 遍 dev EM = 0.412**(s0 0.396)。
+- 10:37 CDT 用户:GPU0 不用留,可以用。→ **K8 s1 小 K 对照挪到 rai GPU0**(chain rai_chain_smallk_dose.sh 8 1 0,训完 rai 内评 + sync_rai_adapters_hpg_eval.sh
+  → hpg B200 评测 hpg_SMALLK8CE_t*_s1);hpg 上排队的 smallk-k8-s1 43190780 + 评测 81–84 已取消。hpg B200 分区拥挤(部门账户仅 7 卡在跑,44 节点被预留)。
+  s0 的 rai 训练也会同步到 hpg 评(hpg_SMALLK{8,16}CE_t*_s0),全池剂量 rai s1 同(hpg_DOSEPOOL_e*_s1)。
