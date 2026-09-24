@@ -1048,3 +1048,4 @@ K8/K16 SMARTAD s0/s1 | SmartAD original 10 passes | hpg | K8 79/79=79.0; K16 69/
 CVDOSE base support | untrained student on 32 support tasks (token 0) | rai GPU4 | 22/32 (folds 8/4/4/6), mean steps 22.25 | baselines/data/cvdose_score/base_g4
 HQ SFT K32 | SFT 10 passes dev-500 | hpg | EM 0.396/0.412/0.414 = 40.7±1.0; 3 passes s0 0.392 | hqk32/results/hotpotqa_k32_eval/sft_k32_s*_p*
 LO finals complete | 6 one-per-task selections at 28,947 tok, hpg-trained/evaluated, 2 runs | hpg | 1min 66/71, nll1 66/66, 1alt 72/76, rnd3 69/71, rnd2 69/71, rnd1 66/65; all below 96,490 and below base 81.0 | runs/hpg_*LO_s*
+POOLHT s0/s1 | full pool 87 demos, 96,490 tok, hpg-trained | hpg | 85/83 (C 85/84/83) | runs/hpg_POOLHT_s*

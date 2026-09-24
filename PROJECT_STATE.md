@@ -5692,3 +5692,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   ETA(CDT):dose-1alt/rnd1 ~13:30 训完;fin-pool s0/s1 已到 182/183;hpg smallk-k16-s1 ~14:50、dose-pool-s0 与 cvdose-pool f0/f1 ~18:10(f2/f3 排队);
   rai K8 s0 / K16 s0 ~14:45,K8 s1(GPU0)~16:00,全池剂量 rai s1(GPU4)~20:00。
 - 12:28 CDT HotpotQA **SAD K32 s0 dev EM = 0.416**(F1 0.538;s1/s2 在跑,凑齐 3 个再填表)。
+- 12:35 CDT **全池 96,490 hpg 训练复验 POOLHT s0/s1 = 85/83**,与 C(85/84/83)一致 → 全池 SFT 在 96,490 共 5 个 run 83–85(均值 84.0,base 81.0)。
