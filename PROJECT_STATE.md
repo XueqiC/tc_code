@@ -5541,3 +5541,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   先 base 冒烟(必须 134 局才继续),再 A / C / SMORIG / SADORIG / KANG × 3 seed(用 `tc-alignment-vllm/adapters_hpg/`,即 hpg seen 列同一批权重);整列同一 GPU 型号(RTX PRO 6000 Blackwell)。
   rai 与 hpg 的 unseen 冻结哈希一致(3b1b77c0)。第二平台评测调度器改为只用 GPU2(pid 1286257,FE_GPUS="2"),GPU4 让给 unseen。
   hpg 上的 unseen 冒烟(43168183)保留作跨平台核对。
+- 02:27 CDT **HotpotQA 上的 TVD(只选剂量)已提交**:Codex #6 交付并审过、提交(hqk32 2bc01b3f;335 测试;改动对 dev-500 默认路径是纯增量)。
+  **部署到独立 hpg 树 `tc-alignment-hqk32-tvd`**(主 K=32 评测排队中、用旧树;新代码改了共享评测文件,不在它们底下替换)。登录节点 preflight:4 个折 + 全量剂量全过。
+  作业 43169315–43169343:4 个折训练(SFT、排除折 f、seed 0,存 1/3/5/10 遍)→ 16 个支持题打分(每折 8 题,EM 求和)+ 4 个 base 打分;
+  全量 SFT seed 0 存 1/3/5/10 遍(43169339)+ 4 个 dev-500 评测 = HotpotQA 测试端剂量曲线。
