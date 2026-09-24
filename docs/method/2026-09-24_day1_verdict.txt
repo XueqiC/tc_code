@@ -1,0 +1,22 @@
+eval platform hpg, training platform hpg, seeds [0, 1]; candidates with a complete cv score AND every seed's final: 6
+
+set     cv/32  cv SD   final per seed (of 140)          mean(seeds [0, 1])
+1min       23    2.5   s0=73  s1=81                     77.0
+nll1       22    2.6   s0=81  s1=84                     82.5
+1alt       21    2.7   s0=83  s1=90                     86.5
+rnd3       21    2.7   s0=82  s1=81                     81.5
+rnd2       20    2.7   s0=76  s1=75                     75.5
+rnd1       19    2.8   s0=85  s1=87                     86.0
+
+Spearman rho = -0.174, one-sided exact permutation p = 0.6389 (n = 6, 720 permutations)
+Pearson r (cv score vs final mean) = -0.344  [supplementary]
+
+Q1 random-set spread: finals rnd1 86.0, rnd2 75.5, rnd3 81.5; SD across random sets 5.27 vs pooled seed SD 3.27 (a mean of 2 seeds has SD ~2.31)
+Q2/Q3 cv-selected set(s): 1min (cv 23/32) -> final 77.0; mean random 81.0; nll1 82.5; best final 86.5 (regret 9.5)
+
+[supp] held-out mean steps (fail = 40; lower = better) vs final: Spearman +0.486, one-sided p = 0.1778
+[supp] fold agreement on candidate ranking: Kendall W = 0.164 over 4 folds x 6 sets, permutation p = 0.5452  (W = 0: folds disagree; 1: identical ranking)
+[supp] best set per fold: f0: 1alt; f1: 1alt/1min; f2: 1min/nll1/rnd2; f3: rnd3
+[supp] trivial rival: shorter bank vs final Spearman +0.714 (one-sided p = 0.0681); cv score vs shorter bank +0.145  (if the rival matches cv, cv adds nothing over a free rule)
+
+VERDICT (pre-registered rule): NO_RELATION
