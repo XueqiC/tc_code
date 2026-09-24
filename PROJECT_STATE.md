@@ -5643,3 +5643,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   ALFWorld 不重跑,只改措辞;可选 SAD 全池 ablation;等用户确认改论文。
 - 10:10 CDT hpg 新数(seen 140):**K16 Kang 74/71 = 72.5**、**K16 SAD 65/67 = 66.0**、**ALT1HT 3 遍 s1 = 76**(3 遍 72/76 = 74.0 vs 10 遍 83/90 = 86.5)。
   K 曲线(hpg,base 81.0):K8 CE 69.5 / Kang 61.5 / SAD 67.0;K16 CE 63.5 / Kang 72.5 / SAD 66.0;SmartAD K8/K16 在跑。
+- 10:12 CDT **用户发重构意见**(Agent_Distillation_Paper_Restructure_20260924_ZH.md,inbox 1790262718469-...md):只保留 few-shot 设定,删预算/黑盒限制,
+  TVD = 固定材料 + 选训练量,实验 5.1–5.6,Table 1 去 token 列,新 Table 2(选择策略)/ Table 3(敏感性),附录 A–G。
+  → 10:40 CDT **论文重构完成并推送**(tc-paper 9c2773a):标题 Transfer-Validated Few-Shot Agent Distillation,匿名页眉;新 sections/experiments.tex,
+  旧 exp_setting/exp_results 移到 paper/archive_0924;选材负结果 + 11 组银行图 → 附录 D;命题 → 附录 E;448 次 rollout 更正;Hu & Lei 2022 引用补全。
+  **待用户定**:① ALFWorld TVD 需全池 4 折剂量 CV(7 点到 192,980,4×~6.5 h)——建议现在提交;② Table 2 留出 loss / 训练内执行选点(便宜);
+  ③ Table 3 敏感性(F=2/8、密网格)冻结后;④ 第二个学生冻结后再议。
