@@ -5537,3 +5537,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   依据只有支持集信息(rnd1 cv:低剂量 18/32 vs 高剂量 19/32,步数 23.3 vs 21.6),**此时还没有任何低剂量最终测试结果**。tc-paper 57f5378。
   预登记的 Day-1 主读数(cv_verdict,成功数)不变。
 - 02:10 CDT 排队估算:剩 ~106 GPU·时(18 个长训练 ×3.3 h、剂量 2×6.7 h、K 曲线 16×~1 h、HotpotQA 9 个短训练、~50 个评测),~15 张卡并行 → 主体约 09:00–10:00 CDT 完成。
+- 02:11 CDT **unseen 列改在 rai GPU4 跑**(hpg 部门 GPU 满;rai 评一个 ~10 分钟):`tools/rai_chain_unseen_gpu4.sh`(pid 1286680),等 GPU4 的 RT 链(618764,约 05:20 退出)后开跑;
+  先 base 冒烟(必须 134 局才继续),再 A / C / SMORIG / SADORIG / KANG × 3 seed(用 `tc-alignment-vllm/adapters_hpg/`,即 hpg seen 列同一批权重);整列同一 GPU 型号(RTX PRO 6000 Blackwell)。
+  rai 与 hpg 的 unseen 冻结哈希一致(3b1b77c0)。第二平台评测调度器改为只用 GPU2(pid 1286257,FE_GPUS="2"),GPU4 让给 unseen。
+  hpg 上的 unseen 冒烟(43168183)保留作跨平台核对。
