@@ -5450,3 +5450,10 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 21:55 CDT **hpg 主连接恢复**(用户 21:51 批 Duo)。已重启:cv 打分调度器 **pid 751298**(`CV_GPUS="1 3"`)、第二平台评测调度器 **pid 751297**(FE_BLOCK 同前)、观察器 **bt99i5reo**。
   断线期间训完的 cv_rnd1_f2 于 21:55 拉回(隧道慢,~3 分钟/个),GPU3 打分中。hpg:cv 完成 4(1alt f0、rnd1 f0–f2;rnd1-f2 用了 3:40),在跑 5(rnd1 f3、rnd2 f0–f3)。
   **同学 hugh 20:18 起占 rai GPU1**(train.py 8_layer_unfrozen,87 GB)→ cv 打分实际只有 GPU3;吞吐仍够(hpg ~1.5 个/小时 vs 打分 ~3.7 个/小时)。GPU0 留空。
+- 23:42 CDT **✅ 第一个完整候选集:rnd1 cv = 19/32**(折 7/3/4/5;在训练过的题上 17/17/16/16 of 24;留出平均 21.56 步)。rnd2 f0–f2 已拉回,GPU3 依次打。
+- 23:42 CDT **hpg 第二个自造瓶颈:部门 QOS cpu=128**(QOSGrpCpuLimit;部门用 124/128,我们 4×14=56)。rai 实测同一训练进程 **1.0 核**。
+  试验(组 burst QOS 上的 3 分钟 CPU 小作业):只改 `NumCPUs=4` → 启动时仍分到 14 核(`--cpus-per-task` 说了算);
+  改 `CpusPerTask=4`(+ `MinCPUsNode=4`)→ 实际分到 4 核(nproc=4)。**已对 24 个排队训练设 CpusPerTask=4、NumCPUs=4、MinCPUsNode=4**;
+  评测保持 14 核(14 个游戏客户端)。`train_b200.slurm` 默认改为 `--cpus-per-task=4`。
+  **排队现在是 32G / 4 核**:一个 14 核作业结束可放进 3 个我们的训练;之后受部门 GPU 上限 24(已用 ~16)与物理节点限制。
+- 23:42 CDT rai RT:rnd1 148/184、rnd2 150/184 步(~00:20 训完,~00:35 出分)。
