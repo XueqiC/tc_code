@@ -5686,3 +5686,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   同步 src/bfas/hotpotqa_support.py 到 tvd 树(3e28ebe0),**release** 5 个 hold 的训练;base 打分重交 hqs-f*-base = 43205048–51。
 - 11:42 CDT **低剂量终评全部到齐**(hpg 训练 / hpg 评,各 2 run):28,947 vs 96,490 —— 1min 68.5 vs 77.0、nll1 66.0 vs 82.5、1alt 74.0 vs 86.5、
   rnd3 70.0 vs 81.5、rnd2 70.0 vs 75.5、rnd1 65.5 vs 86.0 → **六个选材 3 遍全部更低(−5.5 到 −20.5 局),且全部低于 base 81.0**。论文 5.5 / 附录 D 已更新(tc-paper 5fd2c5d)。
+- 11:51 CDT **HotpotQA base dev-500 EM = 0.380**(F1 0.485)→ SFT K32 10 遍 40.7 ± 1.0 比 base 高 2.7(Table 1 已填,tc-paper)。
+  修复后的 base 支持集打分开始出数:base_f0 = 7/8、base_f1 = 2/8(f2/f3 在跑)→ 支持集打分通路确认可用。
