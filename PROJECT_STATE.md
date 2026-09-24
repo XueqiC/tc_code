@@ -5716,3 +5716,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 17:56 CDT HotpotQA **Kang FTP 原版 K32 s0/s1 = 0.418 / 0.400**(s2 在跑);HotpotQA SFT K8 s0 = 0.390。
 - 18:07 CDT **HotpotQA Kang FTP 原版 K32 = 0.418 / 0.400 / 0.412 = 41.0 ± 0.9**;HotpotQA SFT K8 = 0.390 / 0.380 = 38.5。
   HotpotQA K32 全部 baseline 齐:base 38.0、SFT 40.7、Kang 41.0、SAD 41.2、SmartAD 42.1(论文表暂不改,等 ICML 计划)。
+- 18:13 CDT HotpotQA 确认链 **fold 0 齐**:支持集 EM(held-out 8 题)base 7、2,465 → 6、7,395 → 6、12,325 → 7、24,650 → 7、49,300 → 7;
+  **留出 NLL 工具在 GPU 上跑通(含 adapter 路径)**:f0 base 0.762、2,465 0.744、7,395 0.646、12,325 0.509、24,650 0.349、49,300 0.441 nats/token(最低在 24,650)。
+  f1–f3 在跑;规则冻结,等四折齐再按预登记判读。
