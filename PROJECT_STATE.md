@@ -5637,3 +5637,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 09:52 CDT **unseen 列完成(rai GPU4,134 局)**:base 73;SFT 首条 65/66/67 = 66.0;**SFT 全池 77/77/74 = 76.0**;SmartAD 原版 70/70/69 = 69.7;
   SAD 原版 65/75/71 = 70.3;**Kang 79/79/78 = 78.7(unseen 最高)**。已填 Table 1 unseen 列(tc-paper f613aec;caption 注明两列来自不同机器类型),
   Kang 的 HotpotQA 格从 n/a 改为占位(前缀已在采购)。GPU4 09:59 起训全池剂量 rai s1(366 步)。
+- 10:04 CDT **HotpotQA K=32 SFT s0 10 遍 dev-500 EM = 0.396**(F1 0.526;hqk32 主树 results/hotpotqa_k32_eval/sft_k32_s0_p10/dev500)。
+  规则已于 09:23 冻结,看这个数不影响规则。base dev-500(hqe-base 43168458)仍在排队。
+- 10:05 CDT 用户追问"没有 budget 为什么有几个 baseline token 一样、要不要重跑"→ 答:相同是因为共用同一份数据(D0 67.1k;3 次尝试池 228.6k;Kang 自采 91.0k),
+  ALFWorld 不重跑,只改措辞;可选 SAD 全池 ablation;等用户确认改论文。
