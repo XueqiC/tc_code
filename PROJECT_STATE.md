@@ -5491,3 +5491,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   配置 `pi1_alfworld_k32_all87_{1alt,rnd1}_dose.yaml`(taskeq 已提交),rai 与 hpg 登录节点 preflight 均过、哈希一致。
   hpg:**dose-1alt-s0 43166826**(评测 43166827–32)、**dose-rnd1-s0 43166833**(评测 43166834–39),--time=08:00:00、4 核/32G;标签 hpg_DOSE{1ALT,RND1}_e<tok>_s0。
   10 遍端点与已有最终模型同步数(184)→ 兼作复验。算力:mike 334 SU、LONI 透支(−4,539)、smic 不可用。
+- 01:33 CDT **valid_unseen 评测就绪**:Codex #1 交付并审过(vllm 221ee18a:322 测试过、47 个旧 campaign 仍验证;valid_seen 的身份哈希按审过的源固定为改前值,binding 字节不变)。
+  hpg 新建**独立评测树 `/blue/.../hq/tc-alignment-vllm-unseen`**(不动服务于排队作业的旧树):代码同步、.venv/envs/adapters 软链旧树,merged/runs/logs 独立;
+  登录节点核对 valid_seen 140 / valid_unseen 134 冻结正确。(我的 rsync 排除 'adapters*' 误伤了 src/bfas/adapters,已补同步。)
+  **冒烟:hpg_UNS_base = 43166959**(EVAL_SPLIT=valid_unseen);过了再放主表各格(纯 CE / 原版 SmartAD / SAD / Kang × 3 seed)。
