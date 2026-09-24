@@ -5517,3 +5517,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   baselines f9438ef9 + 58286d4b(测试含"不同树名 + 不同 torch 通过、改哈希仍失败",45 过)。hpg preflight 过 → **k{8,16}-smartad-s{0,1} = 43167923/25/27/29**(评测 24/26/28/30)。
   ⚠ f9438ef9 那次我没等测试结果就提交了(旧参数用例失败),随即修测试、58286d4b 起改为测试通过才提交。
   hpg 计算节点**能上网**(net-test 作业:Wikipedia HTTP 302,0.74 s)→ HotpotQA 评测可在 hpg 跑。
+- 01:57 CDT **部门 GPU 上限(24)已满**(QOSGrpGRES,我们占 13)。**组账户**:1/8 GPU、40/64 核、416/500G → 把 unseen 冒烟(43166959)和 cv-nll1-f0(43122595)
+  `scontrol update Account=yd24f.fsu QOS=yd24f.fsu` 挪过去,**两个都立刻起跑**(01:57);组内存随即又满(同组 CPU 作业占 128G×2 等)。之后有空隙再挪。
+  观察器重启为 bx3pznle7(含 SmartAD K 曲线作业号)。
