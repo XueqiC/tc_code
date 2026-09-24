@@ -5681,3 +5681,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   更深的 bug:hotpotqa_support.load_support_questions 要求 K32 ID ⊂ 旧 200 题 support split,但 K32 来自 s904 池 → 永远失败(2bc01b3f 起,测试 mock 未发现)。
   **Hold** 住 tvd 树未开跑的 hqf-sft-f*-tok 43192446/52/58/64 与 hq-sft-dose-tok 43192470(避免训练记录的 src 哈希与修后的打分器不一致);
   base 重交的 43204524–27 已取消,失败目录移到 tvd/_trash/tvd_base_failed_0924。Codex 修 loader 中(hqk32)。修好 → 同步 → 登录节点实测 8/8/8/8/32 → release + 重交 base。
+- 11:40 CDT **HotpotQA 支持题加载修复**(hqk32 583ce279):按冻结 K32 ID 从训练源文件读(校验 inventory 哈希),不再要求 ⊂ 旧 200 题划分;
+  我去掉了 Codex 加的"打开 dev ID 列表查重"(TVD 代码从不打开 dev 划分)。177 测试过;本地与 hpg 登录节点实测 8/8/8/8/32。
+  同步 src/bfas/hotpotqa_support.py 到 tvd 树(3e28ebe0),**release** 5 个 hold 的训练;base 打分重交 hqs-f*-base = 43205048–51。
