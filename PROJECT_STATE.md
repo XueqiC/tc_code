@@ -5619,3 +5619,18 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   Codex #7(hqk32,--tokens)与 Codex #8(新 worktree tc-alignment-hqbuy,SmartAD 3 次尝试 + Kang FTP 采集器、dry run、上限、建银行)在跑。
   论文按新计划修订并推送(tc-paper 9db95b9)。
 - 09:35 CDT unseen:**Kang s0 79 / s1 79**;GPU4 链(tools/rai_chain_pool_dose_gpu4.sh,pid 2026098)等 unseen 链退出后接**全池剂量 seed 1**(rai 训练 rai 评,含 base)。
+- 09:37 CDT 用户问 Table 1 teacher token 不统一(67.1k / 91.0k / 228.6k)算不算 budgeted,又问"干脆取消 budgeted 限制?"。
+  已答(Discord 1552690811177664695):同意取消;改成"同一输入"口径(同 K 任务、同一次 ≤3 次尝试采集 228.6k,各方法按原设计用池子),
+  列改名"训练实际用到的教师 token",caption 写明不是预算约束;Kang 单独注明;建议补 "SAD, full pool" 2 seed(只训练)。**等用户确认再改论文。**
+- 09:50 CDT **HotpotQA token 轴**:Codex #7 审完(hqk32 0ddad0b8,139 测试过;hpg 预检 fold0 95 步、fold3 96 步,全银行 5/15/25/49/96 = 1/3/5/10/20 遍)。
+  同步到 hpg **tc-alignment-hqk32-tvd**(⚠ rsync scripts/ 把 tvd 树的 HP_ROOT 改回了主树,几分钟内重新 sed 修正,4 个 base 打分当时仍在排队,未受影响)。
+  提交:fold 训练 hqf-sft-f{0-3}-tok 43192446/52/58/64,每折 5 个支持集打分 hqs-f{f}-t{tok}(依赖),全 K 剂量 hq-sft-dose-tok 43192470
+  (输出 results/hotpotqa_k32/sft_k32_s0_tok),dev-500 评测 hqe-dose-t{tok} 43192471–75。token 0 = hqs-f*-base(43169320/26/32/38)+ hqe-base 43168458。
+- 09:55 CDT hpg 优先级:HotpotQA K8/K16 曲线 Nice 300,HotpotQA K32 SAD/SmartAD Nice 250 → 小 K s1 / 全池剂量 s0 先跑。
+- 09:58 CDT rai:pool cv 调度器重启为 CV_GPUS=x + CV_SHARED="4:0.45:50000:17:30 截止"(只和 GPU4 的全池剂量训练共卡,不碰 GPU2/3 链);
+  GPU4 链加了 wait_no_scorer(评测前等共卡打分结束)。small-K 实测 ~105 s/步(训完约 14:50,评测约 16:00);全池剂量 rai s1 367 步约 10.7 h。
+- 10:0x CDT tools/dose_strategies.py(按平台列剂量曲线与三个固定训练量策略;baselines aed37157)。
+- 10:10 CDT **Codex #8 审完**(hqbuy da6bff97,548 测试过)。**live dry run 两个都过**(Azure P2,无 429):SmartAD 1 次 296 输出 token 验证通过;
+  Kang FTP 规划 143 + 轨迹共 375 token 验证通过。**正式采购开跑**(tools/run_k32_purchases.sh,每个 24k TPM):
+  SmartAD 3 次独立尝试/题,上限 100k;Kang 规划 + ≤3 次,上限 160k。输出 artifacts/hotpotqa_k32_{smartad,kang}_collection → 离线封银行 →
+  hpg 主树新脚本 scripts/hotpotqa_k32_train_bank_hpg.slurm(hqk32 cf239e91)训练 K=32(及嵌套 K8/16)。旧的 1 选 1 SmartAD 待新银行就绪后替换。
