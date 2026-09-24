@@ -5641,3 +5641,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   规则已于 09:23 冻结,看这个数不影响规则。base dev-500(hqe-base 43168458)仍在排队。
 - 10:05 CDT 用户追问"没有 budget 为什么有几个 baseline token 一样、要不要重跑"→ 答:相同是因为共用同一份数据(D0 67.1k;3 次尝试池 228.6k;Kang 自采 91.0k),
   ALFWorld 不重跑,只改措辞;可选 SAD 全池 ablation;等用户确认改论文。
+- 10:10 CDT hpg 新数(seen 140):**K16 Kang 74/71 = 72.5**、**K16 SAD 65/67 = 66.0**、**ALT1HT 3 遍 s1 = 76**(3 遍 72/76 = 74.0 vs 10 遍 83/90 = 86.5)。
+  K 曲线(hpg,base 81.0):K8 CE 69.5 / Kang 61.5 / SAD 67.0;K16 CE 63.5 / Kang 72.5 / SAD 66.0;SmartAD K8/K16 在跑。
