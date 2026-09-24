@@ -5659,3 +5659,10 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   ⚠ **rai GPU 型号不一**:0/2 = RTX 6000 Ada 48GB,1/4 = RTX PRO 6000 Blackwell 96GB,3 = A100 80GB → 需要比较的分数固定在 GPU4;
   09-23 的材料 CV 打分混用了 GPU1/2/3(该 pilot 的一个混杂)。小 K s0(GPU2 Ada / GPU3 A100)训完后把 adapter 同步到 hpg 用 B200 评,
   这样 2 个 seed 都在 B200 上;rai 内部评测只作辅助。
+- 10:29 CDT **HotpotQA 采购完成**(hqbuy artifacts/hotpotqa_k32_{smartad,kang}_collection):
+  **SmartAD** 96 次尝试全做完,**51 条验证候选 / 18 题**,输出 40,063 token(settled,$0.063)。
+  **Kang FTP** 54 次尝试,**18 条验证 / 18 题**,输出 39,501 token($0.046);29/32 题拿到前缀,**3 题的规划回复在 OpenAI 回退上耗尽 2,048 token 包络、没有可用前缀**
+  (P2 429 → P3 **401 认证失败** → OpenAI 200),按"付费回复不重买"规则停在 1 次失败尝试(summary complete=False)。如实报告,不补买。
+  封银行:smartad 51 包、kang 18 包;hpg 主树 artifacts/ 哈希一致;hpg 预检过(kang K32 62 行 10 遍 35,920 token 66 步;smartad 175 候选行待 NLL 选择)。
+  **提交**(hqk32 主树,scripts/hotpotqa_k32_train_bank_hpg.slurm):SmartAD/Kang 原版 K32 s0–2、K16/K8 s0–1(Nice 300)+ dev-500 评测 = 43199061–88。
+- 10:32 CDT **HotpotQA SFT K32 s1 10 遍 dev EM = 0.412**(s0 0.396)。
