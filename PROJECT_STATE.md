@@ -5547,3 +5547,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   全量 SFT seed 0 存 1/3/5/10 遍(43169339)+ 4 个 dev-500 评测 = HotpotQA 测试端剂量曲线。
 - 02:28 CDT **HotpotQA K=8/16 曲线已提交**(主 hqk32 树):{sft,smartad,sad} × K{8,16} × seed{0,1} = 12 训练 + 12 个 dev-500 评测(43169387–43169410)。
   收集器 `tools/collect_hotpotqa.sh`(两棵 hpg 树的 dev metrics.json 与支持折 summary.json)。
+- 03:35 CDT **rnd3 cv = 21/32**(7/3/4/7;训练过的题 16/18/16/16;步数 21.06)。现在 96,490:rnd1 19 / rnd2 20 / rnd3 21;28,947:rnd1 18 / rnd2 16 → 低剂量平均 −2.5 题、步数一致更差(23–25 vs 21–22)。
+- 03:35 CDT **hpg unseen base = 69/134(51.5%)**(seen 81/140 = 57.9%)。rai GPU4 的 unseen 列约 05:20 起。
+- 03:35 CDT 两个 20 遍剂量训练(43166826 / 43166833,各 ~6.7 h,尚未开始)设 Nice=500,让 K 曲线、HotpotQA 等短作业先跑。组账户搬运器已把 cv-nll1-f1..f3 挪过去。
