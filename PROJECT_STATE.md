@@ -5507,3 +5507,8 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:44 CDT **HotpotQA 盘点(Codex #3 docs/HOTPOTQA_K32.md)**:① 检索是**联网 Wikipedia**(只有缓存命中可离线;新 adapter 评测必然有未命中)→ 评测要在能上网的机器跑;
   ② **s904 池每题最多 1 条验证轨迹**(采到成功即停)→ HotpotQA 上 TVD 只能选剂量、SmartAD 是 1 选 1;③ **Kang FTP 需要它自己的"首思考前缀"采集,s904 没有** → 忠实 Kang 需少量新采购(K=32 约 3–5 万输出 token),未批准前不采;
   ④ AdamW 版 runner 在 git 历史(348dcdb1 / 859c9f7c)而不在该分支文件里。hpg 计算节点能否上网:测试作业进行中。
+- 01:51 CDT **TVD 候选族加"全池"(第 7 个选材)**:目的——与同教师花费的最强 baseline"SFT 全池"(60.0%)正面比,且 TVD 可以返回它。
+  池里 87 个包按正则映射到任务(与 nll1 映射 0 冲突),每折 63/71/63/64 条;银行 `tc-alignment-taskeq/artifacts/alfworld_k32_cv_pool_f{0..3}`,配置 `pi1_alfworld_k32_cv_pool_f*_tok.yaml`(taskeq 2de8d629),rai / hpg preflight 全过。
+  hpg 上 `alfworld_k32_smartad_all87` 也是悬空软链接 → 已移入 _trash、换实体拷贝(树哈希 c96f7fa8 一致)。
+  作业:**cv-pool-f0..3 = 43167575–78**;**fin-pool-s0/s1 = 43167579 / 43167581**(评测 hpg_POOLHT_s0/s1 = 43167580 / 43167582,4 核)。
+  打分:新调度器副本 `cv_score_dispatch_ep2.sh`(CV_ORDER 可配)两个实例(pool 96,490 与 pool 28,947 低优先级);`cv_verdict` 认 POOL / C 标签。论文候选族已改为 7 个(tc-paper 已推)。
