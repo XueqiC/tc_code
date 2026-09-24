@@ -5634,3 +5634,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   Kang FTP 规划 143 + 轨迹共 375 token 验证通过。**正式采购开跑**(tools/run_k32_purchases.sh,每个 24k TPM):
   SmartAD 3 次独立尝试/题,上限 100k;Kang 规划 + ≤3 次,上限 160k。输出 artifacts/hotpotqa_k32_{smartad,kang}_collection → 离线封银行 →
   hpg 主树新脚本 scripts/hotpotqa_k32_train_bank_hpg.slurm(hqk32 cf239e91)训练 K=32(及嵌套 K8/16)。旧的 1 选 1 SmartAD 待新银行就绪后替换。
+- 09:52 CDT **unseen 列完成(rai GPU4,134 局)**:base 73;SFT 首条 65/66/67 = 66.0;**SFT 全池 77/77/74 = 76.0**;SmartAD 原版 70/70/69 = 69.7;
+  SAD 原版 65/75/71 = 70.3;**Kang 79/79/78 = 78.7(unseen 最高)**。已填 Table 1 unseen 列(tc-paper f613aec;caption 注明两列来自不同机器类型),
+  Kang 的 HotpotQA 格从 n/a 改为占位(前缀已在采购)。GPU4 09:59 起训全池剂量 rai s1(366 步)。
