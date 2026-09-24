@@ -5495,3 +5495,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   hpg 新建**独立评测树 `/blue/.../hq/tc-alignment-vllm-unseen`**(不动服务于排队作业的旧树):代码同步、.venv/envs/adapters 软链旧树,merged/runs/logs 独立;
   登录节点核对 valid_seen 140 / valid_unseen 134 冻结正确。(我的 rsync 排除 'adapters*' 误伤了 src/bfas/adapters,已补同步。)
   **冒烟:hpg_UNS_base = 43166959**(EVAL_SPLIT=valid_unseen);过了再放主表各格(纯 CE / 原版 SmartAD / SAD / Kang × 3 seed)。
+- 01:38 CDT **K=8/16 few-shot 曲线已提交 hpg**:Codex #2 交付并审过(baselines 0bd9e914:嵌套冻结子集 K8 = 折 0、K16 = 折 0+1;CE / SAD sad_sum / SmartAD 原版 / Kang FTP 的银行和配置;
+  baseline `train --preflight`;8 个 CPU preflight + 96 测试过)。hpg 新树 **`/blue/.../hq/tc-alf-kcurve`**(按 Codex 给的输入清单同步 601 个文件;.venv 软链),
+  脚本 `slurm/train_kcurve.slurm`(4 核/32G/4h,preflight → 训练 → TRAIN_DONE)。登录节点 preflight:CE/Kang/SAD 的 K8/K16 全过;
+  **SmartAD 两个失败**:选例文件的学生身份里有 rai 的绝对路径(model_path、源码路径),hpg 上必然不等 → Codex #4 做窄修(比较时去掉 model_path、源码键改相对路径,哈希照比;logs/codex_20260924_023803.log)。
+  **已提交 12 个训练 + 12 个依赖评测**(valid_seen,旧 vllm 树,ADAPTER = <out>/pass-10/lora):作业 43167093–43167116,标签 hpg_K{8,16}{CE,KANG,SAD}_s{0,1}。步数 27–108,约 0.5–2 h。
+  观察器重启为 bve451twq(88 个作业号)。
