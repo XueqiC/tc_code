@@ -28,9 +28,10 @@
 
 ## 2. 方法无关实验
 - **主表 seen 列（hpg B200，3 seed）**：base 81.0；SFT 首条 78.0；SFT 全池 84.0；原版 SmartAD 81.0；SAD 75.7；Kang 79.0。
-- **unseen 列（rai GPU4，134 局，同一批权重）**：base 73；SFT 首条 65/66/67；SFT 全池 77/77/74；SmartAD 70/70/…，
-  SAD 和 Kang 在评（约 16 分钟一个，约 09:50 评完）。hpg 上 base unseen = 69（跨 GPU 架构差 4 局，所以整列只用一种卡）。
-- **K=8/16 曲线（hpg）**：K8 的 CE / Kang / SAD 已训完，评测中；K16 在训；SmartAD 已修好可移植性问题并排队。
+- **unseen 列（rai GPU4，134 局，同一批权重）**：base 73；SFT 首条 65/66/67；**SFT 全池 77/77/74**；SmartAD 70/70/69；SAD s0 65；
+  SAD 其余 seed 和 Kang 在评（约 16 分钟一个，约 09:50 评完）。hpg 上 base unseen = 69（跨 GPU 架构差 4 局，所以整列只用一种卡）。
+- **K=8/16 曲线（hpg）**：**K=8 已出**：SFT 68/71 = 69.5，Kang 59/64 = 61.5，SAD s0 67，**全部远低于 base 81.0**。
+  K=8 时 10 遍只有 27 次更新，落在和 K=32 下 3 遍同样的崩塌区，这又是剂量效应。K16 在训；SmartAD 已修好可移植性问题并排队。
 - **HotpotQA**：K=32 主表（SFT / SmartAD / SAD × 3 seed + base）、K=8/16 曲线、TVD 剂量选择**全部已提交，但还没开始**。
   它们排在部门 GPU 上限（24 张）队列的尾部；训练本身只有几十步，评测是 dev-500 联网 Wikipedia（hpg 计算节点可联网，已测）。
   **Kang 在 HotpotQA 上需要少量新采购**（约 3–5 万输出 token），你没批之前我没买。
