@@ -5688,3 +5688,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   rnd3 70.0 vs 81.5、rnd2 70.0 vs 75.5、rnd1 65.5 vs 86.0 → **六个选材 3 遍全部更低(−5.5 到 −20.5 局),且全部低于 base 81.0**。论文 5.5 / 附录 D 已更新(tc-paper 5fd2c5d)。
 - 11:51 CDT **HotpotQA base dev-500 EM = 0.380**(F1 0.485)→ SFT K32 10 遍 40.7 ± 1.0 比 base 高 2.7(Table 1 已填,tc-paper)。
   修复后的 base 支持集打分开始出数:base_f0 = 7/8、base_f1 = 2/8(f2/f3 在跑)→ 支持集打分通路确认可用。
+- 12:02 CDT **HotpotQA token 0(base)cv = 15/32**(折 7/2/4/2,EM 之和,hpg B200)。按预登记规则,t* 要超过 15 才会选非零训练量。
+  ETA(CDT):dose-1alt/rnd1 ~13:30 训完;fin-pool s0/s1 已到 182/183;hpg smallk-k16-s1 ~14:50、dose-pool-s0 与 cvdose-pool f0/f1 ~18:10(f2/f3 排队);
+  rai K8 s0 / K16 s0 ~14:45,K8 s1(GPU0)~16:00,全池剂量 rai s1(GPU4)~20:00。
