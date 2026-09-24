@@ -5684,3 +5684,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 11:40 CDT **HotpotQA 支持题加载修复**(hqk32 583ce279):按冻结 K32 ID 从训练源文件读(校验 inventory 哈希),不再要求 ⊂ 旧 200 题划分;
   我去掉了 Codex 加的"打开 dev ID 列表查重"(TVD 代码从不打开 dev 划分)。177 测试过;本地与 hpg 登录节点实测 8/8/8/8/32。
   同步 src/bfas/hotpotqa_support.py 到 tvd 树(3e28ebe0),**release** 5 个 hold 的训练;base 打分重交 hqs-f*-base = 43205048–51。
+- 11:42 CDT **低剂量终评全部到齐**(hpg 训练 / hpg 评,各 2 run):28,947 vs 96,490 —— 1min 68.5 vs 77.0、nll1 66.0 vs 82.5、1alt 74.0 vs 86.5、
+  rnd3 70.0 vs 81.5、rnd2 70.0 vs 75.5、rnd1 65.5 vs 86.0 → **六个选材 3 遍全部更低(−5.5 到 −20.5 局),且全部低于 base 81.0**。论文 5.5 / 附录 D 已更新(tc-paper 5fd2c5d)。
