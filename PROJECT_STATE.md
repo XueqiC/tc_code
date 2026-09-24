@@ -5482,3 +5482,12 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   后台任务 bhzjfo38f 等它结束、确认 SCORE_DONE exit 0 后手写 `.scored`。**以后停调度器只杀 PPID 不是调度器的那个 pid。**
 - 00:53 CDT **rnd2 cv = 20/32**(折 7/3/5/5;训练过的题 14/18/19/15;留出平均 22.25 步)。cv_rnd2_f3 的孤儿打分 SCORE_DONE exit 0,已手写 .scored。
   目前:rnd1 19/32、rnd2 20/32(逐折几乎相同:折 0 易 7/8,折 1 难 3/8)。rai 训练最终 rnd1 88 / rnd2 87 → 两者 cv 与最终都接近,暂无区分信息。
+- 01:30 CDT **用户授权 8 小时自主推进到 09:00 CDT**(01:13 消息):① 跑完所有方法无关实验(unseen 冻结确认、K=8/16 曲线、HotpotQA 第二环境;跑不完也要确保正确跑完);
+  ② ICLR 完整初稿(假设方法成功,方法数字 placeholder;主线 few-shot agent distillation,black-box 教师写进问题定义、引言提一句);③ 方法实验充分并行、放开探索,目标超过原版 baseline。所有集群都用上,勤查。
+- 01:30 CDT **论文 v0 已推**(tc-paper 7e5d7be):新标题/方法 TVD;旧 RTD 稿存档 paper/archive_rtd_0923/。本地编译需 stub(makecell/algorithm*/colortbl 缺,Overleaf 有)。
+- 01:30 CDT **Codex 三路**:#1 vllm 树 valid_unseen(logs/codex_20260924_021627.log);#2 baselines 树 K=8/16 曲线工件(logs/codex_20260924_021738.log);
+  #3 新 worktree **tc-alignment-hqk32**(分支 hotpotqa-k32)HotpotQA K=32 流水线(logs/codex_20260924_022748.log)。
+- 01:30 CDT **剂量曲线(方法探索 + 论文 RQ4 图)**:ALT1 / rnd1 seed 0 训到 20 个 D0 遍(192,980 token),端点 3/5/7/10/15/20 遍(第 55/92/129/184/275/367 步);
+  配置 `pi1_alfworld_k32_all87_{1alt,rnd1}_dose.yaml`(taskeq 已提交),rai 与 hpg 登录节点 preflight 均过、哈希一致。
+  hpg:**dose-1alt-s0 43166826**(评测 43166827–32)、**dose-rnd1-s0 43166833**(评测 43166834–39),--time=08:00:00、4 核/32G;标签 hpg_DOSE{1ALT,RND1}_e<tok>_s0。
+  10 遍端点与已有最终模型同步数(184)→ 兼作复验。算力:mike 334 SU、LONI 透支(−4,539)、smic 不可用。
