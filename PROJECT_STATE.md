@@ -5501,3 +5501,9 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **SmartAD 两个失败**:选例文件的学生身份里有 rai 的绝对路径(model_path、源码路径),hpg 上必然不等 → Codex #4 做窄修(比较时去掉 model_path、源码键改相对路径,哈希照比;logs/codex_20260924_023803.log)。
   **已提交 12 个训练 + 12 个依赖评测**(valid_seen,旧 vllm 树,ADAPTER = <out>/pass-10/lora):作业 43167093–43167116,标签 hpg_K{8,16}{CE,KANG,SAD}_s{0,1}。步数 27–108,约 0.5–2 h。
   观察器重启为 bve451twq(88 个作业号)。
+- 01:44 CDT **论文表更正(已推 tc-paper 4d4b7bb)**:各行教师 token 按成本模块回执——SFT/SAD(D0 首条)67,052;Kang FTP 自采 90,983;SmartAD/TVD(3 次尝试池)228,628(上界)。
+  **加"SFT 全池"行(C:85/84/83 = 60.0%)作为与 TVD 同教师花费的最强 baseline**;TVD 需要超过它才算方法赢(不仅是原版 baseline)。
+- 01:44 CDT hpg 评测全部改 **4 核**(部门 CPU 上限卡 14/8 核的评测;14 个游戏客户端不变);`scontrol top` 无权限。
+- 01:44 CDT **HotpotQA 盘点(Codex #3 docs/HOTPOTQA_K32.md)**:① 检索是**联网 Wikipedia**(只有缓存命中可离线;新 adapter 评测必然有未命中)→ 评测要在能上网的机器跑;
+  ② **s904 池每题最多 1 条验证轨迹**(采到成功即停)→ HotpotQA 上 TVD 只能选剂量、SmartAD 是 1 选 1;③ **Kang FTP 需要它自己的"首思考前缀"采集,s904 没有** → 忠实 Kang 需少量新采购(K=32 约 3–5 万输出 token),未批准前不采;
+  ④ AdamW 版 runner 在 git 历史(348dcdb1 / 859c9f7c)而不在该分支文件里。hpg 计算节点能否上网:测试作业进行中。
