@@ -5428,3 +5428,16 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **留出折 0:8/8**(平均 8.12 步);同一 cv 模型在自己训练过的 24 题上 17/24;全量 ALT1 s0 在折 0 上 7/8 → 折 0 偏容易,单折不作解读。
   cv_rnd1_f0(GPU3)、cv_rnd1_f1 已拉回在排队打。`cv_fold_score.py` 改为只计 `.state/<name>/.scored` 的折(在跑的折有半截记录)。
   观察器 b9ixeiu5x 改为**候选集 4 折全部打完**才唤醒(外加任何失败、任何评测完成)。
+- 20:01 CDT **hpg 瓶颈查清并部分解开**:排队原因是 **QOSGrpMemLimit**——部门 QOS 内存总额 1000G,我们每个作业申请 120G,
+  实测 **训练 MaxRSS 2.97 GB、评测 ~21 GB**;部门当时占用 940G(我们 4×120=480G)。**已把 41 个排队作业降到训练 32G / 评测 48G**
+  (`scontrol update MinMemoryNode`,用户可降不可升;ok=41 bad=0),两个 slurm 脚本的默认值同步改掉。原因随即变为 **Priority**:
+  hpg-b200 分区满(346 个排队作业,其他组优先级更高)。组账户 496/500G 满,不可分流。
+  新估计(EDT 换算,按满 walltime 保守):cv 20:57–22:52 CDT 起,fin-rnd 23:15–23:58,nll1 00:48–01:57,HT 最终 02:21–02:57 → **完整判读最坏 ~06:30 CDT**。
+- 20:01 CDT **rai 第二训练平台复验(新)**:`tools/rai_chain_rt_finals.sh`,GPU2 链 pid 618765(rnd1 → rnd3),GPU4 链 pid 618764(rnd2 → nll1),
+  各自 训练 → 合并 → 140 局 rai 评测 → 删合并;输出 `tc-alignment-taskeq/results/all87_<c>_raiT/seed-0`,标记 `data/final_eval/rai_<C>RT_s0/.done`。
+  19:59 CDT 两个训练起步(~88 s/step → 各 ~4.5 h:rnd1/rnd2 ~00:40 训完+评测,rnd3/nll1 ~05:30)。GPU0 留给同学。
+  **目的**:与 rai 训练的 ALT1 s0 / 1min s0 合成一套**训练平台完全一致**的最终成绩(次要读数,方法文档 §3.1 已登记);另给 4 对 hpg-vs-rai 训练差异。
+  第二平台评测调度器已重启(pid 620593,`FE_BLOCK="2:618765 4:618764"`),并容忍 GPU4 上那个外人的 9.3 GB 空闲进程(uid 65532;以往链一直与它共用)。
+- 20:01 CDT 目前 cv 分:1alt f0 8/8,rnd1 f0 7/8(单折不解读);rnd1 f1 在 GPU1 打。
+- 20:01 CDT **用户问"打败 baseline 了吗"**,已答:判读未出;hpg 3 seed:原版 SmartAD 81.0 / Kang 79.0 / SAD 75.7 / base 81.0,
+  ALT1 材料 86.0(+5 局,统计上未分开),但 ALT1 是任意 id 挑法、不是方法选出的;1min 78.7;全 87 条 CE 84.0。
