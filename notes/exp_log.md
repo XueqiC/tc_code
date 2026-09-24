@@ -1044,3 +1044,6 @@ unseen column (rai GPU4, valid_unseen 134) | base / A / C / SMORIG / SADORIG / K
 K16 KANG s0/s1 | K=16 Kang FTP 10 passes | hpg | 74/71 = 72.5 | tc-alignment-vllm/runs/hpg_K16KANG_s{0,1}
 K16 SAD s0/s1 | K=16 SAD 10 passes | hpg | 65/67 = 66.0 | runs/hpg_K16SAD_s{0,1}
 ALT1HTLO s1 | ALT1 hpg-trained 28,947 tok (3 passes) | hpg | 76 (s0 72) vs 96,490 83/90 | runs/hpg_ALT1HTLO_s1
+K8/K16 SMARTAD s0/s1 | SmartAD original 10 passes | hpg | K8 79/79=79.0; K16 69/71=70.0 | runs/hpg_K{8,16}SMARTAD_s*
+CVDOSE base support | untrained student on 32 support tasks (token 0) | rai GPU4 | 22/32 (folds 8/4/4/6), mean steps 22.25 | baselines/data/cvdose_score/base_g4
+HQ SFT K32 | SFT 10 passes dev-500 | hpg | EM 0.396/0.412/0.414 = 40.7±1.0; 3 passes s0 0.392 | hqk32/results/hotpotqa_k32_eval/sft_k32_s*_p*

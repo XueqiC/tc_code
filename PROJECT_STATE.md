@@ -5669,3 +5669,11 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 10:37 CDT 用户:GPU0 不用留,可以用。→ **K8 s1 小 K 对照挪到 rai GPU0**(chain rai_chain_smallk_dose.sh 8 1 0,训完 rai 内评 + sync_rai_adapters_hpg_eval.sh
   → hpg B200 评测 hpg_SMALLK8CE_t*_s1);hpg 上排队的 smallk-k8-s1 43190780 + 评测 81–84 已取消。hpg B200 分区拥挤(部门账户仅 7 卡在跑,44 节点被预留)。
   s0 的 rai 训练也会同步到 hpg 评(hpg_SMALLK{8,16}CE_t*_s0),全池剂量 rai s1 同(hpg_DOSEPOOL_e*_s1)。
+- 10:55 CDT K 曲线补齐 SmartAD(hpg):**K8 SmartAD 79/79 = 79.0**(K8 里最好,base 81.0)、**K16 SmartAD 69/71 = 70.0**。
+- 10:51 CDT **ALFWorld token 0(base)支持集打分 = 22/32**(折 8/4/4/6;步数 22.25;rai GPU4;data/cvdose_score/base_g4/summary_cv.json)。
+  注意:材料 CV 在 96,490 的分数是 19–23,base 与之同量级 → 剂量 CV 可能选到 0 或很小的训练量。
+- 11:00 CDT Codex 两个工具审完提交:taskeq fe894b8a(alf_heldout_nll.py,16 测试过;GPU4 实测 base 折 0 = 1.918 nats/token,24 条 6,909 token),
+  hqk32 a6b8389d(support_score --fold all + hotpotqa_k32_heldout_nll.py,173 测试过;同步到 tvd 树并重新 sed 路径)。
+  提交 Table 2 作业:HotpotQA 在-样本执行 hqs-in-t* 43201193–97(依赖剂量 43192470)、HotpotQA 留出 NLL hqs-nll-f* 43201198–201(依赖各折),
+  ALFWorld 留出 NLL alf-nll-f* 43201306–09(依赖 cvdose-pool 各折)。ALFWorld 在-样本执行 = 全池剂量 rai s1 checkpoint 在 GPU4 跑 32 题(训完后)。
+- 10:58 CDT **HotpotQA SFT K32 10 遍:0.396 / 0.412 / 0.414 = 40.7 ± 1.0**(3 遍 s0 0.392)。已填 Table 1(tc-paper 1d2ab48)。
