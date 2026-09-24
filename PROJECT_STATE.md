@@ -5649,3 +5649,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   旧 exp_setting/exp_results 移到 paper/archive_0924;选材负结果 + 11 组银行图 → 附录 D;命题 → 附录 E;448 次 rollout 更正;Hu & Lei 2022 引用补全。
   **待用户定**:① ALFWorld TVD 需全池 4 折剂量 CV(7 点到 192,980,4×~6.5 h)——建议现在提交;② Table 2 留出 loss / 训练内执行选点(便宜);
   ③ Table 3 敏感性(F=2/8、密网格)冻结后;④ 第二个学生冻结后再议。
+- 10:22 CDT 用户"可以的"= 同意 4 条建议(① 现在提交全池剂量 CV;② Table 2 两个便宜对照直接做;③ 敏感性、④ 第二学生冻结后再议)。
+  ① **cvdose-pool-f0–f3 = 43198066–69**(taskeq configs pi1_alfworld_k32_cvdose_pool_f{k}_tok.yaml,端点 28,947/48,245/67,543/96,490/144,735/192,980,
+  366 步,--time 9h,输出 hpg tc-alf-taskeq/results/cvdose_pool_f{k}/seed-0)。token 0:rai GPU4 共卡跑 base 32 题支持集打分
+  (tools/score_support_rai_base.sh → data/cvdose_score/base_g4)。② 在-样本执行 = 用 score_support_rai.sh 跑全量剂量 checkpoint(不需新代码);
+  留出 loss:Codex 在写 taskeq tools/alf_heldout_nll.py 与 hqk32 tools/hotpotqa_k32_heldout_nll.py + support_score --fold all。
+- 10:26 CDT 用户要求清理 hpg 110 个排队并用满 rai:**取消 15 个**(HotpotQA 退化 SmartAD K32 评测 ×3、K8/K16 训练 ×4 + 评测 ×4;
+  cv-pool f0–f3 被 cvdose 覆盖)。rai pool cv 调度器已停。smic(V100-16GB)/LONI(透支)/mike(~334 SU)不值得用。
+  ⚠ **rai GPU 型号不一**:0/2 = RTX 6000 Ada 48GB,1/4 = RTX PRO 6000 Blackwell 96GB,3 = A100 80GB → 需要比较的分数固定在 GPU4;
+  09-23 的材料 CV 打分混用了 GPU1/2/3(该 pilot 的一个混杂)。小 K s0(GPU2 Ada / GPU3 A100)训完后把 adapter 同步到 hpg 用 B200 评,
+  这样 2 个 seed 都在 B200 上;rai 内部评测只作辅助。
