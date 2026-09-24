@@ -5598,3 +5598,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **K=8(hpg)**:SFT 68/71 = 69.5、Kang 59/64 = 61.5、SAD s0 67 → 全部远低于 base 81(10 遍只有 27 次更新 = 崩塌区)。
   **unseen(rai)**:SMORIG 70/70/69 = 69.7;SADORIG s0 65。
   **待用户定**:① TVD 改为主要选剂量;② 分解式选择(事后,需披露);③ 剂量曲线后是否跑到 20 遍的 cv 折(~8 × 6.7 h);④ HotpotQA Kang 小额采购。
+- 09:16 CDT **用户要 09-23 早上至今的全部进展文档** → 已发(Discord 1552685246699536494,附 docs/reports/2026-09-24_progress_0923_0924_ZH.md,9cf19b23)。
+  新数:6 个候选的 3 遍 cv 全部 < 10 遍(1alt 19、1min 18、nll1 18、rnd1 18、rnd2 16、rnd3 17);ALT1HT 3 遍 s0 = 72;
+  unseen SADORIG 65/75/71 = 70.3;K16 CE 65/62 = 63.5;K8 SAD 67/67。HotpotQA 训练已开跑(hq-sft-k32-s0/s1)。
