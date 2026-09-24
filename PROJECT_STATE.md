@@ -5677,3 +5677,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   提交 Table 2 作业:HotpotQA 在-样本执行 hqs-in-t* 43201193–97(依赖剂量 43192470)、HotpotQA 留出 NLL hqs-nll-f* 43201198–201(依赖各折),
   ALFWorld 留出 NLL alf-nll-f* 43201306–09(依赖 cvdose-pool 各折)。ALFWorld 在-样本执行 = 全池剂量 rai s1 checkpoint 在 GPU4 跑 32 题(训完后)。
 - 10:58 CDT **HotpotQA SFT K32 10 遍:0.396 / 0.412 / 0.414 = 40.7 ± 1.0**(3 遍 s0 0.392)。已填 Table 1(tc-paper 1d2ab48)。
+- 11:25 CDT **HotpotQA base 支持集打分 4 个全失败**:tvd 树缺 configs/hotpotqa_support_split.json + envs/hotpotqa/data/hotpot_train_v1.1.json(已补,哈希一致);
+  更深的 bug:hotpotqa_support.load_support_questions 要求 K32 ID ⊂ 旧 200 题 support split,但 K32 来自 s904 池 → 永远失败(2bc01b3f 起,测试 mock 未发现)。
+  **Hold** 住 tvd 树未开跑的 hqf-sft-f*-tok 43192446/52/58/64 与 hq-sft-dose-tok 43192470(避免训练记录的 src 哈希与修后的打分器不一致);
+  base 重交的 43204524–27 已取消,失败目录移到 tvd/_trash/tvd_base_failed_0924。Codex 修 loader 中(hqk32)。修好 → 同步 → 登录节点实测 8/8/8/8/32 → release + 重交 base。
