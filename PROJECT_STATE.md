@@ -5520,3 +5520,10 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 01:57 CDT **部门 GPU 上限(24)已满**(QOSGrpGRES,我们占 13)。**组账户**:1/8 GPU、40/64 核、416/500G → 把 unseen 冒烟(43166959)和 cv-nll1-f0(43122595)
   `scontrol update Account=yd24f.fsu QOS=yd24f.fsu` 挪过去,**两个都立刻起跑**(01:57);组内存随即又满(同组 CPU 作业占 128G×2 等)。之后有空隙再挪。
   观察器重启为 bx3pznle7(含 SmartAD K 曲线作业号)。
+- 02:04 CDT **HotpotQA K=32 已提交 hpg**:Codex #3 交付并审过、提交(hqk32 af039e95;296 测试)。支持集 seed 32:25 bridge / 7 comparison,**教师只在 19 题成功(13 题无示范)**;
+  10 遍仅 47 步;SAD(sad_sum)在硬标签下等于 CE;SmartAD 在 s904(每题 ≤1 条)上是 1 选 1、只剩加权损失;Kang 因缺采集期首思考前缀被拦(需新采购)。
+  我修:脚本原写 **burst QOS(hpg-b200 上 gpu=0,永远排不上)** → 部门 QOS;评测端口原写死 8930 → 20000+jobid%20000;日志绝对路径。
+  hpg 树 `/blue/.../hq/tc-alignment-hqk32`(按 8,037 行清单同步;.venv、envs/vllm-serve 软链),登录节点 9 个 preflight + Wikipedia 缓存查询全过。
+  作业:hq-{sft,smartad,sad}-k32-s{0,1,2} = 43168153–43168170(评测 pass-10 各一,另 sft s0 pass-3 = 43168155);输出 results/hotpotqa_k32{,_eval}/。
+- 02:04 CDT **unseen 冒烟首跑失败**(43166959):`eval_body.sh` 自己写死了旧树路径 → 调用了没有 --split 的旧 prepare。已改 unseen 树的 eval_body.sh、旧树误建的 run 目录移入 _trash;
+  **重提 hpg_UNS_base = 43168183(组账户)**。
