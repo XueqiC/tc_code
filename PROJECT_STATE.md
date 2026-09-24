@@ -5696,3 +5696,6 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 13:09 CDT **HotpotQA SAD K32 = 0.416 / 0.404 / 0.416 = 41.2 ± 0.7**(Table 1 已填)。**全池 28,947(0.87 遍)hpg = 73/70 = 71.5**(96,490 为 84.0)。
 - 13:15 CDT HotpotQA **SmartAD 原版 K32 s0 dev EM = 0.420**(F1 0.536;51 个候选里按 base 学生 NLL 选出 18 条,每题 1 条;s1/s2 在跑)。
 - 13:36 CDT **HotpotQA SmartAD 原版 K32 = 0.420 / 0.420 / 0.424 = 42.1 ± 0.2**(当前 HotpotQA 最强 baseline;Table 1 已填)。HotpotQA:base 38.0、SFT 40.7、SAD 41.2、SmartAD 42.1,Kang 在跑。
+- 15:02 CDT rai K16 s0 训完(14:29),rai GPU3 评 28,947 = 67;**同步到 hpg 并提交 B200 评测** hpg_SMALLK16CE_t{28947,34970,48245,96490}_s0 = 43230931–34
+  (同步脚本 mkdir -p 修复,baselines;4 个同步进程重启:k8_ce_s0、k16_ce_s0、k8_ce_s1、全池剂量 rai s1)。
+  ALT1 剂量曲线 hpg s0:28,947 → 73、48,245 → 78、67,543 → 83、96,490 → 82(144,735 / 192,980 在评)。
