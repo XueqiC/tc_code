@@ -5691,3 +5691,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 12:02 CDT **HotpotQA token 0(base)cv = 15/32**(折 7/2/4/2,EM 之和,hpg B200)。按预登记规则,t* 要超过 15 才会选非零训练量。
   ETA(CDT):dose-1alt/rnd1 ~13:30 训完;fin-pool s0/s1 已到 182/183;hpg smallk-k16-s1 ~14:50、dose-pool-s0 与 cvdose-pool f0/f1 ~18:10(f2/f3 排队);
   rai K8 s0 / K16 s0 ~14:45,K8 s1(GPU0)~16:00,全池剂量 rai s1(GPU4)~20:00。
+- 12:28 CDT HotpotQA **SAD K32 s0 dev EM = 0.416**(F1 0.538;s1/s2 在跑,凑齐 3 个再填表)。
