@@ -1060,3 +1060,5 @@ HQ SFT dose s0 | full-K SFT, token endpoints 2,465..49,300 | hpg (tvd tree) | de
 HQ TVD CV | 4-fold held-out EM sums | hpg | cv 15/14/16/15/17/18 at 0..49,300; t*=49,300 = fixed max; NLL picks 24,650; in-sample 15/13/14/16/16/18 | hqk32-tvd/results/tvd
 SMALLK control | K8/K16 CE to 96,490 tok, 2 runs, B200 eval | hpg | K16 67.0/61.5/64.0/72.0; K8 76.0/72.5/68.5/75.5 (base 81.0) | runs/hpg_SMALLK*
 DOSEPOOL | full pool dose 28,947..192,980 | hpg | 72.0/72.5/83/86/89/91 (partial n) | runs/hpg_DOSEPOOL_*
+CVDOSE pool ALFWorld | 4-fold exposure CV, full pool, 7 points | rai GPU1/GPU4 Blackwell | cv 22/16/19/23/21/25/24, t*=144,735 (test 85.5 vs 84.5 default) | baselines/data/cvdose_score/cv_summary.json
+INSAMPLE ALFWorld | full-pool rai s1 checkpoints on 32 training tasks | rai Blackwell | 22/17/21/20/21/24/26 -> 192,980 | baselines/data/cvdose_score/insample_s1_t*
