@@ -5750,3 +5750,4 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   已完成 9/24:f0 @ 28,947/96,490/192,980,f1 @ 96,490,f2 @ 28,947/96,490,f3 @ 28,947/96,490(以及 f0 的 192,980)。f1_t28947 / f1_t192980 的 claim 已释放。
   GPU4 worker 之前一直卡住(GPU4 常驻 uid 65532 的 9 GB server.py → 旧的 gpu_is_free 永不为真),脚本已加 MAXUSED_MIB;连接恢复后重启:
   `nohup bash tools/cvdose_score_rai.sh 1 &` 与 `MAXUSED_MIB=12000 nohup bash tools/cvdose_score_rai.sh 4 &`(baselines)。
+  (更正:已完成的是 **8/24**,上一条把 f0 的 192,980 重复算了一次。)
