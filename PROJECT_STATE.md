@@ -5724,3 +5724,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **→ CV 选择与"固定最大训练量"策略重合**;按预登记,CV 只有超过策略 1、2 中较好者且超过配对 SE 才算有价值 → 在 HotpotQA 上它**等于**策略 2,**不可能带来额外价值**。
   留出 NLL 选点(Table 2 对照,四折合并):0 0.927、2,465 0.910、7,395 0.798、12,325 0.654、**24,650 0.491**、49,300 0.562 → NLL 选 24,650(= 固定默认)。
   最终 dev-500(全 K 剂量 hq-sft-dose-tok 已训完,hqe-dose-t* 在评)决定 49,300 是否真的比 24,650 好。
+- 19:10 CDT ALFWorld cvdose-pool 四折训练全部 COMPLETED(各 6 个 checkpoint)。alf-nll-f0 失败(--wrap 里 $HF_HOME 在登录节点被提前展开 → 模型路径错),
+  已用字面路径重交 alf-nll-f0–f3 = 43249478/79/83/84。**剂量 CV 打分**:tools/cvdose_score_rai.sh 两个 worker(GPU1 现空闲、GPU4 等链结束),
+  都是 Blackwell,与 base_g4 同类;24 个打分 ~20 分钟一个。rai GPU2/GPU3 现在被 labmate wangshu 占用。
+  全池剂量 rai s1 训完(18:33),已同步 hpg 并提交 B200 评测;K8 s1 同(16:12)。
