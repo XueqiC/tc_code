@@ -5746,3 +5746,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 20:40 CDT **ALFWorld 留出 NLL(四折合并,全池折 checkpoint 在留出折示范上)**:0 → 1.894、28,947 → 0.580、48,245 → 0.461、67,543 → 0.413、96,490 → 0.384、
   144,735 → 0.367、192,980 → 0.361 nats/token → 单调下降,**NLL 选点 = 192,980(网格最大)**。剂量 CV 打分进行中(96,490 四折已完成、28,947 进行中;GPU4 worker 20:29 起加入)。
   rai 全池剂量 s1 链完成(rai 内评 67,543 → 81、96,490 → 84)。hpg 仅剩 HotpotQA K8/K16 的 SmartAD/Kang 评测。
+- 21:25 CDT **hpg ControlMaster 断开(需 Duo)**,已在 Discord 请用户在 rai 上 `ssh -fN -M hpg`。剂量 CV 打分 worker 已停(无法拉 adapter);
+  已完成 9/24:f0 @ 28,947/96,490/192,980,f1 @ 96,490,f2 @ 28,947/96,490,f3 @ 28,947/96,490(以及 f0 的 192,980)。f1_t28947 / f1_t192980 的 claim 已释放。
+  GPU4 worker 之前一直卡住(GPU4 常驻 uid 65532 的 9 GB server.py → 旧的 gpu_is_free 永不为真),脚本已加 MAXUSED_MIB;连接恢复后重启:
+  `nohup bash tools/cvdose_score_rai.sh 1 &` 与 `MAXUSED_MIB=12000 nohup bash tools/cvdose_score_rai.sh 4 &`(baselines)。
