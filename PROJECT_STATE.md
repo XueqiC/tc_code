@@ -5728,3 +5728,5 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   已用字面路径重交 alf-nll-f0–f3 = 43249478/79/83/84。**剂量 CV 打分**:tools/cvdose_score_rai.sh 两个 worker(GPU1 现空闲、GPU4 等链结束),
   都是 Blackwell,与 base_g4 同类;24 个打分 ~20 分钟一个。rai GPU2/GPU3 现在被 labmate wangshu 占用。
   全池剂量 rai s1 训完(18:33),已同步 hpg 并提交 B200 评测;K8 s1 同(16:12)。
+- 19:25 CDT HotpotQA **在-样本执行**(全 K 剂量 checkpoint 跑全部 32 道支持题,EM 之和):0 → 15(= base 四折之和)、2,465 → 13、7,395 → 14、12,325 → 16、24,650 → 16、**49,300 → 18** → 也选 49,300(与留出执行 CV 相同)。
+  Table 2 HotpotQA 三个选择信号:留出执行 → 49,300;在-样本执行 → 49,300;留出 NLL → 24,650。dev-500 剂量评测(hqe-dose-t*)在跑。
