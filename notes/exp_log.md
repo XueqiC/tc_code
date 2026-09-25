@@ -1056,3 +1056,5 @@ DOSE1ALT s0 | ALT1 one-per-task, dose curve 28,947..192,980 tok | hpg | 73/78/83
 DOSERND1 s0 | rnd1 one-per-task, dose curve 28,947..192,980 tok | hpg | 66/70/83/87/92/92 | runs/hpg_DOSERND1_e*_s0
 HQ KANG-orig K32 | Kang FTP prefixed collection, 10 passes | hpg | 0.418/0.400/0.412 = 41.0±0.9 | hqk32/results/hotpotqa_k32_eval/kango_k32_s*
 HQ SFT K8 | SFT 10 passes dev-500 | hpg | 0.390/0.380 = 38.5 | hqk32/results/hotpotqa_k32_eval/sft_k8_s*
+HQ SFT dose s0 | full-K SFT, token endpoints 2,465..49,300 | hpg (tvd tree) | dev EM 0.382/0.394/0.388/0.414/0.414 (base 0.380) | hqk32-tvd/results/hotpotqa_k32_eval/sft_k32_dose_s0_t*
+HQ TVD CV | 4-fold held-out EM sums | hpg | cv 15/14/16/15/17/18 at 0..49,300; t*=49,300 = fixed max; NLL picks 24,650; in-sample 15/13/14/16/16/18 | hqk32-tvd/results/tvd
