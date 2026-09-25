@@ -1058,3 +1058,5 @@ HQ KANG-orig K32 | Kang FTP prefixed collection, 10 passes | hpg | 0.418/0.400/0
 HQ SFT K8 | SFT 10 passes dev-500 | hpg | 0.390/0.380 = 38.5 | hqk32/results/hotpotqa_k32_eval/sft_k8_s*
 HQ SFT dose s0 | full-K SFT, token endpoints 2,465..49,300 | hpg (tvd tree) | dev EM 0.382/0.394/0.388/0.414/0.414 (base 0.380) | hqk32-tvd/results/hotpotqa_k32_eval/sft_k32_dose_s0_t*
 HQ TVD CV | 4-fold held-out EM sums | hpg | cv 15/14/16/15/17/18 at 0..49,300; t*=49,300 = fixed max; NLL picks 24,650; in-sample 15/13/14/16/16/18 | hqk32-tvd/results/tvd
+SMALLK control | K8/K16 CE to 96,490 tok, 2 runs, B200 eval | hpg | K16 67.0/61.5/64.0/72.0; K8 76.0/72.5/68.5/75.5 (base 81.0) | runs/hpg_SMALLK*
+DOSEPOOL | full pool dose 28,947..192,980 | hpg | 72.0/72.5/83/86/89/91 (partial n) | runs/hpg_DOSEPOOL_*
