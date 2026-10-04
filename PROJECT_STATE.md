@@ -5771,3 +5771,7 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
 - 环境:ALFWorld 先;再从 AppWorld 和 ScienceWorld 中选一;BFCL V4 多轮补充。
 - 已向用户确认 4 点(待答):gpt-6-luna 开通与花费上限;算力(LONI 额度、rai);第一周只做接口审计 + smoke;代码放在现有仓库还是新仓库。
 - **未提交任何实验。**
+- 10-04 15:00 CDT 用户答复:用原 OpenAI key 调 gpt-6-luna,**不设上限**;**以 hpg 为主**;代码放新仓库 https://github.com/XueqiC/ICML27_agent_distillation,做一个干净的新项目。
+  → clone 到 ~/hq/projects/ICML27_agent_distillation(空仓库)。**gpt-6-luna canary 通过**(HTTP 200,返回模型 id `gpt-6-luna`,无日期快照;58 入 / 59 出,其中 45 推理)。
+  学生 checkpoint revision 707f0a3b…,架构 Gemma4UnifiedForConditionalGeneration,模板含 enable_thinking。Codex 第一阶段骨架进行中。hpg 待 Duo。
+  **论文一的状态之后记在新仓库的 PROJECT_STATE.md**,本文件只留指针。
