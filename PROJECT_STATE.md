@@ -5761,3 +5761,13 @@ stage 2:SFT/FIXSEG 四格训练完成(24/24)进入导出评测,META 20/24。
   **所有实验跑完**;总结文档 docs/reports/2026-09-25_summary_0924_ZH.md 完成并发送。
 - 10-01 11:28 CDT **会话重启后恢复**:9/24 计划的实验在 9/25 02:27 全部完成,总结文档已发;无任何在跑 / 排队作业(hpg 0;rai 无我方进程)。
   hpg ControlMaster 需重新过 Duo(未连)。漏回用户 9/30 "现状回复了吗"(会话当时不在线),已在重启后答复。等待 ICML 计划,不提交新实验。
+
+## 2026-10-04 新阶段:论文一 *Sufficient Experience for Black-Box Agent Distillation*(用户交接文档)
+- 原文存档 docs/handoff/2026-10-04_paper1_context_ZH.md;我的理解回读 docs/handoff/2026-10-04_paper1_readback_ZH.md。
+- 设置:K = 可信种子轨迹数(默认 10,后续 5/10/20,3 组 support 采样 seed);允许自由生成新任务 / 新教师输出 / 新真实交互(全部入账);
+  教师黑盒 gpt-6-luna(只用采样文本与动作,不用 logprobs);学生 google/gemma-4-12B-it;不用中国模型 checkpoint;只做 post-training;预算优化不是主贡献。
+- 先发现后方法:区分"知识未被吸收/调用"与"学生需要更明确的决策信息",排除格式/优化/覆盖/教师错误/接口混杂。
+- 初轮 baseline:base / teacher / Seed-SFT / grounded Augmented-SFT / DAgger-hard;机制结论前加 SmartAD(10 候选)与 DART-SD。
+- 环境:ALFWorld 先;再从 AppWorld 和 ScienceWorld 中选一;BFCL V4 多轮补充。
+- 已向用户确认 4 点(待答):gpt-6-luna 开通与花费上限;算力(LONI 额度、rai);第一周只做接口审计 + smoke;代码放在现有仓库还是新仓库。
+- **未提交任何实验。**
