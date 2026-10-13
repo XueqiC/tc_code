@@ -1,0 +1,306 @@
+path	mib	files	basis	exp_log	project_state
+tc-alignment/results/appworld_students/alfabl_A_all_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 581	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_B_first_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 575	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_C_conseq_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 576	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_CE_conseq_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 582,650	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_D_conf_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 590	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_D_weighted_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 577	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfabl_E_negteacher_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 583	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfb1_curr_s0	8057	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 544	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfb1_ours_s0	8057	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 547	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfb1_pres_s0	8057	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 548	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfce_CE_A_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 599	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfce_CE_B_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 593	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfce_CE_C1ep_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 601	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfce_CEpair_C_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 604	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfce_CE_zero_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 600	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfctl_A_85_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 595	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfctl_B_44step_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 596	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfctl_C_56step_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 597	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfctl_D_perm_cat_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 588	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfctl_D_perm_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 587,588	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfdose_C_110step_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 606	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfdose_C_88step_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 605	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfr2b_r2b_CE_union_s0	16952	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 623	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfr2b_r2b_pref_C_ep3_s0	16952	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 624	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfr2b_r2b_pref_union_s0	16952	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 625	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfr2_r2_CE_C_s0	16952	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 621	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfr2_r2_pref_C_s0	16952	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 622	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_B_s1	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 609	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_B_s2	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 609	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_C_s1	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 608	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_C_s2	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 608	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_zero_s1	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_CE_zero_s2	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_pref_C56_s1	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 619	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/alfseed_pref_C56_s2	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 619	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/aw2_pref_spread_x2_s0	16961	18	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 728,729,730	PROJECT_STATE lines 2142,2143
+tc-alignment/results/appworld_students/bfclb10_full_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 463,464,475	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb10_full_s1	28	3	qwen ids 2, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 463,464,475	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb10_full_s2	28	3	qwen ids 2, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 463,464,475	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb11_curr_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 470	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb12_clw_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 483	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb13_rep_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 467,486	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/bfclb14_cc_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 485,495	PROJECT_STATE lines 1506,1511,1513
+tc-alignment/results/appworld_students/bfclb16_cp_s0	8069	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 500	PROJECT_STATE lines 1518,1519,1527
+tc-alignment/results/appworld_students/cc_s1_A_s0	8044	8	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 745	PROJECT_STATE lines 2161,2165,2181
+tc-alignment/results/appworld_students/cc_s1_B_s0	8044	8	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 747	PROJECT_STATE lines 2181,2192
+tc-alignment/results/appworld_students/cc_s1_C_s0	8044	8	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 748	PROJECT_STATE lines 2181
+tc-alignment/results/appworld_students/crcd_acq_cheapest_first_b25_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 673	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_consequential_first_b25_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 668	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_consequential_first_u50_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 676	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_random_b25_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 667	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_random_u50_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 675	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_residual_per_token_b25_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 669	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_acq_residual_per_token_u50_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 678	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_alf3_C_rho1_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 683	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_b3pref_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 521	PROJECT_STATE lines 1648
+tc-alignment/results/appworld_students/crcd_b3_reffree_ep3_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 572	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_b3_reffree_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 570,572	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_b3_span_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 567	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_bf3_gentle_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 680	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_bf3_k1_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 664	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_bf3_lrmatch_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 682	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_bf3_rho1_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 663	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_bf3_rhoJ0_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 661	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c1_anchor_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 541,542	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c2_selfanchor_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 546	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c3_balanced_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 550,627	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c3_balanced_s1	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 550,627	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c3_balanced_s2	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 550,627	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_c4_adaptive_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 569	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_ce_abstain_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 634	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_ce_comp_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 612	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_ce_incomp_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 615	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcddu_large_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 564,591	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcddu_medium_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 563,585	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcddu_small_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 562,584	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcddu_zero_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 560,573	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_hybrid_s0	8042	7	qwen ids 3, gemma ids 0; top model field: 1 "student": "/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/results/appworld_students/crcd_hyb_stage1_s0/hub_merged"	exp_log lines 616	PROJECT_STATE lines 1854
+tc-alignment/results/appworld_students/crcd_hyb_stage1_s0	16952	18	qwen ids 13, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_pref_abstain_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 636	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_pref_comp_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 613	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_pref_incomp_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 611	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r2_b3pref_ep3_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 534,536	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r2_b3pref_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 531,534,535,536,538	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3_cont_s0	8042	7	qwen ids 3, gemma ids 0; top model field: 1 "student": "/blue/fsu-compsci-dept/xc25.fsu/hq/tc-alignment/results/appworld_students/crcd_r2_b3pref_s0/hub_merged"	exp_log lines 540	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3uc3_adaptive_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 571,617	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3uc3_adaptive_s1	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 571,617	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3uc3_adaptive_s2	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 571,617	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3uc3_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 551,568,571,617	PROJECT_STATE lines 1753,1754,1780
+tc-alignment/results/appworld_students/crcd_r3u_ep2_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 549	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r3_union_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 539,617,642,652,656	PROJECT_STATE lines 1965,1979,1987
+tc-alignment/results/appworld_students/crcd_r3_union_s1	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 539,617,642,652,656	PROJECT_STATE lines 1965,1979,1987
+tc-alignment/results/appworld_students/crcd_r3_union_s2	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 539,617,642,652,656	PROJECT_STATE lines 1965,1979,1987
+tc-alignment/results/appworld_students/crcd_r3_union_tgt_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 656	PROJECT_STATE lines 1979,1987,1993
+tc-alignment/results/appworld_students/crcd_r3_union_t_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 642,652,656,660	PROJECT_STATE lines 1965,1979,1987
+tc-alignment/results/appworld_students/crcd_r4_union_ep2_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 638	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/crcd_r4_union_s0	8043	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 637,638	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R0_0be0ace8571f200c_r2	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 785	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R0_43e786cf168eaade_r3	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 787	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R0_6777af4f8da2ed69_r1	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 782	PROJECT_STATE lines 2338
+tc-alignment/results/appworld_students/rtd_R1_08cb959e0b527b2a_r2	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 786	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R1_2749c1bc9386e7ed_r3	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 780	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R1_7590be47cd1c0625_r3	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 788	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R1_83778bacfd8d5ee9_r1	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 783	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R1_95b3159a9a1bdc3e_r2	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 778	PROJECT_STATE lines -
+tc-alignment/results/appworld_students/rtd_R1_c24fedacf076a84b_r1	16952	21	qwen ids 12, gemma ids 0; top model field: 2 "model_type": "qwen3_5_text"	exp_log lines 767	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_agent_s0	8042	8	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_agent_s1	8042	8	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_agent_s2	8042	8	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_insp_s0	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_insp_s1	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_pbsd_insp_s2	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_sad_s0	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_sad_s1	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_sad_s2	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_sft_s0	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld_students/awB22633_sft_s1	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld_students/awB22633_sft_s2	8047	7	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld_students/awB22633_star_s0	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_star_s1	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld_students/awB22633_star_s2	8042	7	qwen ids 4, gemma ids 0; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_agentkd_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_agentkd_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_agentkd_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_agentkd_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_agentkd_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_agentkd_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_bbopd_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_bbopd_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_bbopd_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_bbopd_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_bbopd_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_bbopd_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_ddpo_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_ddpo_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_ddpo_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_ddpo_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_ddpo_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_ddpo_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_oursadv_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_oursadv_s0/adapter"	exp_log lines 499,502,503	PROJECT_STATE lines 1547,1563
+tc-alignment/results/appworld/awb3_oursadv_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_oursadv_s1/adapter"	exp_log lines 499,502,503	PROJECT_STATE lines 1547,1563
+tc-alignment/results/appworld/awb3_oursadv_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_oursadv_s2/adapter"	exp_log lines 499,502,503	PROJECT_STATE lines 1547,1563
+tc-alignment/results/appworld/awb3_pbsd_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_pbsd_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_pbsd_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_pbsd_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_pbsd_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_pbsd_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sad_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sad_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sad_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sad_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sad_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sad_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sft_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sft_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sft_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sft_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_sft_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_sft_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_star_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_star_s0/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_star_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_star_s1/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb3_star_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb3_star_s2/adapter"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb4_cp_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb4_cp_s0/adapter"	exp_log lines 499,507,510	PROJECT_STATE lines 1552,1556,1557
+tc-alignment/results/appworld/awb4_curr_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb4_curr_s0/adapter"	exp_log lines 499,502,503	PROJECT_STATE lines 1563
+tc-alignment/results/appworld/awb4_hint_t07_s20	2	3	qwen ids 1, gemma ids 0; top model field: 1 "model": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb4_hint_t07_s21	2	3	qwen ids 1, gemma ids 0; top model field: 1 "model": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb4_hint_t07_s22	2	3	qwen ids 1, gemma ids 0; top model field: 1 "model": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb4_hint_t07_s23	2	3	qwen ids 1, gemma ids 0; top model field: 1 "model": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/awb4_pres_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awb4_pres_s0/adapter"	exp_log lines 499,503	PROJECT_STATE lines 1564
+tc-alignment/results/appworld/awb4_transcripts.tgz	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/appworld/hb_v3_s0_eval	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_base_eval	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines 832	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_agent_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_agent_s0/adapter"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_agent_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_agent_s1/adapter"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_agent_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_agent_s2/adapter"	exp_log lines 830,857	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_insp_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_insp_s0/adapter"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_insp_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_insp_s1/adapter"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_pbsd_insp_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_pbsd_insp_s2/adapter"	exp_log lines 829,853,854,856	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_sad_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sad_s0/adapter"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_sad_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sad_s1/adapter"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_sad_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sad_s2/adapter"	exp_log lines 828,847,848,851	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_sft_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sft_s0/adapter"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld/awB22633_sft_s1_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sft_s1/adapter"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld/awB22633_sft_s2_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_sft_s2/adapter"	exp_log lines 827,842,844,845,849	PROJECT_STATE lines 2552
+tc-alignment-table1/results/appworld/awB22633_star_s0_eval	1	2	qwen ids 0, gemma ids 0; top model field: 1 "model": "results/appworld_students/awB22633_star_s0/adapter"	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_star_s1_eval	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment-table1/results/appworld/awB22633_star_s2_eval	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines 831	PROJECT_STATE lines -
+tc-alignment/results/alfworld	1	0	no model string; Qwen-era run artifact (see notes)	exp_log lines 320,514,517,518,520	PROJECT_STATE lines 264,524,527
+tc-alignment/results/analysis	8	20	qwen ids 1281, gemma ids 0; top model field: 6 "student": "Qwen/Qwen3.5-4B"	exp_log lines 13,21,66,217,235	PROJECT_STATE lines 303,360,1626
+tc-alignment/results/behavior_atom_v1	6208	492	qwen ids 19011, gemma ids 0; top model field: 45 "model_type":"qwen3_5_text"	exp_log lines 689,693,694,695,696	PROJECT_STATE lines 2032,2041,2064
+tc-alignment/results/bfas	79	162	no model string; Qwen-era run artifact (see notes)	exp_log lines 210,228,232,497,509	PROJECT_STATE lines 239,266,277
+tc-alignment/results/bfcl_std	3456	3153	qwen ids 22073, gemma ids 4; top model field: 58 "model": "microsoft/git-large-vqav2"	exp_log lines 180,267,350,357,358	PROJECT_STATE lines 237,395,406
+tc-alignment/results/e3_tier1_anc25_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc25_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc50_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc50_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 67	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 67	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_anc_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 67	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_att_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_att_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_att_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_avg_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_avg_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_avg_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b10kv12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b10kv12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b2kv12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b2kv12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b2kv12_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b40kv12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b40kv12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b40kv12_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b5kv12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_b5kv12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_bs_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_bs_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_bs_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2b_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2b_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2b_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo2_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_combo_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_gateoff_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_gateoff_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_gateoff_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k10v12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k10v12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k10v12_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k25v12_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k25v12_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_k25v12_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_pref_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_pref_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_pref_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_r1_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_r1_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_r1_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_samp_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_samp_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sk_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sk_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sk_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sv_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sv_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_sv_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_toksel_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_toksel_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_toksel_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tv_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tv_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tv_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tvuni_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tvuni_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_tvuni_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni2_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni2_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni2_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_uni_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc4b_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc4b_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc4b_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc9b_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc9b_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sc9b_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sql_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sql_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_v12sql_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd20k_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd20k_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd20k_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd40k_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 65,73	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd40k_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 65,73	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_vd40k_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines 65,73	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xpd_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xpd_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xpd_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xsql_s0	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xsql_s1	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/e3_tier1_xsql_s2	1	2	qwen ids 2, gemma ids 0; top model field: 2 "model": "BAAI/bge-base-en-v1.5"	exp_log lines -	PROJECT_STATE lines -
+tc-alignment/results/figs	6	94	no model string; Qwen-era run artifact (see notes)	exp_log lines 5,7,10,16,20	PROJECT_STATE lines 7,132,166
+tc-alignment/results/rtd_baselines	5	11	qwen ids 16, gemma ids 6; top model field: 6 "student": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines 2311,2340,2393
+tc-alignment/results/rtd_v1	5369	241	qwen ids 36, gemma ids 58; top model field: 3 "student": "Qwen/Qwen3.5-4B"	exp_log lines 746,753,755,757,760	PROJECT_STATE lines 2200,2202,2217
+tc-alignment/results/tau2	1	0	no model string; Qwen-era run artifact (see notes)	exp_log lines 237,319,320,325,326	PROJECT_STATE lines 251,263,264
+tc-alignment-v11/results/audit_v11_bfcl.txt	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment-v11/results/bfcl_std	180	349	qwen ids 1651, gemma ids 3; top model field: 6 "model": "microsoft/git-large-vqav2"	exp_log lines 180,267,350,357,358	PROJECT_STATE lines 237,395,406
+tc-alignment-v11/results/rtd_v1	1	2	no model string; Qwen-era run artifact (see notes)	exp_log lines 746,753,755,757,760	PROJECT_STATE lines 2200,2202,2217
+tc-alignment-v11/results/rtd_v1_1	236003	110	qwen ids 20, gemma ids 4; top model field: 2 "student": "Qwen/Qwen3.5-4B"	exp_log lines 792,794,795,800,801	PROJECT_STATE lines 2322,2434,2448
+tc-alignment-v11b/results/bfcl_std	92	175	qwen ids 822, gemma ids 1; top model field: 3 "model": "microsoft/git-large-vqav2"	exp_log lines 180,267,350,357,358	PROJECT_STATE lines 237,395,406
+tc-alignment-v11b/results/rtd_v1	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines 746,753,755,757,760	PROJECT_STATE lines 2200,2202,2217
+tc-alignment-v11b/results/rtd_v1_1	126421	57	qwen ids 8, gemma ids 2; top model field: 1 "student": "Qwen/Qwen3.5-4B"	exp_log lines 792,794,795,800,801	PROJECT_STATE lines 2322,2434,2448
+tc-alignment-alf/results/alf_records	1	30	no model string; Qwen-era run artifact (see notes)	exp_log lines 579,589,598,614	PROJECT_STATE lines 1842,1849,1867
+tc-alignment-alf/results/alfworld_std	1	10	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment-alf/results/analysis	3	1	no model string; Qwen-era run artifact (see notes)	exp_log lines 13,21,66,217,235	PROJECT_STATE lines 303,360,1626
+tc-alignment-alf/results/appworld_students	8042	6	qwen ids 3, gemma ids 0; top model field: 1 "model_type": "qwen3_5_text"	exp_log lines -	PROJECT_STATE lines 1289,2142,2143
+tc-alignment-alf/results/bfas	1684	9	no model string; Qwen-era run artifact (see notes)	exp_log lines 210,228,232,497,509	PROJECT_STATE lines 239,266,277
+tc-alignment-alf/results/c26f	8789	1594	no model string; Qwen-era run artifact (see notes)	exp_log lines 790,791,796,798,799	PROJECT_STATE lines 2319,2333,2345
+tc-alignment-alf/results/rtd_alfworld_cache	1	0	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment-alf/results/rtd_alfworld_tmp	1	1	no model string; Qwen-era run artifact (see notes)	exp_log lines -	PROJECT_STATE lines -
+tc-alignment-alf/results/rtd_v1	1	9	qwen ids 2, gemma ids 0; top model field: 1 "model": "Qwen/Qwen3.5-4B"	exp_log lines 746,753,755,757,760	PROJECT_STATE lines 2200,2202,2217
+tc-alignment-table1/results/table1_audit	142	27	qwen ids 3, gemma ids 0; top model field: 3 "model": "Qwen/Qwen3.5-4B"	exp_log lines -	PROJECT_STATE lines 2503
+tc-alignment/_trash	73083		garbage: superseded Qwen hub_merged copies (8), stale Qwen RTD R0 runs, name lists	-	-
+tc-alignment-v11/_trash	22733		garbage: V0_preD14 Qwen RTD v1.1 pre-D14 state	-	-
+tc-alignment-v11b/_trash	1		garbage (empty)	-	-
+tc-alignment-hqk32-tvd/_trash	1		garbage (empty)	-	-
+tc-alf-taskeq/_trash	1		garbage (empty)	-	-
+tc-alignment-vllm/_trash	127		garbage: hpg_UNS_base-43166959 superseded eval	-	-
+ICML27_agent_distillation/_trash	47548		garbage: paper-1 superseded dirs (overflow_resubmit_1006 47.5G = stale eval/train dirs of terminated 10-06 runs; k20_views_k1k2_1005; leap_k100_credit_exhausted_1007 invalid 429 iteration; baseline_kguard_failed_1006; r03 401/halted teacher outputs)	PROJECT_STATE 348,387,430	-
+tools/vllm-cache	9021		cache: vLLM torch.compile cache (rebuilt on next start)	-	-
+tools/uv-cache	17797		cache: uv package cache (ICML27 .venv hardlinks keep their data; no venv symlinks into it — checked)	-	-
+tools/triton-cache	53		cache	-	-
+tools/inductor-cache	1		cache	-	-
+tools/xdg-cache	1		cache	-	-
+tc-alignment/envs/.uv-cache	9677		cache: uv package cache for envs (no venv symlinks into it — checked; vllm venv is envs/vllm/.venv, copies)	-	-
+tc-alignment/envs/.cache	1555		cache: vllm/uv/triton/pip/numba/torchinductor/appworld llm_calls caches	-	-
+tmp/torchinductor_xc25.fsu	1		cache	-	-
